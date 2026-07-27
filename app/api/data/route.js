@@ -84,7 +84,7 @@ function getSearchParams(request) {
 
 // Formspree Form ID المستخدم في الموقع القديم — بيبعت إشعار إيميل لـ hanynan8@gmail.com
 // (العنوان نفسه متسجل في إعدادات الفورم على formspree.io، مش في الكود)
-const FORMSPREE_FORM_ID = "mzdnywyz";
+const FORMSPREE_FORM_ID = "xkodkano";
 async function notifyViaFormspree(data) {
   try {
     const submittedAt = data?.createdAt ? new Date(data.createdAt) : new Date();

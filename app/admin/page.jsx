@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   Database, Settings, Home, Navigation, Info, BookOpen,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
@@ -198,6 +198,7 @@ function FormSubmissionsAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetch('/api/data?collection=form')
@@ -212,22 +213,154 @@ function FormSubmissionsAdmin() {
       .catch(() => { setError('Error fetching submissions'); setLoading(false); });
   }, []);
 
-  const exportToExcel = () => {
-    const data = submissions.map((sub, idx) => ({
-      '#': idx + 1,
-      'Name': sub.name || '',
-      'Email': sub.email || '',
-      'Phone': sub.phone || '',
-      'Service': sub.service || '',
-      'Message': sub.message || '',
-      'Date': formatDate(sub.createdAt, sub._id),
-      'ID': sub._id || '',
-    }));
+  // ✅ تصدير إكسيل بنفس هوية الموقع (تدرّج أزرق/بنفسجي للهيدر + تلوين متبادل للصفوف)
+  const exportToExcel = async () => {
+    setExporting(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Edumaster Admin';
+      workbook.created = new Date();
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Submissions');
-    XLSX.writeFile(workbook, `form-submissions-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const sheet = workbook.addWorksheet('Submissions', {
+        views: [{ state: 'frozen', ySplit: 1 }], // تجميد صف العناوين
+      });
+
+      // حدود عرض لكل عمود (min/max) — الأرقام بوحدة "حرف تقريبي"
+const COLUMN_LIMITS = {
+  index:   { min: 5,  max: 6   },
+  name:    { min: 14, max: 32  },
+  email:   { min: 18, max: 38  },
+  phone:   { min: 12, max: 20  },
+  service: { min: 12, max: 24  },
+  message: { min: 40, max: 100 }, // ← زوّد الـ max عشان الرسائل الطويلة
+  date:    { min: 16, max: 22  },
+  id:      { min: 22, max: 26  },
+};
+
+      // بيحسب أطول قيمة في كل عمود (بما فيها العنوان نفسه) عشان العمود ياخد عرضه الطبيعي تلقائيًا
+      const rowsData = submissions.map((sub, idx) => ({
+        index: String(idx + 1),
+        name: sub.name || '—',
+        email: sub.email || '—',
+        phone: sub.phone || '—',
+        service: sub.service || '—',
+        message: sub.message || '—',
+        date: formatDate(sub.createdAt, sub._id),
+        id: sub._id || '',
+      }));
+
+      const computeWidth = (key, header) => {
+        const { min, max } = COLUMN_LIMITS[key];
+        const longest = rowsData.reduce((acc, r) => {
+          const cellLen = String(r[key] ?? '').length;
+          return Math.max(acc, cellLen);
+        }, header.length);
+        return Math.min(Math.max(longest + 2, min), max);
+      };
+
+      // نفس الأعمدة اللي في الجدول بالظبط — لكن العرض دلوقتي بيتحسب من طول المحتوى الفعلي
+      const columnDefs = [
+        { header: '#', key: 'index' },
+        { header: 'Name', key: 'name' },
+        { header: 'Email', key: 'email' },
+        { header: 'Phone', key: 'phone' },
+        { header: 'Service', key: 'service' },
+        { header: 'Message', key: 'message' },
+        { header: 'Date', key: 'date' },
+        { header: 'ID', key: 'id' },
+      ];
+
+      sheet.columns = columnDefs.map(col => ({
+        ...col,
+        width: computeWidth(col.key, col.header),
+      }));
+
+      // ستايل صف العناوين — تدرّج أزرق/بنفسجي زي هيدر الموقع (from-blue-700 to-purple-700)
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4338CA' },
+        };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 12 };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        };
+      });
+      headerRow.height = 26;
+
+      // الصفوف
+      submissions.forEach((sub, idx) => {
+        const row = sheet.addRow({
+          index: idx + 1,
+          name: sub.name || '—',
+          email: sub.email || '—',
+          phone: sub.phone || '—',
+          service: sub.service || '—',
+          message: sub.message || '—',
+          date: formatDate(sub.createdAt, sub._id),
+          id: sub._id || '',
+        });
+
+        // تلوين متبادل للصفوف (زي hover:bg-blue-50 في الجدول)
+        const isEven = idx % 2 === 0;
+        row.eachCell((cell, colNumber) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFEFF6FF' },
+          };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          };
+          cell.alignment = {
+            vertical: 'top',
+            wrapText: colNumber === 6,
+            horizontal: colNumber === 1 ? 'center' : 'left',
+          };
+          // الإيميل بلون أزرق زي اللينك في الموقع
+          if (colNumber === 3) {
+            cell.font = { color: { argb: 'FF2563EB' } };
+          }
+          // الـ Service كـ نص لوني بسيط زي الـ badge
+          if (colNumber === 5 && sub.service) {
+            cell.font = { color: { argb: 'FF1D4ED8' }, bold: true };
+          }
+        });
+        // ارتفاع ديناميكي حسب طول الرسالة (كل ~50 حرف ≈ سطر إضافي)
+const msgLen = (sub.message || '').length;
+row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
+      });
+
+      // Auto filter على العناوين
+      sheet.autoFilter = {
+        from: 'A1',
+        to: { row: 1, column: sheet.columns.length },
+      };
+
+      // تصدير الملف
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `form-submissions-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Excel export failed:', err);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openGmailReply = (sub) => {
@@ -259,10 +392,11 @@ function FormSubmissionsAdmin() {
         </div>
         <button
           onClick={exportToExcel}
-          disabled={submissions.length === 0}
+          disabled={submissions.length === 0 || exporting}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl transition-colors shadow"
         >
-          <FileText size={18} /> Export Excel
+          {exporting ? <Loader size={18} className="animate-spin" /> : <FileText size={18} />}
+          {exporting ? 'Exporting...' : 'Export Excel'}
         </button>
       </div>
       {error && (

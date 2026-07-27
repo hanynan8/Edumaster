@@ -188,7 +188,7 @@ export default function ContactAdmin() {
 
                 {/* Email */}
                 <div className="p-4 bg-white rounded-lg border-2 border-teal-100">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <Mail size={15} /> Email Address
                   </label>
                   <input
@@ -202,7 +202,7 @@ export default function ContactAdmin() {
 
                 {/* WhatsApp Number (raw) */}
                 <div className="p-4 bg-white rounded-lg border-2 border-teal-100">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <Phone size={15} /> WhatsApp Number <span className="text-gray-400 font-normal text-xs">(digits only, no +)</span>
                   </label>
                   <input
@@ -216,7 +216,7 @@ export default function ContactAdmin() {
 
                 {/* WhatsApp Display */}
                 <div className="p-4 bg-white rounded-lg border-2 border-teal-100">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <Phone size={15} /> WhatsApp Display Text <span className="text-gray-400 font-normal text-xs">(shown to user)</span>
                   </label>
                   <input
@@ -230,7 +230,7 @@ export default function ContactAdmin() {
 
                 {/* Form Endpoint */}
                 <div className="p-4 bg-white rounded-lg border-2 border-teal-100">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <Settings size={15} /> Form Endpoint <span className="text-gray-400 font-normal text-xs">(API route)</span>
                   </label>
                   <input

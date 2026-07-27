@@ -5,7 +5,8 @@ import * as XLSX from 'xlsx';
 import {
   Database, Settings, Home, Navigation, Info, BookOpen,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
-  Loader, AlertCircle, Inbox, Trash2, Lock, Eye, EyeOff, ShieldCheck
+  Loader, AlertCircle, Inbox, Trash2, Lock, Eye, EyeOff, ShieldCheck,
+  Mail, MessageCircle
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -22,6 +23,69 @@ import BlogAdmin from './components/blogs';
 import ContactAdmin from './components/contact';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
+
+// الإيميل اللي هيبعت منه الرد (الحساب اللي هيفتح جيميل بيه)
+const SENDER_EMAIL = 'info@edumaster365.com';
+
+// بناء رابط جيميل كومبوز عشان يرد على صاحب الرسالة مباشرة
+function buildGmailComposeUrl({ to, name, originalMessage }) {
+  const subject = `Reply to your inquiry - Edumaster`;
+  const greeting = name ? `Hello ${name},` : 'Hello,';
+  const quoted = originalMessage
+    ? `\n\n----- Your original message -----\n${originalMessage}\n`
+    : '';
+  const body = `${greeting}\n\nThank you for contacting Edumaster.\n${quoted}`;
+
+  const params = new URLSearchParams({
+    view: 'cm',
+    fs: '1',
+    to: to || '',
+    su: subject,
+    body,
+    // يحاول يفتح جيميل بحساب info@edumaster365.com لو مسجل دخول عليه في نفس المتصفح
+    authuser: SENDER_EMAIL,
+  });
+
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+// ✅ استخراج تاريخ الإنشاء من الـ MongoDB ObjectId نفسه (أول 4 bytes بتشيل timestamp)
+// بيستخدم كـ fallback لو الـ document القديم معندوش حقل createdAt محفوظ فعليًا
+function getDateFromObjectId(id) {
+  if (!id || typeof id !== 'string' || id.length < 8) return null;
+  const hex = id.substring(0, 8);
+  if (!/^[0-9a-fA-F]{8}$/.test(hex)) return null;
+  const timestamp = parseInt(hex, 16) * 1000;
+  const d = new Date(timestamp);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// تنسيق التاريخ لعرضه في الجدول ونافذة التفاصيل
+// لو createdAt مش موجود أو مش صالح، بيرجع يستخرج التاريخ من الـ _id (fallbackId)
+function formatDate(value, fallbackId) {
+  let d = value ? new Date(value) : null;
+  if (!d || isNaN(d.getTime())) {
+    d = fallbackId ? getDateFromObjectId(fallbackId) : null;
+  }
+  if (!d || isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// ✅ يرجع أفضل تاريخ متاح كـ timestamp رقمي (للترتيب) — createdAt لو موجود، وإلا من الـ _id
+function getEffectiveTimestamp(doc) {
+  if (doc?.createdAt) {
+    const d = new Date(doc.createdAt);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  const fromId = getDateFromObjectId(doc?._id);
+  return fromId ? fromId.getTime() : 0;
+}
 
 function NotFound() {
   return (
@@ -138,7 +202,13 @@ function FormSubmissionsAdmin() {
   useEffect(() => {
     fetch('/api/data?collection=form')
       .then(r => r.json())
-      .then(data => { setSubmissions(Array.isArray(data) ? data : []); setLoading(false); })
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        // ✅ الأقدم الأول (الأحدث في الآخر) — بيعتمد على createdAt لو موجود، وإلا بيستخرج التاريخ من الـ _id
+        const sorted = [...list].sort((a, b) => getEffectiveTimestamp(a) - getEffectiveTimestamp(b));
+        setSubmissions(sorted);
+        setLoading(false);
+      })
       .catch(() => { setError('Error fetching submissions'); setLoading(false); });
   }, []);
 
@@ -150,6 +220,7 @@ function FormSubmissionsAdmin() {
       'Phone': sub.phone || '',
       'Service': sub.service || '',
       'Message': sub.message || '',
+      'Date': formatDate(sub.createdAt, sub._id),
       'ID': sub._id || '',
     }));
 
@@ -157,6 +228,16 @@ function FormSubmissionsAdmin() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Submissions');
     XLSX.writeFile(workbook, `form-submissions-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const openGmailReply = (sub) => {
+    if (!sub?.email) return;
+    const url = buildGmailComposeUrl({
+      to: sub.email,
+      name: sub.name,
+      originalMessage: sub.message,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) return (
@@ -168,7 +249,7 @@ function FormSubmissionsAdmin() {
 
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
-      <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-4">
+      <div className="p-4 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
             <Inbox size={28} /> Form Submissions
@@ -185,81 +266,141 @@ function FormSubmissionsAdmin() {
         </button>
       </div>
       {error && (
-        <div className="mx-6 mt-4 px-6 py-4 rounded-xl bg-red-500 text-white flex items-center gap-3">
+        <div className="mx-4 mt-4 px-4 py-4 rounded-xl bg-red-500 text-white flex items-center gap-3">
           <AlertCircle size={20} /> {error}
         </div>
       )}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-800">Submission Details</h3>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
             <div className="flex flex-col gap-4">
-              {[
-                { label: 'Name',    value: selected.name },
-                { label: 'Email',   value: selected.email },
-                { label: 'Phone',   value: selected.phone },
-                { label: 'Service', value: selected.service || '—' },
-                { label: 'Message', value: selected.message || '—', multiline: true },
-                { label: 'ID',      value: selected._id, mono: true },
-              ].map(({ label, value, multiline, mono }) => (
-                <div key={label}>
-                  <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{label}</span>
-                  <p className={`mt-1 text-gray-800 ${mono ? 'font-mono text-xs' : 'text-sm'} ${multiline ? 'whitespace-pre-wrap bg-gray-50 rounded-xl p-3' : ''}`}>{value}</p>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Name</span>
+                <p className="mt-1 text-[11px] font-medium text-gray-400">{formatDate(selected.createdAt, selected._id)}</p>
+                <p className="mt-0.5 text-gray-800 text-sm">{selected.name || '—'}</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Email</span>
+                <div className="mt-1">
+                  <button
+                    onClick={() => openGmailReply(selected)}
+                    disabled={!selected.email}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-400 disabled:no-underline"
+                  >
+                    <Mail size={15} /> {selected.email || '—'}
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Phone</span>
+                <p className="mt-1 text-gray-800 text-sm">{selected.phone || '—'}</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Service</span>
+                <p className="mt-1 text-gray-800 text-sm">{selected.service || '—'}</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Message</span>
+                <p className="mt-1 text-gray-800 text-sm whitespace-pre-wrap break-words bg-gray-50 rounded-xl p-4 leading-relaxed border border-gray-100">
+                  {selected.message || '—'}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">ID</span>
+                <p className="mt-1 text-gray-500 font-mono text-xs">{selected._id}</p>
+              </div>
+
+              <button
+                onClick={() => openGmailReply(selected)}
+                disabled={!selected.email}
+                className="mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow"
+              >
+                <MessageCircle size={18} /> Reply via Gmail
+              </button>
             </div>
           </div>
         </div>
       )}
-      <div className="p-6">
+      <div className="p-4">
         {submissions.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Inbox size={48} className="mx-auto mb-3 opacity-30" />
             <p>No submissions yet</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Phone</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Service</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Message</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Details</th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b-2 border-gray-100">
+                <th className="text-left py-3 px-2 font-semibold text-gray-500">#</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Name</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Email</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Phone</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Service</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 w-full">Message</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((sub, idx) => (
+                <tr key={sub._id} className="border-b border-gray-50 hover:bg-blue-50/40 transition-colors align-top">
+                  <td className="py-3 px-2 text-gray-400">{idx + 1}</td>
+                  <td className="py-3 px-2 font-medium text-gray-800 whitespace-nowrap">
+                    <span className="block text-[10px] font-normal text-gray-400 mb-0.5">
+                      {formatDate(sub.createdAt, sub._id)}
+                    </span>
+                    {sub.name || '—'}
+                  </td>
+                  <td className="py-3 px-2 whitespace-nowrap">
+                    <button
+                      onClick={() => openGmailReply(sub)}
+                      disabled={!sub.email}
+                      title="افتح جيميل وابعت رد"
+                      className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline font-medium disabled:text-gray-400 disabled:no-underline text-left"
+                    >
+                      <Mail size={14} className="shrink-0" />
+                      <span>{sub.email || '—'}</span>
+                    </button>
+                  </td>
+                  <td className="py-3 px-2 text-gray-600 whitespace-nowrap">{sub.phone || '—'}</td>
+                  <td className="py-3 px-2 whitespace-nowrap">
+                    {sub.service
+                      ? <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">{sub.service}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="py-3 px-2 text-gray-600">
+                    <p
+                      className="whitespace-pre-wrap break-words leading-relaxed"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {sub.message || '—'}
+                    </p>
+                  </td>
+                  <td className="py-3 px-2">
+                    <button
+                      onClick={() => setSelected(sub)}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {submissions.map((sub, idx) => (
-                  <tr key={sub._id} className="border-b border-gray-50 hover:bg-blue-50/40 transition-colors">
-                    <td className="py-3 px-4 text-gray-400">{idx + 1}</td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{sub.name || '—'}</td>
-                    <td className="py-3 px-4 text-blue-600">{sub.email || '—'}</td>
-                    <td className="py-3 px-4 text-gray-600">{sub.phone || '—'}</td>
-                    <td className="py-3 px-4">
-                      {sub.service
-                        ? <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">{sub.service}</span>
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="py-3 px-4 text-gray-500 max-w-[180px] truncate">{sub.message || '—'}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        onClick={() => setSelected(sub)}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -364,8 +505,8 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="max-w-[100rem] mx-auto px-2 sm:px-3 lg:px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-xl p-5 sticky top-4 border border-gray-200">
               <h2 className="text-lg font-bold mb-5 pb-3 border-b flex items-center gap-2 text-gray-700">
@@ -395,7 +536,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-5">
             <ActiveComponent />
           </div>
         </div>

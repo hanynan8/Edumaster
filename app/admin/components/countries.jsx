@@ -4,10 +4,40 @@ import { useState, useEffect } from 'react';
 import {
   Save, RefreshCw, Loader, AlertCircle, CheckCircle,
   ChevronDown, ChevronUp, Globe, Languages, Image,
-  BookOpen, Star, BarChart2, Target, Eye, Lightbulb, Users
+  BookOpen, Star, BarChart2, Target, Eye, Lightbulb, Users,
+  Plus, Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = '/api/data';
+
+// Metadata (label + icon) for every possible section across ALL countries.
+// Which of these actually render for the selected country is driven by that
+// country's own `sections` object in the data, not by a hardcoded list here.
+const SECTION_META = {
+  educationSystem:       { label: 'Education System',       icon: BookOpen },
+  admissionRequirements: { label: 'Admission Requirements', icon: Target },
+  costOfLiving:          { label: 'Cost of Living',         icon: Lightbulb },
+  partTimeWork:          { label: 'Part-Time Work',         icon: Users },
+  visaProcess:           { label: 'Visa Process',           icon: Eye },
+  lifeInSpain:           { label: 'Life in Spain',          icon: Star },
+  lifeInRomania:         { label: 'Life in Romania',        icon: Star },
+  universities:          { label: 'Universities',           icon: BookOpen },
+};
+
+// Preferred display order; any section not listed here still renders,
+// appended in whatever order it appears in the data.
+const SECTION_ORDER = [
+  'educationSystem', 'admissionRequirements', 'costOfLiving',
+  'partTimeWork', 'visaProcess', 'lifeInSpain', 'lifeInRomania', 'universities',
+];
+
+function getSectionKeys(country) {
+  if (!country) return [];
+  const available = Object.keys(country.sections || {});
+  const ordered = SECTION_ORDER.filter(k => available.includes(k));
+  const extra = available.filter(k => !SECTION_ORDER.includes(k));
+  return [...ordered, ...extra];
+}
 
 const DEFAULT_CONFIG = {
   hero: { backgroundImage: '' },
@@ -15,21 +45,39 @@ const DEFAULT_CONFIG = {
     backgroundImage: '',
     items: [{ value: '' }, { value: '' }, { value: '' }, { value: '' }]
   },
-  countries: [{
-    id: 'spain',
-    image: '',
-    flag: '',
-    color: '',
-    ctaHref: '',
-    sections: {
-      educationSystem: { image: '' },
-      admissionRequirements: { image: '' },
-      costOfLiving: { image: '' },
-      partTimeWork: { image: '' },
-      visaProcess: { image: '' },
-      lifeInSpain: { image: '' }
+  countries: [
+    {
+      id: 'spain',
+      image: '',
+      flag: '',
+      color: '',
+      ctaHref: '',
+      sections: {
+        educationSystem: { image: '' },
+        admissionRequirements: { image: '' },
+        costOfLiving: { image: '' },
+        partTimeWork: { image: '' },
+        visaProcess: { image: '' },
+        lifeInSpain: { image: '' }
+      }
+    },
+    {
+      id: 'romania',
+      image: '',
+      flag: '',
+      color: '',
+      ctaHref: '',
+      sections: {
+        educationSystem: { image: '' },
+        admissionRequirements: { image: '' },
+        costOfLiving: { image: '' },
+        partTimeWork: { image: '' },
+        visaProcess: { image: '' },
+        lifeInRomania: { image: '' },
+        universities: { image: '' }
+      }
     }
-  }],
+  ],
   i18n: {}
 };
 
@@ -43,6 +91,8 @@ export default function CountriesAdmin() {
     stats: false,
     translations: false
   });
+  // Which country's fields are currently shown in the Images & Translations editors.
+  const [selectedCountryId, setSelectedCountryId] = useState('spain');
 
   useEffect(() => { fetchConfig(); }, []);
 
@@ -107,6 +157,10 @@ export default function CountriesAdmin() {
 
   // Get all language codes from i18n keys
   const languages = config ? Object.keys(config.i18n || {}) : [];
+  const countries = config?.countries || [];
+  const countryIdx = countries.findIndex(c => c.id === selectedCountryId);
+  const selectedCountry = countryIdx >= 0 ? countries[countryIdx] : null;
+  const sectionKeys = getSectionKeys(selectedCountry);
 
   if (!config) {
     return (
@@ -144,6 +198,23 @@ export default function CountriesAdmin() {
             </button>
           </div>
         </div>
+
+        {/* Country selector — drives which country's fields show in Images & Translations below */}
+        <div className="flex items-center gap-2">
+          {countries.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedCountryId(c.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
+                selectedCountryId === c.id
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white text-purple-700 border-2 border-purple-200 hover:bg-purple-50'
+              }`}
+            >
+              {c.id.charAt(0).toUpperCase() + c.id.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Messages */}
@@ -161,15 +232,18 @@ export default function CountriesAdmin() {
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('images')}>
             <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
               <Image size={20} /> Images & Media
+              <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                 {selectedCountryId}
+              </span>
             </h3>
             {expandedSections.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </div>
 
-          {expandedSections.images && (
+          {expandedSections.images && selectedCountry && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Hero Background */}
+              {/* Hero Background (global, shared across all countries) */}
               <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Hero Background Image</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Hero Background Image (global)</label>
                 <input
                   type="url"
                   value={config.hero?.backgroundImage || ''}
@@ -182,9 +256,9 @@ export default function CountriesAdmin() {
                 )}
               </div>
 
-              {/* Stats Background */}
+              {/* Stats Background (global) */}
               <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Stats Background Image</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Stats Background Image (global)</label>
                 <input
                   type="url"
                   value={config.stats?.backgroundImage || ''}
@@ -199,45 +273,34 @@ export default function CountriesAdmin() {
 
               {/* Country Main Image */}
               <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Country Main Image (Spain)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Country Main Image ({selectedCountryId})</label>
                 <input
                   type="url"
-                  value={config.countries?.[0]?.image || ''}
-                  onChange={e => updateConfig('countries.0.image', e.target.value)}
+                  value={selectedCountry.image || ''}
+                  onChange={e => updateConfig(`countries.${countryIdx}.image`, e.target.value)}
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
                   placeholder="https://..."
                 />
-                {config.countries?.[0]?.image && (
-                  <img src={config.countries[0].image} alt="Country preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
+                {selectedCountry.image && (
+                  <img src={selectedCountry.image} alt="Country preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
                 )}
               </div>
 
-              {/* Country Flag */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Country Flag (emoji)</label>
-                <input
-                  type="text"
-                  value={config.countries?.[0]?.flag || ''}
-                  onChange={e => updateConfig('countries.0.flag', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 text-4xl text-center"
-                  placeholder="🇪🇸"
-                />
-              </div>
 
               {/* Country Color */}
               <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Country Brand Color</label>
                 <input
                   type="text"
-                  value={config.countries?.[0]?.color || ''}
-                  onChange={e => updateConfig('countries.0.color', e.target.value)}
+                  value={selectedCountry.color || ''}
+                  onChange={e => updateConfig(`countries.${countryIdx}.color`, e.target.value)}
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="#C8102E"
+                  placeholder="#10b981"
                 />
-                {config.countries?.[0]?.color && (
-                  <div 
+                {selectedCountry.color && (
+                  <div
                     className="mt-3 w-12 h-12 rounded-xl border-2 border-gray-300 shadow-inner"
-                    style={{ backgroundColor: config.countries[0].color }}
+                    style={{ backgroundColor: selectedCountry.color }}
                   />
                 )}
               </div>
@@ -247,107 +310,42 @@ export default function CountriesAdmin() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">CTA Link</label>
                 <input
                   type="text"
-                  value={config.countries?.[0]?.ctaHref || ''}
-                  onChange={e => updateConfig('countries.0.ctaHref', e.target.value)}
+                  value={selectedCountry.ctaHref || ''}
+                  onChange={e => updateConfig(`countries.${countryIdx}.ctaHref`, e.target.value)}
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
                   placeholder="/contact"
                 />
               </div>
 
-              {/* Education System Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Education System – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.educationSystem?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.educationSystem.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.educationSystem?.image && (
-                  <img src={config.countries[0].sections.educationSystem.image} alt="Education preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
-
-              {/* Admission Requirements Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Admission Requirements – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.admissionRequirements?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.admissionRequirements.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.admissionRequirements?.image && (
-                  <img src={config.countries[0].sections.admissionRequirements.image} alt="Admission preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
-
-              {/* Cost of Living Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Cost of Living – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.costOfLiving?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.costOfLiving.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.costOfLiving?.image && (
-                  <img src={config.countries[0].sections.costOfLiving.image} alt="Cost preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
-
-              {/* Part-Time Work Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Part-Time Work – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.partTimeWork?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.partTimeWork.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.partTimeWork?.image && (
-                  <img src={config.countries[0].sections.partTimeWork.image} alt="Part-time preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
-
-              {/* Visa Process Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Visa Process – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.visaProcess?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.visaProcess.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.visaProcess?.image && (
-                  <img src={config.countries[0].sections.visaProcess.image} alt="Visa preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
-
-              {/* Life in Spain Image */}
-              <div className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Life in Spain – Image</label>
-                <input
-                  type="url"
-                  value={config.countries?.[0]?.sections?.lifeInSpain?.image || ''}
-                  onChange={e => updateConfig('countries.0.sections.lifeInSpain.image', e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                  placeholder="https://..."
-                />
-                {config.countries?.[0]?.sections?.lifeInSpain?.image && (
-                  <img src={config.countries[0].sections.lifeInSpain.image} alt="Life preview" className="mt-2 w-full h-24 object-cover rounded-lg" />
-                )}
-              </div>
+              {/* One image field per section this country actually has */}
+              {sectionKeys.map(key => {
+                const meta = SECTION_META[key] || { label: key, icon: Image };
+                const Icon = meta.icon;
+                const imagePath = `countries.${countryIdx}.sections.${key}.image`;
+                const imageValue = selectedCountry.sections?.[key]?.image || '';
+                return (
+                  <div key={key} className="p-4 bg-white rounded-lg border-2 border-purple-100">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                      <Icon size={14} /> {meta.label} – Image
+                    </label>
+                    <input
+                      type="url"
+                      value={imageValue}
+                      onChange={e => updateConfig(imagePath, e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
+                      placeholder="https://..."
+                    />
+                    {imageValue && (
+                      <img src={imageValue} alt={`${meta.label} preview`} className="mt-2 w-full h-24 object-cover rounded-lg" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Stats Values */}
+        {/* Stats Values (global) */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('stats')}>
             <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
@@ -386,12 +384,16 @@ export default function CountriesAdmin() {
             <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
               <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{languages.length} langs</span>
+              <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+               {selectedCountryId}
+              </span>
             </h3>
             {expandedSections.translations ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </div>
 
           {expandedSections.translations && languages.map(langCode => {
             const t = config.i18n?.[langCode] || {};
+            const countryT = t.countries?.[selectedCountryId] || {};
             return (
               <div key={langCode} className="mt-6 p-5 bg-white rounded-xl border-2 border-purple-100">
                 <h4 className="font-bold text-lg mb-4 flex items-center gap-2 text-purple-800">
@@ -400,160 +402,75 @@ export default function CountriesAdmin() {
 
                 <div className="space-y-6">
 
-                  {/* Hero */}
+                  {/* Hero (global, not per-country) */}
                   <Section title="Hero" icon={<Star size={16} />}>
                     <Field label="Badge" value={t.hero?.badge || ''} onChange={v => updateConfig(`i18n.${langCode}.hero.badge`, v)} />
                     <Field label="Headline" value={t.hero?.headline || ''} onChange={v => updateConfig(`i18n.${langCode}.hero.headline`, v)} />
                     <Field label="Subheadline" value={t.hero?.subheadline || ''} onChange={v => updateConfig(`i18n.${langCode}.hero.subheadline`, v)} textarea />
                   </Section>
 
-                  {/* Spain Info */}
-                  <Section title="Spain Info" icon={<Globe size={16} />}>
-                    <Field label="Name" value={t.countries?.spain?.name || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.name`, v)} />
-                    <Field label="Tagline" value={t.countries?.spain?.tagline || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.tagline`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.desc`, v)} textarea />
-                    <Field label="CTA Text" value={t.countries?.spain?.cta || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.cta`, v)} />
+                  {/* Country Info */}
+                  <Section title={`${selectedCountryId.charAt(0).toUpperCase() + selectedCountryId.slice(1)} Info`} icon={<Globe size={16} />}>
+                    <Field label="Name" value={countryT.name || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.${selectedCountryId}.name`, v)} />
+                    <Field label="Tagline" value={countryT.tagline || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.${selectedCountryId}.tagline`, v)} />
+                    <Field label="Description" value={countryT.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.${selectedCountryId}.desc`, v)} textarea />
+                    <Field label="CTA Text" value={countryT.cta || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.${selectedCountryId}.cta`, v)} />
                   </Section>
 
-                  {/* Education System */}
-                  <Section title="Education System" icon={<BookOpen size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.educationSystem?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.educationSystem.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.educationSystem?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.educationSystem.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.educationSystem?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.educationSystem.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.educationSystem?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.educationSystem?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.educationSystem.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
+                  {/* One editable section per key this country actually has */}
+                  {sectionKeys.map(key => {
+                    const meta = SECTION_META[key] || { label: key, icon: BookOpen };
+                    const Icon = meta.icon;
+                    const sectionT = countryT[key] || {};
+                    const basePath = `i18n.${langCode}.countries.${selectedCountryId}.${key}`;
 
-                  {/* Admission Requirements */}
-                  <Section title="Admission Requirements" icon={<Target size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.admissionRequirements?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.admissionRequirements.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.admissionRequirements?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.admissionRequirements.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.admissionRequirements?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.admissionRequirements.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.admissionRequirements?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.admissionRequirements?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.admissionRequirements.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
+                    if (key === 'universities') {
+                      return (
+                        <Section key={key} title={meta.label} icon={<Icon size={16} />}>
+                          <Field label="Label" value={sectionT.label || ''} onChange={v => updateConfig(`${basePath}.label`, v)} />
+                          <Field label="Title" value={sectionT.title || ''} onChange={v => updateConfig(`${basePath}.title`, v)} />
+                          <Field label="Description" value={sectionT.desc || ''} onChange={v => updateConfig(`${basePath}.desc`, v)} textarea />
+                          <div className="col-span-2">
+                            <ListField
+                              label="Public Universities — Section Label"
+                              labelValue={sectionT.publicUniversitiesLabel || ''}
+                              onLabelChange={v => updateConfig(`${basePath}.publicUniversitiesLabel`, v)}
+                              items={sectionT.publicUniversities || []}
+                              onItemsChange={items => updateConfig(`${basePath}.publicUniversities`, items)}
+                              itemPlaceholder="University name"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <ListField
+                              label="Private Universities — Section Label"
+                              labelValue={sectionT.privateUniversitiesLabel || ''}
+                              onLabelChange={v => updateConfig(`${basePath}.privateUniversitiesLabel`, v)}
+                              items={sectionT.privateUniversities || []}
+                              onItemsChange={items => updateConfig(`${basePath}.privateUniversities`, items)}
+                              itemPlaceholder="University name"
+                            />
+                          </div>
+                        </Section>
+                      );
+                    }
 
-                  {/* Cost of Living */}
-                  <Section title="Cost of Living" icon={<Lightbulb size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.costOfLiving?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.costOfLiving.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.costOfLiving?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.costOfLiving.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.costOfLiving?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.costOfLiving.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.costOfLiving?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.costOfLiving?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.costOfLiving.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
+                    return (
+                      <Section key={key} title={meta.label} icon={<Icon size={16} />}>
+                        <Field label="Label" value={sectionT.label || ''} onChange={v => updateConfig(`${basePath}.label`, v)} />
+                        <Field label="Title" value={sectionT.title || ''} onChange={v => updateConfig(`${basePath}.title`, v)} />
+                        <Field label="Description" value={sectionT.desc || ''} onChange={v => updateConfig(`${basePath}.desc`, v)} textarea />
+                        <div className="col-span-2">
+                          <PointsField
+                            label="Points"
+                            items={sectionT.points || []}
+                            onItemsChange={items => updateConfig(`${basePath}.points`, items)}
+                          />
+                        </div>
+                      </Section>
+                    );
+                  })}
 
-                  {/* Part-Time Work */}
-                  <Section title="Part-Time Work" icon={<Users size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.partTimeWork?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.partTimeWork.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.partTimeWork?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.partTimeWork.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.partTimeWork?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.partTimeWork.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.partTimeWork?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.partTimeWork?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.partTimeWork.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Visa Process */}
-                  <Section title="Visa Process" icon={<Eye size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.visaProcess?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.visaProcess.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.visaProcess?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.visaProcess.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.visaProcess?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.visaProcess.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.visaProcess?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.visaProcess?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.visaProcess.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Life in Spain */}
-                  <Section title="Life in Spain" icon={<Lightbulb size={16} />}>
-                    <Field label="Label" value={t.countries?.spain?.lifeInSpain?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.lifeInSpain.label`, v)} />
-                    <Field label="Title" value={t.countries?.spain?.lifeInSpain?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.lifeInSpain.title`, v)} />
-                    <Field label="Description" value={t.countries?.spain?.lifeInSpain?.desc || ''} onChange={v => updateConfig(`i18n.${langCode}.countries.spain.lifeInSpain.desc`, v)} textarea />
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">Points</p>
-                      {(t.countries?.spain?.lifeInSpain?.points || []).map((point, idx) => (
-                        <Field
-                          key={idx}
-                          label={`Point ${idx + 1}`}
-                          value={point || ''}
-                          onChange={v => {
-                            const newPoints = [...(t.countries?.spain?.lifeInSpain?.points || [])];
-                            newPoints[idx] = v;
-                            updateConfig(`i18n.${langCode}.countries.spain.lifeInSpain.points`, newPoints);
-                          }}
-                          textarea
-                        />
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Stats */}
+                  {/* Stats (global) */}
                   <Section title="Stats Section" icon={<BarChart2 size={16} />}>
                     <Field label="Label" value={t.stats?.label || ''} onChange={v => updateConfig(`i18n.${langCode}.stats.label`, v)} />
                     <Field label="Title" value={t.stats?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.stats.title`, v)} />
@@ -576,7 +493,7 @@ export default function CountriesAdmin() {
                     </div>
                   </Section>
 
-                  {/* Navigation */}
+                  {/* Navigation (global — shared labels used by both countries) */}
                   <Section title="Navigation Menu" icon={<ChevronDown size={16} />}>
                     <Field label="Education System" value={t.nav?.educationSystem || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.educationSystem`, v)} />
                     <Field label="Admission Requirements" value={t.nav?.admissionRequirements || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.admissionRequirements`, v)} />
@@ -584,6 +501,8 @@ export default function CountriesAdmin() {
                     <Field label="Part-Time Work" value={t.nav?.partTimeWork || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.partTimeWork`, v)} />
                     <Field label="Visa Process" value={t.nav?.visaProcess || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.visaProcess`, v)} />
                     <Field label="Life in Spain" value={t.nav?.lifeInSpain || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.lifeInSpain`, v)} />
+                    <Field label="Life in Romania" value={t.nav?.lifeInRomania || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.lifeInRomania`, v)} />
+                    <Field label="Universities" value={t.nav?.universities || ''} onChange={v => updateConfig(`i18n.${langCode}.nav.universities`, v)} />
                   </Section>
 
                 </div>
@@ -597,6 +516,7 @@ export default function CountriesAdmin() {
 }
 
 // Reusable sub-components
+
 function Section({ title, icon, children }) {
   return (
     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
@@ -629,6 +549,100 @@ function Field({ label, value, onChange, textarea }) {
           className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-400 text-sm"
         />
       )}
+    </div>
+  );
+}
+
+// Editable list of bullet points, with add/remove — used for the regular
+// `points` arrays (education system, admission requirements, etc).
+function PointsField({ label, items, onItemsChange }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-gray-600">{label}</p>
+        <button
+          type="button"
+          onClick={() => onItemsChange([...(items || []), ''])}
+          className="flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded-lg hover:bg-purple-200"
+        >
+          <Plus size={12} /> Add Point
+        </button>
+      </div>
+      <div className="space-y-2">
+        {(items || []).map((point, idx) => (
+          <div key={idx} className="flex items-start gap-2">
+            <textarea
+              value={point || ''}
+              onChange={e => {
+                const newItems = [...items];
+                newItems[idx] = e.target.value;
+                onItemsChange(newItems);
+              }}
+              rows={2}
+              className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-400 text-sm resize-none"
+            />
+            <button
+              type="button"
+              onClick={() => onItemsChange(items.filter((_, i) => i !== idx))}
+              className="mt-1 p-2 text-red-500 hover:bg-red-50 rounded-lg"
+              title="Remove point"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+        {(!items || items.length === 0) && (
+          <p className="text-xs text-gray-400 italic">No points yet — click "Add Point" to start.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Editable named list (used for Public/Private Universities): a section
+// label plus a list of plain-text entries, with add/remove.
+function ListField({ label, labelValue, onLabelChange, items, onItemsChange, itemPlaceholder }) {
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <Field label={label} value={labelValue} onChange={onLabelChange} />
+      <div className="flex items-center justify-between mt-3 mb-2">
+        <p className="text-xs font-semibold text-gray-500">Entries</p>
+        <button
+          type="button"
+          onClick={() => onItemsChange([...(items || []), ''])}
+          className="flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded-lg hover:bg-purple-200"
+        >
+          <Plus size={12} /> Add Entry
+        </button>
+      </div>
+      <div className="space-y-2">
+        {(items || []).map((entry, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={entry || ''}
+              onChange={e => {
+                const newItems = [...items];
+                newItems[idx] = e.target.value;
+                onItemsChange(newItems);
+              }}
+              placeholder={itemPlaceholder}
+              className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-400 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => onItemsChange(items.filter((_, i) => i !== idx))}
+              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+              title="Remove entry"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+        {(!items || items.length === 0) && (
+          <p className="text-xs text-gray-400 italic">No entries yet — click "Add Entry" to start.</p>
+        )}
+      </div>
     </div>
   );
 }

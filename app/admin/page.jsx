@@ -27,7 +27,8 @@ const ADMIN_EMAIL = 'admin@gmail.com';
 // الإيميل اللي هيبعت منه الرد (الحساب اللي هيفتح جيميل بيه)
 const SENDER_EMAIL = 'info@edumaster365.com';
 
-// بناء رابط جيميل كومبوز عشان يرد على صاحب الرسالة مباشرة
+// بناء رابط mailto: عشان يرد على صاحب الرسالة مباشرة
+// mailto مش تابع لجيميل، هيفتح برنامج الإيميل الافتراضي عند الأدمن (Outlook مثلاً)
 function buildGmailComposeUrl({ to, name, originalMessage }) {
   const subject = `Reply to your inquiry - Edumaster`;
   const greeting = name ? `Hello ${name},` : 'Hello,';
@@ -36,17 +37,9 @@ function buildGmailComposeUrl({ to, name, originalMessage }) {
     : '';
   const body = `${greeting}\n\nThank you for contacting Edumaster.\n${quoted}`;
 
-  const params = new URLSearchParams({
-    view: 'cm',
-    fs: '1',
-    to: to || '',
-    su: subject,
-    body,
-    // يحاول يفتح جيميل بحساب info@edumaster365.com لو مسجل دخول عليه في نفس المتصفح
-    authuser: SENDER_EMAIL,
-  });
+  const params = new URLSearchParams({ subject, body });
 
-  return `https://mail.google.com/mail/?${params.toString()}`;
+  return `mailto:${to || ''}?${params.toString()}`;
 }
 
 // ✅ استخراج تاريخ الإنشاء من الـ MongoDB ObjectId نفسه (أول 4 bytes بتشيل timestamp)
@@ -363,16 +356,6 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
     }
   };
 
-  const openGmailReply = (sub) => {
-    if (!sub?.email) return;
-    const url = buildGmailComposeUrl({
-      to: sub.email,
-      name: sub.name,
-      originalMessage: sub.message,
-    });
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   if (loading) return (
     <div className="bg-white rounded-2xl shadow-2xl p-12 text-center">
       <Loader className="animate-spin mx-auto text-blue-500" size={48} />
@@ -421,13 +404,14 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
               <div>
                 <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Email</span>
                 <div className="mt-1">
-                  <button
-                    onClick={() => openGmailReply(selected)}
-                    disabled={!selected.email}
-                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-400 disabled:no-underline"
+                  <a
+                    href={selected.email ? buildGmailComposeUrl({ to: selected.email, name: selected.name, originalMessage: selected.message }) : undefined}
+                    className={`inline-flex items-center gap-2 text-sm font-medium ${
+                      selected.email ? 'text-blue-600 hover:text-blue-800 hover:underline' : 'text-gray-400 pointer-events-none'
+                    }`}
                   >
                     <Mail size={15} /> {selected.email || '—'}
-                  </button>
+                  </a>
                 </div>
               </div>
 
@@ -453,13 +437,16 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
                 <p className="mt-1 text-gray-500 font-mono text-xs">{selected._id}</p>
               </div>
 
-              <button
-                onClick={() => openGmailReply(selected)}
-                disabled={!selected.email}
-                className="mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow"
+              <a
+                href={selected.email ? buildGmailComposeUrl({ to: selected.email, name: selected.name, originalMessage: selected.message }) : undefined}
+                className={`mt-2 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow ${
+                  selected.email
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-300 text-gray-500 pointer-events-none'
+                }`}
               >
-                <MessageCircle size={18} /> Reply via Gmail
-              </button>
+                <MessageCircle size={18} /> Reply via Email
+              </a>
             </div>
           </div>
         </div>
@@ -494,15 +481,18 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
                     {sub.name || '—'}
                   </td>
                   <td className="py-3 px-2 whitespace-nowrap">
-                    <button
-                      onClick={() => openGmailReply(sub)}
-                      disabled={!sub.email}
-                      title="افتح جيميل وابعت رد"
-                      className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline font-medium disabled:text-gray-400 disabled:no-underline text-left"
+                    <a
+                      href={sub.email ? buildGmailComposeUrl({ to: sub.email, name: sub.name, originalMessage: sub.message }) : undefined}
+                      title="ابعت رد"
+                      className={`inline-flex items-center gap-1.5 font-medium text-left ${
+                        sub.email
+                          ? 'text-blue-600 hover:text-blue-800 hover:underline'
+                          : 'text-gray-400 pointer-events-none'
+                      }`}
                     >
                       <Mail size={14} className="shrink-0" />
                       <span>{sub.email || '—'}</span>
-                    </button>
+                    </a>
                   </td>
                   <td className="py-3 px-2 text-gray-600 whitespace-nowrap">{sub.phone || '—'}</td>
                   <td className="py-3 px-2 whitespace-nowrap">

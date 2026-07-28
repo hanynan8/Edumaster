@@ -55,22 +55,56 @@ function FileCheck({ size = 15 }) {
 function Sun({ size = 15 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>;
 }
+function GraduationCap({ size = 15 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z" /><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5" /><path d="M22 10v6" /></svg>;
+}
 
+// Meta for EVERY possible section across ALL countries. Which of these actually
+// render for a given country is driven by that country's own `sections` object
+// (see getSectionKeys below), not by a single hardcoded list.
+// NOTE: images are NOT here anymore — they now live entirely in the JSON data
+// (country.image for the banner, country.sections[key].image for each section).
+// This object only keeps the icon + accent color, which are purely visual/UI
+// concerns and not content.
 const SECTION_META = {
-  educationSystem:      { icon: BookOpen,      color: "#1D6FD8" },
-  admissionRequirements:{ icon: ClipboardList, color: "#a855f7" },
-  costOfLiving:         { icon: Wallet,        color: "#10b981" },
-  partTimeWork:         { icon: Briefcase,     color: "#f59e0b" },
-  visaProcess:          { icon: FileCheck,     color: "#3b82f6" },
-  lifeInSpain:          { icon: Sun,           color: "#ef4444" },
+  educationSystem:       { icon: BookOpen,       color: "#1D6FD8" },
+  admissionRequirements: { icon: ClipboardList,  color: "#a855f7" },
+  costOfLiving:          { icon: Wallet,         color: "#10b981" },
+  partTimeWork:          { icon: Briefcase,      color: "#f59e0b" },
+  visaProcess:           { icon: FileCheck,      color: "#3b82f6" },
+  lifeInSpain:           { icon: Sun,            color: "#10b981" },
+  lifeInRomania:         { icon: Sun,            color: "#3b82f6" },
+  universities:          { icon: GraduationCap,  color: "#0ea5e9" },
 };
-const SECTION_KEYS = Object.keys(SECTION_META);
 
+// Preferred display order; any section not listed here (future additions)
+// still renders, appended in whatever order it appears in the data.
+const SECTION_ORDER = [
+  "educationSystem",
+  "admissionRequirements",
+  "costOfLiving",
+  "partTimeWork",
+  "visaProcess",
+  "lifeInSpain",
+  "lifeInRomania",
+  "universities",
+];
+
+// Build the list of section keys to render for a specific country, based on
+// what that country actually has in its `sections` object (from the DB doc),
+// instead of assuming every country shares Spain's fixed section list.
+function getSectionKeys(country) {
+  const available = Object.keys(country.sections || {});
+  const ordered = SECTION_ORDER.filter((k) => available.includes(k));
+  const extra = available.filter((k) => !SECTION_ORDER.includes(k));
+  return [...ordered, ...extra];
+}
 
 export default function CountriesPage() {
   const { language, isRTL } = useLanguage();
   const data = useCountriesData();
-  const [activeSection, setActiveSection] = useState(SECTION_KEYS[0]);
+  const [activeSection, setActiveSection] = useState(null);
+  const [selectedId, setSelectedId] = useState("spain");
 
   if (!data) {
     return (
@@ -84,7 +118,8 @@ export default function CountriesPage() {
   }
 
   const t = data.i18n[language] ?? data.i18n["en"];
-  const mergedCountries = data.countries.map((c) => ({ ...c, ...t.countries[c.id] }));
+  const allCountries = data.countries.map((c) => ({ ...c, ...t.countries[c.id] }));
+  const activeCountry = allCountries.find((c) => c.id === selectedId) ?? allCountries[0];
 
   return (
     <>
@@ -92,12 +127,37 @@ export default function CountriesPage() {
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
         style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
         <HeroSection data={data} t={t} />
-        {mergedCountries.map((country) => (
-          <CountryDetail key={country.id} country={country} t={t} activeSection={activeSection} setActiveSection={setActiveSection} />
-        ))}
+        <CountryFilter countries={allCountries} selectedId={selectedId} setSelectedId={setSelectedId} />
+        {activeCountry && (
+          <CountryDetail key={activeCountry.id} country={activeCountry} t={t} activeSection={activeSection} setActiveSection={setActiveSection} />
+        )}
         <StatsStrip data={data} t={t} />
       </div>
     </>
+  );
+}
+
+function CountryFilter({ countries, selectedId, setSelectedId }) {
+  return (
+    <div className="sticky top-[60px] sm:top-[68px] z-50 bg-white border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
+        {countries.map((c) => {
+          const isActive = c.id === selectedId;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelectedId(c.id)}
+              className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold tracking-wide transition-all duration-200 ${
+                isActive ? "text-white shadow-sm" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+              style={isActive ? { background: c.color } : {}}
+            >
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -130,6 +190,8 @@ function HeroSection({ data, t }) {
 
 function CountryDetail({ country, t, activeSection, setActiveSection }) {
   const [headerRef, headerVisible] = useReveal(0.1);
+  const sectionKeys = getSectionKeys(country);
+
   return (
     <div>
       <div ref={headerRef} className="relative overflow-hidden bg-[#0a0a0a]">
@@ -139,23 +201,20 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
         <div className="absolute top-0 inset-x-0 h-[3px] z-10" style={{ background: country.color }} />
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-10 sm:py-14 md:py-16">
           <div className={`transition-all duration-700 ${headerVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-            <div className="flex items-center gap-3 mb-3 sm:mb-4">
-              <span className="text-4xl sm:text-5xl">{country.flag}</span>
-              <div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">{country.name}</h2>
-                <p className="text-gray-400 text-xs sm:text-sm font-medium mt-0.5">{country.tagline}</p>
-              </div>
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">{country.name}</h2>
+              <p className="text-gray-400 text-xs sm:text-sm font-medium mt-0.5">{country.tagline}</p>
             </div>
             <p className="text-gray-300 text-sm sm:text-[15px] max-w-2xl leading-relaxed">{country.desc}</p>
           </div>
         </div>
       </div>
 
-      <SectionNav sectionKeys={SECTION_KEYS} t={t} activeSection={activeSection} setActiveSection={setActiveSection} country={country} />
+      <SectionNav sectionKeys={sectionKeys} t={t} activeSection={activeSection} setActiveSection={setActiveSection} country={country} />
 
       <div>
-        {SECTION_KEYS.map((key, i) => (
-          <SectionRow key={key} sectionKey={key} sectionData={country.sections[key]} content={country[key]} meta={SECTION_META[key]} index={i} id={`section-${key}`} />
+        {sectionKeys.map((key, i) => (
+          <SectionRow key={key} countryId={country.id} sectionKey={key} sectionData={country.sections[key]} content={country[key]} meta={SECTION_META[key] || { icon: BookOpen, color: "#1D6FD8" }} index={i} id={`section-${country.id}-${key}`} />
         ))}
       </div>
     </div>
@@ -164,21 +223,21 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
 
 function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }) {
   const scrollToSection = (key) => {
-    setActiveSection(key);
-    const el = document.getElementById(`section-${key}`);
+    setActiveSection(`${country.id}-${key}`);
+    const el = document.getElementById(`section-${country.id}-${key}`);
     if (el) {
-      const offset = 140;
+      const offset = 190;
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: "smooth" });
     }
   };
   return (
-    <div className="sticky top-[60px] sm:top-[68px] z-40 bg-white border-b border-gray-100 shadow-sm">
+    <div className="sticky top-[112px] sm:top-[128px] z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
         {sectionKeys.map((key) => {
-          const meta = SECTION_META[key];
+          const meta = SECTION_META[key] || { icon: BookOpen, color: "#1D6FD8" };
           const Icon = meta.icon;
-          const isActive = activeSection === key;
+          const isActive = activeSection === `${country.id}-${key}`;
           return (
             <button key={key} onClick={() => scrollToSection(key)}
               className={`shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-wide transition-all duration-200 ${
@@ -186,7 +245,7 @@ function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }
               }`}
               style={isActive ? { background: meta.color } : {}}>
               <Icon size={10} />
-              {t.nav[key]}
+              {t.nav[key] || key}
             </button>
           );
         })}
@@ -195,17 +254,25 @@ function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }
   );
 }
 
-function SectionRow({ sectionKey, sectionData, content, meta, index, id }) {
+function SectionRow({ countryId, sectionKey, sectionData, content, meta, index, id }) {
   const [ref, visible] = useReveal(0.06);
   const isEven = index % 2 === 0;
   const Icon = meta.icon;
   if (!content) return null;
+  // Image now comes straight from the JSON data (country.sections[key].image),
+  // no more code-side override lookup.
+  const imageSrc = sectionData?.image;
+
+  // The "universities" section has a different shape (two labeled lists of
+  // institution names) instead of a flat `points` array — render it separately.
+  const isUniversityList = Array.isArray(content.publicUniversities) || Array.isArray(content.privateUniversities);
+
   return (
     <div id={id} ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0 scroll-mt-36">
       {/* Image — always on top on mobile */}
       <div className={`relative overflow-hidden min-h-[220px] sm:min-h-[300px] lg:min-h-[480px] order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
-        {sectionData?.image && (
-          <Image src={sectionData.image} alt={content.title} fill className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
+        {imageSrc && (
+          <Image src={imageSrc} alt={content.title} fill className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
         )}
         <div className="absolute top-0 inset-x-0 h-[4px]" style={{ background: meta.color }} />
         <div className="absolute top-4 sm:top-6 right-4 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: meta.color }}>
@@ -222,19 +289,50 @@ function SectionRow({ sectionKey, sectionData, content, meta, index, id }) {
       <div className={`flex flex-col justify-center px-5 sm:px-8 md:px-10 py-8 sm:py-12 lg:py-20 order-2 ${isEven ? "lg:order-2 bg-white" : "lg:order-1 bg-[#f7f7f7]"} transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
         <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight mb-3 sm:mb-4">{content.title}</h3>
         <p className="text-gray-500 text-sm sm:text-[15px] leading-relaxed mb-6 sm:mb-8">{content.desc}</p>
-        <ul className="flex flex-col gap-2.5 sm:gap-3">
-          {content.points.map((point, i) => (
-            <li key={i}
-              className={`flex items-start gap-2.5 sm:gap-3 transition-all duration-500 ${visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}
-              style={{ transitionDelay: `${150 + i * 60}ms` }}>
-              <span className="shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center"
-                >
-                <Check size={20} color={meta.color} />
-              </span>
-              <span className="text-gray-700 text-xs sm:text-sm font-medium leading-snug">{point}</span>
-            </li>
-          ))}
-        </ul>
+
+        {isUniversityList ? (
+          <div className="flex flex-col gap-6 sm:gap-8">
+            {Array.isArray(content.publicUniversities) && content.publicUniversities.length > 0 && (
+              <div>
+                <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 sm:mb-3">{content.publicUniversitiesLabel}</h4>
+                <ul className="flex flex-col gap-2">
+                  {content.publicUniversities.map((uni, i) => (
+                    <li key={i} className={`flex items-start gap-2.5 sm:gap-3 transition-all duration-500 ${visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`} style={{ transitionDelay: `${150 + i * 40}ms` }}>
+                      <span className="shrink-0 mt-0.5"><Check size={18} color={meta.color} /></span>
+                      <span className="text-gray-700 text-xs sm:text-sm font-medium leading-snug">{uni}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {Array.isArray(content.privateUniversities) && content.privateUniversities.length > 0 && (
+              <div>
+                <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 sm:mb-3">{content.privateUniversitiesLabel}</h4>
+                <ul className="flex flex-col gap-2">
+                  {content.privateUniversities.map((uni, i) => (
+                    <li key={i} className={`flex items-start gap-2.5 sm:gap-3 transition-all duration-500 ${visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`} style={{ transitionDelay: `${150 + i * 40}ms` }}>
+                      <span className="shrink-0 mt-0.5"><Check size={18} color={meta.color} /></span>
+                      <span className="text-gray-700 text-xs sm:text-sm font-medium leading-snug">{uni}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2.5 sm:gap-3">
+            {(content.points || []).map((point, i) => (
+              <li key={i}
+                className={`flex items-start gap-2.5 sm:gap-3 transition-all duration-500 ${visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}
+                style={{ transitionDelay: `${150 + i * 60}ms` }}>
+                <span className="shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
+                  <Check size={20} color={meta.color} />
+                </span>
+                <span className="text-gray-700 text-xs sm:text-sm font-medium leading-snug">{point}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -276,5 +374,5 @@ const STYLES = `
   .animate-fadein-up2  { animation: fadein-up 0.7s ease 0.25s both; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .scroll-mt-36 { scroll-margin-top: 9rem; }
+  .scroll-mt-36 { scroll-margin-top: 12rem; }
 `;

@@ -108,6 +108,7 @@ function ContactMain({ data, t }) {
             <InfoCard visible={visible} delay={220} icon={<WhatsAppIcon />} label={t.info.whatsappLabel} value={data.contact.whatsappDisplay} isExternal accent />
             <InfoCard visible={visible} delay={290} icon={<PhoneIcon />} label="Qatar" value="+971 47 190 1935" />
             <InfoCard visible={visible} delay={360} icon={<PhoneIcon />} label="Spain" value="+34 612 23 13 93" />
+            <InfoCard visible={visible} delay={360} icon={<PhoneIcon />} label="Spain" value="+34 613 69 73 16" />
             <div className={`mt-1 p-5 sm:p-6 rounded-2xl bg-[#f7f7f7] border border-gray-100 transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
               style={{ transitionDelay: "300ms" }}>
               <p className="text-gray-500 text-sm leading-relaxed">{t.info.note}</p>

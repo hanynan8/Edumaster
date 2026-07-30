@@ -192,6 +192,8 @@ function FormSubmissionsAdmin() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null); // ✅ عشان نعرف مين اللي بيتمسح دلوقتي
+  const [confirmTarget, setConfirmTarget] = useState(null); // ✅ الرسالة المطلوب تأكيد حذفها (custom modal بدل window.confirm)
 
   useEffect(() => {
     fetch('/api/data?collection=form')
@@ -205,6 +207,35 @@ function FormSubmissionsAdmin() {
       })
       .catch(() => { setError('Error fetching submissions'); setLoading(false); });
   }, []);
+
+  // ✅ بيفتح نافذة تأكيد الحذف في نص الشاشة بدل window.confirm
+  const requestDelete = (sub) => {
+    if (!sub?._id) return;
+    setConfirmTarget(sub);
+  };
+
+  // ✅ مسح الرسالة نهائيًا من الداتابيز بعد التأكيد
+  const handleDelete = async (id) => {
+    if (!id) return;
+    setConfirmTarget(null);
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/data?collection=form&id=${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Delete failed');
+
+      // شيلها من الـ state عشان تختفي من الجدول فورًا من غير ما نعمل refetch
+      setSubmissions(prev => prev.filter(s => s._id !== id));
+      // لو النافذة المفتوحة هي نفسها اللي اتمسحت، اقفلها
+      setSelected(prev => (prev && prev._id === id ? null : prev));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      setError('Something went wrong while deleting the message, please try again');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // ✅ تصدير إكسيل بنفس هوية الموقع (تدرّج أزرق/بنفسجي للهيدر + تلوين متبادل للصفوف)
   const exportToExcel = async () => {
@@ -387,6 +418,35 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
           <AlertCircle size={20} /> {error}
         </div>
       )}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setConfirmTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-7 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={26} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete this message?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              This will permanently delete the message from{' '}
+              <span className="font-semibold text-gray-700">{confirmTarget.name || 'this contact'}</span>.
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmTarget(null)}
+                className="flex-1 font-semibold px-4 py-2.5 rounded-xl transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(confirmTarget._id)}
+                className="flex-1 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -437,16 +497,27 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
                 <p className="mt-1 text-gray-500 font-mono text-xs">{selected._id}</p>
               </div>
 
-              <a
-                href={selected.email ? buildGmailComposeUrl({ to: selected.email, name: selected.name, originalMessage: selected.message }) : undefined}
-                className={`mt-2 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow ${
-                  selected.email
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-300 text-gray-500 pointer-events-none'
-                }`}
-              >
-                <MessageCircle size={18} /> Reply via Email
-              </a>
+              <div className="flex gap-3 mt-2">
+                <a
+                  href={selected.email ? buildGmailComposeUrl({ to: selected.email, name: selected.name, originalMessage: selected.message }) : undefined}
+                  className={`flex-1 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow ${
+                    selected.email
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 pointer-events-none'
+                  }`}
+                >
+                  <MessageCircle size={18} /> Reply via Email
+                </a>
+
+                <button
+                  onClick={() => requestDelete(selected)}
+                  disabled={deletingId === selected._id}
+                  className="flex-1 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white"
+                >
+                  {deletingId === selected._id ? <Loader size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  {deletingId === selected._id ? 'Deleting...' : 'Delete Message'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -514,12 +585,22 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
                     </p>
                   </td>
                   <td className="py-3 px-2">
-                    <button
-                      onClick={() => setSelected(sub)}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      View
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelected(sub)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => requestDelete(sub)}
+                        disabled={deletingId === sub._id}
+                        title="Delete"
+                        className="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 disabled:opacity-50 p-1.5 rounded-lg transition-colors"
+                      >
+                        {deletingId === sub._id ? <Loader size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -163,21 +163,21 @@ function CountryFilter({ countries, selectedId, setSelectedId }) {
 
 function HeroSection({ data, t }) {
   return (
-    <section className="relative min-h-[52vh] flex items-center overflow-hidden bg-[#f4f4f4]">
+    <section className="relative h-[48vh] sm:h-[55vh] md:h-[62vh] overflow-hidden bg-[#f4f4f4]">
       <div className="absolute inset-0 z-0">
         <Image src={data.hero.backgroundImage} alt="countries hero" fill className="object-cover object-center" priority unoptimized />
         <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
       </div>
-      <div className="relative z-10 w-full px-5 sm:px-8 md:px-6 pb-12 sm:pb-16 md:pb-20 pt-24 sm:pt-30 md:pt-36">
+      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
               return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
             })()}
           </h1>
-          <p className="text-gray-500 text-base sm:text-lg max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
         </div>
       </div>
       <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 animate-bounce">
@@ -187,7 +187,6 @@ function HeroSection({ data, t }) {
     </section>
   );
 }
-
 function CountryDetail({ country, t, activeSection, setActiveSection }) {
   const [headerRef, headerVisible] = useReveal(0.1);
   const sectionKeys = getSectionKeys(country);
@@ -199,7 +198,7 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
           <Image src={country.image} alt={country.name} fill className="object-cover" unoptimized />
         </div>
         <div className="absolute top-0 inset-x-0 h-[3px] z-10" style={{ background: country.color }} />
-        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-10 sm:py-14 md:py-16">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-24 sm:py-28 md:py-32">
           <div className={`transition-all duration-700 ${headerVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             <div className="mb-3 sm:mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">{country.name}</h2>

@@ -80,25 +80,24 @@ export default function ServicesPage() {
     </>
   );
 }
-
 function HeroSection({ data, t }) {
   return (
-    <section className="relative min-h-[52vh] flex items-center overflow-hidden bg-[#f4f4f4]">
+    <section className="relative h-[48vh] sm:h-[55vh] md:h-[62vh] overflow-hidden bg-[#f4f4f4]">
       <div className="absolute inset-0 z-0">
         <Image src={data.hero.backgroundImage} alt={t.hero.headline ?? "Services background"} fill className="object-cover object-center" priority unoptimized />
         <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
       </div>
-      <div className="relative z-10 w-full px-5 sm:px-8 md:px-6 pb-12 sm:pb-16 md:pb-20 pt-24 sm:pt-30 md:pt-36">
+      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[0.92] tracking-tighter max-w-2xl mb-4 sm:mb-5 animate-fadein-up">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
             {t.hero.headline.split(",").map((chunk, i, arr) =>
               i === arr.length - 1
                 ? <span key={i} className="text-[#1D6FD8]">{chunk}</span>
                 : <span key={i}>{chunk},<br /></span>
             )}
           </h1>
-          <p className="text-gray-500 text-base sm:text-lg max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
         </div>
       </div>
       <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 animate-bounce">

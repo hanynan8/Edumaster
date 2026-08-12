@@ -128,8 +128,12 @@ function UsersAdmin() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/data?collection=auth')
-      .then(r => r.json())
+    // ✅ /api/admin/users بيتحقق من صلاحية admin على السيرفر ومايرجعش الباسوردات خالص
+    fetch('/api/admin/users')
+      .then(r => {
+        if (!r.ok) throw new Error('forbidden');
+        return r.json();
+      })
       .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => { setError('Error fetching users'); setLoading(false); });
   }, []);
@@ -161,18 +165,24 @@ function UsersAdmin() {
                 <th className="text-left py-3 px-4 font-semibold text-gray-500">#</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-500">Name</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-500">Email</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-500">Password</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-500">Role</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-500">ID</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user, idx) => (
-                <tr key={user._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-gray-400">{idx + 1}</td>
                   <td className="py-3 px-4 font-medium text-gray-800">{user.name}</td>
                   <td className="py-3 px-4 text-blue-600">{user.email}</td>
-                  <td className="py-3 px-4 font-mono text-gray-500 text-xs">{user.password}</td>
-                  <td className="py-3 px-4 font-mono text-gray-400 text-xs">{user._id}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                      user.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>{user.role}</span>
+                  </td>
+                  <td className="py-3 px-4 font-mono text-gray-400 text-xs">{user.id}</td>
                 </tr>
               ))}
             </tbody>
@@ -633,7 +643,8 @@ export default function AdminDashboard() {
   }
 
   // مش logged in أو الإيميل مش admin@gmail.com → 404
-  if (status === 'unauthenticated' || session?.user?.email !== ADMIN_EMAIL) {
+  const isAdmin = session?.user?.role === 'admin' || session?.user?.email === ADMIN_EMAIL;
+  if (status === 'unauthenticated' || !isAdmin) {
     return <NotFound />;
   }
 
@@ -659,9 +670,11 @@ export default function AdminDashboard() {
   const handleExportAllData = async () => {
     setExporting(true);
 
+    // ⚠️ 'auth' متشالة من هنا عن قصد — كولكشن المستخدمين بقى محمي ومش بيتصدّر
+    // مع باقي بيانات الموقع. راجع تبويب Users لو محتاج بيانات المستخدمين.
     const collections = [
       'home', 'navbar', 'footer', 'about', 'services', 'courses',
-      'countries', 'success_stories', 'blog', 'contact', 'auth', 'form'
+      'countries', 'success_stories', 'blog', 'contact', 'form'
     ];
 
     const result = {};

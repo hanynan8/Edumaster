@@ -354,27 +354,23 @@ function AuthModal({ mode, onClose, onSwitch }) {
     if (!form.name || !form.email || !form.password) { setError(tx.errEmpty); return; }
     setLoading(true);
     try {
-      const checkRes = await fetch("/api/data?collection=auth", { cache: "no-store" });
-      if (checkRes.ok) {
-        const authData = await checkRes.json();
-        const users =
-          Array.isArray(authData)      ? authData      :
-          Array.isArray(authData.auth) ? authData.auth :
-          Array.isArray(authData.data) ? authData.data : [];
-
-        const nameTaken  = users.some(u => u.name?.toLowerCase().trim()  === form.name.toLowerCase().trim());
-        const emailTaken = users.some(u => u.email?.toLowerCase().trim() === form.email.toLowerCase().trim());
-
-        if (nameTaken)  { setError(tx.errNameTaken);  setLoading(false); return; }
-        if (emailTaken) { setError(tx.errEmailTaken); setLoading(false); return; }
-      }
-
-      const res = await fetch("/api/data?collection=auth", {
+      // ✅ التسجيل والتحقق من التكرار بيحصلوا دلوقتي بالكامل على السيرفر
+      // (/api/register) — المتصفح مايشوفش أي باسورد لمستخدمين تانيين خالص.
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
       });
-      if (!res.ok) throw new Error();
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setLoading(false);
+        if (data.error === "name_taken")  { setError(tx.errNameTaken);  return; }
+        if (data.error === "email_taken") { setError(tx.errEmailTaken); return; }
+        setError(tx.errFail);
+        return;
+      }
+
       const signInRes = await signIn("credentials", {
         redirect: false,
         nameOrEmail: form.email,

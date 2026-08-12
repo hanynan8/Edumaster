@@ -82,6 +82,15 @@ function getSearchParams(request) {
   };
 }
 
+// ⚠️ كولكشنز حساسة ممنوع تتعامل معها من الـ endpoint المفتوح ده خالص —
+// أي قراءة أو كتابة عليها لازم تعدي من route محمي بصلاحيات حقيقية على السيرفر.
+// "auth" فيها الباسوردات (ولو مشفرة) وممنوع أي حد يعرف يجيبها بمجرد ما يعرف اسم الكولكشن.
+const PROTECTED_COLLECTIONS = new Set(["auth"]);
+
+function isProtectedCollection(name) {
+  return PROTECTED_COLLECTIONS.has(String(name));
+}
+
 // ===== Resend Email Notification =====
 // لازم تضيف المتغيرات دي في .env:
 // RESEND_API_KEY=your_resend_api_key
@@ -287,7 +296,7 @@ export async function GET(request) {
     const { collection, id } = getSearchParams(request);
 
     if (!collection) {
-      const colNames = await listCollections();
+      const colNames = (await listCollections()).filter((n) => !isProtectedCollection(n));
       const results = await Promise.all(
         colNames.map(async (name) => {
           const Model = getModelForCollection(name);
@@ -304,6 +313,13 @@ export async function GET(request) {
     }
 
     const colName = String(collection);
+    if (isProtectedCollection(colName)) {
+      return jsonResponse(
+        { error: "This collection is protected. Use the dedicated API route instead." },
+        403
+      );
+    }
+
     const existingCols = await listCollections();
     if (!existingCols.includes(colName)) {
       return jsonResponse({ error: `Collection '${colName}' not found` }, 404);
@@ -333,6 +349,13 @@ export async function POST(request) {
     if (!collection) return jsonResponse({ error: "Collection is required" }, 400);
 
     const colName = String(collection);
+    if (isProtectedCollection(colName)) {
+      return jsonResponse(
+        { error: "This collection is protected. Use /api/register instead." },
+        403
+      );
+    }
+
     const Model = getModelForCollection(colName);
 
     const body = await parseBody(request);
@@ -370,6 +393,9 @@ export async function PUT(request) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "Invalid id format" }, 400);
 
     const colName = String(collection);
+    if (isProtectedCollection(colName)) {
+      return jsonResponse({ error: "This collection is protected." }, 403);
+    }
     const existingCols = await listCollections();
     if (!existingCols.includes(colName)) return jsonResponse({ error: "Collection not found" }, 404);
 
@@ -394,6 +420,9 @@ export async function DELETE(request) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "Invalid id format" }, 400);
 
     const colName = String(collection);
+    if (isProtectedCollection(colName)) {
+      return jsonResponse({ error: "This collection is protected." }, 403);
+    }
     const existingCols = await listCollections();
     if (!existingCols.includes(colName)) return jsonResponse({ error: "Collection not found" }, 404);
 

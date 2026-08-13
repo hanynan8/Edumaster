@@ -1,15 +1,111 @@
-// lib/authOptions.js
-// إعدادات NextAuth. متعزولة في ملف مستقل عشان أي API route تانية (زي /api/admin/users)
-// تقدر تستخدم getServerSession(authOptions) بدون ما تستورد route handler.
+// app/lib/authOptions.js
+// إعدادات NextAuth. الـ role بييجي حصريًا من حقل "role" في الداتابيز —
+// مفيش أي fallback بإيميل خالص. أول admin بيتحدد يدويًا عن طريق
+// scripts/make-admin.js، وبعد كده أي ترقية بتتم من لوحة الأدمن (role-gated).
+//
+// 🔒 SECURITY (هذا الملف يحتوي على 3 تحصينات أساسية):
+//  1) Rate limiting على تسجيل الدخول: حماية على مستوى IP (Redis/ذاكرة عبر
+//     lib/rateLimit.js) + قفل الحساب نفسه بعد محاولات فاشلة متكررة
+//     (loginFailedAttempts/loginLockedUntil في الداتابيز).
+//  2) MFA (TOTP) إجباري لأي حساب role === "admin" فعّل الخاصية من لوحة
+//     الأدمن (شوف app/api/admin/mfa/*).
+//  3) إبطال الـ JWT session فورًا عند تغيير الباسورد أو الـ role عن طريق
+//     tokenVersion (شوف callbacks.jwt/session تحت).
 
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { TOTP, Secret } from "otpauth";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
-
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@gmail.com").toLowerCase();
+import { checkRateLimit } from "@/app/lib/rateLimit";
 
 function isBcryptHash(value) {
   return typeof value === "string" && /^\$2[aby]\$/.test(value);
+}
+
+// req في next-auth v4 مش دايمًا كائن Headers قياسي، فبنتعامل مع الحالتين.
+function extractClientIp(req) {
+  try {
+    const headers = req?.headers;
+    if (!headers) return "unknown";
+    const forwarded =
+      typeof headers.get === "function" ? headers.get("x-forwarded-for") : headers["x-forwarded-for"];
+    if (forwarded) return String(forwarded).split(",")[0].trim();
+    const real = typeof headers.get === "function" ? headers.get("x-real-ip") : headers["x-real-ip"];
+    return real || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// 🔒 SECURITY: نافذة قفل الحساب — 5 محاولات فاشلة خلال 15 دقيقة تؤدي لقفل
+// الحساب 15 دقيقة. منفصل عن rate limit الـ IP اللي بيغطي هجوم موزّع على
+// حسابات كتير من نفس المصدر.
+const ACCOUNT_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const ACCOUNT_MAX_ATTEMPTS = 5;
+const ACCOUNT_LOCK_MS = 15 * 60 * 1000;
+
+function ensureLoginWindow(userDoc) {
+  const now = Date.now();
+  const first = userDoc.loginFirstFailedAt ? new Date(userDoc.loginFirstFailedAt).getTime() : null;
+  if (!first || now - first > ACCOUNT_ATTEMPT_WINDOW_MS) {
+    userDoc.loginFirstFailedAt = new Date(now);
+    userDoc.loginFailedAttempts = 0;
+  }
+}
+
+function isAccountLocked(userDoc) {
+  return !!(userDoc.loginLockedUntil && new Date(userDoc.loginLockedUntil) > new Date());
+}
+
+async function registerFailedAttempt(userDoc) {
+  ensureLoginWindow(userDoc);
+  userDoc.loginFailedAttempts = (userDoc.loginFailedAttempts || 0) + 1;
+  if (userDoc.loginFailedAttempts >= ACCOUNT_MAX_ATTEMPTS) {
+    userDoc.loginLockedUntil = new Date(Date.now() + ACCOUNT_LOCK_MS);
+  }
+  await userDoc.save();
+}
+
+function clearLoginLock(userDoc) {
+  userDoc.loginFailedAttempts = 0;
+  userDoc.loginFirstFailedAt = null;
+  userDoc.loginLockedUntil = null;
+}
+
+// 🔒 SECURITY: التحقق من كود TOTP بتاع الأدمن. window: 1 بيسمح بفارق ±30
+// ثانية بسيط لفروق الساعة بين السيرفر والموبايل، من غير ما يوسّع نافذة
+// التخمين بشكل خطير.
+function verifyTotpCode(base32Secret, code) {
+  if (!base32Secret || !code) return false;
+  try {
+    const totp = new TOTP({
+      secret: Secret.fromBase32(base32Secret),
+      digits: 6,
+      period: 30,
+      algorithm: "SHA1",
+    });
+    const delta = totp.validate({ token: String(code).trim(), window: 1 });
+    return delta !== null;
+  } catch (err) {
+    console.error("TOTP verification error:", err);
+    return false;
+  }
+}
+
+async function verifyBackupCode(userDoc, code) {
+  if (!code || !Array.isArray(userDoc.mfaBackupCodeHashes) || userDoc.mfaBackupCodeHashes.length === 0) {
+    return false;
+  }
+  const normalized = String(code).trim();
+  for (let i = 0; i < userDoc.mfaBackupCodeHashes.length; i++) {
+    const match = await bcrypt.compare(normalized, userDoc.mfaBackupCodeHashes[i]);
+    if (match) {
+      // 🔒 SECURITY: الكود الاحتياطي يُستهلك بعد الاستخدام مرة واحدة (one-time use)
+      userDoc.mfaBackupCodeHashes.splice(i, 1);
+      return true;
+    }
+  }
+  return false;
 }
 
 export const authOptions = {
@@ -19,10 +115,24 @@ export const authOptions = {
       credentials: {
         nameOrEmail: { label: "Name or Email", type: "text" },
         password: { label: "Password", type: "password" },
+        mfaCode: { label: "MFA Code", type: "text" },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.nameOrEmail || !credentials?.password) return null;
+
+        const ip = extractClientIp(req);
+
+        // 🔒 SECURITY: rate limit عام على مستوى الـ IP — أول خط دفاع، بيتفحص
+        // قبل أي استعلام للداتابيز عشان يوقف هجوم credential-stuffing بسرعة
+        // ويقلل الحمل على الداتابيز. 20 محاولة كل 15 دقيقة لكل IP.
+        const ipCheck = await checkRateLimit(`login:ip:${ip}`, {
+          limit: 20,
+          windowSeconds: 15 * 60,
+        });
+        if (!ipCheck.allowed) {
+          throw new Error("rate_limited");
+        }
 
         try {
           await connectToMongo();
@@ -30,8 +140,9 @@ export const authOptions = {
 
           const identifier = credentials.nameOrEmail.toLowerCase().trim();
 
-          // ملحوظة: مش .lean() هنا عن قصد — محتاجين نقدر نعمل .save()
-          // لو لقينا حساب قديم بباسورد plain text عشان نشفّره فورًا (self-healing migration).
+          // مش .lean() هنا عن قصد — محتاجين .save() لو لقينا حساب قديم
+          // بباسورد plain text عشان نشفّره فورًا (self-healing migration)،
+          // وكمان عشان نحدّث عدّادات القفل.
           const users = await AuthModel.find({});
           const userDoc = users.find(
             (u) =>
@@ -41,28 +152,61 @@ export const authOptions = {
 
           if (!userDoc) return null;
 
+          // 🔒 SECURITY: الحساب مقفول مؤقتًا بسبب محاولات فاشلة كتير — نرفض
+          // من غير ما نتحقق من الباسورد أصلاً (يمنع استمرار التخمين وقت القفل).
+          if (isAccountLocked(userDoc)) {
+            throw new Error("rate_limited");
+          }
+
           const storedPassword = userDoc.password || "";
           let valid = false;
 
           if (isBcryptHash(storedPassword)) {
             valid = await bcrypt.compare(credentials.password, storedPassword);
           } else {
-            // حساب قديم متسجل قبل التحديث بباسورد plain text.
-            // نتحقق مرة واحدة بالمقارنة المباشرة، ولو صح نرفّعه لهاش فورًا
-            // عشان من اللحظة دي يبقى محمي زي أي حساب جديد.
             valid = storedPassword === credentials.password;
             if (valid) {
               userDoc.password = await bcrypt.hash(credentials.password, 12);
-              await userDoc.save();
             }
           }
 
-          if (!valid) return null;
+          if (!valid) {
+            await registerFailedAttempt(userDoc);
+            return null;
+          }
 
-const role =
-  userDoc.email?.toLowerCase() === ADMIN_EMAIL
-    ? "admin"
-    : (userDoc.role || "student");
+          // 🔒 SECURITY: الـ role حصريًا من الداتابيز. مفيش أي مقارنة إيميل هنا خالص —
+          // لو الحقل مش موجود، المستخدم "student" افتراضيًا، ونقطة.
+          const role = userDoc.role || "student";
+
+          // 🔒 SECURITY: MFA إجباري لأي حساب admin فعّل الخاصية. الباسورد
+          // كان صح، لكن مش هنسمح بالدخول من غير كود صحيح.
+          if (role === "admin" && userDoc.mfaEnabled) {
+            const code = credentials.mfaCode ? String(credentials.mfaCode).trim() : "";
+
+            if (!code) {
+              // الباسورد صح لكن محتاجين كود — منعتبروش محاولة فاشلة على
+              // الباسورد نفسه، لكن نفضل جوه نفس rate limit بتاع الـ IP.
+              throw new Error("mfa_required");
+            }
+
+            const totpValid = verifyTotpCode(userDoc.mfaSecret, code);
+            const backupValid = !totpValid && (await verifyBackupCode(userDoc, code));
+
+            if (!totpValid && !backupValid) {
+              await registerFailedAttempt(userDoc);
+              throw new Error("mfa_invalid");
+            }
+
+            if (backupValid) {
+              await userDoc.save(); // نحفظ استهلاك الكود الاحتياطي
+            }
+          }
+
+          // ✅ نجح الدخول فعليًا — نصفّر عدّاد القفل ونحفظ أي تعديلات معلّقة
+          // (تشفير الباسورد القديم، استهلاك كود احتياطي، إلخ) في save واحدة.
+          clearLoginLock(userDoc);
+          await userDoc.save();
 
           return {
             id: userDoc._id?.toString(),
@@ -72,8 +216,18 @@ const role =
             address: userDoc.address || null,
             paymentMethod: userDoc.paymentMethod || "cash",
             role,
+            tokenVersion: userDoc.tokenVersion || 0,
           };
         } catch (error) {
+          // 🔒 SECURITY: الأخطاء المتعمّدة (rate_limited / mfa_required /
+          // mfa_invalid) لازم تتنشر للعميل زي ما هي عشان الواجهة تتصرف صح.
+          if (
+            error?.message === "rate_limited" ||
+            error?.message === "mfa_required" ||
+            error?.message === "mfa_invalid"
+          ) {
+            throw error;
+          }
           console.error("Auth Error:", error);
           return null;
         }
@@ -103,11 +257,52 @@ const role =
         token.address = user.address;
         token.paymentMethod = user.paymentMethod;
         token.role = user.role;
+        token.tokenVersion = user.tokenVersion ?? 0;
+        token.lastValidated = Date.now();
+        token.invalid = false;
+        return token;
       }
+
+      // 🔒 SECURITY: إبطال الجلسة عند تغيير الباسورد أو الـ role — بدل ما
+      // نستنى انتهاء الـ 7 أيام بتاعة الـ JWT. بنقارن tokenVersion المخزّن
+      // في التوكن مع القيمة الحالية في الداتابيز. لتقليل الحمل على
+      // الداتابيز بنعمل الفحص ده مرة كل 60 ثانية بس (throttled)، مش على كل
+      // request — يعني أقصى نافذة تعرّض لجلسة مسروقة بعد تغيير الباسورد
+      // بقت ~60 ثانية بدل 7 أيام.
+      const now = Date.now();
+      const shouldRevalidate = !token.lastValidated || now - token.lastValidated > 60 * 1000;
+
+      if (shouldRevalidate && token.id) {
+        try {
+          await connectToMongo();
+          const AuthModel = getAuthModel();
+          const dbUser = await AuthModel.findById(token.id, "tokenVersion role").lean();
+
+          if (!dbUser || (dbUser.tokenVersion ?? 0) !== (token.tokenVersion ?? 0)) {
+            token.invalid = true;
+          } else {
+            token.invalid = false;
+            token.role = dbUser.role || token.role; // تغيير الـ role ينعكس فورًا كمان
+            token.lastValidated = now;
+          }
+        } catch (err) {
+          // 🔒 SECURITY: عطل مؤقت في الاتصال بالداتابيز مايسجّلش خروج كل
+          // المستخدمين فجأة (fail-open على الأعطال العابرة)، لكن يتسجل.
+          console.error("[authOptions] JWT revalidation error:", err);
+        }
+      }
+
       return token;
     },
 
     async session({ session, token }) {
+      // 🔒 SECURITY: الجلسة اتبطلت (تغيير باسورد/role أو حذف الحساب) —
+      // برجع null عشان useSession/getServerSession يعتبروا المستخدم
+      // مسجّل خروج فورًا.
+      if (token?.invalid) {
+        return null;
+      }
+
       if (token && session.user) {
         session.user.id = token.id;
         session.user.name = token.name;

@@ -91,6 +91,17 @@ function EyeIcon({ size = 16, open = true }) {
   );
 }
 
+// 🔒 SECURITY: أيقونة درع بسيطة تُستخدم في خطوة كود الـ MFA وواجهة الأدمن.
+function ShieldIcon({ size = 16, color = "#2563eb" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
 /* ─────────────────────────────────────────
    LANGUAGE DROPDOWN
 ───────────────────────────────────────── */
@@ -220,6 +231,11 @@ const AUTH_I18N = {
       forgotLink: "نسيت كلمة المرور؟",
       errEmpty: "من فضلك ادخل جميع البيانات",
       errWrong: "الاسم أو الباسورد غلط",
+      errRateLimited: "محاولات كتير، تم قفل الدخول مؤقتًا. حاول تاني بعد شوية",
+      mfaSubtitle: "الحساب ده محمي بخطوة تحقق إضافية. ادخل الكود من تطبيق المصادقة بتاعك",
+      mfaCodeLabel: "كود التحقق",
+      mfaSubmit: "تأكيد وتسجيل الدخول",
+      errMfaInvalid: "الكود غلط، حاول تاني",
     },
     register: {
       title: "إنشاء حساب",
@@ -290,6 +306,11 @@ const AUTH_I18N = {
       errWrong: "Incorrect name or password",
       errNameTaken: "This name is already taken",
       errEmailTaken: "This email is already registered",
+      errRateLimited: "Too many attempts, login temporarily locked. Try again shortly",
+      mfaSubtitle: "This account is protected by an extra verification step. Enter the code from your authenticator app",
+      mfaCodeLabel: "Verification code",
+      mfaSubmit: "Confirm and sign in",
+      errMfaInvalid: "Invalid code, please try again",
     },
     register: {
       title: "Create account",
@@ -360,6 +381,11 @@ const AUTH_I18N = {
       forgotLink: "¿Olvidaste tu contraseña?",
       errEmpty: "Por favor completa todos los campos",
       errWrong: "Nombre o contraseña incorrectos",
+      errRateLimited: "Demasiados intentos, inicio de sesión bloqueado temporalmente. Inténtalo más tarde",
+      mfaSubtitle: "Esta cuenta está protegida por un paso de verificación adicional. Ingresa el código de tu app de autenticación",
+      mfaCodeLabel: "Código de verificación",
+      mfaSubmit: "Confirmar e iniciar sesión",
+      errMfaInvalid: "Código incorrecto, inténtalo de nuevo",
     },
     register: {
       title: "Crear cuenta",
@@ -458,6 +484,8 @@ function AuthModal({ mode, onClose, onSwitch }) {
   useEffect(() => {
     setError("");
     setForgotInfo("");
+    setMfaStep(false);
+    setMfaCode("");
   }, [language, mode]);
 
   // ✅ لما تفتح مودال "نسيت الباسورد" من جديد، ابدأ من الخطوة الأولى دايمًا
@@ -505,18 +533,52 @@ function AuthModal({ mode, onClose, onSwitch }) {
     setError("");
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!form.nameOrEmail || !form.password) { setError(tx.errEmpty); return; }
+  // 🔒 SECURITY: لما يبقى فيه MFA مفعّل على حساب أدمن، أول محاولة (باسورد
+  // صح لسه من غير كود) بترجع "mfa_required" — بنعرض خطوة كود إضافية بدل ما
+  // نعتبرها خطأ تسجيل دخول.
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
+
+  const attemptLogin = async (extra = {}) => {
     setLoading(true);
     const res = await signIn("credentials", {
       redirect: false,
       nameOrEmail: form.nameOrEmail,
       password: form.password,
+      ...extra,
     });
     setLoading(false);
-    if (res?.error) setError(tx.errWrong);
-    else onClose();
+
+    if (res?.error === "mfa_required") {
+      setMfaStep(true);
+      setError("");
+      return;
+    }
+    if (res?.error === "mfa_invalid") {
+      setError(tx.errMfaInvalid);
+      return;
+    }
+    if (res?.error === "rate_limited") {
+      setError(tx.errRateLimited);
+      return;
+    }
+    if (res?.error) {
+      setError(tx.errWrong);
+      return;
+    }
+    onClose();
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!form.nameOrEmail || !form.password) { setError(tx.errEmpty); return; }
+    await attemptLogin();
+  };
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    if (!mfaCode) { setError(tx.errEmpty); return; }
+    await attemptLogin({ mfaCode });
   };
 
   const handleRegister = async (e) => {
@@ -535,6 +597,7 @@ function AuthModal({ mode, onClose, onSwitch }) {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setLoading(false);
+        if (res.status === 429) { setError(tx.errRateLimited); return; }
         if (data.error === "name_taken")     { setError(tx.errNameTaken);     return; }
         if (data.error === "email_taken")    { setError(tx.errEmailTaken);    return; }
         if (data.error === "weak_password")  { setError(tx.errWeakPassword);  return; }
@@ -1054,6 +1117,63 @@ function AuthModal({ mode, onClose, onSwitch }) {
                 <p className="text-sm text-gray-400 mt-1 font-medium">{tx.subtitle}</p>
               </div>
 
+              {isLogin && mfaStep ? (
+                /* ─── خطوة MFA: كود من تطبيق الـ authenticator بتاع الأدمن ─── */
+                <form onSubmit={handleMfaSubmit} className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-blue-50 border border-blue-100">
+                    <ShieldIcon />
+                    <span className="text-xs font-semibold text-blue-700">{tx.mfaSubtitle}</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      {tx.mfaCodeLabel}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="text"
+                      autoFocus
+                      value={mfaCode}
+                      onChange={(e) => { setMfaCode(e.target.value.trim()); setError(""); }}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-lg font-bold tracking-[0.3em] text-center text-[#0a0a0a] placeholder-gray-300 outline-none focus:border-[#C9A227] focus:ring-2 focus:ring-[#C9A227]/10 transition-all"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#C9A227" strokeWidth={2.5} strokeLinecap="round">
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span className="text-xs font-semibold text-[#C9A227]">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading || !mfaCode}
+                    className="w-full mt-1 py-3.5 bg-[#C9A227] text-white text-sm font-bold rounded-xl hover:bg-[#977a1d] active:scale-[0.98] transition-all shadow-md shadow-amber-900/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity={0.25} />
+                        <path d="M21 12a9 9 0 00-9-9" />
+                      </svg>
+                    ) : (
+                      <>{tx.mfaSubmit}</>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setMfaStep(false); setMfaCode(""); setError(""); }}
+                    className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-all text-center"
+                  >
+                    {tx.backToLogin}
+                  </button>
+                </form>
+              ) : (
               <form onSubmit={isLogin ? handleLogin : handleRegister} className="flex flex-col gap-4">
 
                 {!isLogin && (
@@ -1151,16 +1271,19 @@ function AuthModal({ mode, onClose, onSwitch }) {
                   )}
                 </button>
               </form>
+              )}
 
-              <p className="text-center text-sm text-gray-400 mt-5 sm:mt-6 font-medium">
-                {tx.switchText}{" "}
-                <button
-                  onClick={() => onSwitch(isLogin ? "register" : "login")}
-                  className="text-[#C9A227] font-bold hover:underline transition-all"
-                >
-                  {tx.switchCta}
-                </button>
-              </p>
+              {!(isLogin && mfaStep) && (
+                <p className="text-center text-sm text-gray-400 mt-5 sm:mt-6 font-medium">
+                  {tx.switchText}{" "}
+                  <button
+                    onClick={() => onSwitch(isLogin ? "register" : "login")}
+                    className="text-[#C9A227] font-bold hover:underline transition-all"
+                  >
+                    {tx.switchCta}
+                  </button>
+                </p>
+              )}
             </>
           )}
         </div>

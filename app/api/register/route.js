@@ -4,11 +4,12 @@
 
 import bcrypt from "bcryptjs";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
+import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -16,8 +17,26 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// 🔒 SECURITY: بدون rate limiting كان أي حد يقدر يعمل مئات الحسابات الوهمية
+// بسكريبت بسيط. 10 تسجيلات كحد أقصى كل ساعة لكل IP كافية لأي استخدام حقيقي
+// (شخص أو أسرة على نفس الشبكة) ومزعجة كفاية لأي سكريبت آلي.
+const REGISTER_LIMIT = 10;
+const REGISTER_WINDOW_SECONDS = 60 * 60;
+
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed, retryAfterSeconds } = await checkRateLimit(`register:ip:${ip}`, {
+      limit: REGISTER_LIMIT,
+      windowSeconds: REGISTER_WINDOW_SECONDS,
+    });
+    if (!allowed) {
+      return jsonResponse(
+        { error: "too_many_attempts", retryAfterSeconds },
+        429
+      );
+    }
+
     const body = await request.json().catch(() => null);
     if (!body) return jsonResponse({ error: "invalid_body" }, 400);
 

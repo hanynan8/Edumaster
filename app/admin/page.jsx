@@ -11,16 +11,16 @@ import {
 
 import { useSession } from 'next-auth/react';
 
-import NavbarAdmin from './components/navbar';
-import FooterAdmin from './components/footer';
-import HomeAdmin from './components/home';
-import AboutAdmin from './components/about';
-import ServicesAdmin from './components/services';
-import CoursesAdmin from './components/courses';
-import CountriesAdmin from './components/countries';
-import SuccessStoriesAdmin from './components/success-stories';
-import BlogAdmin from './components/blogs';
-import ContactAdmin from './components/contact';
+import NavbarAdmin from './components/(editcomponents)/navbar';
+import FooterAdmin from './components/(editcomponents)/footer';
+import HomeAdmin from './components/(editcomponents)/home';
+import AboutAdmin from './components/(editcomponents)/about';
+import ServicesAdmin from './components/(editcomponents)/services';
+import CoursesAdmin from './components/(editcomponents)/courses';
+import CountriesAdmin from './components/(editcomponents)/countries';
+import SuccessStoriesAdmin from './components/(editcomponents)/success-stories';
+import BlogAdmin from './components/(editcomponents)/blogs';
+import ContactAdmin from './components/(editcomponents)/contact';
 
 // 🔒 SECURITY: اتشال أي إيميل أدمن ثابت من هنا. الاعتماد بقى على role بس،
 // نفس المصدر الوحيد اللي بيتفحص في الـ API (route.js) — عشان الواجهة والباك إند
@@ -330,7 +330,11 @@ function AdminMfaPanel() {
     setError('');
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/mfa/setup', { method: 'POST' });
+      const res = await fetch('/api/admin/mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setup' }),
+      });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error === 'mfa_already_enabled' ? 'MFA is already enabled on this account.' : 'Failed to start MFA setup.');
@@ -351,10 +355,10 @@ function AdminMfaPanel() {
     setError('');
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/mfa/verify-setup', {
+      const res = await fetch('/api/admin/mfa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ action: 'verify-setup', code }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -375,10 +379,10 @@ function AdminMfaPanel() {
     setError('');
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/mfa/disable', {
+      const res = await fetch('/api/admin/mfa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: disableCode }),
+        body: JSON.stringify({ action: 'disable', code: disableCode }),
       });
       const data = await res.json();
       if (!res.ok) {

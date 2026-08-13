@@ -57,13 +57,36 @@ function isAccountLocked(userDoc) {
   return !!(userDoc.loginLockedUntil && new Date(userDoc.loginLockedUntil) > new Date());
 }
 
+// كام ثانية باقية على فك القفل — بتتحسب من loginLockedUntil نفسه، مش من
+// ACCOUNT_LOCK_MS الثابتة، عشان تعكس الوقت الفعلي المتبقي بالظبط.
+function lockRemainingSeconds(userDoc) {
+  if (!userDoc.loginLockedUntil) return 0;
+  const ms = new Date(userDoc.loginLockedUntil).getTime() - Date.now();
+  return Math.max(1, Math.ceil(ms / 1000));
+}
+
+// 🔒 SECURITY: بترجع معلومات كافية بس (مش أي تفاصيل حساسة زي الباسورد أو
+// الـ IP) عشان الـ UI يقدر يعرض للمستخدم الشرعي كام محاولة باقيتله قبل
+// القفل. ⚠️ ملحوظة: عرض "عدد المحاولات المتبقية" بيتم بس لحسابات موجودة
+// فعليًا (بعد ما لقينا userDoc) — ده بيسرّب معلومة بسيطة (إن الاسم/الإيميل
+// ده حساب حقيقي) لمهاجم بيجرب أسماء عشوائية، مقارنة بالرسالة العامة اللي
+// بتظهر لو الحساب مش موجود أصلاً. قبلناها كـ tradeoff واضح (بنفس المنطق
+// المتبع في forgot-password) عشان تجربة المستخدم الحقيقي تبقى مفيدة.
 async function registerFailedAttempt(userDoc) {
   ensureLoginWindow(userDoc);
   userDoc.loginFailedAttempts = (userDoc.loginFailedAttempts || 0) + 1;
-  if (userDoc.loginFailedAttempts >= ACCOUNT_MAX_ATTEMPTS) {
+
+  const justLocked = userDoc.loginFailedAttempts >= ACCOUNT_MAX_ATTEMPTS;
+  if (justLocked) {
     userDoc.loginLockedUntil = new Date(Date.now() + ACCOUNT_LOCK_MS);
   }
   await userDoc.save();
+
+  return {
+    locked: justLocked,
+    remaining: Math.max(0, ACCOUNT_MAX_ATTEMPTS - userDoc.loginFailedAttempts),
+    lockSeconds: Math.ceil(ACCOUNT_LOCK_MS / 1000),
+  };
 }
 
 function clearLoginLock(userDoc) {
@@ -131,7 +154,9 @@ export const authOptions = {
           windowSeconds: 15 * 60,
         });
         if (!ipCheck.allowed) {
-          throw new Error("rate_limited");
+          // 🔒 SECURITY: بنبعت للـ UI بس عدد الثواني الباقية — مش أي تفاصيل
+          // تانية زي الـ IP نفسه أو عدد المحاولات الفعلي على مستوى الشبكة.
+          throw new Error(`rate_limited:${ipCheck.retryAfterSeconds}`);
         }
 
         try {
@@ -155,7 +180,7 @@ export const authOptions = {
           // 🔒 SECURITY: الحساب مقفول مؤقتًا بسبب محاولات فاشلة كتير — نرفض
           // من غير ما نتحقق من الباسورد أصلاً (يمنع استمرار التخمين وقت القفل).
           if (isAccountLocked(userDoc)) {
-            throw new Error("rate_limited");
+            throw new Error(`account_locked:${lockRemainingSeconds(userDoc)}`);
           }
 
           const storedPassword = userDoc.password || "";
@@ -171,8 +196,11 @@ export const authOptions = {
           }
 
           if (!valid) {
-            await registerFailedAttempt(userDoc);
-            return null;
+            const attempt = await registerFailedAttempt(userDoc);
+            if (attempt.locked) {
+              throw new Error(`account_locked:${attempt.lockSeconds}`);
+            }
+            throw new Error(`invalid_credentials:${attempt.remaining}`);
           }
 
           // 🔒 SECURITY: الـ role حصريًا من الداتابيز. مفيش أي مقارنة إيميل هنا خالص —
@@ -194,8 +222,11 @@ export const authOptions = {
             const backupValid = !totpValid && (await verifyBackupCode(userDoc, code));
 
             if (!totpValid && !backupValid) {
-              await registerFailedAttempt(userDoc);
-              throw new Error("mfa_invalid");
+              const attempt = await registerFailedAttempt(userDoc);
+              if (attempt.locked) {
+                throw new Error(`account_locked:${attempt.lockSeconds}`);
+              }
+              throw new Error(`mfa_invalid:${attempt.remaining}`);
             }
 
             if (backupValid) {
@@ -219,12 +250,21 @@ export const authOptions = {
             tokenVersion: userDoc.tokenVersion || 0,
           };
         } catch (error) {
-          // 🔒 SECURITY: الأخطاء المتعمّدة (rate_limited / mfa_required /
-          // mfa_invalid) لازم تتنشر للعميل زي ما هي عشان الواجهة تتصرف صح.
+          // 🔒 SECURITY: الأخطاء المتعمّدة (rate_limited:N / account_locked:N /
+          // invalid_credentials:N / mfa_required / mfa_invalid:N) لازم تتنشر
+          // للعميل زي ما هي عشان الواجهة تتصرف صح وتعرض عدد المحاولات/الوقت
+          // المتبقي. الفحص هنا بـ startsWith لأن الرسايل بقت شايلة قيمة رقمية
+          // بعد ":" (مثال: "invalid_credentials:3").
+          const KNOWN_ERROR_PREFIXES = [
+            "rate_limited:",
+            "account_locked:",
+            "invalid_credentials:",
+            "mfa_required",
+            "mfa_invalid:",
+          ];
           if (
-            error?.message === "rate_limited" ||
-            error?.message === "mfa_required" ||
-            error?.message === "mfa_invalid"
+            typeof error?.message === "string" &&
+            KNOWN_ERROR_PREFIXES.some((prefix) => error.message.startsWith(prefix))
           ) {
             throw error;
           }

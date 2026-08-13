@@ -236,6 +236,10 @@ const AUTH_I18N = {
       mfaCodeLabel: "كود التحقق",
       mfaSubmit: "تأكيد وتسجيل الدخول",
       errMfaInvalid: "الكود غلط، حاول تاني",
+      // ✅ رسائل rate limiting الجديدة — بتعرض عدد فعلي (محاولات/دقايق) بدل نص عام
+      attemptsRemainingLogin: "متبقي لك {n} محاولات قبل ما الحساب يتقفل مؤقتًا",
+      accountLockedBody: "الحساب اتقفل مؤقتًا بسبب محاولات دخول كتير غلط. حاول تاني بعد {m} دقيقة",
+      rateLimitedBody: "طلبات كتير من نفس الشبكة. حاول تاني بعد {m} دقيقة",
     },
     register: {
       title: "إنشاء حساب",
@@ -253,6 +257,7 @@ const AUTH_I18N = {
       errNameTaken: "الاسم ده موجود بالفعل، جرب اسم تاني",
       errEmailTaken: "الإيميل ده مسجل بالفعل، جرب تسجيل الدخول",
       errWeakPassword: "كلمة المرور لازم تكون 8 أحرف على الأقل",
+      errRateLimitedRetry: "محاولات تسجيل كتير من نفس الشبكة. حاول تاني بعد {m} دقيقة",
     },
     forgot: {
       title: "استعادة كلمة المرور",
@@ -311,6 +316,9 @@ const AUTH_I18N = {
       mfaCodeLabel: "Verification code",
       mfaSubmit: "Confirm and sign in",
       errMfaInvalid: "Invalid code, please try again",
+      attemptsRemainingLogin: "{n} attempts remaining before the account is temporarily locked",
+      accountLockedBody: "Account temporarily locked due to too many failed attempts. Try again in {m} minute(s)",
+      rateLimitedBody: "Too many requests from this network. Try again in {m} minute(s)",
     },
     register: {
       title: "Create account",
@@ -328,6 +336,7 @@ const AUTH_I18N = {
       errNameTaken: "This name is already taken",
       errEmailTaken: "This email is already registered",
       errWeakPassword: "Password must be at least 8 characters",
+      errRateLimitedRetry: "Too many sign-ups from this network. Try again in {m} minute(s)",
     },
     forgot: {
       title: "Reset password",
@@ -386,6 +395,9 @@ const AUTH_I18N = {
       mfaCodeLabel: "Código de verificación",
       mfaSubmit: "Confirmar e iniciar sesión",
       errMfaInvalid: "Código incorrecto, inténtalo de nuevo",
+      attemptsRemainingLogin: "Te quedan {n} intentos antes de que la cuenta se bloquee temporalmente",
+      accountLockedBody: "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Inténtalo de nuevo en {m} minuto(s)",
+      rateLimitedBody: "Demasiadas solicitudes desde esta red. Inténtalo de nuevo en {m} minuto(s)",
     },
     register: {
       title: "Crear cuenta",
@@ -403,6 +415,7 @@ const AUTH_I18N = {
       errNameTaken: "Este nombre ya está en uso",
       errEmailTaken: "Este correo ya está registrado",
       errWeakPassword: "La contraseña debe tener al menos 8 caracteres",
+      errRateLimitedRetry: "Demasiados registros desde esta red. Inténtalo de nuevo en {m} minuto(s)",
     },
     forgot: {
       title: "Restablecer contraseña",
@@ -486,6 +499,8 @@ function AuthModal({ mode, onClose, onSwitch }) {
     setForgotInfo("");
     setMfaStep(false);
     setMfaCode("");
+    setLoginRemainingAttempts(null);
+    setRegisterRetrySeconds(null);
   }, [language, mode]);
 
   // ✅ لما تفتح مودال "نسيت الباسورد" من جديد، ابدأ من الخطوة الأولى دايمًا
@@ -539,6 +554,14 @@ function AuthModal({ mode, onClose, onSwitch }) {
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
 
+  // ✅ عدد محاولات تسجيل الدخول المتبقية قبل قفل الحساب مؤقتًا — بيتحدث من
+  // رد السيرفر (authOptions.js بيرجّعه جوه رسالة الخطأ نفسها، شوف
+  // attemptLogin تحت). null لحد ما يوصلنا أول رد فيه العدد ده.
+  const [loginRemainingAttempts, setLoginRemainingAttempts] = useState(null);
+  // ✅ رسالة توضيحية بديلة (وقت القفل بالدقايق، أو ثواني الـ rate limit)
+  // بتتبني ديناميكيًا من رقم بيجيلنا من السيرفر، مش نص ثابت.
+  const [registerRetrySeconds, setRegisterRetrySeconds] = useState(null);
+
   const attemptLogin = async (extra = {}) => {
     setLoading(true);
     const res = await signIn("credentials", {
@@ -549,23 +572,54 @@ function AuthModal({ mode, onClose, onSwitch }) {
     });
     setLoading(false);
 
-    if (res?.error === "mfa_required") {
+    // ✅ authOptions.js بيبعت الخطأ على شكل "code:value" (مثال:
+    // "invalid_credentials:3" أو "account_locked:840") عشان الـ UI يقدر
+    // يعرض العدد/الوقت الفعلي بدل رسالة عامة بس. mfa_required مالوش قيمة
+    // إضافية فبيفضل من غير ":".
+    const [errCode, errParam] = String(res?.error || "").split(":");
+
+    if (errCode === "mfa_required") {
       setMfaStep(true);
       setError("");
+      setLoginRemainingAttempts(null);
       return;
     }
-    if (res?.error === "mfa_invalid") {
+
+    if (errCode === "mfa_invalid") {
+      const remaining = Number(errParam);
+      setLoginRemainingAttempts(Number.isFinite(remaining) ? remaining : null);
       setError(tx.errMfaInvalid);
       return;
     }
-    if (res?.error === "rate_limited") {
-      setError(tx.errRateLimited);
+
+    if (errCode === "invalid_credentials") {
+      const remaining = Number(errParam);
+      setLoginRemainingAttempts(Number.isFinite(remaining) ? remaining : null);
+      setError(tx.errWrong);
       return;
     }
+
+    if (errCode === "account_locked") {
+      const seconds = Number(errParam) || 0;
+      const minutes = Math.max(1, Math.ceil(seconds / 60));
+      setLoginRemainingAttempts(0);
+      setError(tx.accountLockedBody.replace("{m}", minutes));
+      return;
+    }
+
+    if (errCode === "rate_limited") {
+      const seconds = Number(errParam) || 0;
+      const minutes = Math.max(1, Math.ceil(seconds / 60));
+      setLoginRemainingAttempts(null);
+      setError(tx.rateLimitedBody.replace("{m}", minutes));
+      return;
+    }
+
     if (res?.error) {
       setError(tx.errWrong);
       return;
     }
+
     onClose();
   };
 
@@ -597,7 +651,15 @@ function AuthModal({ mode, onClose, onSwitch }) {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setLoading(false);
-        if (res.status === 429) { setError(tx.errRateLimited); return; }
+        if (res.status === 429) {
+          // ✅ /api/register بيرجّع retryAfterSeconds فعليًا — بنحوّله لدقايق
+          // ونعرضه بدل رسالة عامة، بنفس أسلوب رسائل rate limit التانية.
+          const seconds = Number(data.retryAfterSeconds) || 0;
+          const minutes = Math.max(1, Math.ceil(seconds / 60));
+          setRegisterRetrySeconds(seconds);
+          setError(tx.errRateLimitedRetry.replace("{m}", minutes));
+          return;
+        }
         if (data.error === "name_taken")     { setError(tx.errNameTaken);     return; }
         if (data.error === "email_taken")    { setError(tx.errEmailTaken);    return; }
         if (data.error === "weak_password")  { setError(tx.errWeakPassword);  return; }

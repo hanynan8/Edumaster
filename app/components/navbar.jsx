@@ -1,15 +1,175 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { signOut, useSession } from "next-auth/react";
-import { ArrowRight, MenuIcon, XIcon, LangDropdown, UserDropdown } from "./NavUI";
-import AuthModal from "./AuthModal";
+import AuthModal from "./auth/authModel";
+
+/* ═══════════════════════════════════════════════════════
+   هذا الملف ناتج عن دمج navbar.jsx + NavUi.jsx في ملف واحد:
+   - الأيقونات + LangDropdown + UserDropdown كانوا جزء من NavUi.jsx
+   - باقي الملف (useNavbarData + Navbar) من navbar.jsx
+═══════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────
-  FETCH HOOK
+   ICONS  (كانت في NavUi.jsx)
+───────────────────────────────────────── */
+function ArrowRight({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+function ChevronDown({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+function Globe({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" />
+    </svg>
+  );
+}
+function MenuIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+function XIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────
+   LANGUAGE DROPDOWN  (كان في NavUi.jsx)
+───────────────────────────────────────── */
+function LangDropdown({ languages }) {
+  const { language, changeLanguage } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const current = languages.find((l) => l.code === language) || languages[0];
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#0a0a0a] border border-gray-200 rounded-lg hover:border-gray-300 transition-all duration-150"
+      >
+        <Globe size={13} />
+        <span>{current.code.toUpperCase()}</span>
+        <span className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+          <ChevronDown size={12} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+8px)] w-40 sm:w-44 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
+          {languages.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => { changeLanguage(lang.code); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors duration-100 ${
+                lang.code === language
+                  ? "bg-[#f7f7f7] text-[#0a0a0a] font-bold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] font-medium"
+              }`}
+            >
+              <span>{lang.label}</span>
+              {lang.code === language && (
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   USER DROPDOWN  (كان في NavUi.jsx)
+───────────────────────────────────────── */
+function UserDropdown({ user }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 border border-gray-200 rounded-lg hover:border-gray-300 transition-all duration-150"
+      >
+        <span className="w-7 h-7 rounded-full bg-[#C9A227] text-white text-xs font-bold flex items-center justify-center">
+          {initial}
+        </span>
+        <span className="hidden sm:block text-sm font-semibold text-[#0a0a0a] max-w-[80px] truncate">
+          {user?.name}
+        </span>
+        <span className={`transition-transform duration-200 text-gray-400 ${open ? "rotate-180" : ""}`}>
+          <ChevronDown size={12} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-sm font-bold text-[#0a0a0a] truncate">{user?.name}</p>
+            {user?.phone && (
+              <p className="text-xs text-gray-400 mt-0.5 truncate">{user.phone}</p>
+            )}
+          </div>
+          <button
+            onClick={() => { signOut({ callbackUrl: "/" }); setOpen(false); }}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#C9A227] hover:bg-amber-50 transition-colors font-medium border-t border-gray-100"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   FETCH HOOK  (كان في navbar.jsx)
 ───────────────────────────────────────── */
 function useNavbarData() {
   const [data, setData] = useState(null);
@@ -36,14 +196,13 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [authModal, setAuthModal] = useState(null);
 
-  if (pathname.startsWith("/admin")) return null;
-
   const isLoading = status === "loading";
   const isLoggedIn = status === "authenticated";
 
   // Close mobile menu on route change
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
+  if (pathname.startsWith("/admin")) return null;
   if (!data || !data.i18n) return null;
 
   const t = data.i18n[language] ?? data.i18n["en"];
@@ -134,42 +293,42 @@ export default function Navbar() {
           onSwitch={(m) => setAuthModal(m)}
         />
       )}
-<nav
-  dir={isRTL ? "rtl" : "ltr"}
-  className="sticky top-0 z-50 bg-white border-b border-gray-100"
-  style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
->
+      <nav
+        dir={isRTL ? "rtl" : "ltr"}
+        className="sticky top-0 z-50 bg-white border-b border-gray-100"
+        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
+      >
         {/* Navbar bar — px-5 on mobile, px-16 on desktop */}
         <div className="mx-auto px-5 sm:px-8 md:px-16 h-[60px] sm:h-[68px] flex items-center justify-between gap-4">
 
           {/* Logo */}
-<Link href="/" className="shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity">
-  {data.logoHref && (
-    <img
-      src={data.logoHref}
-      alt={t.brand}
-      className="h-12 w-12 sm:h-14 sm:w-14 md:h-14 md:w-14 object-cover rounded-full ring-2 ring-[#C9A227]/30"
-    />
-  )}
-  <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-[#C9A227]">
-    {t.brand}
-  </span>
-</Link>
+          <Link href="/" className="shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity">
+            {data.logoHref && (
+              <img
+                src={data.logoHref}
+                alt={t.brand}
+                className="h-12 w-12 sm:h-14 sm:w-14 md:h-14 md:w-14 object-cover rounded-full ring-2 ring-[#C9A227]/30"
+              />
+            )}
+            <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-[#C9A227]">
+              {t.brand}
+            </span>
+          </Link>
 
           {/* Desktop nav links */}
           <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-{data.links
-  .filter((_, i) => i !== 4 && i !== 5)
-  .map((link) => (
-    <Link
-      key={link.id}
-      href={link.href}
-      className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
-    >
-      {t.links[link.id]}
-      <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
-    </Link>
-  ))}
+            {data.links
+              .filter((_, i) => i !== 4 && i !== 5)
+              .map((link) => (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
+                >
+                  {t.links[link.id]}
+                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+                </Link>
+              ))}
           </div>
 
           {/* Desktop right controls */}
@@ -196,21 +355,21 @@ export default function Navbar() {
           menuOpen ? "max-h-[560px] opacity-100" : "max-h-0 opacity-0"
         }`}>
           <div className="bg-white border-t border-gray-100 px-5 sm:px-6 py-4 sm:py-5 flex flex-col gap-1">
-{data.links
-  .filter((_, i) => i !== 4 && i !== 5)
-  .map((link) => (
-    <Link
-      key={link.id}
-      href={link.href}
-      onClick={() => setMenuOpen(false)}
-      className="flex items-center justify-between py-3 px-2 text-base font-medium text-gray-700 hover:text-[#C9A227] border-b border-gray-50 last:border-0 transition-colors group"
-    >
-      {t.links[link.id]}
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowRight size={13} />
-      </span>
-    </Link>
-  ))}
+            {data.links
+              .filter((_, i) => i !== 4 && i !== 5)
+              .map((link) => (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center justify-between py-3 px-2 text-base font-medium text-gray-700 hover:text-[#C9A227] border-b border-gray-50 last:border-0 transition-colors group"
+                >
+                  {t.links[link.id]}
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowRight size={13} />
+                  </span>
+                </Link>
+              ))}
             <MobileAuthControls />
           </div>
         </div>

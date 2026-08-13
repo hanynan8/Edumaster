@@ -222,7 +222,7 @@ export default function CoursesAdmin() {
 
                     {/* Image */}
                     <div className="col-span-full">
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Image size={12} /> Course Image URL
                       </label>
                       <input
@@ -243,7 +243,7 @@ export default function CoursesAdmin() {
 
                     {/* CTA Href */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Link size={12} /> CTA Link (href)
                       </label>
                       <input
@@ -261,7 +261,7 @@ export default function CoursesAdmin() {
 
                     {/* Duration */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Clock size={12} /> Duration
                       </label>
                       <input
@@ -279,7 +279,7 @@ export default function CoursesAdmin() {
 
                     {/* Level */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Star size={12} /> Level
                       </label>
                       <input
@@ -297,7 +297,7 @@ export default function CoursesAdmin() {
 
                     {/* Color */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Palette size={12} /> Card Color
                       </label>
                       <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export default function CoursesAdmin() {
 
                     {/* Level Color */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Palette size={12} /> Level Badge Color
                       </label>
                       <div className="flex items-center gap-2">
@@ -357,7 +357,7 @@ export default function CoursesAdmin() {
 
                     {/* Cert Logo */}
                     <div className="col-span-full md:col-span-1">
-                      <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="  text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                         <Award size={12} /> Cert Logo URL
                       </label>
                       <input

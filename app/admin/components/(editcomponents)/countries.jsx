@@ -325,7 +325,7 @@ export default function CountriesAdmin() {
                 const imageValue = selectedCountry.sections?.[key]?.image || '';
                 return (
                   <div key={key} className="p-4 bg-white rounded-lg border-2 border-purple-100">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+<label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                       <Icon size={14} /> {meta.label} – Image
                     </label>
                     <input

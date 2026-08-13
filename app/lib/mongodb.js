@@ -26,11 +26,43 @@ export async function connectToMongo() {
   return globalThis._mongo.conn;
 }
 
-const authSchema = new mongoose.Schema({}, { strict: false, timestamps: true });
+// الحقول دي معرّفة صراحة عشان user.save() يشتغل عليها صح (Mongoose بيتجاهل
+// بصمت أي property مش معرّفة كـ path رسمي في الـ schema، حتى مع strict:false).
+// سايبين strict:false في الآخر عشان أي حقول قديمة تانية في الداتابيز تفضل شغالة.
+const authSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: { type: String, lowercase: true, trim: true },
+    password: String,
+    phone: String,
+    address: mongoose.Schema.Types.Mixed,
+    paymentMethod: { type: String, default: "cash" },
+    role: { type: String, default: "student" },
+
+    // خاصين بـ forgot/reset password
+    resetCodeHash: { type: String, default: null },
+    resetCodeExpiry: { type: Date, default: null },
+    resetAttempts: { type: Number, default: 0 },
+    // 🔒 SECURITY: بداية نافذة الـ 12 ساعة لعدّ محاولات تخمين الكود
+    // (منفصلة عن resetCodeExpiry بتاع صلاحية الكود نفسه).
+    resetAttemptsWindowStart: { type: Date, default: null },
+  },
+  { strict: false, timestamps: true }
+);
 
 export function getAuthModel() {
   const modelName = "Model_auth";
   if (globalThis._mongoModels["auth"]) return globalThis._mongoModels["auth"];
+
+  // ✅ لو الموديل كان متسجل قبل كده بالـ schema القديمة (بدون الحقول دي)،
+  // نمسحه ونسجله تاني بالـ schema الجديدة — عشان في بيئة dev مع hot-reload
+  // الموديل القديم يفضل عالق في mongoose.models.
+  const existing = mongoose.models[modelName];
+  if (existing && !existing.schema.path("resetAttemptsWindowStart")) {
+    delete mongoose.models[modelName];
+    if (mongoose.modelSchemas) delete mongoose.modelSchemas[modelName];
+  }
+
   const Model = mongoose.models[modelName] || mongoose.model(modelName, authSchema, "auth");
   globalThis._mongoModels["auth"] = Model;
   return Model;

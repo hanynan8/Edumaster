@@ -59,9 +59,10 @@ export const authOptions = {
 
           if (!valid) return null;
 
-          const role =
-            userDoc.role ||
-            (userDoc.email?.toLowerCase() === ADMIN_EMAIL ? "admin" : "student");
+const role =
+  userDoc.email?.toLowerCase() === ADMIN_EMAIL
+    ? "admin"
+    : (userDoc.role || "student");
 
           return {
             id: userDoc._id?.toString(),

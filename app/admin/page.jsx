@@ -22,7 +22,10 @@ import SuccessStoriesAdmin from './components/success-stories';
 import BlogAdmin from './components/blogs';
 import ContactAdmin from './components/contact';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
+// 🔒 SECURITY: اتشال أي إيميل أدمن ثابت من هنا. الاعتماد بقى على role بس،
+// نفس المصدر الوحيد اللي بيتفحص في الـ API (route.js) — عشان الواجهة والباك إند
+// يبقوا متطابقين، ومفيش أي fallback بإيميل مكتوب صريح يتسرب في الـ JS bundle
+// اللي بيتبعت للمتصفح (أي حد يقدر يفتحه من devtools ويشوفه).
 
 // الإيميل اللي هيبعت منه الرد (الحساب اللي هيفتح جيميل بيه)
 const SENDER_EMAIL = 'info@edumaster365.com';
@@ -642,13 +645,16 @@ export default function AdminDashboard() {
     );
   }
 
-  // مش logged in أو الإيميل مش admin@gmail.com → 404
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.email === ADMIN_EMAIL;
+  // 🔒 SECURITY: مصدر واحد بس للتحقق من الأدمن — role. اتشال إيميل الفولباك
+  // اللي كان بيتعارض مع الحماية بتاعة الـ API، ومهم توضيح إن ده check واجهة بس
+  // (UX gate) مش حماية حقيقية — الحماية الفعلية موجودة سيرفر-سايد في كل
+  // /api/data و /api/admin/* لأن أي حد يقدر يعدل الـ client code أو يستنى.
+  const isAdmin = session?.user?.role === 'admin';
   if (status === 'unauthenticated' || !isAdmin) {
     return <NotFound />;
   }
 
-  // ✅ مسجّل بـ admin@gmail.com → فتح اللوحة مباشرة بدون باسورد
+  // ✅ مسجّل بحساب role = admin → فتح اللوحة مباشرة
   const tabs = [
     { id: 'home',             name: 'Home',             icon: Home,          component: HomeAdmin },
     { id: 'navbar',           name: 'Navbar',           icon: Navigation,    component: NavbarAdmin },

@@ -1,6 +1,12 @@
 // app/api/data/route.js
+//
+// ==========================================================================
+// نسخة مؤمّنة (Hardened) — كل التعديلات موضّحة بتعليقات تبدأ بـ "🔒 SECURITY:"
+// ==========================================================================
 
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authOptions";
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
@@ -14,20 +20,31 @@ async function connectToMongo() {
   if (globalThis._mongo.conn) return globalThis._mongo.conn;
   if (!MONGO_URI) throw new Error("Please set MONGO_URI environment variable");
 
-  if (!globalThis._mongo.promise) {
-    globalThis._mongo.promise = mongoose
-      .connect(MONGO_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      })
-      .then((mongooseInstance) => mongooseInstance);
-  }
-
+  globalThis._mongo.promise = mongoose
+    .connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 10000,
+    })
+    .then((mongooseInstance) => mongooseInstance)
+    .catch((err) => {
+      globalThis._mongo.promise = null;
+      throw err;
+    });
   globalThis._mongo.conn = await globalThis._mongo.promise;
   return globalThis._mongo.conn;
 }
+
 const schema = new mongoose.Schema({}, { strict: false, timestamps: true });
 
+// 🔒 SECURITY: أسماء الكولكشنز المسموحة تتكون من حروف/أرقام/شرطة سفلية/شرطة فقط،
+// وطولها محدود. ده بيمنع حد يبعت اسم كولكشن غريب (فيه نقط، $ ، مسافات، إلخ)
+// يحاول يستغل سلوك mongoose/mongodb الغريب أو ينشئ كولكشنز عشوائية بكثرة (DoS).
+const COLLECTION_NAME_REGEX = /^[a-zA-Z0-9_-]{1,64}$/;
+
+function isValidCollectionName(name) {
+  return typeof name === "string" && COLLECTION_NAME_REGEX.test(name);
+}
 
 function normalizeModelName(name) {
   return `Model_${String(name).replace(/[^a-zA-Z0-9]/g, "_")}`;
@@ -60,15 +77,28 @@ async function listCollections() {
 }
 
 function jsonResponse(data, status = 200) {
+  // 🔒 SECURITY: هيدرز أساسية بتقلل مخاطر MIME sniffing / caching حساس.
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
+// 🔒 SECURITY: حد أقصى لحجم الـ body (بالبايت) لمنع إرسال payloads ضخمة (DoS / abuse).
+const MAX_BODY_BYTES = 100 * 1024; // 100KB كافية جدًا لأي فورم أو محتوى صفحة
+
 async function parseBody(request) {
   try {
-    return await request.json();
+    const raw = await request.text();
+    if (raw && raw.length > MAX_BODY_BYTES) {
+      throw new Error("Payload too large");
+    }
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch (err) {
     return null;
   }
@@ -82,6 +112,42 @@ function getSearchParams(request) {
   };
 }
 
+// 🔒 SECURITY: منع NoSQL injection عبر مفاتيح خطيرة زي $where, $set, $gt...
+// أو مفاتيح بتستخدم فيها نقطة (dot notation) اللي ممكن تلاعب فيها في المستندات المتداخلة،
+// وكمان منع Prototype Pollution عبر __proto__ / constructor / prototype.
+const DANGEROUS_KEY_PATTERN = /^\$|\.|^__proto__$|^constructor$|^prototype$/;
+
+function isSafeKey(key) {
+  return !DANGEROUS_KEY_PATTERN.test(key);
+}
+
+function sanitizeObject(obj, depth = 0) {
+  if (depth > 5) throw new Error("Object nesting too deep");
+  if (obj === null || typeof obj !== "object") return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeObject(item, depth + 1));
+  }
+
+  const clean = {};
+  for (const key of Object.keys(obj)) {
+    if (!isSafeKey(key)) {
+      throw new Error(`Invalid field name: ${key}`);
+    }
+    clean[key] = sanitizeObject(obj[key], depth + 1);
+  }
+  return clean;
+}
+
+// 🔒 SECURITY: أي بيانات جاية من العميل (حتى لو admin) بتتعقم قبل ما توصل لـ mongoose.
+function safeSanitize(body) {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    // احنا مستنيين object أو array of objects بس على مستوى أعلى
+    return sanitizeObject(body);
+  }
+  return sanitizeObject(body);
+}
+
 // ⚠️ كولكشنز حساسة ممنوع تتعامل معها من الـ endpoint المفتوح ده خالص —
 // أي قراءة أو كتابة عليها لازم تعدي من route محمي بصلاحيات حقيقية على السيرفر.
 // "auth" فيها الباسوردات (ولو مشفرة) وممنوع أي حد يعرف يجيبها بمجرد ما يعرف اسم الكولكشن.
@@ -89,6 +155,114 @@ const PROTECTED_COLLECTIONS = new Set(["auth"]);
 
 function isProtectedCollection(name) {
   return PROTECTED_COLLECTIONS.has(String(name));
+}
+
+// ✅ الكولكشنز الوحيدة المسموح فيها بالكتابة (POST) من غير تسجيل دخول admin —
+// دي بيانات جايه من زوار الموقع نفسهم (زي فورم التواصل)، مش محتوى الموقع.
+// أي كولكشن تاني (navbar, home, about, services, courses...) بيانات محتوى الموقع
+// ولازم يتغير من لوحة الأدمن بس.
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form"]);
+
+// ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
+// "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
+// تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
+// للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
+const ADMIN_READ_COLLECTIONS = new Set(["form"]);
+
+function isAdminReadCollection(name) {
+  return ADMIN_READ_COLLECTIONS.has(String(name));
+}
+
+// 🔒 SECURITY: مفيش أي fallback ثابت (زي "admin@gmail.com") تاني.
+// لو ADMIN_EMAIL مش متظبطة في الـ env، الـ admin check هيرجع false دايمًا
+// (يعني محدش يقدر يعمل حاجات admin) بدل ما يفتح ثغرة لأي حد يسجل بإيميل معروف.
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL
+  ? process.env.ADMIN_EMAIL.toLowerCase()
+  : null;
+
+if (!ADMIN_EMAIL) {
+  console.warn(
+    "⚠️ ADMIN_EMAIL is not set — admin fallback via email is DISABLED. Only session role='admin' will grant admin access."
+  );
+}
+
+async function isAdminRequest() {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email?.toLowerCase();
+  const role = session?.user?.role;
+
+  if (role === "admin") return true;
+  if (ADMIN_EMAIL && email === ADMIN_EMAIL) return true;
+  return false;
+}
+
+// 🔒 SECURITY: Rate limiting بسيط في الميموري لكل IP، بيطبق بس على POST /form
+// (الـ endpoint المفتوح للعامة). ده مش بديل عن حماية على مستوى الـ edge/CDN
+// (زي Cloudflare أو Vercel Firewall) لو متاحة، لكنه خط دفاع إضافي يمنع سبام سريع
+// ويوفر Resend quota. ملحوظة: في بيئة serverless متعددة الـ instances الميموري
+// مش مشتركة 100%، فلو محتاج ضمان أقوى استخدم Redis أو حل خارجي.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // دقيقة
+const RATE_LIMIT_MAX_REQUESTS = 5; // 5 طلبات كحد أقصى في الدقيقة لكل IP
+if (!globalThis._formRateLimit) globalThis._formRateLimit = new Map();
+
+function getClientIp(request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return request.headers.get("x-real-ip") || "unknown";
+}
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = globalThis._formRateLimit.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    globalThis._formRateLimit.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+
+  entry.count += 1;
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  return false;
+}
+
+// 🔒 SECURITY: تنظيف دوري بسيط لخريطة الـ rate limit عشان ما تكبرش من غير حدود
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of globalThis._formRateLimit.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 5) {
+      globalThis._formRateLimit.delete(ip);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS * 5).unref?.();
+
+// 🔒 SECURITY: تحقق أساسي من شكل بيانات الفورم قبل الحفظ/الإرسال بالإيميل —
+// بيمنع حقن HTML ضخم أو نصوص عملاقة كـ "رسالة"، وبيتأكد إن الإيميل شكله سليم لو موجود.
+const FORM_FIELD_MAX_LENGTHS = {
+  name: 200,
+  email: 254,
+  phone: 40,
+  service: 200,
+  message: 5000,
+};
+const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateFormPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid form data";
+  }
+  for (const [field, maxLen] of Object.entries(FORM_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
+  }
+  return null; // valid
 }
 
 // ===== Resend Email Notification =====
@@ -290,13 +464,30 @@ async function notifyViaResend(data) {
     console.error("Resend notification error:", err);
   }
 }
+
+// 🔒 SECURITY: دالة موحدة للتعامل مع الأخطاء — بترجع رسالة عامة للعميل
+// وتسجل التفاصيل الكاملة في الـ server logs بس. ده بيمنع تسريب تفاصيل
+// داخلية عن الداتابيز أو الكود (stack traces, نصوص errors من mongoose، إلخ)
+// اللي ممكن تساعد مهاجم يفهم بنية النظام.
+function handleError(err, context) {
+  console.error(`[/api/data] ${context}:`, err);
+  return jsonResponse({ error: "Internal server error" }, 500);
+}
+
 export async function GET(request) {
   try {
     await connectToMongo();
     const { collection, id } = getSearchParams(request);
 
     if (!collection) {
-      const colNames = (await listCollections()).filter((n) => !isProtectedCollection(n));
+      // 🔒 SECURITY: استبعاد الكولكشنز المحمية (auth) والكولكشنز اللي قراءتها admin-only (form)
+      const isAdmin = await isAdminRequest();
+      const colNames = (await listCollections()).filter((n) => {
+        if (isProtectedCollection(n)) return false;
+        if (isAdminReadCollection(n) && !isAdmin) return false;
+        return true;
+      });
+
       const results = await Promise.all(
         colNames.map(async (name) => {
           const Model = getModelForCollection(name);
@@ -313,11 +504,25 @@ export async function GET(request) {
     }
 
     const colName = String(collection);
+
+    // 🔒 SECURITY: التحقق من شكل اسم الكولكشن قبل أي استخدام له
+    if (!isValidCollectionName(colName)) {
+      return jsonResponse({ error: "Invalid collection name" }, 400);
+    }
+
     if (isProtectedCollection(colName)) {
       return jsonResponse(
         { error: "This collection is protected. Use the dedicated API route instead." },
         403
       );
+    }
+
+    // 🔒 SECURITY: منع قراءة "form" لغير الأدمن
+    if (isAdminReadCollection(colName)) {
+      const authorized = await isAdminRequest();
+      if (!authorized) {
+        return jsonResponse({ error: "unauthorized" }, 401);
+      }
     }
 
     const existingCols = await listCollections();
@@ -337,8 +542,7 @@ export async function GET(request) {
     const docs = await Model.find({});
     return jsonResponse(docs, 200);
   } catch (err) {
-    console.error(err);
-    return jsonResponse({ error: err.message || "Internal server error" }, 500);
+    return handleError(err, "GET");
   }
 }
 
@@ -349,6 +553,12 @@ export async function POST(request) {
     if (!collection) return jsonResponse({ error: "Collection is required" }, 400);
 
     const colName = String(collection);
+
+    // 🔒 SECURITY: التحقق من شكل اسم الكولكشن
+    if (!isValidCollectionName(colName)) {
+      return jsonResponse({ error: "Invalid collection name" }, 400);
+    }
+
     if (isProtectedCollection(colName)) {
       return jsonResponse(
         { error: "This collection is protected. Use /api/register instead." },
@@ -356,13 +566,59 @@ export async function POST(request) {
       );
     }
 
-    const Model = getModelForCollection(colName);
+    // ✅ أي كولكشن غير الموجودة في PUBLIC_WRITE_COLLECTIONS (زي "form") محتاجة
+    // تسجيل دخول admin فعلي — عشان محتوى الموقع (navbar, home, about...) يتغير
+    // من لوحة الأدمن بتاعتنا بس، مش من أي حد عارف اسم الكولكشن.
+    const isPublicWrite = PUBLIC_WRITE_COLLECTIONS.has(colName);
+    if (!isPublicWrite) {
+      const authorized = await isAdminRequest();
+      if (!authorized) {
+        return jsonResponse({ error: "unauthorized" }, 401);
+      }
+    }
+
+    // 🔒 SECURITY: rate limiting على الكتابة العامة (form) بس، لأنها الوحيدة
+    // المتاحة من غير تسجيل دخول وبالتالي عرضة للسبام
+    if (isPublicWrite) {
+      const ip = getClientIp(request);
+      if (isRateLimited(ip)) {
+        return jsonResponse({ error: "Too many requests, please try again later" }, 429);
+      }
+    }
 
     const body = await parseBody(request);
+    if (body === null) {
+      return jsonResponse({ error: "Invalid or missing JSON body" }, 400);
+    }
+
+    // 🔒 SECURITY: تعقيم البيانات من أي مفاتيح خطيرة ($ operators, prototype pollution)
+    let sanitizedBody;
+    try {
+      sanitizedBody = safeSanitize(body);
+    } catch (e) {
+      return jsonResponse({ error: e.message || "Invalid payload" }, 400);
+    }
+
+    // 🔒 SECURITY: تحقق إضافي مخصص لبيانات الفورم العام (طول الحقول، شكل الإيميل)
+    if (isPublicWrite) {
+      const validationError = Array.isArray(sanitizedBody)
+        ? "Bulk submissions are not allowed for this collection"
+        : validateFormPayload(sanitizedBody);
+      if (validationError) {
+        return jsonResponse({ error: validationError }, 400);
+      }
+    }
+
+    const Model = getModelForCollection(colName);
     const now = new Date();
 
-    if (Array.isArray(body)) {
-      const withDates = body.map((item) => ({
+    if (Array.isArray(sanitizedBody)) {
+      // 🔒 SECURITY: حد أقصى لعدد العناصر في insertMany لمنع bulk abuse
+      const MAX_BULK_ITEMS = 200;
+      if (sanitizedBody.length > MAX_BULK_ITEMS) {
+        return jsonResponse({ error: "Too many items in a single request" }, 400);
+      }
+      const withDates = sanitizedBody.map((item) => ({
         ...item,
         createdAt: now,
         updatedAt: now,
@@ -370,20 +626,20 @@ export async function POST(request) {
       const created = await Model.insertMany(withDates);
       return jsonResponse(created, 201);
     } else {
-      const dataWithDate = { ...body, createdAt: now, updatedAt: now };
+      const dataWithDate = { ...sanitizedBody, createdAt: now, updatedAt: now };
       const created = await Model.create(dataWithDate);
 
-if (colName === "form") {
-  await notifyViaResend(created); // ✅ Resend بدل Formspree
-}
+      if (colName === "form") {
+        await notifyViaResend(created); // ✅ Resend بدل Formspree
+      }
 
       return jsonResponse(created, 201);
     }
   } catch (err) {
-    console.error(err);
-    return jsonResponse({ error: err.message || "Internal server error" }, 500);
+    return handleError(err, "POST");
   }
 }
+
 export async function PUT(request) {
   try {
     await connectToMongo();
@@ -393,21 +649,54 @@ export async function PUT(request) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "Invalid id format" }, 400);
 
     const colName = String(collection);
+
+    if (!isValidCollectionName(colName)) {
+      return jsonResponse({ error: "Invalid collection name" }, 400);
+    }
+
     if (isProtectedCollection(colName)) {
       return jsonResponse({ error: "This collection is protected." }, 403);
     }
+
+    // ✅ التعديل (PUT) دايمًا لازم admin — مفيش كولكشن فيها تعديل عام من زوار الموقع
+    const authorized = await isAdminRequest();
+    if (!authorized) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
+
     const existingCols = await listCollections();
     if (!existingCols.includes(colName)) return jsonResponse({ error: "Collection not found" }, 404);
 
     const Model = getModelForCollection(colName);
 
     const body = await parseBody(request);
-    const updated = await Model.findByIdAndUpdate(id, body, { new: true, runValidators: false });
+    if (body === null) {
+      return jsonResponse({ error: "Invalid or missing JSON body" }, 400);
+    }
+
+    // 🔒 SECURITY: تعقيم البيانات من أي مفاتيح خطيرة قبل الـ update
+    // (ده مهم جدًا هنا لأن findByIdAndUpdate بيقبل update operators زي $set/$unset،
+    // فلازم نتأكد إن مفيش حد بيبعت operators غريبة أو يحاول يعدل حقول نظامية).
+    let sanitizedBody;
+    try {
+      sanitizedBody = safeSanitize(body);
+    } catch (e) {
+      return jsonResponse({ error: e.message || "Invalid payload" }, 400);
+    }
+
+    // 🔒 SECURITY: منع تعديل createdAt يدويًا، وتحديث updatedAt تلقائيًا فقط
+    delete sanitizedBody.createdAt;
+    sanitizedBody.updatedAt = new Date();
+
+    const updated = await Model.findByIdAndUpdate(id, sanitizedBody, {
+      new: true,
+      runValidators: false,
+      overwrite: false, // 🔒 SECURITY: تحديث جزئي فقط، مش استبدال المستند بالكامل
+    });
     if (!updated) return jsonResponse({ error: "Document not found" }, 404);
     return jsonResponse(updated, 200);
   } catch (err) {
-    console.error(err);
-    return jsonResponse({ error: err.message || "Internal server error" }, 500);
+    return handleError(err, "PUT");
   }
 }
 
@@ -420,9 +709,21 @@ export async function DELETE(request) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "Invalid id format" }, 400);
 
     const colName = String(collection);
+
+    if (!isValidCollectionName(colName)) {
+      return jsonResponse({ error: "Invalid collection name" }, 400);
+    }
+
     if (isProtectedCollection(colName)) {
       return jsonResponse({ error: "This collection is protected." }, 403);
     }
+
+    // ✅ الحذف (DELETE) دايمًا لازم admin — حتى مسح رسائل "form" لازم يتم من لوحة الأدمن بس
+    const authorized = await isAdminRequest();
+    if (!authorized) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
+
     const existingCols = await listCollections();
     if (!existingCols.includes(colName)) return jsonResponse({ error: "Collection not found" }, 404);
 
@@ -432,7 +733,6 @@ export async function DELETE(request) {
     if (!deleted) return jsonResponse({ error: "Document not found" }, 404);
     return jsonResponse(deleted, 200);
   } catch (err) {
-    console.error(err);
-    return jsonResponse({ error: err.message || "Internal server error" }, 500);
+    return handleError(err, "DELETE");
   }
 }

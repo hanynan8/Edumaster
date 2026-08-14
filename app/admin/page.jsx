@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   Database, Settings, Home, Navigation, Info, BookOpen,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
-  Loader, Inbox, Tags, Layers,
+  Loader, Inbox, Tags, Layers, DollarSign,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -23,6 +23,7 @@ import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
+import RevenueAdmin from './components/revenuePanel';
 
 function NotFound() {
   return (
@@ -105,6 +106,7 @@ export default function AdminDashboard() {
     { id: 'courses',          name: 'Courses',          icon: BookOpen,      component: CoursesAdmin },
     { id: 'categories',       name: 'Categories',       icon: Tags,          component: Gategories },
     { id: 'membership_plans', name: 'Membership Plans', icon: Layers,        component: MembershipPlansAdmin },
+    { id: 'revenue',          name: 'Revenue',          icon: DollarSign,    component: RevenueAdmin },
     { id: 'countries',        name: 'Countries',        icon: Globe,         component: CountriesAdmin },
     { id: 'success_stories',  name: 'Success Stories',  icon: MessageSquare, component: SuccessStoriesAdmin },
     { id: 'blog',             name: 'Blog',             icon: FileText,      component: BlogAdmin },

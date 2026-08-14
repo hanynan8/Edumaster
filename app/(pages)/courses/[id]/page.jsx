@@ -46,12 +46,15 @@ const STRINGS = {
     requirements: "المتطلبات",
     outcomes: "هتتعلم إيه",
     enroll: "اشترك في الكورس",
+    buyNow: "اشترِ الآن",
     enrolling: "جارِ التسجيل...",
+    redirecting: "جارِ التحويل لـ PayPal...",
     enrolled: "أنت مسجّل في هذا الكورس",
     includedInMembership: "متضمّن في اشتراكك الحالي",
     loginToEnroll: "سجّل دخولك للاشتراك في الكورس",
     login: "تسجيل الدخول",
-    paymentSoon: "الدفع الإلكتروني للكورسات المدفوعة قريبًا — تواصل مع الإدارة للتسجيل اليدوي",
+    paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتسجيل اليدوي",
+    paymentGatewayError: "تعذّر بدء عملية الدفع، حاول مرة أخرى",
     ownCourse: "هذا كورسك — تقدر تدير محتواه من لوحة المدرس",
     manage: "إدارة المحتوى",
     locked: "مقفول",
@@ -72,12 +75,15 @@ const STRINGS = {
     requirements: "Requirements",
     outcomes: "What you'll learn",
     enroll: "Enroll in this course",
+    buyNow: "Buy Now",
     enrolling: "Enrolling...",
+    redirecting: "Redirecting to PayPal...",
     enrolled: "You're enrolled in this course",
     includedInMembership: "Included in your current membership",
     loginToEnroll: "Log in to enroll in this course",
     login: "Log In",
-    paymentSoon: "Online payment for paid courses is coming soon — contact us to enroll manually",
+    paymentSoon: "Online payment isn't available right now — contact us to enroll manually",
+    paymentGatewayError: "Couldn't start the payment, please try again",
     ownCourse: "This is your course — manage its content from the teacher dashboard",
     manage: "Manage Content",
     locked: "Locked",
@@ -251,7 +257,44 @@ export default function CourseDetailPage({ params }) {
       .catch(() => setEnrollment({ enrolled: false, hasAccess: false }));
   }, [id, session, sessionStatus]);
 
+  // 🆕 Phase 3 — اليوم 27-28: كورس مدفوع (مش متاح مجانًا وعضويتنا لو موجودة
+  // مش بتغطيه) → PayPal checkout بدل POST /api/enrollments مباشرة. لو
+  // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
+  // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش
+  // احتمال يدفع لحاجة عنده وصول ليها بالفعل.
+  async function handleBuyWithPaypal() {
+    setEnrollError("");
+    setEnrolling(true);
+    try {
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "course", id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.approveUrl) {
+        if (data.error === "cannot_enroll_own_course") setEnrollError(t.ownCourse);
+        else if (data.error === "payment_gateway_not_configured") setEnrollError(t.paymentSoon);
+        else setEnrollError(t.paymentGatewayError);
+        setEnrolling(false);
+        return;
+      }
+      // بنسيب enrolling=true عشان الزرار يفضل معطّل لحد ما التحويل يحصل
+      window.location.href = data.approveUrl;
+    } catch {
+      setEnrollError(t.paymentGatewayError);
+      setEnrolling(false);
+    }
+  }
+
   async function handleEnroll() {
+    // كورس مدفوع فعليًا (isFree=false) والمستخدم مالوش وصول عن طريق
+    // membership أصلاً → يودّي لـ PayPal بدل محاولة enroll مباشر هيرجع
+    // 402 أكيد.
+    if (!course.isFree && course.price > 0) {
+      return handleBuyWithPaypal();
+    }
+
     setEnrollError("");
     setEnrolling(true);
     try {
@@ -263,7 +306,9 @@ export default function CourseDetailPage({ params }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.error === "payment_required") {
-          setEnrollError(t.paymentSoon);
+          // fallback نادر: السيرفر شايف إنه محتاج دفع رغم كده (مثلاً السعر
+          // اتغيّر بعد ما الصفحة اتحملت) — نجرّب PayPal بدل ما نوقف هنا.
+          return handleBuyWithPaypal();
         } else if (data.error === "cannot_enroll_own_course") {
           setEnrollError(t.ownCourse);
         } else {
@@ -371,7 +416,9 @@ export default function CourseDetailPage({ params }) {
                     disabled={enrolling || enrollment === null}
                     className="w-full bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60"
                   >
-                    {enrolling ? t.enrolling : t.enroll}
+                    {enrolling
+                      ? (!course.isFree && course.price > 0 ? t.redirecting : t.enrolling)
+                      : (!course.isFree && course.price > 0 ? t.buyNow : t.enroll)}
                   </button>
                 )}
                 {enrollError && <p className="text-xs text-red-500 mt-3 text-center">{enrollError}</p>}

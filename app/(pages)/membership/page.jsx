@@ -2,13 +2,14 @@
 
 // app/(pages)/membership/page.jsx
 //
-// Phase 2 — اليوم 16-17/20-21: صفحة عامة تعرض خطط الاشتراك (Free/Basic/
-// Standard/Pro) اللي الأدمن أنشأها من app/api/membership-plans. أي زائر
-// يقدر يشوفها؛ الاشتراك الفعلي:
-//   - خطة مجانية → POST /api/membership-plans/[id]/subscribe (فوري)
-//   - خطة مدفوعة → لسه معندناش دفع إلكتروني (Phase قادمة)، بنعرض رسالة
-//     "قريبًا" زي بالظبط اللي بيحصل مع الكورسات المدفوعة في
-//     app/(pages)/courses/[id]/page.jsx.
+// Phase 2 (اليوم 16-17/20-21) + Phase 3 (اليوم 29): صفحة عامة تعرض خطط
+// الاشتراك (Free/Basic/Standard/Pro) اللي الأدمن أنشأها من
+// app/api/membership-plans. أي زائر يقدر يشوفها؛ الاشتراك الفعلي:
+//   - خطة مجانية → POST /api/membership-plans/[id]/subscribe (فوري، بدون دفع)
+//   - خطة مدفوعة (شهري/سنوي) → POST /api/payments/checkout {type:"membership"}
+//     يفتح PayPal Order ويحوّل المستخدم لصفحة الموافقة؛ التفعيل الفعلي
+//     (user.membership) بيحصل بعد نجاح الدفع في app/api/payments/paypal/return
+//     أو app/api/payments/webhook — نفس بالظبط منطق شراء الكورس المفرد.
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -26,9 +27,11 @@ const STRINGS = {
     free: "مجانية",
     subscribe: "اشترك",
     subscribing: "جارِ التفعيل...",
+    redirecting: "جارِ التحويل لـ PayPal...",
     subscribed: "خطتك الحالية",
     login: "سجّل دخولك للاشتراك",
-    paymentSoon: "الدفع الإلكتروني للخطط المدفوعة قريبًا — تواصل مع الإدارة للتفعيل اليدوي",
+    paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتفعيل اليدوي",
+    paymentGatewayError: "تعذّر بدء عملية الدفع، حاول مرة أخرى",
     allCourses: "كل الكورسات متاحة",
     someCourses: (n) => `${n} كورس متاح`,
     loading: "جارِ التحميل...",
@@ -43,9 +46,11 @@ const STRINGS = {
     free: "Free",
     subscribe: "Subscribe",
     subscribing: "Activating...",
+    redirecting: "Redirecting to PayPal...",
     subscribed: "Your current plan",
     login: "Log in to subscribe",
-    paymentSoon: "Online payment for paid plans is coming soon — contact us to activate manually",
+    paymentSoon: "Online payment isn't available right now — contact us to activate manually",
+    paymentGatewayError: "Couldn't start the payment, please try again",
     allCourses: "All courses included",
     someCourses: (n) => `${n} courses included`,
     loading: "Loading...",
@@ -83,19 +88,55 @@ export default function MembershipPage() {
       .catch(() => {});
   }, [sessionStatus]);
 
+  // 🆕 Phase 3 — اليوم 29: خطة مدفوعة → PayPal checkout بدل التفعيل الفوري.
+  // بعد الموافقة على PayPal، المستخدم بيرجع لـ app/api/payments/paypal/return
+  // اللي بيعمل capture ويفعّل user.membership فعليًا (grantMembershipAccess
+  // في app/lib/paymentHelpers.js) — مش هنا.
+  async function handleSubscribeWithPaypal(plan) {
+    setSubscribeError("");
+    setSubscribingId(plan.id);
+    try {
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "membership", id: plan.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.approveUrl) {
+        setSubscribeError(
+          data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
+        );
+        setSubscribingId(null);
+        return;
+      }
+      window.location.href = data.approveUrl;
+    } catch {
+      setSubscribeError(t.paymentGatewayError);
+      setSubscribingId(null);
+    }
+  }
+
   async function handleSubscribe(plan) {
     if (!session?.user) {
       setAuthMode("login");
       setShowAuthModal(true);
       return;
     }
+
+    const isFree = plan.billingCycle === "free" || plan.price === 0;
+    if (!isFree) {
+      return handleSubscribeWithPaypal(plan);
+    }
+
     setSubscribeError("");
     setSubscribingId(plan.id);
     try {
       const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSubscribeError(data.error === "payment_required" ? t.paymentSoon : t.error);
+        // fallback نادر: السيرفر شايف إنها مدفوعة رغم كده → نجرّب PayPal
+        if (data.error === "payment_required") return handleSubscribeWithPaypal(plan);
+        setSubscribeError(t.error);
         return;
       }
       setCurrentPlanId(plan.id);
@@ -186,7 +227,9 @@ export default function MembershipPage() {
                       disabled={subscribingId === plan.id}
                       className="mt-auto w-full bg-[#0a0a0a] text-white font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 text-sm"
                     >
-                      {subscribingId === plan.id ? t.subscribing : t.subscribe}
+                      {subscribingId === plan.id
+                        ? (isFree ? t.subscribing : t.redirecting)
+                        : t.subscribe}
                     </button>
                   )}
                 </div>

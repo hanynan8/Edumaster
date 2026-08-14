@@ -44,7 +44,9 @@ export async function GET(request, { params }) {
     return jsonResponse({
       id: payment._id.toString(),
       type: payment.type,
+      course: payment.course?._id?.toString() || null,
       courseTitle: payment.course?.title || null,
+      membershipPlan: payment.membershipPlan?._id?.toString() || null,
       membershipPlanName: payment.membershipPlan?.name || null,
       billingCycle: payment.membershipPlan?.billingCycle || payment.metadata?.billingCycle || null,
       amount: payment.amount,

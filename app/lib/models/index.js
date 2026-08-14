@@ -14,5 +14,6 @@ export { getMembershipPlanModel } from "./MembershipPlan";
 export { getEnrollmentModel } from "./Enrollment";
 export { getPaymentModel } from "./Payment";
 export { getQuizModel, getQuestionModel } from "./Quiz";
+export { getQuizResultModel } from "./QuizResult";
 export { getAssignmentModel, getSubmissionModel } from "./Assignment";
 export { getCertificateModel } from "./Certificate";

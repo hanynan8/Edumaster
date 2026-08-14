@@ -1,7 +1,7 @@
 // app/api/sections/[id]/lessons/route.js
 //
 // اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/pdf/text
-// (والرابط الفعلي بييجي من رفع منفصل على Cloudinary — شوف
+// (والرابط الفعلي بييجي من رفع منفصل على Bunny (Stream للفيديو، Storage للـ PDF) — شوف
 // /api/upload/signature — مش بيتبعت كملف هنا، بس رابطه بعد الرفع).
 
 import mongoose from "mongoose";
@@ -106,7 +106,7 @@ export async function POST(request, { params }) {
     const videoProvider = ALLOWED_VIDEO_PROVIDERS.includes(body?.videoProvider)
       ? body.videoProvider
       : type === "video"
-      ? "cloudinary"
+      ? "bunny"
       : null;
 
     const Lesson = getLessonModel();

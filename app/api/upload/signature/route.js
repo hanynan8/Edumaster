@@ -1,13 +1,21 @@
 // app/api/upload/signature/route.js
 //
-// اليوم 9: بيولّد توقيع Cloudinary مؤقت عشان الـ client يرفع فيديو/PDF/صورة
-// *مباشرة* من المتصفح بدون ما الملف يعدي على سيرفرنا (شوف شرح القرار في
-// app/lib/cloudinary.js). الراوت ده هو نقطة التحقق الوحيدة: أي حد يقدر
-// يوصله (teacher/admin بس) يقدر ياخد توقيع، وأي حد تاني (حتى لو عرف رابط
-// Cloudinary الأساسي) مش هيقدر يرفع حاجة من غير توقيع صالح.
+// اليوم 9 (محدّث لـ Bunny): بيولّد توقيع مؤقت عشان الـ client يرفع *فيديو*
+// مباشرة من المتصفح لـ Bunny Stream من غير ما الملف يعدي على سيرفرنا (شوف
+// شرح القرار في app/lib/bunny.js). الراوت ده هو نقطة التحقق الوحيدة: أي حد
+// يقدر يوصله (teacher/admin بس) يقدر ياخد توقيع، وأي حد تاني مش هيقدر يرفع
+// حاجة من غير توقيع صالح ومرتبط بـ videoId محدد سلفًا.
+//
+// 🎞️ الصور والـ PDF بقوا ليهم راوت تاني: /api/upload/file (Bunny Storage،
+// عن طريق proxy على السيرفر — Bunny مش بيدعم signed upload زي الفيديو).
 
 import { requireRole } from "@/app/lib/rbac";
-import { generateUploadSignature, isCloudinaryConfigured } from "@/app/lib/cloudinary";
+import {
+  createStreamVideo,
+  generateStreamUploadAuthorization,
+  buildStreamPlaybackUrl,
+  isBunnyStreamConfigured,
+} from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -16,38 +24,37 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// 🔒 نوع الملف بيحدد resourceType في Cloudinary. الـ raw بتُستخدم للـ PDF.
-const ALLOWED_KINDS = {
-  video: { resourceType: "video", subfolder: "videos" },
-  image: { resourceType: "image", subfolder: "images" },
-  pdf: { resourceType: "raw", subfolder: "files" },
-};
-
 export async function POST(request) {
   try {
-    if (!isCloudinaryConfigured()) {
+    if (!isBunnyStreamConfigured()) {
       return jsonResponse({ error: "upload_not_configured" }, 503);
     }
 
     const auth = await requireRole(["teacher", "admin"]);
     if (auth.response) return auth.response;
-    const { session } = auth;
 
     const body = await request.json().catch(() => null);
     const kind = body?.kind;
-    if (!ALLOWED_KINDS[kind]) {
-      return jsonResponse({ error: "invalid_kind", allowed: Object.keys(ALLOWED_KINDS) }, 400);
+
+    // 🔒 الراوت ده بقى مخصص للفيديو بس. الصور والـ PDF بتتبعت لـ /api/upload/file
+    if (kind !== "video") {
+      return jsonResponse(
+        { error: "invalid_kind", message: "استخدم /api/upload/file للصور والـ PDF" },
+        400
+      );
     }
 
-    // 🔒 الفولدر مبني من بيانات معروفة عندنا بس (id المستخدم + نوع الملف)،
-    // مش من أي string جاي من الـ client — كده مفيش path traversal ولا مدرس
-    // يقدر يرفع في فولدر مدرس تاني.
-    const { subfolder, resourceType } = ALLOWED_KINDS[kind];
-    const folder = `edumaster/teachers/${session.user.id}/${subfolder}`;
+    // 🔒 العنوان اللي بنسجله في Bunny Stream مش جاي من الـ client، بنولّده
+    // إحنا عشان منسمحش بأي string عشوائي يتخزن هناك.
+    const title = typeof body?.title === "string" && body.title.trim() ? body.title.trim().slice(0, 200) : "lesson-video";
 
-    const signaturePayload = generateUploadSignature({ folder });
+    const { videoId } = await createStreamVideo({ title });
+    const authPayload = generateStreamUploadAuthorization({ videoId });
 
-    return jsonResponse({ ...signaturePayload, resourceType });
+    return jsonResponse({
+      ...authPayload,
+      playbackUrl: buildStreamPlaybackUrl(videoId),
+    });
   } catch (err) {
     console.error("[/api/upload/signature] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

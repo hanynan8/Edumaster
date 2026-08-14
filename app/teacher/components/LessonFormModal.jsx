@@ -42,7 +42,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
         title: form.title.trim(),
         type: form.type,
         videoUrl: form.type === "video" ? form.videoUrl : null,
-        videoProvider: form.type === "video" ? "cloudinary" : null,
+        videoProvider: form.type === "video" ? "bunny" : null,
         durationSeconds: form.durationSeconds,
         fileUrl: form.type === "pdf" ? form.fileUrl : null,
         textContent: form.type === "text" ? form.textContent : null,

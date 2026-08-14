@@ -34,8 +34,9 @@ const lessonSchema = new mongoose.Schema(
     videoUrl: { type: String, default: null },
     videoProvider: {
       type: String,
-      // ✅ Day 9: أضيف "cloudinary" — القرار النهائي لتخزين الفيديوهات
-      // (رفع مباشر من المتصفح، شوف app/lib/cloudinary.js)
+      // ✅ Day 9 (محدّث): القرار النهائي لتخزين الفيديوهات بقى Bunny Stream
+      // (رفع مباشر من المتصفح ببروتوكول TUS، شوف app/lib/bunny.js).
+      // سايبين "cloudinary" في الـ enum بس عشان توافق مع بيانات قديمة.
       enum: ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other", null],
       default: null,
     },

@@ -4,7 +4,7 @@
 //
 // فورم إنشاء/تعديل كورس. بيستخدم POST /api/courses للإنشاء و
 // PUT /api/courses/[id] للتعديل. الغلاف (thumbnail) بيترفع بـ MediaUploader
-// (كـ "image") مباشرة لـ Cloudinary.
+// (كـ "image") عن طريق /api/upload/file لـ Bunny Storage.
 
 import { useEffect, useState } from "react";
 import { X, Loader } from "lucide-react";

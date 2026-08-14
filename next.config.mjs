@@ -10,6 +10,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      {
+        // ✅ Day 9: صور/thumbnails الكورسات بتتخزن على Cloudinary
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
     ],
   },
 };

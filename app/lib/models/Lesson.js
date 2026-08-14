@@ -34,7 +34,9 @@ const lessonSchema = new mongoose.Schema(
     videoUrl: { type: String, default: null },
     videoProvider: {
       type: String,
-      enum: ["youtube", "vimeo", "bunny", "s3", "other", null],
+      // ✅ Day 9: أضيف "cloudinary" — القرار النهائي لتخزين الفيديوهات
+      // (رفع مباشر من المتصفح، شوف app/lib/cloudinary.js)
+      enum: ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other", null],
       default: null,
     },
     durationSeconds: { type: Number, default: 0 },

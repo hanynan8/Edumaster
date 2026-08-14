@@ -17,8 +17,69 @@
 // أي functionality في الموقع (مفيش CSP قد يكسر سكريبتات/صور خارجية، مفيش
 // تعديل على الطلب نفسه أو الهيدرز اللي بتوصل للراوت).
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export function middleware(request) {
+// 🔒 SECURITY: حماية على مستوى الصفحات (redirect للصفحة الرئيسية لو مفيش
+// صلاحية) — دي طبقة دفاع إضافية (defense-in-depth) قبل ما الصفحة أصلاً
+// تحمّل، مش بديل عن الفحص داخل كل API route (rbac.js) ولا داخل صفحة الأدمن
+// نفسها. أي مسار يبدأ بالـ prefix ده لازم يكون المستخدم مسجل دخول بـ role
+// من ضمن roles المذكورة، وإلا يتحول لصفحة تانية.
+const PAGE_ROLE_RULES = [
+  { prefix: "/admin", roles: ["admin"] },
+  { prefix: "/teacher", roles: ["teacher", "admin"] },
+  { prefix: "/student", roles: ["student", "teacher", "admin"] }, // أي مستخدم مسجل دخول
+];
+
+// نفس المنطق لكن لمسارات الـ API — بترجع 401/403 JSON بدل redirect، عشان
+// fetch/axios من الـ client يقدر يتعامل مع الخطأ صح بدل ما ياخد صفحة HTML.
+// ⚠️ ده تكرار مقصود (defense-in-depth) لفحص requireRole() الموجود جوه كل
+// route في app/lib/rbac.js — لو route جديد اتعمل ونسي المطور يحط
+// requireRole()، الميدل وير ده بيغطيه لحد ما يتصلح.
+const API_ROLE_RULES = [
+  { prefix: "/api/admin", roles: ["admin"] },
+  { prefix: "/api/teacher", roles: ["teacher", "admin"] },
+];
+
+function jsonError(status, error) {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+export async function middleware(request) {
+  const { pathname } = request.nextUrl;
+  const isApiPath = pathname.startsWith("/api/");
+  const rules = isApiPath ? API_ROLE_RULES : PAGE_ROLE_RULES;
+  const matchedRule = rules.find((r) => pathname.startsWith(r.prefix));
+
+  if (matchedRule) {
+    // ⚠️ ملحوظة مهمة: getToken() بيفك تشفير كوكي الـ JWT الحالي زي ما هو،
+    // من غير ما ينفّذ jwt() callback بتاع authOptions.js (اللي بيتحقق من
+    // tokenVersion/status ضد الداتابيز). يعني لو الأدمن أوقف/عدّل صلاحية
+    // مستخدم دلوقتي، الكوكي القديم هنا هيفضل شايل الـ role/status القديمة
+    // لحد ما حاجة تانية (getServerSession/useSession) تعيد التحقق وتحدّث
+    // الكوكي — بنفس نافذة الـ ~60 ثانية المشروحة في authOptions.js. الفحص
+    // الصارم الفوري بيتم داخل كل route عن طريق requireRole() (rbac.js)
+    // اللي بينادي getServerSession() فعليًا في كل طلب.
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    });
+
+    if (!token || token.invalid) {
+      return isApiPath
+        ? jsonError(401, "unauthorized")
+        : NextResponse.redirect(new URL("/", request.url));
+    }
+
+    if (!matchedRule.roles.includes(token.role)) {
+      return isApiPath
+        ? jsonError(403, "forbidden")
+        : NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
   const response = NextResponse.next();
 
   // يمنع تحميل الموقع جوه <iframe> في دومين تاني (clickjacking protection)

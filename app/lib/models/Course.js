@@ -1,0 +1,81 @@
+// app/lib/models/Course.js
+//
+// الكورس نفسه (بدون محتوى الـ Sections/Lessons — دي في موديلات منفصلة،
+// شوف Section.js و Lesson.js). التقسيم ده مقصود: كورس ممكن يبقى فيه عشرات
+// الـ lessons، وتحميل الكورس كله (مع كل محتواه) في كل مرة بيتطلب فيها بيانات
+// بسيطة زي العنوان والسعر هيبقى تقيل وغير ضروري.
+
+import mongoose from "mongoose";
+import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
+
+const courseSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+
+    shortDescription: { type: String, default: "", maxlength: 300 },
+    description: { type: String, default: "" }, // وصف كامل (يقبل HTML/Markdown بسيط)
+
+    thumbnail: { type: String, default: null }, // رابط صورة الغلاف
+
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Model_category",
+      required: true,
+    },
+
+    // 🔒 المدرس صاحب الكورس. بنتحقق في الـ API إن اللي بيعدّل الكورس هو
+    // نفس الـ teacher ده أو أدمن — مش أي مدرس تاني.
+    teacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: USER_MODEL_NAME,
+      required: true,
+    },
+
+    level: {
+      type: String,
+      enum: ["beginner", "intermediate", "advanced"],
+      default: "beginner",
+    },
+
+    language: { type: String, default: "ar" },
+
+    // السعر بالقروش/السنت (integer) لتفادي مشاكل الفاصلة العشرية في الحسابات
+    // المالية. لو الكورس مجاني isFree=true وprice بيتجاهل.
+    price: { type: Number, default: 0, min: 0 },
+    currency: { type: String, default: "EGP" },
+    isFree: { type: Boolean, default: false },
+
+    requirements: { type: [String], default: [] }, // "المتطلبات المسبقة"
+    outcomes: { type: [String], default: [] }, // "هتتعلم إيه"
+    tags: { type: [String], default: [] },
+
+    // draft: لسه بيتظبط ومش ظاهر للطلاب | published: ظاهر ومتاح | archived: مخفي بدون حذف
+    status: {
+      type: String,
+      enum: ["draft", "published", "archived"],
+      default: "draft",
+    },
+
+    // 🔒 SECURITY: إحصائيات محسوبة (denormalized) لتفادي COUNT ثقيل في كل
+    // طلب. بتتحدث عن طريق الكود (مش المستخدم مباشرة) عند enroll/unenroll
+    // أو إضافة تقييم — مش حقول يقدر أي API عادي يعدلها من غير تحقق.
+    studentsCount: { type: Number, default: 0 },
+    ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
+    ratingCount: { type: Number, default: 0 },
+
+    // ✅ محسوبة تلقائيًا كل ما تتضاف/تتحذف Lesson (مش بيتحدث يدوي)
+    totalDurationSeconds: { type: Number, default: 0 },
+    totalLessonsCount: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
+// فهرسة تسريع البحث والفلترة الشائعة في صفحة الكورسات العامة
+courseSchema.index({ status: 1, category: 1 });
+courseSchema.index({ teacher: 1 });
+courseSchema.index({ title: "text", shortDescription: "text" });
+
+export function getCourseModel() {
+  return getOrCreateModel("course", courseSchema, "courses");
+}

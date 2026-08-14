@@ -32,6 +32,7 @@ const AUTH_I18N = {
       attemptsRemainingLogin: "متبقي لك {n} محاولات قبل ما الحساب يتقفل مؤقتًا",
       accountLockedBody: "الحساب اتقفل مؤقتًا بسبب محاولات دخول كتير غلط. حاول تاني بعد {m} دقيقة",
       rateLimitedBody: "طلبات كتير من نفس الشبكة. حاول تاني بعد {m} دقيقة",
+      accountSuspendedBody: "الحساب ده متوقف حاليًا. تواصل مع الدعم لمزيد من التفاصيل",
     },
     register: {
       title: "إنشاء حساب",
@@ -111,6 +112,7 @@ const AUTH_I18N = {
       attemptsRemainingLogin: "{n} attempts remaining before the account is temporarily locked",
       accountLockedBody: "Account temporarily locked due to too many failed attempts. Try again in {m} minute(s)",
       rateLimitedBody: "Too many requests from this network. Try again in {m} minute(s)",
+      accountSuspendedBody: "This account is currently suspended. Contact support for details",
     },
     register: {
       title: "Create account",
@@ -190,6 +192,7 @@ const AUTH_I18N = {
       attemptsRemainingLogin: "Te quedan {n} intentos antes de que la cuenta se bloquee temporalmente",
       accountLockedBody: "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Inténtalo de nuevo en {m} minuto(s)",
       rateLimitedBody: "Demasiadas solicitudes desde esta red. Inténtalo de nuevo en {m} minuto(s)",
+      accountSuspendedBody: "Esta cuenta está suspendida actualmente. Contacta con soporte para más detalles",
     },
     register: {
       title: "Crear cuenta",
@@ -360,6 +363,12 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
       const remaining = Number(errParam);
       setLoginRemainingAttempts(Number.isFinite(remaining) ? remaining : null);
       setError(tx.errWrong);
+      return;
+    }
+
+    if (errCode === "account_suspended") {
+      setLoginRemainingAttempts(null);
+      setError(tx.accountSuspendedBody);
       return;
     }
 

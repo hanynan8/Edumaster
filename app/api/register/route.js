@@ -75,11 +75,13 @@ export async function POST(request) {
 
     // role دايمًا "student" هنا — مفيش أي طريقة للـ client إنه يطلب دور أعلى.
     // ترقية أي حساب لـ teacher/admin بتتم من لوحة الأدمن فقط لاحقًا.
+    // status دايمًا "active" عند التسجيل — مفيش طريقة إنشاء حساب موقوف من نفسه.
     const created = await AuthModel.create({
       name,
       email,
       password: passwordHash,
       role: "student",
+      status: "active",
       createdAt: now,
       updatedAt: now,
     });

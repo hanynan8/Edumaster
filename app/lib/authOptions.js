@@ -177,6 +177,14 @@ export const authOptions = {
 
           if (!userDoc) return null;
 
+          // 🔒 SECURITY: الحساب موقوف يدويًا من الأدمن (status === "suspended")
+          // — نرفض فورًا من غير ما نتحقق من الباسورد، وبدون كشف تفاصيل زيادة
+          // (مش هنقول "موقوف ليه" هنا، ده يظهر للمستخدم عن طريق دعم العملاء
+          // مش رسالة الخطأ). منفصل تمامًا عن قفل المحاولات الفاشلة تحت.
+          if (userDoc.status === "suspended") {
+            throw new Error("account_suspended");
+          }
+
           // 🔒 SECURITY: الحساب مقفول مؤقتًا بسبب محاولات فاشلة كتير — نرفض
           // من غير ما نتحقق من الباسورد أصلاً (يمنع استمرار التخمين وقت القفل).
           if (isAccountLocked(userDoc)) {
@@ -258,6 +266,7 @@ export const authOptions = {
           const KNOWN_ERROR_PREFIXES = [
             "rate_limited:",
             "account_locked:",
+            "account_suspended",
             "invalid_credentials:",
             "mfa_required",
             "mfa_invalid:",
@@ -316,9 +325,12 @@ export const authOptions = {
         try {
           await connectToMongo();
           const AuthModel = getAuthModel();
-          const dbUser = await AuthModel.findById(token.id, "tokenVersion role").lean();
+          const dbUser = await AuthModel.findById(token.id, "tokenVersion role status").lean();
 
-          if (!dbUser || (dbUser.tokenVersion ?? 0) !== (token.tokenVersion ?? 0)) {
+          // 🔒 SECURITY: لو الأدمن أوقف الحساب وهو شغّال بجلسة مفتوحة فعلاً،
+          // بنبطّل الجلسة هنا كمان (مش بس وقت تسجيل دخول جديد) — أقصى نافذة
+          // تعرّض بعد الإيقاف تبقى ~60 ثانية زي باقي حالات إبطال الجلسة.
+          if (!dbUser || dbUser.status === "suspended" || (dbUser.tokenVersion ?? 0) !== (token.tokenVersion ?? 0)) {
             token.invalid = true;
           } else {
             token.invalid = false;

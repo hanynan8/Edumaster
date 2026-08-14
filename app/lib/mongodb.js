@@ -39,6 +39,13 @@ const authSchema = new mongoose.Schema(
     paymentMethod: { type: String, default: "cash" },
     role: { type: String, default: "student" },
 
+    // 🔒 SECURITY: حالة الحساب — "active" العادي، "suspended" لو الأدمن أوقفه
+    // (مخالفة، طلب المستخدم، إلخ). الإيقاف بيتم فحصه في authOptions.js *قبل*
+    // ما نتحقق من الباسورد أصلاً، فالحساب الموقوف مايقدرش يدخل حتى لو
+    // الباسورد صح. منفصل تمامًا عن loginLockedUntil (ده مؤقت وتلقائي بسبب
+    // محاولات فاشلة، وده يدوي من الأدمن ومفتوح المدة لحد ما يتم إلغاؤه).
+    status: { type: String, enum: ["active", "suspended"], default: "active" },
+
     // خاصين بـ forgot/reset password
     resetCodeHash: { type: String, default: null },
     resetCodeExpiry: { type: Date, default: null },
@@ -66,6 +73,48 @@ const authSchema = new mongoose.Schema(
     mfaEnabled: { type: Boolean, default: false },
     mfaSecret: { type: String, default: null }, // base32 secret (يتخزن plain — لازم يبقى الاتصال بالداتابيز مشفّر/محمي؛ اختياري تشفيره بمفتاح تطبيق لاحقًا)
     mfaBackupCodeHashes: { type: [String], default: [] },
+
+    // ==========================================================================
+    // 🎓 حقول الـ LMS — أُضيفت في Phase 0 (Day 1/3 من خطة التطوير)
+    // ==========================================================================
+
+    // بيانات بروفايل إضافية غير الحقول الأساسية (name/email/phone/address
+    // الموجودة فوق أصلاً وبيستخدمها authOptions.js مباشرة — سيبناها زي ما هي
+    // عشان منكسرش أي كود شغال).
+    profile: {
+      avatar: { type: String, default: null },
+      bio: { type: String, default: "" },
+      country: { type: String, default: null },
+    },
+
+    // 🔒 SECURITY: membership هنا "snapshot" لحالة الاشتراك الحالية بس (1-to-1
+    // مع اليوزر)، مش سجل كامل. بتتحدث فقط عن طريق كود السيرفر (Payment
+    // webhook / أدمن) — مفيش أي API بيسمح للمستخدم يعدلها مباشرة عن نفسه،
+    // غير كده أي حد هيقدر "يشترك مجانًا" بمجرد تعديل الـ request بتاعه.
+    membership: {
+      plan: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Model_membership_plan",
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: ["inactive", "active", "expired", "cancelled"],
+        default: "inactive",
+      },
+      startedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+    },
+
+    // ⚠️ قرار تصميم مقصود: purchases / enrollments / quizResults /
+    // certificates / notifications *ماتمش* إضافتهم كـ arrays مُضمّنة (embedded)
+    // جوه الـ User زي ما كانوا في الخريطة الأصلية. السبب: الحقول دي بتكبر
+    // باستمرار مع نشاط المستخدم (مستخدم نشط ممكن يوصل لمئات النتائج/الإشعارات)،
+    // وMongoDB بيبقى بطيء جدًا مع مستندات كبيرة كتير التعديل، وفيه حد أقصى
+    // 16MB للمستند الواحد. بدل كده هنعملهم collections منفصلة (Enrollment,
+    // Payment, QuizResult, Certificate, Notification) وكل واحدة فيها userId
+    // كمرجع — أسرع في القراءة/الكتابة وأسهل في الفهرسة والفلترة. هنبنيهم في
+    // Phase 2/4/5/6 من خطة التطوير.
   },
   { strict: false, timestamps: true }
 );

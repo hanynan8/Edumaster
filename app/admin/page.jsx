@@ -21,6 +21,7 @@ import BlogAdmin from './components/(editcomponents)/blogs';
 import ContactAdmin from './components/(editcomponents)/contact';
 import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
+import Gategories from './components/(editcomponents)/categories';
 
 function NotFound() {
   return (

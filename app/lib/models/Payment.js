@@ -34,9 +34,13 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 🆕 Phase 3 — اليوم 26: "paypal" هي بوابة الدفع الفعلية المستخدمة في
+    // المشروع (app/lib/paypal.js). باقي القيم (stripe/paymob/fawry) اتسابت
+    // في الـ enum لمرونة مستقبلية بس مفيش تكامل فعلي ليها دلوقتي. "manual"
+    // لسه مستخدمة في app/api/admin/users/[id]/membership للتفعيل اليدوي.
     provider: {
       type: String,
-      enum: ["stripe", "paymob", "fawry", "manual"],
+      enum: ["paypal", "stripe", "paymob", "fawry", "manual"],
       required: true,
     },
 

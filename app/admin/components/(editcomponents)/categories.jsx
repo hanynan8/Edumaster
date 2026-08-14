@@ -38,10 +38,11 @@ export default function CategoriesAdmin() {
   const loadCategories = () => {
     setLoading(true);
     setError('');
-    // ✅ نفس /api/categories العام — بيرجّع بس isActive=true عادةً، لكن
-    // الأدمن محتاج يشوف المعطّلة كمان عشان يقدر يفعّلها تاني. لو محتاج فلتر
-    // منفصل ممكن يتضاف ?all=1 للـ API لاحقًا؛ دلوقتي بنعرض اللي بيرجعه.
-    fetch('/api/categories')
+    // ✅ نفس /api/categories العام، لكن بـ ?all=1 — بيرجّع كل التصنيفات
+    // (فعّالة ومعطّلة) لأن الأدمن محتاج يشوفها كلها عشان يقدر يفعّل تصنيف
+    // معطّل تاني. الـ API بيتحقق إن المستخدم أدمن فعلاً قبل ما يرجّع
+    // المعطّلة (شوف app/api/categories/route.js).
+    fetch('/api/categories?all=1')
       .then((r) => {
         if (!r.ok) throw new Error('failed');
         return r.json();

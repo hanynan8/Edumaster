@@ -6,6 +6,8 @@
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCategoryModel } from "@/app/lib/models/Category";
 import { requireRole } from "@/app/lib/rbac";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authOptions";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,13 +25,26 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     await connectToMongo();
     const Category = getCategoryModel();
 
-    // 🔒 عام — بيرجّع بس التصنيفات الفعّالة، مرتبة بالـ order
-    const categories = await Category.find({ isActive: true })
+    // ?all=1: لوحة الأدمن محتاجة تشوف التصنيفات المعطّلة كمان (عشان تقدر
+    // تفعّلها تاني أو تعدّلها) — بنسمح بيها بس لو المستخدم أدمن فعلاً،
+    // وإلا بيترجع نفس السلوك العام القديم (الفعّالة بس).
+    const { searchParams } = new URL(request.url);
+    const wantsAll = searchParams.get("all") === "1";
+
+    let filter = { isActive: true };
+    if (wantsAll) {
+      const session = await getServerSession(authOptions);
+      if (session?.user?.role === "admin") {
+        filter = {};
+      }
+    }
+
+    const categories = await Category.find(filter)
       .sort({ order: 1, name: 1 })
       .lean();
 
@@ -41,6 +56,7 @@ export async function GET() {
         description: c.description,
         icon: c.icon,
         order: c.order,
+        isActive: c.isActive,
       }))
     );
   } catch (err) {

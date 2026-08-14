@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   Database, Settings, Home, Navigation, Info, BookOpen,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
-  Loader, Inbox,
+  Loader, Inbox, Tags,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -102,6 +102,7 @@ export default function AdminDashboard() {
     { id: 'about',            name: 'About',            icon: Users,         component: AboutAdmin },
     { id: 'services',         name: 'Services',         icon: Star,          component: ServicesAdmin },
     { id: 'courses',          name: 'Courses',          icon: BookOpen,      component: CoursesAdmin },
+    { id: 'categories',       name: 'Categories',       icon: Tags,          component: Gategories },
     { id: 'countries',        name: 'Countries',        icon: Globe,         component: CountriesAdmin },
     { id: 'success_stories',  name: 'Success Stories',  icon: MessageSquare, component: SuccessStoriesAdmin },
     { id: 'blog',             name: 'Blog',             icon: FileText,      component: BlogAdmin },

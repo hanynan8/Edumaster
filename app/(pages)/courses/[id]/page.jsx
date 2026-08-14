@@ -4,13 +4,20 @@
 //  اليوم 13: صفحة تفاصيل كورس عامة. بتجيب:
 //    - GET /api/courses/[id]           → بيانات الكورس (404 لو draft/مش موجود)
 //    - GET /api/courses/[id]/sections  → شجرة الأقسام/الدروس (السيرفر بيقرر
-//      يبعت رابط الفيديو الحقيقي ولا لأ حسب enrollment — شوف الـ route)
-//    - GET /api/enrollments?course=id  → هل أنا مسجّل؟ (لو مسجل دخول أصلاً)
+//      يبعت رابط الفيديو الحقيقي ولا لأ حسب الوصول — شوف الـ route)
+//    - GET /api/enrollments?course=id  → { enrolled, hasAccess, accessSource }
+//      (لو مسجل دخول أصلاً)
 //
 //  الفيديو نفسه مقفول (بيظهر قفل بدل الزرار) لأي درس مش preview ومفيش
-//  videoUrl راجع من السيرفر — يعني الطالب لسه مش enrolled. الزرار "اشترك"
-//  بيستخدم POST /api/enrollments (كورسات مجانية بس دلوقتي؛ كورس مدفوع
-//  بيوجّه لرسالة "قريبًا" لحد ما يتبني مسار الدفع).
+//  videoUrl راجع من السيرفر — يعني الطالب لسه مالوش وصول. الزرار "اشترك"
+//  بيستخدم POST /api/enrollments (كورسات مجانية، أو كورس مدفوع لو عنده
+//  membership نشطة بتغطيه — Phase 2 اليوم 18-19/22؛ غير كده بيوجّه لرسالة
+//  "قريبًا" لحد ما يتبني مسار الدفع المباشر).
+//
+//  🔒 Phase 2 — اليوم 22: عضو membership نشطة بيشوف المحتوى مفتوح فورًا
+//  (hasAccess=true) حتى لو مالوش سجل Enrollment صريح لسه — بنسجّله تلقائيًا
+//  وبهدوء في الخلفية أول ما نكتشف كده (عشان تتبع التقدّم يشتغل من غير ما
+//  نطلب منه يضغط زرار).
 // ═══════════════════════════════════════════════
 "use client";
 
@@ -41,6 +48,7 @@ const STRINGS = {
     enroll: "اشترك في الكورس",
     enrolling: "جارِ التسجيل...",
     enrolled: "أنت مسجّل في هذا الكورس",
+    includedInMembership: "متضمّن في اشتراكك الحالي",
     loginToEnroll: "سجّل دخولك للاشتراك في الكورس",
     login: "تسجيل الدخول",
     paymentSoon: "الدفع الإلكتروني للكورسات المدفوعة قريبًا — تواصل مع الإدارة للتسجيل اليدوي",
@@ -66,6 +74,7 @@ const STRINGS = {
     enroll: "Enroll in this course",
     enrolling: "Enrolling...",
     enrolled: "You're enrolled in this course",
+    includedInMembership: "Included in your current membership",
     loginToEnroll: "Log in to enroll in this course",
     login: "Log In",
     paymentSoon: "Online payment for paid courses is coming soon — contact us to enroll manually",
@@ -219,9 +228,27 @@ export default function CourseDetailPage({ params }) {
       return;
     }
     fetch(`/api/enrollments?course=${id}`)
-      .then((r) => (r.ok ? r.json() : { enrolled: false }))
-      .then((data) => setEnrollment(data))
-      .catch(() => setEnrollment({ enrolled: false }));
+      .then((r) => (r.ok ? r.json() : { enrolled: false, hasAccess: false }))
+      .then((data) => {
+        setEnrollment(data);
+        // 🔒 Phase 2 — اليوم 22: عنده وصول عن طريق membership لكن لسه مفيش
+        // سجل Enrollment صريح — نسجّله بهدوء في الخلفية (من غير ما نستنى
+        // ضغطة زرار) عشان تتبع التقدّم يبدأ يشتغل، والزرار يبقى badge
+        // "متضمّن في اشتراكك" على طول بدل "اشترك".
+        if (data.hasAccess && !data.enrolled && data.accessSource === "membership") {
+          fetch("/api/enrollments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ course: id }),
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((res) => {
+              if (res?.enrollment) setEnrollment({ enrolled: true, hasAccess: true, accessSource: "membership", enrollment: res.enrollment });
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => setEnrollment({ enrolled: false, hasAccess: false }));
   }, [id, session, sessionStatus]);
 
   async function handleEnroll() {
@@ -244,7 +271,7 @@ export default function CourseDetailPage({ params }) {
         }
         return;
       }
-      setEnrollment({ enrolled: true, enrollment: data.enrollment });
+      setEnrollment({ enrolled: true, hasAccess: true, accessSource: data.enrollment?.source === "membership" ? "membership" : "enrollment", enrollment: data.enrollment });
       loadAll(); // يحدّث sections عشان يفتح المحتوى المقفول فورًا
     } catch {
       setEnrollError(t.error);
@@ -278,6 +305,7 @@ export default function CourseDetailPage({ params }) {
 
   const isOwner = session?.user?.id && course.teacher === session.user.id;
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
+  const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
@@ -328,7 +356,7 @@ export default function CourseDetailPage({ params }) {
                   </Link>
                 ) : isEnrolled ? (
                   <div className="flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold py-3 rounded-xl">
-                    <CheckCircle2 size={17} /> {t.enrolled}
+                    <CheckCircle2 size={17} /> {isViaMembership ? t.includedInMembership : t.enrolled}
                   </div>
                 ) : enrollment === false && sessionStatus !== "loading" ? (
                   <button

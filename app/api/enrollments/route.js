@@ -6,16 +6,32 @@
 // ده بيضيفه، بنفس الـ error shape اللي الصفحة بتتوقعه بالظبط
 // (payment_required / cannot_enroll_own_course).
 //
-// GET  /api/enrollments?course=<id>  → { enrolled, enrollment } لكورس واحد
-// GET  /api/enrollments              → كل تسجيلات المستخدم الحالي (My courses)
-// POST /api/enrollments { course }   → يسجّل المستخدم الحالي في كورس مجاني
-//      (كورس مدفوع لسه معندناش مسار دفع، فبيرجع 402 payment_required —
-//      الأدمن يقدر يسجّل الطالب يدويًا بـ source="admin_grant" لاحقًا لو احتاج)
+// GET  /api/enrollments?course=<id>  → { enrolled, enrollment, hasAccess,
+//        accessSource } لكورس واحد. hasAccess ممكن يبقى true حتى لو
+//        enrolled=false — عضو membership نشطة عنده وصول للمحتوى فورًا من
+//        غير ما يعمل enroll صريح (شوف app/lib/access.js)، الـ UI بيستخدم
+//        accessSource ليعرض "متضمّن في اشتراكك" بدل زرار "اشترك".
+//
+// GET  /api/enrollments              → كل تسجيلات المستخدم الحالي، بعد ما
+//        نضيفلها بيانات الكورس الأساسية (عنوان/thumbnail/slug) — عشان صفحة
+//        "My Courses" (اليوم 20-21) تعرضها من غير ما تعمل N+1 fetch لكل كورس.
+//
+// POST /api/enrollments { course }   → Phase 2 اليوم 18-19: يسجّل المستخدم
+//        الحالي في الكورس عن طريق واحد من مصدرين:
+//        - كورس مجاني (isFree)              → source="free"
+//        - كورس مدفوع + membership تغطّيه   → source="membership"
+//        - كورس مدفوع + مفيش membership     → 402 payment_required (لسه
+//          معندناش مسار دفع مباشر — الأدمن يقدر يسجّل الطالب يدويًا
+//          بـ source="admin_grant" لاحقًا لو احتاج، Phase 3)
+//        منع تسجيل مكرر: idempotent (لو مسجل بالفعل بيرجع نجاح) + unique
+//        index على (user, course) في الموديل نفسه كخط دفاع ثاني ضد race
+//        conditions.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getEnrollmentModel, getCourseModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { getCourseAccessForUser, hasActiveMembershipAccessToCourse } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -28,7 +44,7 @@ function serializeEnrollment(e) {
   return {
     id: e._id.toString(),
     user: e.user?.toString?.() ?? e.user,
-    course: e.course?.toString?.() ?? e.course,
+    course: e.course?._id ? e.course._id.toString() : e.course?.toString?.() ?? e.course,
     source: e.source,
     status: e.status,
     progressPercent: e.progressPercent,
@@ -37,6 +53,11 @@ function serializeEnrollment(e) {
     completedAt: e.completedAt,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
+    // موجودة بس لو الـ course اتعمله populate (شوف GET من غير ?course=)
+    courseTitle: e.course?.title,
+    courseSlug: e.course?.slug,
+    courseThumbnail: e.course?.thumbnail,
+    courseTotalLessonsCount: e.course?.totalLessonsCount,
   };
 }
 
@@ -56,15 +77,19 @@ export async function GET(request) {
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
         return jsonResponse({ error: "invalid_course" }, 400);
       }
-      const enrollment = await Enrollment.findOne({ user: session.user.id, course: courseId }).lean();
+      const access = await getCourseAccessForUser({ userId: session.user.id, courseId });
       return jsonResponse({
-        enrolled: Boolean(enrollment),
-        enrollment: enrollment ? serializeEnrollment(enrollment) : null,
+        enrolled: access.isEnrolled,
+        enrollment: access.enrollment ? serializeEnrollment(access.enrollment) : null,
+        hasAccess: access.hasAccess,
+        accessSource: access.isEnrolled ? "enrollment" : access.hasMembershipAccess ? "membership" : null,
       });
     }
 
-    // مفيش ?course= → رجّع كل تسجيلات المستخدم (لصفحة "كورساتي" مستقبلًا)
+    // مفيش ?course= → رجّع كل تسجيلات المستخدم مع بيانات الكورس الأساسية
+    // (لصفحة "My Courses" — app/student/page.jsx)
     const enrollments = await Enrollment.find({ user: session.user.id })
+      .populate("course", "title slug thumbnail totalLessonsCount status")
       .sort({ createdAt: -1 })
       .lean();
     return jsonResponse({ enrollments: enrollments.map(serializeEnrollment) });
@@ -109,9 +134,16 @@ export async function POST(request) {
       return jsonResponse({ enrolled: true, enrollment: serializeEnrollment(existing) });
     }
 
-    // كورسات مدفوعة: لسه معندناش مسار دفع إلكتروني (Phase قادمة). بنرجّع
-    // خطأ واضح بدل ما نسجّل الطالب من غير ما يدفع فعليًا.
-    if (!course.isFree) {
+    // 🔒 Phase 2 — اليوم 18-19: كورس مجاني → source="free". كورس مدفوع →
+    // نتحقق الأول هل عنده membership نشطة بتغطي الكورس ده، ولو آه نسجّله
+    // source="membership" (حتى لو ما فتحش المحتوى من قبل — ده أول Enrollment
+    // صريح ليه، بيتستخدم لتتبع التقدّم progressPercent). غير كده 402.
+    let source;
+    if (course.isFree) {
+      source = "free";
+    } else if (await hasActiveMembershipAccessToCourse(session.user.id, courseId)) {
+      source = "membership";
+    } else {
       return jsonResponse({ error: "payment_required" }, 402);
     }
 
@@ -120,7 +152,7 @@ export async function POST(request) {
       created = await Enrollment.create({
         user: session.user.id,
         course: courseId,
-        source: "free",
+        source,
         status: "active",
       });
     } catch (err) {

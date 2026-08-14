@@ -4,14 +4,20 @@
 // شجرة الـ Teacher Dashboard اليوم 10، وهتتستخدم برضو في صفحة عرض الكورس
 // العامة بعدين). نفس منطق الحماية بتاع GET /api/courses/[id]: لو الكورس
 // draft، الأقسام بتظهر لصاحبها/الأدمن بس. لو published، بتظهر للكل لكن
-// بمحتوى محدود لغير المُسجَّلين (شوف gating المحتوى في lessons route).
+// بمحتوى محدود لغير الأصحاب-الوصول (شوف gating المحتوى تحت).
+//
+// 🔒 Phase 2 — اليوم 22: "الأصحاب-وصول" بقت enrollment فعلي *أو* membership
+// نشطة بتغطي الكورس ده (شوف app/lib/access.js) — مش بس enrollment زي الأول.
+// عضو خطة Pro مثلاً يقدر يفتح محتوى الكورس على طول من غير ما يعمل enroll
+// صريح، لأن الفحص real-time على كل request مش معتمد على وجود سجل Enrollment.
 //
 // POST: إضافة section جديدة — صاحب الكورس/أدمن بس.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getCourseModel, getSectionModel, getLessonModel, getEnrollmentModel } from "@/app/lib/models";
+import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { getCourseAccessForUser } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -30,8 +36,8 @@ function serializeLesson(l, { revealProtectedContent }) {
     order: l.order,
   };
   // 🔒 محتوى الدرس الفعلي (رابط الفيديو/الملف/النص) بيتسرّب بس لو الدرس
-  // preview، أو صاحب الكورس/أدمن بيشوفه في لوحته. غير كده الطالب لسه ملوش
-  // enrollment (Phase 2) فمش المفروض يشوف الرابط الحقيقي.
+  // preview، أو صاحب الكورس/أدمن بيشوفه في لوحته، أو الطالب عنده وصول فعلي
+  // (enrollment أو membership نشطة — revealProtectedContent محسوبة فوق).
   if (revealProtectedContent || l.isPreview) {
     base.videoUrl = l.videoUrl;
     base.videoProvider = l.videoProvider;
@@ -41,37 +47,32 @@ function serializeLesson(l, { revealProtectedContent }) {
   return base;
 }
 
-async function checkEnrolled(courseId, userId) {
-  if (!userId) return false;
-  const Enrollment = getEnrollmentModel();
-  const enrollment = await Enrollment.exists({ user: userId, course: courseId });
-  return Boolean(enrollment);
-}
-
 async function loadCourseAndCheckAccess(courseId) {
   const Course = getCourseModel();
   const course = await Course.findById(courseId).lean();
-  if (!course) return { course: null, canManage: false, isEnrolled: false };
+  if (!course) return { course: null, canManage: false, hasAccess: false };
 
   if (course.status === "published") {
-    // ممكن لسه نحتاج نعرف canManage/isEnrolled عشان نظهر المحتوى الكامل
-    // (للمالك أو لطالب مسجّل فعليًا)، من غير ما نمنع الزوار من أصل الطلب
+    // ممكن لسه نحتاج نعرف canManage/hasAccess عشان نظهر المحتوى الكامل
+    // (للمالك أو لطالب عنده وصول فعلي)، من غير ما نمنع الزوار من أصل الطلب
     const auth = await requireSession();
     const canManage = !auth.response && isOwnerOrAdmin(auth.session, course.teacher);
-    // 🔒 لو صاحب الكورس أصلاً، مفيش داعي نفحص enrollment (وهو غير enrolled
-    // فيه عمليًا لأن /api/enrollments بيرفض تسجيل صاحب الكورس في كورسه)
-    const isEnrolled =
+    // 🔒 لو صاحب الكورس أصلاً، مفيش داعي نفحص enrollment/membership (وهو
+    // مش enrolled فيه عمليًا لأن /api/enrollments بيرفض تسجيل صاحب الكورس
+    // في كورسه هو)
+    const hasAccess =
       !canManage && !auth.response
-        ? await checkEnrolled(courseId, auth.session.user.id)
+        ? (await getCourseAccessForUser({ userId: auth.session.user.id, courseId })).hasAccess
         : false;
-    return { course, canManage, isEnrolled };
+    return { course, canManage, hasAccess };
   }
 
-  // draft/archived: لازم صلاحية (owner/admin بس، مفيش enrollment ممكن أصلاً)
+  // draft/archived: لازم صلاحية (owner/admin بس، مفيش enrollment/membership
+  // ممكن أصلاً لكورس مش منشور)
   const auth = await requireSession();
-  if (auth.response) return { course: null, canManage: false, isEnrolled: false };
-  if (!isOwnerOrAdmin(auth.session, course.teacher)) return { course: null, canManage: false, isEnrolled: false };
-  return { course, canManage: true, isEnrolled: false };
+  if (auth.response) return { course: null, canManage: false, hasAccess: false };
+  if (!isOwnerOrAdmin(auth.session, course.teacher)) return { course: null, canManage: false, hasAccess: false };
+  return { course, canManage: true, hasAccess: false };
 }
 
 export async function GET(request, { params }) {
@@ -80,7 +81,7 @@ export async function GET(request, { params }) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
 
     await connectToMongo();
-    const { course, canManage, isEnrolled } = await loadCourseAndCheckAccess(id);
+    const { course, canManage, hasAccess } = await loadCourseAndCheckAccess(id);
     if (!course) return jsonResponse({ error: "not_found" }, 404);
 
     const Section = getSectionModel();
@@ -89,7 +90,7 @@ export async function GET(request, { params }) {
     const sections = await Section.find({ course: id }).sort({ order: 1 }).lean();
     const lessons = await Lesson.find({ course: id }).sort({ order: 1 }).lean();
 
-    const revealProtectedContent = canManage || isEnrolled;
+    const revealProtectedContent = canManage || hasAccess;
     const lessonsBySection = new Map();
     for (const lesson of lessons) {
       const key = lesson.section.toString();

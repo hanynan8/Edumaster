@@ -163,17 +163,17 @@ export const authOptions = {
           await connectToMongo();
           const AuthModel = getAuthModel();
 
-          const identifier = credentials.nameOrEmail.toLowerCase().trim();
+const identifier = credentials.nameOrEmail.toLowerCase().trim();
 
-          // مش .lean() هنا عن قصد — محتاجين .save() لو لقينا حساب قديم
-          // بباسورد plain text عشان نشفّره فورًا (self-healing migration)،
-          // وكمان عشان نحدّث عدّادات القفل.
-          const users = await AuthModel.find({});
-          const userDoc = users.find(
-            (u) =>
-              u.name?.toLowerCase().trim() === identifier ||
-              u.email?.toLowerCase().trim() === identifier
-          );
+          // 🔒 PERF: كان بيسحب كل المستخدمين (find({})) ويفلتر في الكود —
+          // بطيء وبيستهلك memory بشكل متزايد مع نمو عدد المستخدمين. دلوقتي
+          // بنستخدم query مباشر بـ $or على name/email (case-insensitive عن
+          // طريق regex ^...$i بدل ما نحمّل الداتابيز كلها في الميموري).
+          const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const identifierPattern = new RegExp(`^${escapedIdentifier}$`, "i");
+          const userDoc = await AuthModel.findOne({
+            $or: [{ name: identifierPattern }, { email: identifierPattern }],
+          });
 
           if (!userDoc) return null;
 

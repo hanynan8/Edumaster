@@ -12,6 +12,12 @@
 
 import { getLessonModel, getEnrollmentModel, getQuizModel } from "@/app/lib/models";
 import { getQuizResultModel } from "@/app/lib/models/QuizResult";
+// Phase 5 — اليوم 44: "إصدار تلقائي للشهادة عند اكتمال الكورس 100%" — بمجرد
+// ما enrollment.status يتحول لـ "completed" هنا تحت، بننادي الدالة دي عشان
+// تصدر الشهادة أوتوماتيك من غير ما الطالب يعمل أي حاجة إضافية. الدالة
+// نفسها best-effort (بتمسك أي خطأ وترجّع null) عشان فشل توليد الشهادة
+// (مثلاً مشكلة عابرة) ما يبوّظش عملية تسجيل إكمال الدرس/الكويز الأساسية.
+import { issueCertificateForCompletedEnrollment } from "@/app/lib/certificateHelpers";
 
 export async function recomputeEnrollmentProgress(userId, courseId) {
   const Lesson = getLessonModel();

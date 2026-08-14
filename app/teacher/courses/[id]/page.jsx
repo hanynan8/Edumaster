@@ -11,6 +11,7 @@ import CourseFormModal from "@/app/teacher/components/CourseFormModal";
 import SectionFormModal from "@/app/teacher/components/SectionFormModal";
 import LessonFormModal from "@/app/teacher/components/LessonFormModal";
 import CourseTree from "@/app/teacher/components/CourseTree";
+import CourseTabs from "@/app/teacher/components/CourseTabs";
 
 export default function CourseEditorPage({ params }) {
   const { id } = usePromise(params);
@@ -119,6 +120,8 @@ export default function CourseEditorPage({ params }) {
           <Pencil size={14} /> تعديل بيانات الكورس
         </button>
       </div>
+
+      <CourseTabs courseId={id} active="content" />
 
       <h2 className="text-lg font-bold text-gray-700 mb-4">محتوى الكورس</h2>
       <CourseTree

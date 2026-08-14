@@ -2,12 +2,20 @@
 //
 // تعديل/حذف/عرض درس واحد. زي الـ sections، الصلاحية بتتحقق عن طريق الكورس
 // اللي الدرس تابع له (lesson.course.teacher).
+//
+// 🔒 Phase 2 — اليوم 22 (تصحيح): الـ GET قبل كده كان بيرفض *أي* حد مش
+// owner/admin طالما الدرس مش isPreview — حتى لو الطالب مسجّل فعليًا
+// (enrollment) أو عنده membership نشطة بتغطي الكورس. الكومنت القديم كان
+// بيقول صراحة "هيتضاف في Phase 2" ومكانش اتضاف. دلوقتي بيستخدم نفس
+// app/lib/access.js المستخدمة في courses/[id]/sections عشان يبقى المصدر
+// واحد لمنطق "مين يقدر يشوف المحتوى ده" في كل المشروع.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+import { getCourseAccessForUser } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -59,10 +67,17 @@ export async function GET(request, { params }) {
     if (course.status !== "published" && !canManage) {
       return jsonResponse({ error: "not_found" }, 404);
     }
-    // 🔒 محتوى الدرس المحمي بيظهر بس لصاحب الكورس/أدمن أو لو الدرس preview.
-    // طالب مسجّل فعليًا (enrollment) هيتضاف الشرط ده في Phase 2.
+
+    // 🔒 محتوى الدرس المحمي بيظهر لصاحب الكورس/أدمن، أو لو الدرس preview،
+    // أو لطالب عنده وصول فعلي (enrollment صريح أو membership نشطة بتغطي
+    // الكورس ده) — نفس الفحص المستخدم في courses/[id]/sections بالظبط.
     if (!canManage && !lesson.isPreview) {
-      return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
+      const hasAccess =
+        !auth.response &&
+        (await getCourseAccessForUser({ userId: auth.session.user.id, courseId: course._id })).hasAccess;
+      if (!hasAccess) {
+        return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
+      }
     }
 
     return jsonResponse(serializeLesson(lesson));

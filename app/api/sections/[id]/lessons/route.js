@@ -1,14 +1,25 @@
 // app/api/sections/[id]/lessons/route.js
 //
 // اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/pdf/text
-// (والرابط الفعلي بييجي من رفع منفصل على Bunny (Stream للفيديو، Storage للـ PDF) — شوف
+// (والرابط الفعلي بييجي من رفع منفصل على Cloudinary — شوف
 // /api/upload/signature — مش بيتبعت كملف هنا، بس رابطه بعد الرفع).
+//
+// 🔒 Phase 2 — اليوم 22 (تصحيح ثغرة): الـ GET هنا كان بيرجّع videoUrl/
+// fileUrl/textContent كاملين لأي حد طالما الكورس published — من غير أي فحص
+// enrollment ولا membership، حتى لو الدرس مش isPreview. ده كان بيسمح لأي
+// زائر (مسجل دخول أو حتى غير مسجل) إنه يقرا محتوى كورس مدفوع كامل عن طريق
+// النداء المباشر على الـ endpoint ده، بدل ما يمر على GET
+// /api/courses/[id]/sections اللي فيه الفحص الصحيح. اتصلح بنفس منطق
+// app/lib/access.js (نفس المصدر المستخدم في courses/[id]/sections) —
+// الحقول المحمية بترجع بس لو owner/admin أو enrollment/membership فعلية أو
+// الدرس نفسه preview.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+import { getCourseAccessForUser } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -20,21 +31,28 @@ function jsonResponse(data, status = 200) {
 const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
-function serializeLesson(l) {
-  return {
+// 🔒 نفس فكرة serializeLesson في courses/[id]/sections/route.js: الحقول
+// المحمية (videoUrl/videoProvider/fileUrl/textContent) بترجع بس لو
+// revealProtectedContent=true أو الدرس preview — غير كده بترجع البيانات
+// الوصفية بس (عنوان/نوع/مدة) عشان الـ UI يقدر يعرض قائمة الدروس مقفولة.
+function serializeLesson(l, { revealProtectedContent }) {
+  const base = {
     id: l._id.toString(),
     section: l.section.toString(),
     course: l.course.toString(),
     title: l.title,
     type: l.type,
-    videoUrl: l.videoUrl,
-    videoProvider: l.videoProvider,
     durationSeconds: l.durationSeconds,
-    fileUrl: l.fileUrl,
-    textContent: l.textContent,
     isPreview: l.isPreview,
     order: l.order,
   };
+  if (revealProtectedContent || l.isPreview) {
+    base.videoUrl = l.videoUrl;
+    base.videoProvider = l.videoProvider;
+    base.fileUrl = l.fileUrl;
+    base.textContent = l.textContent;
+  }
+  return base;
 }
 
 async function loadSectionWithCourse(id) {
@@ -56,16 +74,31 @@ export async function GET(request, { params }) {
 
     // نفس منطق الظهور بتاع GET /api/courses/[id]/sections: لو draft لازم
     // تكون صاحب الكورس/أدمن
+    let canManage = false;
+    let hasAccess = false;
     if (course.status !== "published") {
       const auth = await requireSession();
       if (auth.response || !isOwnerOrAdmin(auth.session, course.teacher)) {
         return jsonResponse({ error: "not_found" }, 404);
       }
+      canManage = true;
+    } else {
+      const auth = await requireSession();
+      canManage = !auth.response && isOwnerOrAdmin(auth.session, course.teacher);
+      // 🔒 لو مش صاحب/أدمن، افحص enrollment/membership فعلية زي
+      // app/lib/access.js بالظبط قبل ما نسرّب أي حقل محمي
+      if (!canManage && !auth.response) {
+        hasAccess = (
+          await getCourseAccessForUser({ userId: auth.session.user.id, courseId: course._id })
+        ).hasAccess;
+      }
     }
+
+    const revealProtectedContent = canManage || hasAccess;
 
     const Lesson = getLessonModel();
     const lessons = await Lesson.find({ section: id }).sort({ order: 1 }).lean();
-    return jsonResponse(lessons.map(serializeLesson));
+    return jsonResponse(lessons.map((l) => serializeLesson(l, { revealProtectedContent })));
   } catch (err) {
     console.error("[/api/sections/[id]/lessons] GET error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
@@ -106,7 +139,7 @@ export async function POST(request, { params }) {
     const videoProvider = ALLOWED_VIDEO_PROVIDERS.includes(body?.videoProvider)
       ? body.videoProvider
       : type === "video"
-      ? "bunny"
+      ? "cloudinary"
       : null;
 
     const Lesson = getLessonModel();
@@ -131,7 +164,7 @@ export async function POST(request, { params }) {
 
     await recomputeCourseTotals(course._id);
 
-    return jsonResponse(serializeLesson(created), 201);
+    return jsonResponse(serializeLesson(created, { revealProtectedContent: true }), 201);
   } catch (err) {
     console.error("[/api/sections/[id]/lessons] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

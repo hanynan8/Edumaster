@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText,
+  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText, CreditCard, X, Check, Clock,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -12,14 +12,29 @@ import { useSession } from 'next-auth/react';
 // يبقوا متطابقين، ومفيش أي fallback بإيميل مكتوب صريح يتسرب في الـ JS bundle
 // اللي بيتبعت للمتصفح (أي حد يقدر يفتحه من devtools ويشوفه).
 
+// Phase 2 — اليوم 23-24 (تكملة). PATCH /api/admin/users/[id]/membership كان
+// جاهز بالكامل على السيرفر (ترقية/تخفيض/إلغاء/تجديد + expiresAt + audit log)
+// لكن مفيش أي زرار في اللوحة بينادي عليه — الأدمن مكانش يقدر يعمل ولا حاجة
+// من الاشتراكات إلا يدويًا عن طريق API call مباشر. عمود "Membership" + مودال
+// "Manage" تحت بيسدوا الفجوة دي.
+
+function membershipBadgeColor(status) {
+  if (status === 'active') return 'bg-green-50 text-green-700 border-green-200';
+  if (status === 'expired') return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (status === 'cancelled') return 'bg-red-50 text-red-600 border-red-200';
+  return 'bg-gray-50 text-gray-500 border-gray-200';
+}
+
 function UsersAdmin() {
   const { data: session } = useSession();
   const [users, setUsers] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // user targeted for delete confirmation
+  const [manageMembershipUser, setManageMembershipUser] = useState(null); // user targeted for membership management
 
   const myId = session?.user?.id;
 
@@ -35,6 +50,48 @@ function UsersAdmin() {
   };
 
   useEffect(loadUsers, []);
+
+  // خطط الاشتراك — عشان مودال إدارة العضوية يقدر يعرضها في dropdown
+  useEffect(() => {
+    fetch('/api/membership-plans?all=1')
+      .then(r => (r.ok ? r.json() : []))
+      .then(data => setPlans(Array.isArray(data) ? data : []))
+      .catch(() => setPlans([]));
+  }, []);
+
+  // ✅ Phase 2 — اليوم 23-24: تحديث عضوية مستخدم (ترقية/تخفيض/إلغاء/تجديد)
+  const handleMembershipSave = async (userId, payload) => {
+    setActionError('');
+    setSavingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/membership`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const messages = {
+          plan_not_found: 'Selected plan was not found.',
+          invalid_status: 'Invalid membership status.',
+          invalid_plan: 'Invalid plan selected.',
+          invalid_extend_days: 'Extend days must be a positive number.',
+          active_status_requires_plan: "Can't set status to active without a plan.",
+          nothing_to_update: 'Nothing to update.',
+        };
+        setActionError(messages[data.error] || 'Failed to update membership, please try again.');
+        return false;
+      }
+      setUsers(prev => prev.map(u => (u.id === userId ? { ...u, membership: { ...u.membership, ...data.membership } } : u)));
+      setManageMembershipUser(null);
+      return true;
+    } catch {
+      setActionError('Failed to update membership, please try again.');
+      return false;
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   // ✅ تغيير role مستخدم — بيتسجل تلقائيًا في الـ Audit Log على السيرفر
   const handleRoleChange = async (user, newRole) => {
@@ -124,6 +181,7 @@ function UsersAdmin() {
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Name</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Email</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Role</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Membership</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Actions</th>
                 </tr>
               </thead>
@@ -148,6 +206,17 @@ function UsersAdmin() {
                         <option value="teacher">teacher</option>
                         <option value="admin">admin</option>
                       </select>
+                    </td>
+                    <td className="py-3 px-4">
+                      <button
+                        onClick={() => { setActionError(''); setManageMembershipUser(user); }}
+                        disabled={savingId === user.id}
+                        className={`px-2 py-1 rounded-lg text-xs font-semibold border-2 disabled:opacity-50 transition-colors hover:brightness-95 ${membershipBadgeColor(user.membership?.status)}`}
+                        title="Manage membership"
+                      >
+                        {user.membership?.planName ? user.membership.planName : 'None'}
+                        {user.membership?.status && user.membership.status !== 'inactive' ? ` · ${user.membership.status}` : ''}
+                      </button>
                     </td>
                     <td className="py-3 px-4">
                       <button
@@ -197,6 +266,160 @@ function UsersAdmin() {
           </div>
         </div>
       )}
+
+      {manageMembershipUser && (
+        <MembershipManageModal
+          user={manageMembershipUser}
+          plans={plans}
+          actionError={actionError}
+          saving={savingId === manageMembershipUser.id}
+          onClose={() => setManageMembershipUser(null)}
+          onSave={(payload) => handleMembershipSave(manageMembershipUser.id, payload)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Phase 2 — اليوم 23-24: مودال إدارة اشتراك مستخدم واحد. بيدعم أربع عمليات:
+//   - ترقية/تخفيض: تغيير الخطة (plan)
+//   - إلغاء: status = "cancelled"
+//   - تجديد يدوي: extendDays (بيمدد من تاريخ الانتهاء الحالي لو لسه ساري،
+//     أو من دلوقتي لو خلص/مفيش — نفس منطق الـ API تمامًا)
+//   - إزالة العضوية بالكامل: plan = null
+function MembershipManageModal({ user, plans, actionError, saving, onClose, onSave }) {
+  const currentPlanId = user.membership?.plan || '';
+  const [planId, setPlanId] = useState(currentPlanId);
+  const [status, setStatus] = useState(user.membership?.status || 'inactive');
+  const [expiresAt, setExpiresAt] = useState(
+    user.membership?.expiresAt ? new Date(user.membership.expiresAt).toISOString().slice(0, 10) : ''
+  );
+
+  const expiresAtDisplay = user.membership?.expiresAt ? new Date(user.membership.expiresAt).toLocaleDateString() : '—';
+
+  const handleExtend = (days) => onSave({ extendDays: days });
+
+  const handleApply = (e) => {
+    e.preventDefault();
+    const payload = {};
+    if (planId !== currentPlanId) payload.plan = planId || null;
+    if (status !== (user.membership?.status || 'inactive')) payload.status = status;
+    const currentExpiresAtStr = user.membership?.expiresAt
+      ? new Date(user.membership.expiresAt).toISOString().slice(0, 10)
+      : '';
+    if (expiresAt !== currentExpiresAtStr) payload.expiresAt = expiresAt ? expiresAt : null;
+
+    if (Object.keys(payload).length === 0) {
+      onClose();
+      return;
+    }
+    onSave(payload);
+  };
+
+  const handleRemove = () => onSave({ plan: null });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <CreditCard size={20} className="text-blue-600" /> Manage Membership
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-5">
+          <span className="font-semibold">{user.name}</span> ({user.email})
+        </p>
+
+        {actionError && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">
+            {actionError}
+          </div>
+        )}
+
+        <div className="mb-4 flex items-center gap-2 text-xs text-gray-400">
+          <Clock size={14} /> Current expiry: {expiresAtDisplay}
+        </div>
+
+        {/* تجديد سريع — بيندي extendDays فورًا من غير ما تحتاج تحفظ فورم منفصل */}
+        <div className="mb-5">
+          <label className="block text-xs font-semibold text-gray-500 mb-2">Quick renew</label>
+          <div className="flex gap-2">
+            {[30, 90, 365].map((days) => (
+              <button
+                key={days}
+                type="button"
+                disabled={saving}
+                onClick={() => handleExtend(days)}
+                className="flex-1 py-2 rounded-xl border-2 border-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-50 disabled:opacity-50 transition-colors"
+              >
+                +{days}d
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handleApply} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Plan</label>
+            <select
+              value={planId || ''}
+              onChange={(e) => setPlanId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
+            >
+              <option value="">No plan</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
+            >
+              <option value="inactive">Inactive</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Expires at</label>
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={saving || !currentPlanId}
+              className="py-2.5 px-4 rounded-xl border-2 border-red-100 text-red-600 font-semibold text-sm hover:bg-red-50 disabled:opacity-40 transition-colors"
+            >
+              Remove membership
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-blue-700 text-white font-semibold hover:bg-blue-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader className="animate-spin" size={16} /> : <Check size={16} />}
+              Apply Changes
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

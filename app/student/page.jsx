@@ -13,7 +13,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft,
+  BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap,
 } from "lucide-react";
 
 const STRINGS = {
@@ -35,6 +35,7 @@ const STRINGS = {
     neverExpires: "من غير تاريخ انتهاء",
     statusLabels: { active: "فعّالة", inactive: "غير مفعّلة", expired: "منتهية", cancelled: "ملغاة" },
     continueLabel: "استكمال",
+    myGrades: "درجاتي ونتائجي",
   },
   en: {
     title: "My Courses",
@@ -54,6 +55,7 @@ const STRINGS = {
     neverExpires: "No expiry date",
     statusLabels: { active: "Active", inactive: "Inactive", expired: "Expired", cancelled: "Cancelled" },
     continueLabel: "Continue",
+    myGrades: "My Grades & Results",
   },
 };
 
@@ -135,14 +137,22 @@ export default function StudentMyCoursesPage() {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
-            <BookOpen className="text-white" size={22} />
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
+              <BookOpen className="text-white" size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">{t.title}</h1>
+              <p className="text-sm text-gray-400">{t.subtitle}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">{t.title}</h1>
-            <p className="text-sm text-gray-400">{t.subtitle}</p>
-          </div>
+          <Link
+            href="/student/grades"
+            className="flex items-center gap-2 text-sm font-semibold bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:border-[#1D6FD8] hover:text-[#1D6FD8] transition-colors"
+          >
+            <GraduationCap size={16} /> {t.myGrades}
+          </Link>
         </div>
 
         <div className="mb-8">

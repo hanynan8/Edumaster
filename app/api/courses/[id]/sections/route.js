@@ -34,6 +34,10 @@ function serializeLesson(l, { revealProtectedContent }) {
     durationSeconds: l.durationSeconds,
     isPreview: l.isPreview,
     order: l.order,
+    // Phase 4 — اليوم 42: درس النوع "quiz" بيربط بمستند Quiz منفصل (شوف
+    // app/lib/models/Lesson.js) — بنسرّب الـ id بس هنا (مش محتوى الكويز
+    // نفسه) عشان الواجهة تعرف تودّي لصفحة /student/quizzes/[quizId].
+    quiz: l.quiz ? l.quiz.toString() : null,
   };
   // 🔒 محتوى الدرس الفعلي (رابط الفيديو/الملف/النص) بيتسرّب بس لو الدرس
   // preview، أو صاحب الكورس/أدمن بيشوفه في لوحته، أو الطالب عنده وصول فعلي

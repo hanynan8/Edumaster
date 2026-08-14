@@ -26,6 +26,10 @@ const ACCEPT_BY_KIND = {
   video: "video/*",
   image: "image/*",
   pdf: "application/pdf",
+  // Phase 4 — اليوم 39-40: تسليم واجب الطالب (PDF/Word/Zip/صورة) — شوف
+  // ALLOWED_KINDS.submission في app/api/upload/file/route.js لقايمة الـ
+  // mime types الكاملة المسموحة سيرفر-سايد.
+  submission: "application/pdf,.doc,.docx,application/zip,image/*",
 };
 
 // بيحاول يقرأ مدة الفيديو من الملف نفسه على جهاز المستخدم (بدون رفع)،

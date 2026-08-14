@@ -63,6 +63,12 @@ const STRINGS = {
     error: "تعذّر تحميل الكورس",
     noSections: "لسه مفيش محتوى مضاف للكورس ده",
     lockedHint: "اشترك في الكورس عشان تفتح الدرس ده",
+    takeQuiz: "افتح الكويز",
+    quizType: "كويز",
+    quizzesTitle: "كويزات الكورس",
+    assignmentsTitle: "واجبات الكورس",
+    openAssignment: "افتح الواجب",
+    myGradesLink: "شوف درجاتك ونتائجك",
   },
   en: {
     back: "All Courses",
@@ -92,6 +98,12 @@ const STRINGS = {
     error: "Couldn't load this course",
     noSections: "No content has been added to this course yet",
     lockedHint: "Enroll in the course to unlock this lesson",
+    takeQuiz: "Open quiz",
+    quizType: "Quiz",
+    quizzesTitle: "Course Quizzes",
+    assignmentsTitle: "Course Assignments",
+    openAssignment: "Open assignment",
+    myGradesLink: "View your grades & results",
   },
 };
 
@@ -125,8 +137,46 @@ function VideoEmbed({ lesson }) {
   );
 }
 
-function LessonRow({ lesson, t, isOpen, onToggle }) {
+function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
   const Icon = LESSON_ICONS[lesson.type] || FileText;
+
+  // Phase 4 — اليوم 42: درس النوع "quiz" مالوش videoUrl/textContent/fileUrl
+  // خالص — محتواه الفعلي (الأسئلة) في مستند Quiz منفصل ومحمي بفحصه الخاص
+  // (شوف /api/quizzes/[id]). هنا بس بنقرر نعرض لينك يودّي لصفحة الحل ولا
+  // قفل، حسب وصول الطالب للكورس ده (hasAccess) أو preview.
+  if (lesson.type === "quiz") {
+    const canOpenQuiz = Boolean(lesson.quiz) && (lesson.isPreview || hasAccess);
+    return (
+      <div className="border-b border-gray-100 last:border-0">
+        {canOpenQuiz ? (
+          <Link
+            href={`/student/quizzes/${lesson.quiz}`}
+            className="w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 text-start hover:bg-gray-50 transition-colors"
+          >
+            <Icon size={17} className="text-[#1D6FD8] shrink-0" />
+            <span className="flex-1 text-sm font-medium text-gray-700 truncate">{lesson.title}</span>
+            {lesson.isPreview && (
+              <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full shrink-0">
+                {t.preview}
+              </span>
+            )}
+            <span className="text-xs font-semibold text-[#1D6FD8] shrink-0">{t.takeQuiz}</span>
+          </Link>
+        ) : (
+          <div className="w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 opacity-70 cursor-not-allowed">
+            <Lock size={16} className="text-gray-400 shrink-0" />
+            <span className="flex-1 text-sm font-medium text-gray-700 truncate">{lesson.title}</span>
+          </div>
+        )}
+        {!canOpenQuiz && (
+          <div className="px-4 sm:px-5 pb-3 -mt-1">
+            <p className="text-xs text-gray-400">{t.lockedHint}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const unlocked = Boolean(lesson.videoUrl || lesson.textContent || lesson.fileUrl) || lesson.isPreview;
   const canOpen = unlocked && (lesson.type === "video" ? Boolean(lesson.videoUrl) : true);
 
@@ -198,14 +248,20 @@ export default function CourseDetailPage({ params }) {
   const [openLessonId, setOpenLessonId] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState("");
+  // Phase 4 — اليوم 42: كويزات وواجبات الكورس المنشورة، بتتعرض تحت المحتوى
+  // (روابط مباشرة لصفحات الحل/التسليم للطالب المسجّل).
+  const [quizzes, setQuizzes] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
 
   async function loadAll() {
     try {
-      const [courseRes, sectionsRes] = await Promise.all([
+      const [courseRes, sectionsRes, quizzesRes, assignmentsRes] = await Promise.all([
         fetch(`/api/courses/${id}`),
         fetch(`/api/courses/${id}/sections`),
+        fetch(`/api/quizzes?course=${id}`),
+        fetch(`/api/assignments?course=${id}`),
       ]);
       if (courseRes.status === 404) {
         setNotFound(true);
@@ -216,6 +272,14 @@ export default function CourseDetailPage({ params }) {
       if (!courseRes.ok) throw new Error(courseData?.error || "error");
       setCourse(courseData);
       setSections(Array.isArray(sectionsData) ? sectionsData : []);
+      if (quizzesRes.ok) {
+        const quizzesData = await quizzesRes.json();
+        setQuizzes(quizzesData.quizzes || []);
+      }
+      if (assignmentsRes.ok) {
+        const assignmentsData = await assignmentsRes.json();
+        setAssignments(assignmentsData.assignments || []);
+      }
     } catch {
       setError(t.error);
     }
@@ -456,6 +520,7 @@ export default function CourseDetailPage({ params }) {
                         t={t}
                         isOpen={openLessonId === lesson.id}
                         onToggle={(lid) => setOpenLessonId((prev) => (prev === lid ? null : lid))}
+                        hasAccess={isOwner || isEnrolled}
                       />
                     ))}
                   </div>
@@ -465,6 +530,53 @@ export default function CourseDetailPage({ params }) {
           </div>
 
           <div className="space-y-6">
+            {isEnrolled && (quizzes.length > 0 || assignments.length > 0) && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                {quizzes.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-bold text-gray-800 mb-3">{t.quizzesTitle}</h3>
+                    <ul className="space-y-2">
+                      {quizzes.map((q) => (
+                        <li key={q.id}>
+                          <Link
+                            href={`/student/quizzes/${q.id}`}
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1D6FD8] transition-colors"
+                          >
+                            <HelpCircle size={14} className="text-[#1D6FD8] shrink-0" />
+                            <span className="truncate flex-1">{q.title}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {assignments.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800 mb-3">{t.assignmentsTitle}</h3>
+                    <ul className="space-y-2">
+                      {assignments.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            href={`/student/assignments/${a.id}`}
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1D6FD8] transition-colors"
+                          >
+                            <FileText size={14} className="text-[#1D6FD8] shrink-0" />
+                            <span className="truncate flex-1">{a.title}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <Link
+                  href="/student/grades"
+                  className="block text-center text-xs font-semibold text-[#1D6FD8] hover:underline mt-4 pt-4 border-t border-gray-100"
+                >
+                  {t.myGradesLink}
+                </Link>
+              </div>
+            )}
+
             {course.outcomes?.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-800 mb-3">{t.outcomes}</h3>

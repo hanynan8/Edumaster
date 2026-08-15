@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMembershipPlanModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,6 +27,15 @@ export async function POST(request, { params }) {
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
+
+    // 🔒 SECURITY (Day 59)
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "membership:subscribe",
+      limit: 15,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const MembershipPlan = getMembershipPlanModel();

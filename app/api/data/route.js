@@ -186,6 +186,48 @@ if (!ADMIN_EMAIL) {
   );
 }
 
+// 🔒 SECURITY (Day 59 audit — CRITICAL): الـ endpoint العام ده الأصل كان
+// مصمم بس لمحتوى الموقع التسويقي (navbar/home/about/services...)، لكن
+// عمليًا كان بيسمح بقراءة (GET) *أي* كولكشن في الداتابيز من غير أي تسجيل
+// دخول — بما فيهم collections حساسة جدًا زي "payments" و"enrollments" و
+// "quiz_results" و"notifications" و"submissions" و"certificates"،
+// لأن isAdminReadCollection() كانت بتتحقق من "form" بس. يعني أي حد يعرف
+// اسم الكولكشن (سهل التخمين: /api/data?collection=payments) كان يقدر
+// يشوف *كل* المدفوعات وكل نتائج الكويزات وكل التسليمات لكل المستخدمين.
+//
+// الحل: allowlist صريح لأسماء الكولكشنز المسموح قراءتها عامةً من هنا —
+// نفس الكولكشنز اللي الفرونت فعليًا بيستخدمها من الـ endpoint ده (شوف
+// app/admin/page.jsx handleExportAllData + صفحات الموقع العامة). أي
+// كولكشن تاني (كل بيانات الـ LMS: enrollments, payments, quiz_results,
+// submissions, notifications, certificates, comments...) لازم يتقرأ من
+// route مخصص بيه RBAC حقيقي (زي app/api/enrollments، app/api/payments...)
+// مش من هنا. الكتابة (POST/PUT/DELETE) أصلاً كانت محمية admin-only بالفعل
+// (ما عدا "form" العام) — الثغرة كانت في القراءة العامة بس.
+const PUBLIC_READ_COLLECTIONS = new Set([
+  "home",
+  "navbar",
+  "footer",
+  "about",
+  "services",
+  "courses", // 🔒 ملحوظة: نفس اسم كولكشن Course model اللي بيستخدمه app/api/courses —
+  // ده استخدام قائم فعلًا من تاب "Courses" في لوحة الأدمن (legacy)، سيبناه
+  // زي ما هو عشان منكسرش الأدمن بانل، لكن لازم الانتباه إنه بيرجّع كل
+  // الكورسات (حتى draft) لأي حد — لو ده غير مرغوب، الأنسب نقل التاب ده
+  // لاستخدام /api/courses (اللي بيفلتر published للعامة) بدل /api/data.
+  "countries",
+  "blogs",
+  "blog",
+  "contact",
+  "privacy",
+  "successStories",
+  "success_stories",
+  "form", // القراءة هنا لسه بتتفحص admin-only في isAdminReadCollection تحت
+]);
+
+function isPublicReadCollection(name) {
+  return PUBLIC_READ_COLLECTIONS.has(String(name));
+}
+
 async function isAdminRequest() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email?.toLowerCase();
@@ -480,10 +522,13 @@ export async function GET(request) {
     const { collection, id } = getSearchParams(request);
 
     if (!collection) {
-      // 🔒 SECURITY: استبعاد الكولكشنز المحمية (auth) والكولكشنز اللي قراءتها admin-only (form)
+      // 🔒 SECURITY (Day 59): من غير ?collection=، برضه لازم نستبعد أي حاجة
+      // مش في الـ allowlist العام — قبل كده كان بس بيستبعد "auth" و"form"
+      // (لغير admin)، وكل باقي كولكشنز الداتابيز (حساسة أو لأ) كانت بترجع.
       const isAdmin = await isAdminRequest();
       const colNames = (await listCollections()).filter((n) => {
         if (isProtectedCollection(n)) return false;
+        if (!isPublicReadCollection(n) && !isAdmin) return false;
         if (isAdminReadCollection(n) && !isAdmin) return false;
         return true;
       });
@@ -517,6 +562,19 @@ export async function GET(request) {
       );
     }
 
+    // 🔒 SECURITY (Day 59 — CRITICAL FIX): قبل كده الشرط الوحيد هنا كان
+    // isAdminReadCollection (بيغطي "form" بس)، فأي كولكشن تاني — بما فيهم
+    // "payments"، "enrollments"، "quiz_results"، "notifications"،
+    // "submissions"، "certificates"، "comments" — كان يترجع لأي حد من غير
+    // تسجيل دخول خالص. دلوقتي: لازم يكون في الـ allowlist العام، أو
+    // المستخدم admin فعليًا.
+    if (!isPublicReadCollection(colName)) {
+      const authorized = await isAdminRequest();
+      if (!authorized) {
+        return jsonResponse({ error: "unauthorized" }, 401);
+      }
+    }
+
     // 🔒 SECURITY: منع قراءة "form" لغير الأدمن
     if (isAdminReadCollection(colName)) {
       const authorized = await isAdminRequest();
@@ -534,12 +592,17 @@ export async function GET(request) {
 
     if (id) {
       if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "Invalid id format" }, 400);
-      const doc = await Model.findById(id);
+      const doc = await Model.findById(id).lean();
       if (!doc) return jsonResponse({ error: "Document not found" }, 404);
       return jsonResponse(doc, 200);
     }
 
-    const docs = await Model.find({});
+    // ⚡ PERFORMANCE (Day 60): كان Model.find({}) من غير حد أقصى ولا .lean() —
+    // لكولكشنز المحتوى دي غالبًا صغيرة، لكن حد أقصى + lean() دفاع رخيص ضد
+    // أي كولكشن يكبر بالغلط مستقبلًا (ومفيش سبب نجيب Mongoose documents
+    // كاملة لبيانات هترجع كـ JSON مباشرة على طول).
+    const MAX_DOCS_RETURNED = 5000;
+    const docs = await Model.find({}).limit(MAX_DOCS_RETURNED).lean();
     return jsonResponse(docs, 200);
   } catch (err) {
     return handleError(err, "GET");

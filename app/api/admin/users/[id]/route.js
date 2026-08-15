@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { logAudit } from "@/app/lib/auditLog";
 import { requireRole } from "@/app/lib/rbac";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -27,6 +28,16 @@ export async function PATCH(request, { params }) {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): دفاع إضافي (defense in depth) — لو حساب أدمن
+    // اتسرق، بيبطّئ أي محاولة تعديل جماعي/سريع لصلاحيات مستخدمين كتير.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "admin:users:patch",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -137,6 +148,15 @@ export async function DELETE(request, { params }) {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59)
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "admin:users:delete",
+      limit: 20,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {

@@ -19,6 +19,7 @@ import { requireRole } from "@/app/lib/rbac";
 import { generateUniqueCourseSlug } from "@/app/lib/courseHelpers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -123,6 +124,15 @@ export async function POST(request) {
     const auth = await requireRole(["teacher", "admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59)
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "courses:create",
+      limit: 20,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const title = String(body?.title || "").trim();

@@ -24,6 +24,7 @@ import { getCourseModel, getLessonModel, getCommentModel } from "@/app/lib/model
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotification } from "@/app/lib/notificationHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -111,6 +112,15 @@ export async function POST(request, { params }) {
     if (authResponse) return authResponse;
     if (!lesson || !course) return jsonResponse({ error: "not_found" }, 404);
     if (!hasAccess) return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
+
+    // 🔒 SECURITY (Day 59): منع سبام التعليقات/الردود.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "comments:create",
+      limit: 15,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const text = String(body?.body || "").trim();

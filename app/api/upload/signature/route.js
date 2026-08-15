@@ -16,6 +16,7 @@ import {
   buildStreamPlaybackUrl,
   isBunnyStreamConfigured,
 } from "@/app/lib/bunny";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -32,6 +33,16 @@ export async function POST(request) {
 
     const auth = await requireRole(["teacher", "admin"]);
     if (auth.response) return auth.response;
+
+    // 🔒 SECURITY (Day 59): كل نداء بينشئ فيديو جديد في Bunny Stream (مورد
+    // خارجي له تكلفة تخزين) — 15/دقيقة كافية لأي رفع دفعة دروس حقيقي.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "upload:signature",
+      limit: 15,
+      windowSeconds: 60,
+      extraKey: `user:${auth.session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const kind = body?.kind;

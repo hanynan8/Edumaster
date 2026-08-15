@@ -18,6 +18,7 @@ import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
 import { createNotification } from "@/app/lib/notificationHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -34,6 +35,17 @@ export async function POST(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): طبقة حماية إضافية جنب حد maxAttempts — بتمنع
+    // أي محاولة تلقائية تضرب الـ endpoint بسرعة (مثلاً سكربت بيجرب يلاقي
+    // race condition حوالين الـ unique index).
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "quiz:attempt",
+      limit: 10,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const Quiz = getQuizModel();

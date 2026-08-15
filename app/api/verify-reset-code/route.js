@@ -13,6 +13,15 @@ import {
   hasExceededAttempts,
   remainingAttempts,
 } from "@/app/lib/resetPasswordHelpers";
+import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
+
+// 🔒 SECURITY (Phase 8 — اليوم 59): كان فيه حد أقصى 5 محاولات *لكل حساب*
+// بس (resetAttempts في resetPasswordHelpers.js)، لكن مفيش أي حد على عدد
+// الطلبات من نفس الـ IP — يعني حد واحد يقدر يضرب آلاف الإيميلات المختلفة
+// (كل واحد فيها معاه 5 محاولات) من غير أي مانع، وده حمل غير ضروري على
+// الداتابيز كمان (كل طلب بيعمل findOne + save). نفس نمط الـ rate limit
+// المستخدم في /api/register و/authOptions.js (login).
+const IP_RATE_LIMIT = { limit: 20, windowSeconds: 60 };
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,6 +32,15 @@ function jsonResponse(data, status = 200) {
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const ipCheck = await checkRateLimit(`verify-reset-code:ip:${ip}`, IP_RATE_LIMIT);
+    if (!ipCheck.allowed) {
+      return jsonResponse(
+        { error: "too_many_requests", retryAfterSeconds: ipCheck.retryAfterSeconds },
+        429
+      );
+    }
+
     const body = await request.json().catch(() => null);
     const email = String(body?.email || "").trim().toLowerCase();
     const code = String(body?.code || "").trim();

@@ -34,6 +34,7 @@ import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser, hasActiveMembershipAccessToCourse } from "@/app/lib/access";
 // Phase 6 — اليوم 50-51: إشعار للمدرس لما طالب جديد يسجّل في كورسه.
 import { createNotification } from "@/app/lib/notificationHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -106,6 +107,16 @@ export async function POST(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): يمنع سكربت من محاولة enroll في مئات الكورسات
+    // بسرعة (سبام إشعارات للمدرسين + ضغط على studentsCount $inc).
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "enrollments:create",
+      limit: 20,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const courseId = body?.course;

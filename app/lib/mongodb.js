@@ -119,6 +119,26 @@ const authSchema = new mongoose.Schema(
   { strict: false, timestamps: true }
 );
 
+// ⚡ PERFORMANCE (Phase 8 — اليوم 60): "email" هو أكتر حقل بيتفلتر بيه على
+// الكولكشن ده — كل login (authOptions.js)، register، forgot-password،
+// verify-reset-code، reset-password كلهم بيعملوا findOne({email}). من غير
+// index، كل واحد من الاستعلامات دي (يعني كل تسجيل دخول تقريبًا) بيعمل
+// collection scan كامل على كل المستخدمين. unique:true هنا مش بس بيسرّع
+// القراءة، كمان بيمنع على مستوى الداتابيز نفسه وجود إيميلين متطابقين حتى
+// لو حصل race condition بين طلبين تسجيل متزامنين (الفحص اليدوي في
+// /api/register مش كافي لوحده لمنع ده).
+authSchema.index({ email: 1 }, { unique: true, sparse: true });
+
+// ⚡ PERFORMANCE (Phase 8 — اليوم 60): "membership.status" + "membership.expiresAt"
+// بيتفلتر بيهم في مكانين: app/api/cron/membership-expiry (بيتشغّل يوميًا،
+// أو أكتر) وapp/api/admin/users (?membershipExpiringWithinDays=N). من غير
+// index، الاتنين كانوا بيعملوا collection scan كامل على *كل* المستخدمين
+// (مش بس أصحاب membership نشطة) في كل تشغيلة — مع نمو عدد المستخدمين، ده
+// كان هيبقى أبطأ وأبطأ تدريجيًا بالظبط زي ما وصف الـ email index فوق.
+// compound index بترتيب (status ثم expiresAt) بيغطي الاستعلامين بالظبط
+// لأن الاتنين بيفلتروا بـ status="active" أولًا وبعدين بمدى تاريخ.
+authSchema.index({ "membership.status": 1, "membership.expiresAt": 1 });
+
 export function getAuthModel() {
   const modelName = "Model_auth";
   if (globalThis._mongoModels["auth"]) return globalThis._mongoModels["auth"];
@@ -156,6 +176,14 @@ const auditLogSchema = new mongoose.Schema(
   },
   { strict: true, timestamps: true }
 );
+
+// ⚡ PERFORMANCE (Phase 8 — اليوم 60): /api/admin/audit-logs بيعمل
+// .sort({ createdAt: -1 }).limit(limit) على الكولكشن ده من غير أي index —
+// يعني Mongo مضطر يحمّل ويرتّب كل السجلات في الميموري (in-memory sort)
+// قبل ما يرجّع أول limit بس، وده بيبقى أبطأ وأكتر استهلاكًا للميموري كل ما
+// السجلات زادت مع الوقت (append-only collection). index تنازلي على
+// createdAt بيخلي الترتيب نفسه مجاني (الداتا أصلاً متخزنة بالترتيب ده).
+auditLogSchema.index({ createdAt: -1 });
 
 export function getAuditLogModel() {
   const modelName = "Model_audit_logs";

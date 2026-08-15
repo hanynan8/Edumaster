@@ -125,3 +125,42 @@ export function getClientIp(request) {
   if (forwarded) return forwarded.split(",")[0].trim();
   return request?.headers?.get?.("x-real-ip") || "unknown";
 }
+
+// 🔒 SECURITY (Day 59 audit): هيلبر جاهز عشان أي route جديد يقدر يضيف rate
+// limiting بسطر واحد بدل ما يكرر منطق checkRateLimit + بناء الـ 429 response
+// يدويًا في كل مكان. الاستخدام المعتاد:
+//
+//   import { enforceRateLimit } from "@/app/lib/rateLimit";
+//
+//   export async function POST(request) {
+//     const rl = await enforceRateLimit(request, {
+//       keyPrefix: "payments:checkout", limit: 10, windowSeconds: 60,
+//     });
+//     if (rl) return rl; // 429 جاهز
+//     ...
+//   }
+//
+// لو فيه extraKey (زي user id بعد ما تتأكد من الـ session)، ممكن تعمل نداء
+// تاني بعد requireSession بمفتاح خاص بالمستخدم (مش بس IP)، عشان يمنع مستخدم
+// واحد من استغلال IPs متعددة (VPN) *و* يمنع في نفس الوقت هجوم من IP واحد
+// بحسابات كتير. الأفضل عمليًا: نادِ عليها مرتين (ip + user) لو الـ endpoint حساس جدًا.
+export async function enforceRateLimit(
+  request,
+  { keyPrefix, limit, windowSeconds, extraKey }
+) {
+  const ip = getClientIp(request);
+  const key = extraKey ? `${keyPrefix}:${extraKey}` : `${keyPrefix}:ip:${ip}`;
+  const result = await checkRateLimit(key, { limit, windowSeconds });
+
+  if (!result.allowed) {
+    return new Response(JSON.stringify({ error: "too_many_requests" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Retry-After": String(result.retryAfterSeconds),
+      },
+    });
+  }
+  return null;
+}

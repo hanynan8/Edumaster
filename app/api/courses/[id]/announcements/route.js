@@ -22,6 +22,7 @@ import { getCourseModel, getAnnouncementModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -84,6 +85,17 @@ export async function POST(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
     if (!isOwnerOrAdmin(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+
+    // 🔒 SECURITY (Day 59): كل إعلان بيبعت إشعار لكل طالب مسجّل (insertMany
+    // ممكن يبقى كبير على كورسات فيها آلاف الطلاب) — بنحدّه عشان مايتستخدمش
+    // كوسيلة سبام إشعارات.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "announcements:create",
+      limit: 10,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const title = String(body?.title || "").trim();

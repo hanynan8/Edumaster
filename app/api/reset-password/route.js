@@ -13,6 +13,13 @@ import {
   remainingAttempts,
   clearResetState,
 } from "@/app/lib/resetPasswordHelpers";
+import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
+
+// 🔒 SECURITY (Phase 8 — اليوم 59): نفس السبب الموجود في
+// /api/verify-reset-code — حد أقصى إضافي بالـ IP فوق حد الـ 5 محاولات
+// لكل حساب، دفاع في العمق (defense in depth) لأن ده الراوت اللي فعليًا
+// بيغيّر الباسورد.
+const IP_RATE_LIMIT = { limit: 20, windowSeconds: 60 };
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,6 +30,15 @@ function jsonResponse(data, status = 200) {
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const ipCheck = await checkRateLimit(`reset-password:ip:${ip}`, IP_RATE_LIMIT);
+    if (!ipCheck.allowed) {
+      return jsonResponse(
+        { error: "too_many_requests", retryAfterSeconds: ipCheck.retryAfterSeconds },
+        429
+      );
+    }
+
     const body = await request.json().catch(() => null);
     const email = String(body?.email || "").trim().toLowerCase();
     const code = String(body?.code || "").trim();

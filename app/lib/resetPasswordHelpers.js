@@ -42,9 +42,22 @@ export function remainingAttempts(user) {
 }
 
 // بيتنادى بعد نجاح تغيير الباسورد فعليًا — بيصفّر كل حاجة خاصة بالـ reset.
+//
+// 🔒 SECURITY (Phase 8 — اليوم 59، مراجعة أمان شاملة): كانت الدالة دي بتغيّر
+// الباسورد بس من غير ما تلغي أي جلسة (JWT) تانية مفتوحة بنفس الحساب —
+// يعني لو حد سرق التوكن بتاع اليوزر قبل عملية الـ reset، تغيير الباسورد
+// مكانش بيطرده. المشروع أصلاً عنده آلية tokenVersion مخصصة بالظبط للحالة
+// دي (مستخدمة في admin/users/[id] عند تعليق مستخدم، وadmin/mfa عند
+// تفعيل/تعطيل MFA) — بس مكانتش مستخدمة هنا. ناقصها هنا كان يعني إن أخطر
+// إجراء ممكن يعمله المستخدم (تغيير الباسورد) هو الوحيد اللي مابيلغيش
+// الجلسات القديمة. بنزوّد tokenVersion ونسجّل passwordChangedAt (الحقل
+// موجود في الـ schema أصلاً وكان مالوش أي استخدام) عشان أي JWT قديم يبقى
+// باطل فورًا (الفحص كل ~60 ثانية في authOptions.js jwt callback).
 export function clearResetState(user) {
   user.resetCodeHash = null;
   user.resetCodeExpiry = null;
   user.resetAttempts = 0;
   user.resetAttemptsWindowStart = null;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  user.passwordChangedAt = new Date();
 }

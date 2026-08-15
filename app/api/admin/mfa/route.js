@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { logAudit } from "@/app/lib/auditLog";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -187,6 +188,20 @@ export async function POST(request) {
     const body = await request.json().catch(() => null);
     const action = body?.action;
     const code = body?.code ? String(body.code).trim() : "";
+
+    // 🔒 SECURITY (Day 59): "verify-setup" و"disable" بيتحققوا من كود TOTP/
+    // backup لسته أرقام قليلة نسبيًا — من غير حد للمحاولات، مهاجم عنده
+    // session مسروقة (لسه ماعندوش الموبايل) يقدر يجرب يخمّن بسرعة. حد
+    // صارم: 5 محاولات كل 5 دقايق لكل أدمن على أفعال التحقق دي. "setup"
+    // نفسها أخف خطورة (مجرد توليد QR) فحدها أوسع.
+    const isCodeCheck = action === "verify-setup" || action === "disable";
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: `admin:mfa:${action || "unknown"}`,
+      limit: isCodeCheck ? 5 : 10,
+      windowSeconds: isCodeCheck ? 300 : 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const AuthModel = getAuthModel();

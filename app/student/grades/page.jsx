@@ -5,12 +5,18 @@
 // Phase 4 — اليوم 41: "درجاتي ونتائجي" — كل نتائج الكويزات ودرجات الواجبات
 // بتاعة الطالب الحالي، مجمّعة حسب الكورس. البيانات كلها من
 // GET /api/student/grades (شوف الراوت للتفاصيل).
+//
+// Phase 7 — اليوم 58: زرار "Export to Excel" بينزّل نفس البيانات (كويزات +
+// واجبات، لكل كورس) كملف xlsx — بنفس نمط overviewPanel.jsx (أدمن) و
+// teacher/performance/page.jsx (مدرس)، عشان الثلاث لوحات (أدمن/مدرس/طالب)
+// يبقى عندها كلها نفس ميزة تصدير التقارير.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ExcelJS from "exceljs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  Loader, ArrowRight, ArrowLeft, GraduationCap, CheckCircle2, XCircle, Clock, BookOpen,
+  Loader, ArrowRight, ArrowLeft, GraduationCap, CheckCircle2, XCircle, Clock, BookOpen, Download,
 } from "lucide-react";
 
 const STRINGS = {
@@ -43,6 +49,7 @@ const STRINGS = {
     dueDate: (d) => `الموعد النهائي: ${d}`,
     noDueDate: "بدون موعد نهائي",
     score: (s, m) => `${s}/${m}`,
+    exportExcel: "تصدير Excel",
   },
   en: {
     title: "My Grades & Results",
@@ -73,6 +80,7 @@ const STRINGS = {
     dueDate: (d) => `Due: ${d}`,
     noDueDate: "No due date",
     score: (s, m) => `${s}/${m}`,
+    exportExcel: "Export to Excel",
   },
 };
 
@@ -98,6 +106,7 @@ export default function StudentGradesPage() {
 
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetch("/api/student/grades")
@@ -110,6 +119,107 @@ export default function StudentGradesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function exportToExcel() {
+    if (!courses || courses.length === 0) return;
+    setExporting(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Edumaster Student";
+      workbook.created = new Date();
+
+      const headerFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4338CA" } };
+      const headerFont = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
+
+      // شيت الكويزات — صف واحد لكل كويز في كل كورس
+      const quizSheet = workbook.addWorksheet("Quizzes");
+      quizSheet.columns = [
+        { header: "Course", key: "course", width: 30 },
+        { header: "Quiz", key: "quiz", width: 30 },
+        { header: "Attempts", key: "attempts", width: 14 },
+        { header: "Best Score", key: "score", width: 14 },
+        { header: "Result", key: "result", width: 14 },
+      ];
+      const quizHeader = quizSheet.getRow(1);
+      quizHeader.eachCell((cell) => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+      quizHeader.height = 26;
+
+      let quizRowIdx = 0;
+      courses.forEach((c) => {
+        c.quizzes.forEach((q) => {
+          const row = quizSheet.addRow({
+            course: c.courseTitle,
+            quiz: q.title,
+            attempts: `${q.attemptsUsed}/${q.maxAttempts}`,
+            score: q.bestScorePercent !== null ? `${q.bestScorePercent}%` : "—",
+            result: q.bestScorePercent === null ? "Not attempted" : q.passed ? "Passed" : "Failed",
+          });
+          const isEven = quizRowIdx % 2 === 0;
+          row.eachCell((cell) => {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: isEven ? "FFFFFFFF" : "FFEFF6FF" } };
+            cell.border = { bottom: { style: "thin", color: { argb: "FFE5E7EB" } } };
+          });
+          quizRowIdx += 1;
+        });
+      });
+
+      // شيت الواجبات — صف واحد لكل واجب في كل كورس
+      const assignmentSheet = workbook.addWorksheet("Assignments");
+      assignmentSheet.columns = [
+        { header: "Course", key: "course", width: 30 },
+        { header: "Assignment", key: "assignment", width: 30 },
+        { header: "Status", key: "status", width: 16 },
+        { header: "Score", key: "score", width: 14 },
+      ];
+      const assignmentHeader = assignmentSheet.getRow(1);
+      assignmentHeader.eachCell((cell) => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+      assignmentHeader.height = 26;
+
+      let assignmentRowIdx = 0;
+      courses.forEach((c) => {
+        c.assignments.forEach((a) => {
+          const status = a.status === "graded" ? "Graded" : a.submitted ? (a.status === "late" ? "Late" : "Submitted") : "Not submitted";
+          const row = assignmentSheet.addRow({
+            course: c.courseTitle,
+            assignment: a.title,
+            status,
+            score: a.status === "graded" ? `${a.score}/${a.maxScore}` : "—",
+          });
+          const isEven = assignmentRowIdx % 2 === 0;
+          row.eachCell((cell) => {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: isEven ? "FFFFFFFF" : "FFEFF6FF" } };
+            cell.border = { bottom: { style: "thin", color: { argb: "FFE5E7EB" } } };
+          });
+          assignmentRowIdx += 1;
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `my-grades-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Excel export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
@@ -121,11 +231,21 @@ export default function StudentGradesPage() {
           <span className="text-gray-700 font-semibold">{t.grades}</span>
         </div>
 
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-            <GraduationCap size={20} className="text-blue-600" />
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <GraduationCap size={20} className="text-blue-600" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-800">{t.title}</h1>
           </div>
-          <h1 className="text-2xl font-black text-gray-800">{t.title}</h1>
+          <button
+            onClick={exportToExcel}
+            disabled={exporting || !courses || courses.length === 0}
+            className="flex items-center gap-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            {exporting ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
+            {t.exportExcel}
+          </button>
         </div>
         <p className="text-sm text-gray-400 mb-8">{t.subtitle}</p>
 

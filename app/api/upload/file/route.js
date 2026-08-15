@@ -9,6 +9,7 @@
 
 import { requireSession } from "@/app/lib/rbac";
 import { uploadToStorage, isBunnyStorageConfigured } from "@/app/lib/bunny";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -59,6 +60,17 @@ export async function POST(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): كل رفعة بتستهلك bandwidth وتخزين حقيقي على
+    // Bunny — 20 رفعة/دقيقة لكل مستخدم كافية جدًا لأي استخدام طبيعي (حتى
+    // رفع دفعة ملفات) ومنع استنزاف التخزين بسبام رفع.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "upload:file",
+      limit: 20,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const formData = await request.formData().catch(() => null);
     const kind = formData?.get("kind");

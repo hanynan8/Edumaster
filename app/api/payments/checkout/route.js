@@ -19,6 +19,7 @@ import { getCourseModel, getMembershipPlanModel, getPaymentModel } from "@/app/l
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createPaypalOrder, isPaypalConfigured } from "@/app/lib/paypal";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -32,6 +33,17 @@ export async function POST(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): كل نداء هنا بيفتح PayPal Order (نداء خارجي مكلف
+    // ماليًا وزمنيًا) — 10 محاولات/دقيقة لكل مستخدم كافية لأي استخدام حقيقي
+    // ومنع أي محاولة سبام تفتح مئات الـ orders الفاضية.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "payments:checkout",
+      limit: 10,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     if (!isPaypalConfigured()) {
       return jsonResponse({ error: "payment_gateway_not_configured" }, 503);

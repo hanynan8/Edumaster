@@ -19,6 +19,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCertificateModel, getEnrollmentModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 import { issueCertificateForCompletedEnrollment } from "@/app/lib/certificateHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,11 +41,21 @@ function serializeCertificate(c) {
   };
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY (Day 59): كل نداء بيعمل self-heal writes (إصدار شهادات)
+    // فمش مجرد قراءة بسيطة — نحدّ من التكرار السريع.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "certificates:list",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const Enrollment = getEnrollmentModel();

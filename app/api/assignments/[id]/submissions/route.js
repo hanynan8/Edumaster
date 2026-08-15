@@ -20,6 +20,7 @@ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -103,6 +104,15 @@ export async function POST(request, { params }) {
     // 🔒 لازم وصول فعلي للكورس (enrollment/membership) قبل ما يسلّم أي واجب
     const access = await getCourseAccessForUser({ userId: session.user.id, courseId: course._id });
     if (!access.hasAccess) return jsonResponse({ error: "forbidden" }, 403);
+
+    // 🔒 SECURITY (Day 59)
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "assignments:submit",
+      limit: 10,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const body = await request.json().catch(() => null);
     const fileUrl = body?.fileUrl ? String(body.fileUrl) : null;

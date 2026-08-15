@@ -17,6 +17,7 @@ import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel, get
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
+import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -115,6 +116,19 @@ export async function POST(request, { params }) {
     }
 
     const enrollment = await recomputeEnrollmentProgress(session.user.id, course._id);
+
+    // 🔔 Phase 6 — اليوم 50-51: إشعار "نتيجة كويز" للطالب نفسه (best-effort،
+    // مش لازم ينجح عشان النتيجة تترجع في الـ response أصلًا).
+    await createNotification({
+      user: session.user.id,
+      type: "quiz_result",
+      title: quiz.title,
+      message: passed
+        ? `${scorePercent}% — Passed`
+        : `${scorePercent}% — Not passed yet`,
+      link: `/student/grades`,
+      course: course._id,
+    });
 
     return jsonResponse(
       {

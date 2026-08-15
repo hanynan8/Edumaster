@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { signOut, useSession } from "next-auth/react";
 import AuthModal from "./auth/authModel";
+import NotificationBell from "./NotificationBell";
 
 /* ═══════════════════════════════════════════════════════
    هذا الملف ناتج عن دمج navbar.jsx + NavUi.jsx في ملف واحد:
@@ -218,7 +219,12 @@ export default function Navbar() {
       return <div className="w-20 sm:w-24 h-9 rounded-lg bg-gray-100 animate-pulse" />;
     }
     if (isLoggedIn) {
-      return <UserDropdown user={session.user} />;
+      return (
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <NotificationBell />
+          <UserDropdown user={session.user} />
+        </div>
+      );
     }
     return (
       <div className="flex items-center gap-2">
@@ -244,16 +250,19 @@ export default function Navbar() {
     if (isLoggedIn) {
       return (
         <>
-          <div className="flex items-center gap-3 py-3 px-2 border-b border-gray-100">
-            <span className="w-8 h-8 rounded-full bg-[#C9A227] text-white text-sm font-bold flex items-center justify-center">
-              {session.user?.name?.charAt(0)?.toUpperCase()}
-            </span>
-            <div>
-              <p className="text-sm font-bold text-[#0a0a0a]">{session.user?.name}</p>
-              {session.user?.phone && (
-                <p className="text-xs text-gray-400">{session.user.phone}</p>
-              )}
+          <div className="flex items-center justify-between gap-3 py-3 px-2 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-[#C9A227] text-white text-sm font-bold flex items-center justify-center">
+                {session.user?.name?.charAt(0)?.toUpperCase()}
+              </span>
+              <div>
+                <p className="text-sm font-bold text-[#0a0a0a]">{session.user?.name}</p>
+                {session.user?.phone && (
+                  <p className="text-xs text-gray-400">{session.user.phone}</p>
+                )}
+              </div>
             </div>
+            <NotificationBell />
           </div>
           <button
             onClick={() => { signOut({ callbackUrl: "/" }); setMenuOpen(false); }}

@@ -47,6 +47,7 @@ import arabicReshaper from "arabic-reshaper";
 import bidiFactory from "bidi-js";
 import { getCertificateModel, getCourseModel } from "@/app/lib/models";
 import { getAuthModel } from "@/app/lib/mongodb";
+import { createNotification } from "@/app/lib/notificationHelpers";
 
 const bidi = bidiFactory();
 
@@ -325,6 +326,19 @@ export async function issueCertificateForCompletedEnrollment(userId, courseId) {
         courseTitleSnapshot,
         issuedAt: new Date(),
       });
+
+      // 🔔 Phase 6 — اليوم 50-51: إشعار "شهادة جديدة" للطالب — بعد إنشاء
+      // فعلي فقط (مش لو الشهادة كانت موجودة بالفعل، ومش من مسار E11000
+      // تحت — عشان الإشعار يتبعت مرة واحدة بالظبط لكل شهادة).
+      await createNotification({
+        user: userId,
+        type: "certificate_issued",
+        title: courseTitleSnapshot,
+        message: "Your certificate is ready",
+        link: "/student/certificates",
+        course: courseId,
+      });
+
       return created.toObject();
     } catch (err) {
       // 🔒 E11000 = duplicate key (سباق مع نداء تاني عمل الشهادة قبلنا

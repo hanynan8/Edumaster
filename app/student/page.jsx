@@ -13,7 +13,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap,
+  BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap, Award, TrendingUp,
 } from "lucide-react";
 
 const STRINGS = {
@@ -36,6 +36,12 @@ const STRINGS = {
     statusLabels: { active: "فعّالة", inactive: "غير مفعّلة", expired: "منتهية", cancelled: "ملغاة" },
     continueLabel: "استكمال",
     myGrades: "درجاتي ونتائجي",
+    // Phase 7 — اليوم 57: ملخص شخصي (تقدمي/شهاداتي/كورساتي)
+    summaryProgress: "متوسط تقدّمي",
+    summaryActive: "كورسات جارية",
+    summaryCompleted: "كورسات مكتملة",
+    summaryCertificates: "شهاداتي",
+    viewCertificates: "شوف شهاداتي",
   },
   en: {
     title: "My Courses",
@@ -56,6 +62,11 @@ const STRINGS = {
     statusLabels: { active: "Active", inactive: "Inactive", expired: "Expired", cancelled: "Cancelled" },
     continueLabel: "Continue",
     myGrades: "My Grades & Results",
+    summaryProgress: "Average Progress",
+    summaryActive: "Active Courses",
+    summaryCompleted: "Completed Courses",
+    summaryCertificates: "My Certificates",
+    viewCertificates: "View my certificates",
   },
 };
 
@@ -112,6 +123,46 @@ function MembershipCard({ membership, t, isRTL }) {
   );
 }
 
+function SummaryStats({ enrollments, certificatesCount, t }) {
+  const total = enrollments.length;
+  const completed = enrollments.filter((e) => e.status === "completed").length;
+  const active = total - completed;
+  const avgProgress =
+    total > 0 ? Math.round(enrollments.reduce((sum, e) => sum + (e.progressPercent || 0), 0) / total) : 0;
+
+  const cards = [
+    { icon: TrendingUp, label: t.summaryProgress, value: `${avgProgress}%`, accent: "bg-blue-50 text-[#1D6FD8]" },
+    { icon: Clock, label: t.summaryActive, value: active, accent: "bg-amber-50 text-amber-600" },
+    { icon: CheckCircle2, label: t.summaryCompleted, value: completed, accent: "bg-green-50 text-green-600" },
+    { icon: Award, label: t.summaryCertificates, value: certificatesCount, accent: "bg-purple-50 text-purple-600", link: "/student/certificates" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {cards.map((c, i) => {
+        const Content = (
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 h-full hover:shadow-md transition-shadow">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.accent}`}>
+              <c.icon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-black text-gray-800 leading-tight">{c.value}</p>
+              <p className="text-[11px] text-gray-400 truncate">{c.label}</p>
+            </div>
+          </div>
+        );
+        return c.link ? (
+          <Link key={i} href={c.link}>
+            {Content}
+          </Link>
+        ) : (
+          <div key={i}>{Content}</div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function StudentMyCoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
@@ -119,16 +170,19 @@ export default function StudentMyCoursesPage() {
 
   const [enrollments, setEnrollments] = useState(null);
   const [membership, setMembership] = useState(null);
+  const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
     Promise.all([
       fetch("/api/enrollments").then((r) => (r.ok ? r.json() : { enrollments: [] })),
       fetch("/api/membership").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/certificates").then((r) => (r.ok ? r.json() : { certificates: [] })),
     ])
-      .then(([enrollmentsData, membershipData]) => {
+      .then(([enrollmentsData, membershipData, certificatesData]) => {
         setEnrollments(Array.isArray(enrollmentsData?.enrollments) ? enrollmentsData.enrollments : []);
         setMembership(membershipData);
+        setCertificatesCount(Array.isArray(certificatesData?.certificates) ? certificatesData.certificates.length : 0);
       })
       .catch(() => setError(t.error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,6 +208,10 @@ export default function StudentMyCoursesPage() {
             <GraduationCap size={16} /> {t.myGrades}
           </Link>
         </div>
+
+        {enrollments !== null && (
+          <SummaryStats enrollments={enrollments} certificatesCount={certificatesCount} t={t} />
+        )}
 
         <div className="mb-8">
           <MembershipCard membership={membership} t={t} isRTL={isRTL} />

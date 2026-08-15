@@ -6,7 +6,8 @@
 // السيشن تلقائيًا لو role=teacher — شوف app/api/courses/route.js).
 
 import { useEffect, useState } from "react";
-import { Plus, Loader, BookOpen, GraduationCap } from "lucide-react";
+import { Plus, Loader, BookOpen, GraduationCap, BarChart3 } from "lucide-react";
+import Link from "next/link";
 import CourseCard from "./components/CourseCard";
 import CourseFormModal from "./components/CourseFormModal";
 
@@ -70,12 +71,20 @@ export default function TeacherCoursesPage() {
             <p className="text-sm text-gray-400">إدارة الكورسات اللي إنت بتدرّسها</p>
           </div>
         </div>
-        <button
-          onClick={() => setModalCourse(null)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:opacity-90"
-        >
-          <Plus size={18} /> كورس جديد
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/teacher/performance"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+          >
+            <BarChart3 size={16} /> الأداء والإحصائيات
+          </Link>
+          <button
+            onClick={() => setModalCourse(null)}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:opacity-90"
+          >
+            <Plus size={18} /> كورس جديد
+          </button>
+        </div>
       </div>
 
       {courses === null && !error && (

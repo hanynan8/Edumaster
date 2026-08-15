@@ -19,6 +19,8 @@ import {
   getCourseModel,
   getMembershipPlanModel,
 } from "@/app/lib/models";
+import { createNotification } from "@/app/lib/notificationHelpers";
+import { sendPaymentSucceededEmail } from "@/app/lib/emailHelpers";
 
 export function generateInvoiceNumber(paymentId) {
   const now = new Date();
@@ -128,7 +130,54 @@ export async function markPaymentSucceededAndGrantAccess(paymentId, { providerPa
     await grantMembershipAccess(updated);
   }
 
+  // 🔔 Phase 6 — اليوم 52 (اختياري): إشعار داخلي + إيميل "نجاح دفع".
+  // best-effort بالكامل ومقصود (زي باقي best-effort helpers في الملف ده):
+  // فشل الإشعار/الإيميل (مشكلة عابرة في الداتابيز أو عند Resend) ميرجعش
+  // يبوّظ الدفعة اللي نجحت فعليًا ووصولها اتفعّل بالفعل فوق.
+  try {
+    await notifyPaymentSucceeded(updated);
+  } catch (err) {
+    console.error("[markPaymentSucceededAndGrantAccess] notify error:", err);
+  }
+
   return updated;
+}
+
+async function notifyPaymentSucceeded(payment) {
+  const AuthModel = getAuthModel();
+  const user = await AuthModel.findById(payment.user, "name email").lean();
+  if (!user) return;
+
+  let itemLabel = "your purchase";
+  if (payment.type === "course") {
+    const Course = getCourseModel();
+    const course = await Course.findById(payment.course, "title").lean();
+    itemLabel = course?.title || itemLabel;
+  } else if (payment.type === "membership") {
+    const MembershipPlan = getMembershipPlanModel();
+    const plan = await MembershipPlan.findById(payment.membershipPlan, "name").lean();
+    itemLabel = plan?.name || "your membership";
+  }
+
+  await createNotification({
+    user: payment.user,
+    type: "payment_succeeded",
+    title: "Payment successful",
+    message: itemLabel,
+    link: payment.type === "course" ? `/courses/${payment.course}` : "/student/payments",
+    course: payment.type === "course" ? payment.course : null,
+  });
+
+  if (user.email) {
+    await sendPaymentSucceededEmail({
+      toEmail: user.email,
+      name: user.name || "there",
+      itemLabel,
+      amount: payment.amount,
+      currency: payment.currency,
+      invoiceNumber: payment.invoiceNumber,
+    });
+  }
 }
 
 export async function markPaymentFailed(paymentId, reason) {

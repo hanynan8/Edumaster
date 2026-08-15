@@ -15,6 +15,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -94,6 +95,17 @@ export async function PUT(request, { params }) {
     submission.gradedBy = session.user.id;
     submission.gradedAt = new Date();
     await submission.save();
+
+    // 🔔 Phase 6 — اليوم 50-51: إشعار "تقييم assignment" للطالب صاحب
+    // التسليم (best-effort — فشل الإشعار ميبوّظش عملية التصحيح نفسها).
+    await createNotification({
+      user: submission.student,
+      type: "assignment_graded",
+      title: assignment.title,
+      message: `${score}/${assignment.maxScore}`,
+      link: `/student/grades`,
+      course: assignment.course,
+    });
 
     return jsonResponse({
       id: submission._id.toString(),

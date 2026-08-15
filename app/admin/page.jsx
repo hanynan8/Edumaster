@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   Database, Settings, Home, Navigation, Info, BookOpen,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
-  Loader, Inbox, Tags, Layers, DollarSign,
+  Loader, Inbox, Tags, Layers, DollarSign, BarChart3,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -24,6 +24,7 @@ import FormSubmissionsAdmin from './components/formsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
+import OverviewAdmin from './components/overviewPanel';
 
 function NotFound() {
   return (
@@ -69,7 +70,7 @@ function PlaceholderAdmin({ title }) {
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('overview');
   const [exporting, setExporting] = useState(false);
 
   // لسه بيجيب بيانات السيشن من NextAuth
@@ -98,6 +99,7 @@ export default function AdminDashboard() {
 
   // ✅ مسجّل بحساب role = admin → فتح اللوحة مباشرة
   const tabs = [
+    { id: 'overview',        name: 'Overview',        icon: BarChart3,     component: OverviewAdmin },
     { id: 'home',             name: 'Home',             icon: Home,          component: HomeAdmin },
     { id: 'navbar',           name: 'Navbar',           icon: Navigation,    component: NavbarAdmin },
     { id: 'footer',           name: 'Footer',           icon: Info,          component: FooterAdmin },

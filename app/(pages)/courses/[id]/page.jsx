@@ -27,6 +27,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
+import CourseAnnouncements from "@/app/components/CourseAnnouncements";
+import LessonComments from "@/app/components/LessonComments";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
   Clock, Users, Award, BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
@@ -221,6 +223,9 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
               <FileType2 size={15} /> {lesson.title}
             </a>
           )}
+          {/* Phase 6 — اليوم 48-49: نقاش الدرس لطالب عنده وصول فعلي بس
+              (مش لزائر preview — نفس شرط /api/lessons/[id]/comments). */}
+          {hasAccess && <LessonComments lessonId={lesson.id} />}
         </div>
       )}
 
@@ -530,6 +535,10 @@ export default function CourseDetailPage({ params }) {
           </div>
 
           <div className="space-y-6">
+            {/* Phase 6 — اليوم 46-47: إعلانات الكورس لصاحب الكورس/أدمن أو
+                طالب مسجّل فعليًا — نفس شرط الوصول اللي الـ API بيفرضه. */}
+            {(isOwner || isEnrolled) && <CourseAnnouncements courseId={id} />}
+
             {isEnrolled && (quizzes.length > 0 || assignments.length > 0) && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 {quizzes.length > 0 && (

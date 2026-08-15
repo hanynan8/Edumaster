@@ -32,6 +32,8 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getEnrollmentModel, getCourseModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser, hasActiveMembershipAccessToCourse } from "@/app/lib/access";
+// Phase 6 — اليوم 50-51: إشعار للمدرس لما طالب جديد يسجّل في كورسه.
+import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -167,6 +169,18 @@ export async function POST(request) {
 
     // ✅ إحصائية محسوبة على الكورس — بتتحدث هنا بس (الكود)، مش من الـ client
     await Course.findByIdAndUpdate(courseId, { $inc: { studentsCount: 1 } });
+
+    // 🔔 Phase 6 — اليوم 50-51: "تسجيل جديد" هي أول حالة مذكورة في المهمة
+    // (جرس إشعارات — عند تسجيل جديد). best-effort (createNotification
+    // بتمسك أي خطأ جوّاها) — فشل الإشعار ميبوّظش نجاح التسجيل نفسه.
+    await createNotification({
+      user: course.teacher,
+      type: "enrollment_new",
+      title: "طالب جديد سجّل في كورسك",
+      message: `${session.user.name || "طالب"} سجّل في "${course.title}"`,
+      link: `/teacher/courses/${course._id}`,
+      course: course._id,
+    });
 
     return jsonResponse({ enrolled: true, enrollment: serializeEnrollment(created) }, 201);
   } catch (err) {

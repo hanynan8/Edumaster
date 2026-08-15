@@ -67,5 +67,15 @@ export async function recomputeEnrollmentProgress(userId, courseId) {
   }
 
   await enrollment.save();
+
+  // Phase 5 — اليوم 44: بمجرد ما الحالة بقت "completed" دلوقتي (مكانتش
+  // كده قبل الاستدعاء ده)، نصدر الشهادة تلقائيًا. best-effort ومقصود إنها
+  // متبوظش عملية تسجيل إكمال الدرس/الكويز اللي نادت الدالة دي أصلاً لو
+  // فشل توليد الشهادة لأي سبب (شوف تعليق issueCertificateForCompletedEnrollment
+  // في certificateHelpers.js).
+  if (isNowComplete && !wasComplete) {
+    await issueCertificateForCompletedEnrollment(userId, courseId);
+  }
+
   return enrollment;
 }

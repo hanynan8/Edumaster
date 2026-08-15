@@ -17,3 +17,8 @@ export { getQuizModel, getQuestionModel } from "./Quiz";
 export { getQuizResultModel } from "./QuizResult";
 export { getAssignmentModel, getSubmissionModel } from "./Assignment";
 export { getCertificateModel } from "./Certificate";
+
+// أُضيفت في Phase 6
+export { getNotificationModel } from "./Notification";
+export { getAnnouncementModel } from "./Announcement";
+export { getCommentModel } from "./Comment";

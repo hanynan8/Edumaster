@@ -1,12 +1,8 @@
 // ═══════════════════════════════════════════════
-//  courses.jsx — مصدرين، قايمة واحدة، نفس الشكل بالظبط:
-//   1) كورسات الأدمن  → GET /api/data?collection=courses (بيتعدّلوا من لوحة
-//      الأدمن — محرر المحتوى الحالي، زي ما هو).
-//   2) كورسات المدرس  → GET /api/courses (بيتعدّلوا من لوحة المدرس، وده
-//      كورس حقيقي بدروس وتسجيل ودفع).
-//  الاتنين بيتحوّلوا لنفس الشكل (normalize) وبيتعرضوا مع بعض هنا بنفس
-//  الكارت بالظبط، وبيودّوا لنفس صفحة التفاصيل /courses/[id] — اللي
-//  بتفرّق داخليًا حسب الـ id (admin- prefix ولا id حقيقي من MongoDB).
+//  courses.jsx — مصدر واحد بس: GET /api/courses (كورسات حقيقية، بتتعدّل من
+//  لوحة المدرس/الأدمن، بدعم 3 لغات لكل كورس عبر course.i18n). كل كورس —
+//  بما فيهم أي كورس جديد يتضاف بعد كده — بنفس البنية بالظبط، مفيش تفرقة
+//  بين "كورس تسويقي" و"كورس حقيقي" خالص.
 // ═══════════════════════════════════════════════
 "use client";
 
@@ -77,55 +73,35 @@ const STRINGS = {
   },
 };
 
-// ─── تطبيع كورسات الأدمن (المحتوى الثابت) لنفس شكل كورسات المدرس ───
-function normalizeAdminCourses(contentDoc, language) {
-  if (!contentDoc?.courses) return [];
-  const t = contentDoc.i18n?.[language] ?? contentDoc.i18n?.en;
-  if (!t) return [];
-  return contentDoc.courses.map((raw) => {
-    const i18nCourse = t.courses?.[raw.id] || {};
-    return {
-      id: `admin-${raw.id}`,
-      title: i18nCourse.title || raw.id,
-      shortDescription: i18nCourse.desc || "",
-      thumbnail: raw.image || null,
-      categoryName: i18nCourse.category || "",
-      levelLabel: raw.level || "",
-      levelColor: raw.levelColor || "#1D6FD8",
-      durationLabel: raw.duration || "",
-      requirements: i18nCourse.whoIsThisFor || [],
-      outcomes: i18nCourse.outcomes || [],
-      studentsCount: 0,
-      isFree: null, // مفيش سعر لكورسات الأدمن أصلاً — بادچ السعر بيتخفي ليها
-      accent: raw.color || "#1D6FD8",
-      source: "admin",
-    };
-  });
-}
+// ─── تطبيع كورس حقيقي (i18n-aware) لشكل موحّد يستخدمه العرض ───
+// بياخد النسخة المترجمة المناسبة للغة الحالية من course.i18n[language]،
+// ولو مش موجودة بيرجع للحقول الأساسية (title/shortDescription/...) اللي
+// دايمًا موجودة كـ fallback (نسخة لغة الكورس الافتراضية).
+function localizeCourse(c, language, t, index0, i) {
+  const i18nEntry = c.i18n?.[language] || c.i18n?.en || null;
+  const categoryI18nEntry = c.categoryI18n?.[language] || c.categoryI18n?.en || null;
 
-// ─── تطبيع كورسات المدرس (الحقيقية من الداتابيز) لنفس الشكل ───
-function normalizeTeacherCourses(apiCourses, t, index0 = 0) {
-  return (apiCourses || []).map((c, i) => ({
+  return {
     id: c.id,
-    title: c.title,
-    shortDescription: c.shortDescription || c.description || "",
+    title: i18nEntry?.title || c.title,
+    shortDescription: i18nEntry?.shortDescription || c.shortDescription || c.description || "",
     thumbnail: c.thumbnail,
-    categoryName: c.categoryName || "",
+    categoryName: categoryI18nEntry?.name || c.categoryName || "",
     levelLabel: t.levels[c.level] || c.level,
     levelColor: LEVEL_COLORS[c.level] || "#1D6FD8",
     durationLabel:
-      c.totalDurationSeconds > 0
+      c.durationLabel ||
+      (c.totalDurationSeconds > 0
         ? formatSeconds(c.totalDurationSeconds)
-        : t.lessons(c.totalLessonsCount || 0),
-    requirements: c.requirements || [],
-    outcomes: c.outcomes || [],
+        : t.lessons(c.totalLessonsCount || 0)),
+    requirements: i18nEntry?.requirements?.length ? i18nEntry.requirements : c.requirements || [],
+    outcomes: i18nEntry?.outcomes?.length ? i18nEntry.outcomes : c.outcomes || [],
     studentsCount: c.studentsCount || 0,
     isFree: c.isFree,
     price: c.price,
     currency: c.currency,
     accent: ACCENT_PALETTE[(index0 + i) % ACCENT_PALETTE.length],
-    source: "teacher",
-  }));
+  };
 }
 
 function formatSeconds(s) {
@@ -135,7 +111,6 @@ function formatSeconds(s) {
 }
 
 function useAllCourses(language) {
-  const [adminDoc, setAdminDoc] = useState(undefined); // undefined = لسه بيحمّل
   const [teacherCourses, setTeacherCourses] = useState(undefined);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(false);
@@ -143,22 +118,16 @@ function useAllCourses(language) {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      // 🔄 SWAP: "courses" هو الاسم الفعلي في MongoDB اللي بيحمل مستند محتوى
-      // صفحة الكورسات (الأدمن)، و"courses_landing" بقى اسم كولكشن كورسات
-      // المدرسين الحقيقية (محمي، admin-only — شوف app/api/data/route.js).
-      fetch("/api/data?collection=courses").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/courses?limit=50").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/categories").then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([dataRes, coursesRes, categoriesRes]) => {
+      .then(([coursesRes, categoriesRes]) => {
         if (cancelled) return;
-        setAdminDoc(Array.isArray(dataRes) ? dataRes[0] : dataRes);
         setTeacherCourses(Array.isArray(coursesRes?.courses) ? coursesRes.courses : []);
         setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
       })
       .catch(() => {
         if (!cancelled) {
-          setAdminDoc(null);
           setTeacherCourses([]);
           setError(true);
         }
@@ -168,7 +137,7 @@ function useAllCourses(language) {
     };
   }, []);
 
-  return { adminDoc, teacherCourses, categories, error };
+  return { teacherCourses, categories, error };
 }
 
 function useReveal(threshold = 0.08) {
@@ -243,15 +212,13 @@ function Target({ size = 13 }) {
 export default function CoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
-  const { adminDoc, teacherCourses, categories, error } = useAllCourses(language);
+  const { teacherCourses, categories, error } = useAllCourses(language);
   const [activeFilter, setActiveFilter] = useState("all");
 
   const merged = useMemo(() => {
-    if (adminDoc === undefined || teacherCourses === undefined) return null; // لسه بيحمّل
-    const admin = normalizeAdminCourses(adminDoc, language);
-    const teacher = normalizeTeacherCourses(teacherCourses, t, admin.length);
-    return [...admin, ...teacher];
-  }, [adminDoc, teacherCourses, language, t]);
+    if (teacherCourses === undefined) return null; // لسه بيحمّل
+    return teacherCourses.map((c, i) => localizeCourse(c, language, t, 0, i));
+  }, [teacherCourses, language, t]);
 
   const filterKeys = useMemo(() => {
     if (!merged) return ["all"];

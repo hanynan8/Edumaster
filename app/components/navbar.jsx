@@ -129,6 +129,22 @@ function UserDropdown({ user }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // روابط لوحة الطالب متاحة لأي مستخدم مسجّل دخول (student/teacher/admin —
+  // نفس منطق app/student/layout.jsx: مدرس أو أدمن ممكن يكونوا مسجلين في
+  // كورس زي أي طالب عادي). روابط لوحة المدرس/الأدمن بتتضاف فوقها حسب الدور.
+  const links = [
+    { href: "/student", label: "كورساتي" },
+    { href: "/student/grades", label: "درجاتي" },
+    { href: "/student/certificates", label: "شهاداتي" },
+    { href: "/student/payments", label: "مدفوعاتي" },
+  ];
+  if (user?.role === "teacher" || user?.role === "admin") {
+    links.push({ href: "/teacher", label: "لوحة المدرس" });
+  }
+  if (user?.role === "admin") {
+    links.push({ href: "/admin", label: "لوحة الأدمن" });
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -153,6 +169,18 @@ function UserDropdown({ user }) {
             {user?.phone && (
               <p className="text-xs text-gray-400 mt-0.5 truncate">{user.phone}</p>
             )}
+          </div>
+          <div className="py-1 border-b border-gray-100">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
           <button
             onClick={() => { signOut({ callbackUrl: "/" }); setOpen(false); }}

@@ -238,15 +238,11 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
   );
 }
 
-// كورسات الأدمن (اللي مصدرها /api/data?collection=courses) بتتعرض بـ id
-// مبدوء بـ "admin-" في صفحة /courses عشان نفرّق بينها وبين id حقيقي من
-// MongoDB (ObjectId) بتاع كورس المدرس. نفس الراوت /courses/[id] لكل
-// الكورسات — بس المحتوى جوّه بيتفرّع حسب المصدر (شوف AdminCourseDetail تحت).
+// كل الكورسات دلوقتي حقيقية (Course model) — مفيش تفرقة "admin-" تاني.
+// الصفحة بتجيب الكورس من /api/courses/[id] وتعرض النسخة اللغوية المناسبة
+// من course.i18n حسب لغة الموقع الحالية.
 export default function CourseDetailPage({ params }) {
   const { id } = usePromise(params);
-  if (id && id.startsWith("admin-")) {
-    return <AdminCourseDetail slug={id.slice("admin-".length)} />;
-  }
   return <RealCourseDetail id={id} />;
 }
 
@@ -432,6 +428,20 @@ function RealCourseDetail({ id }) {
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
+  // 🆕 النسخة المترجمة المناسبة للغة الموقع الحالية — لو مش متوفرة، بترجع
+  // للحقول الأساسية بتاعة الكورس (نسخة لغة الكورس الافتراضية).
+  const i18nEntry = course.i18n?.[language] || course.i18n?.en || null;
+  const categoryI18nEntry = course.categoryI18n?.[language] || course.categoryI18n?.en || null;
+  const loc = {
+    title: i18nEntry?.title || course.title,
+    shortDescription: i18nEntry?.shortDescription || course.shortDescription,
+    description: i18nEntry?.description || course.description,
+    categoryName: categoryI18nEntry?.name || course.categoryName,
+    requirements: i18nEntry?.requirements?.length ? i18nEntry.requirements : course.requirements,
+    outcomes: i18nEntry?.outcomes?.length ? i18nEntry.outcomes : course.outcomes,
+    certification: i18nEntry?.certification?.name ? i18nEntry.certification : null,
+  };
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
       {/* Hero */}
@@ -443,14 +453,14 @@ function RealCourseDetail({ id }) {
 
           <div className="grid lg:grid-cols-3 gap-8 items-start">
             <div className="lg:col-span-2">
-              {course.categoryName && (
+              {loc.categoryName && (
                 <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-[#1D6FD8] bg-white/10 px-3 py-1 rounded-full mb-4">
-                  {course.categoryName}
+                  {loc.categoryName}
                 </span>
               )}
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-3">{course.title}</h1>
-              {course.shortDescription && (
-                <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-5">{course.shortDescription}</p>
+              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-3">{loc.title}</h1>
+              {loc.shortDescription && (
+                <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-5">{loc.shortDescription}</p>
               )}
               <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-300">
                 <span className="flex items-center gap-1.5"><BookOpen size={14} /> {t.lessonsCount(course.totalLessonsCount || 0)}</span>
@@ -630,146 +640,6 @@ function RealCourseDetail({ id }) {
           onSwitch={(next) => setAuthMode(next)}
         />
       )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════
-//  AdminCourseDetail — كورس مصدره الأدمن (/api/data?collection=courses).
-//  نفس بنية الصفحة (hero أسود + بادچ + متطلبات/هتتعلم إيه) بس من غير
-//  محتوى دروس/تسجيل/دفع/كويزات — لأن الكورس ده مش سجل حقيقي في كولكشن
-//  courses، فمفيش sections/lessons/enrollment ليه أصلاً.
-// ═══════════════════════════════════════════════
-const ADMIN_STRINGS = {
-  ar: { back: "كل الكورسات", requirements: "المتطلبات", outcomes: "هتتعلم إيه", certification: "الشهادة", loading: "جارِ التحميل...", notFound: "الكورس ده مش موجود" },
-  en: { back: "All Courses", requirements: "Requirements", outcomes: "What you'll learn", certification: "Certification", loading: "Loading...", notFound: "Course not found" },
-  es: { back: "Todos los Cursos", requirements: "Requisitos", outcomes: "Lo que aprenderás", certification: "Certificación", loading: "Cargando...", notFound: "Curso no encontrado" },
-};
-
-function AdminCourseDetail({ slug }) {
-  const { language, isRTL } = useLanguage();
-  const t = ADMIN_STRINGS[language] || ADMIN_STRINGS.en;
-  const BackArrow = isRTL ? ArrowLeft : ArrowRight;
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    // 🔄 SWAP: زي صفحة /courses بالظبط — "courses" هو الكولكشن الصح
-    // لمحتوى الأدمن دلوقتي (شوف app/api/data/route.js)، و"courses_landing"
-    // بقى كولكشن كورسات المدرسين الحقيقي.
-    fetch("/api/data?collection=courses")
-      .then((r) => r.json())
-      .then((res) => setData(Array.isArray(res) ? res[0] : res))
-      .catch(() => setData(false));
-  }, []);
-
-  if (data === null) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-32">
-        <Loader className="animate-spin text-[#1D6FD8]" size={32} />
-        <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{t.loading}</span>
-      </div>
-    );
-  }
-
-  const raw = data && data.courses?.find((c) => c.id === slug);
-  const i18nCourse = data?.i18n?.[language]?.courses?.[slug] || data?.i18n?.en?.courses?.[slug];
-
-  if (!data || !raw || !i18nCourse) {
-    return (
-      <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-        <h1 className="text-2xl font-bold text-gray-700 mb-2">404</h1>
-        <p className="text-gray-400 mb-6">{t.notFound}</p>
-        <Link href="/courses" className="text-[#1D6FD8] font-semibold hover:underline">{t.back}</Link>
-      </div>
-    );
-  }
-
-  return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
-      {/* Hero */}
-      <section className="relative bg-[#0a0a0a] text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-          <Link href="/courses" className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white mb-6">
-            <BackArrow size={15} /> {t.back}
-          </Link>
-
-          <div className="grid lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
-              {i18nCourse.category && (
-                <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-[#1D6FD8] bg-white/10 px-3 py-1 rounded-full mb-4">
-                  {i18nCourse.category}
-                </span>
-              )}
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-3">{i18nCourse.title}</h1>
-              {i18nCourse.desc && (
-                <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-5">{i18nCourse.desc}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-300">
-                {raw.duration && <span className="flex items-center gap-1.5"><Clock size={14} /> {raw.duration}</span>}
-                {raw.level && <span className="flex items-center gap-1.5"><Award size={14} /> {raw.level}</span>}
-              </div>
-            </div>
-
-            <div className="bg-white text-[#0a0a0a] rounded-2xl overflow-hidden shadow-2xl">
-              <div className="relative h-44 bg-gray-100">
-                {raw.image ? (
-                  <Image src={raw.image} alt={i18nCourse.title} fill unoptimized className="object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300"><BookOpen size={40} /></div>
-                )}
-              </div>
-              <div className="p-5">
-                <Link
-                  href={raw.ctaHref || "/contact"}
-                  className="block w-full text-center bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
-                >
-                  {i18nCourse.cta || t.back}
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Body */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {i18nCourse.certification && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-2">{t.certification}</h2>
-                <p className="text-sm font-semibold text-gray-700">{i18nCourse.certification.name}</p>
-                <p className="text-sm text-gray-500 mt-1 leading-relaxed">{i18nCourse.certification.desc}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-6">
-            {i18nCourse.outcomes?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">{t.outcomes}</h3>
-                <ul className="space-y-2">
-                  {i18nCourse.outcomes.map((o, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                      <CheckCircle2 size={15} className="text-[#1D6FD8] shrink-0 mt-0.5" /> {o}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {i18nCourse.whoIsThisFor?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">{t.requirements}</h3>
-                <ul className="space-y-2 list-disc ps-5">
-                  {i18nCourse.whoIsThisFor.map((r, i) => (
-                    <li key={i} className="text-sm text-gray-600">{r}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

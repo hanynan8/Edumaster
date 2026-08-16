@@ -9,7 +9,34 @@
 // تعديل جديد).
 
 import { getLessonModel } from "@/app/lib/models/Lesson";
-import { getCourseModel } from "@/app/lib/models/Course";
+import { getCourseModel, SUPPORTED_COURSE_LANGS } from "@/app/lib/models/Course";
+
+// 🆕 بتاخد أي object جاي من العميل (body.i18n) وترجّع نسخة نضيفة بس فيها
+// اللغات المدعومة (ar/en/es) والحقول المعروفة — عشان محدش يقدر يحقن مفاتيح
+// غريبة أو يبعت بيانات مش من النوع المتوقع لموديل Mongoose. أي لغة/حقل مش
+// موجود في input بيتسيب بقيمة افتراضية فاضية (مش بيتشال) عشان التعديل
+// الجزئي (تحديث لغة واحدة بس مثلاً) ميمسحش لغات تانية موجودة بالفعل —
+// الدمج مع القيم القديمة بيحصل في الـ route نفسه قبل الحفظ.
+export function sanitizeCourseI18n(input) {
+  const clean = {};
+  if (!input || typeof input !== "object") return clean;
+  for (const lang of SUPPORTED_COURSE_LANGS) {
+    const raw = input[lang];
+    if (!raw || typeof raw !== "object") continue;
+    clean[lang] = {
+      title: String(raw.title || "").trim(),
+      shortDescription: String(raw.shortDescription || "").slice(0, 300),
+      description: String(raw.description || ""),
+      requirements: Array.isArray(raw.requirements) ? raw.requirements.map(String) : [],
+      outcomes: Array.isArray(raw.outcomes) ? raw.outcomes.map(String) : [],
+      certification: {
+        name: String(raw.certification?.name || ""),
+        desc: String(raw.certification?.desc || ""),
+      },
+    };
+  }
+  return clean;
+}
 
 export async function recomputeCourseTotals(courseId) {
   const Lesson = getLessonModel();

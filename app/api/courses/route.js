@@ -16,7 +16,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
-import { generateUniqueCourseSlug } from "@/app/lib/courseHelpers";
+import { generateUniqueCourseSlug, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -36,8 +36,13 @@ function serializeCourse(c) {
     shortDescription: c.shortDescription,
     description: c.description,
     thumbnail: c.thumbnail,
+    // 🆕 محتوى مترجم لكل لغة مدعومة — c.i18n موديل Map في mongoose، لازم
+    // نحوّلها لـ plain object عادي عشان JSON.stringify يشتغل صح.
+    i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},
+    durationLabel: c.durationLabel || "",
     category: c.category?._id ? c.category._id.toString() : c.category?.toString(),
     categoryName: c.category?.name,
+    categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
     level: c.level,
@@ -100,7 +105,7 @@ export async function GET(request) {
 
     const [courses, total] = await Promise.all([
       Course.find(query)
-        .populate("category", "name slug")
+        .populate("category", "name slug i18n")
         .populate("teacher", "name")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
@@ -172,6 +177,11 @@ export async function POST(request) {
       shortDescription: String(body?.shortDescription || "").slice(0, 300),
       description: String(body?.description || ""),
       thumbnail: body?.thumbnail || null,
+      // 🆕 نسخ لغوية إضافية (ar/en/es) — اختيارية، مفيش أي كورس مجبور
+      // يعبّيها كلها؛ اللغة اللي المدرس مكملهاش بترجع للحقول الأساسية برّه
+      // i18n وقت العرض.
+      i18n: sanitizeCourseI18n(body?.i18n),
+      durationLabel: String(body?.durationLabel || "").trim(),
       category: body.category,
       teacher: session.user.id, // 🔒 دايمًا صاحب الـ session، مش من الـ body
       level,
@@ -186,7 +196,7 @@ export async function POST(request) {
     });
 
     const populated = await created.populate([
-      { path: "category", select: "name slug" },
+      { path: "category", select: "name slug i18n" },
       { path: "teacher", select: "name" },
     ]);
 

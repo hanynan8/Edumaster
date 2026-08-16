@@ -139,9 +139,18 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
       setStatus("done");
       onUploaded?.(result);
     } catch (err) {
-      console.error("upload error:", err);
+      // ملاحظة: "upload_not_configured" حالة متوقعة (Bunny مش متظبط في
+      // .env.local لسه) ومتعالجة تحت بعرض رسالة واضحة للمستخدم، مش خطأ
+      // غير متوقع في الكود — فبنستخدم console.warn بدل console.error عشان
+      // مايطلعش Next.js Dev Overlay (اللي بيلخبط) على حاجة متعالجة أصلاً.
+      // أي خطأ تاني (upload_failed / network_error) لسه بيتسجل console.error.
+      if (err.message === "upload_not_configured") {
+        console.warn("upload warning:", err.message);
+      } else {
+        console.error("upload error:", err);
+      }
       setStatus("error");
-      setErrorMsg(err.message === "upload_not_configured" ? "الرفع غير مفعّل حاليًا" : "فشل الرفع، حاول تاني");
+      setErrorMsg(err.message === "upload_not_configured" ? "الرفع غير مفعّل حاليًا (لازم تظبط إعدادات Bunny.net في .env.local)" : "فشل الرفع، حاول تاني");
     }
   }
 

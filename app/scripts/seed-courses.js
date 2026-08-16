@@ -1,10 +1,15 @@
 // scripts/seed-courses.js
 //
 // سكريبت لمرة واحدة: بيحط/يحدّث مستند محتوى صفحة الكورسات بتاع الأدمن في
-// كولكشن "courses_landing" (اللي بيتقرا من GET /api/data?collection=courses_landing)
+// كولكشن "courses" (اللي بيتقرا من GET /api/data?collection=courses)
 // — بالبيانات اللي انت بعتها بالظبط — عشان تظهر كورسات الأدمن في صفحة
-// /courses جنب كورسات المدرسين (اللي مصدرها /api/courses، كولكشن "courses"
-// المنفصلة تمامًا).
+// /courses جنب كورسات المدرسين (اللي مصدرها /api/courses، كولكشن
+// "courses_landing" المنفصلة تمامًا ومحمية — شوف app/lib/models/Course.js).
+//
+// 🔒 FIX (بعد الـ SWAP في app/api/data/route.js): النسخة القديمة من السكريبت
+// ده كانت بتكتب في "courses_landing" غلط — وده خلّى صفحة /courses وصفحة
+// التفاصيل /courses/[id] ميلاقوش المستند خالص (لأن الفرونت إند بينادي
+// collection=courses مش courses_landing)، فكانت الكورسات مش بتتعرض أصلًا.
 //
 // طريقة التشغيل (من جذر المشروع):
 //   PowerShell:
@@ -38,26 +43,31 @@ async function main() {
   });
 
   const schema = new mongoose.Schema({}, { strict: false, timestamps: true });
-  const CoursesLandingModel =
-    mongoose.models.Model_courses_landing ||
-    mongoose.model("Model_courses_landing", schema, "courses_landing");
+  // 🔒 FIX: كان الموديل ده بيتربط بكولكشن "courses_landing" (نفس الكولكشن
+  // الفعلي اللي موديل الكورسات الحقيقي Course.js بيستخدمه)، فكان بيحشر
+  // مستند المحتوى التسويقي جنب كورسات المدرسين الحقيقية بالغلط، ومكانش بيظهر
+  // في الفرونت إند خالص لأنه بينادي collection=courses. دلوقتي بيتربط بـ
+  // "courses" زي ما api/data/route.js وصفحات /courses بيتوقعوا بالظبط.
+  const CoursesContentModel =
+    mongoose.models.Model_courses ||
+    mongoose.model("Model_courses", schema, "courses");
 
   const { _id, ...rest } = COURSES_DOC;
   const now = new Date();
 
-  const existing = await CoursesLandingModel.findById(_id);
+  const existing = await CoursesContentModel.findById(_id);
 
   let result;
   if (existing) {
     console.log("لقيت مستند موجود بالفعل — هيتحدّث...");
-    result = await CoursesLandingModel.findByIdAndUpdate(
+    result = await CoursesContentModel.findByIdAndUpdate(
       _id,
       { ...rest, updatedAt: now },
       { new: true, overwrite: false, runValidators: false }
     );
   } else {
     console.log("مفيش مستند موجود — هيتعمل جديد...");
-    result = await CoursesLandingModel.create({
+    result = await CoursesContentModel.create({
       _id,
       ...rest,
       createdAt: now,

@@ -8,6 +8,32 @@
 import mongoose from "mongoose";
 import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
 
+const LANGS = ["ar", "en", "es"];
+
+// 🆕 محتوى مترجم لكل لغة مدعومة (عربي/إنجليزي/إسباني). الحقول الأساسية
+// (title, shortDescription, description, requirements, outcomes) برّه i18n
+// بتفضل موجودة كـ "نسخة افتراضية" — بتتحدث تلقائيًا من لغة الكورس الأساسية
+// (language) وقت الحفظ، وبتستخدم في البحث النصي ($text) وأي مكان قديم لسه
+// بيقرا course.title مباشرة من غير ما يعرف عن i18n. أي كورس جديد (بما فيهم
+// اللي مدرس هيضيفه دلوقتي) بيقدر يتعمل بنفس البنية دي بالظبط — مفيش تفرقة
+// بين "كورس تسويقي" و"كورس حقيقي" بعد كده، كلهم نفس الموديل.
+const localizedContentSchema = new mongoose.Schema(
+  {
+    title: { type: String, default: "" },
+    shortDescription: { type: String, default: "", maxlength: 300 },
+    description: { type: String, default: "" },
+    requirements: { type: [String], default: [] },
+    outcomes: { type: [String], default: [] },
+    // شهادة/اعتماد الكورس (اسمها + وصفها) — لو موجودة بتتعرض في صفحة تفاصيل
+    // الكورس. اختيارية تمامًا، مش كل كورس لازم يكون ليه شهادة.
+    certification: {
+      name: { type: String, default: "" },
+      desc: { type: String, default: "" },
+    },
+  },
+  { _id: false }
+);
+
 const courseSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -17,6 +43,22 @@ const courseSchema = new mongoose.Schema(
     description: { type: String, default: "" }, // وصف كامل (يقبل HTML/Markdown بسيط)
 
     thumbnail: { type: String, default: null }, // رابط صورة الغلاف
+
+    // 🆕 نسخ لغوية إضافية (ar/en/es) — كل مفتاح فيها نفس شكل
+    // localizedContentSchema. الفرونت إند بيختار النسخة المناسبة حسب لغة
+    // الموقع الحالية، مع fallback للحقول الأساسية برّه i18n لو اللغة
+    // المطلوبة مش متوفرة.
+    i18n: {
+      type: Map,
+      of: localizedContentSchema,
+      default: {},
+    },
+
+    // 🆕 مدة الكورس كنص حر (مثلاً "3 months" أو "6 weeks") — مفيدة قبل ما
+    // يتحط محتوى فعلي (Sections/Lessons) للكورس، لأن totalDurationSeconds
+    // بيفضل صفر لحد ما دروس فعلية تتضاف. لو موجودة بتتفضّل على الحساب
+    // التلقائي في العرض.
+    durationLabel: { type: String, default: "" },
 
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -85,6 +127,8 @@ courseSchema.index(
   { title: "text", shortDescription: "text" },
   { language_override: "textIndexLanguage" }
 );
+
+export const SUPPORTED_COURSE_LANGS = LANGS;
 
 export function getCourseModel() {
   return getOrCreateModel("course", courseSchema, "courses_landing");

@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
-import { slugify } from "@/app/lib/courseHelpers";
+import { slugify, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -24,8 +24,11 @@ function serializeCourse(c) {
     shortDescription: c.shortDescription,
     description: c.description,
     thumbnail: c.thumbnail,
+    i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},
+    durationLabel: c.durationLabel || "",
     category: c.category?._id ? c.category._id.toString() : c.category?.toString(),
     categoryName: c.category?.name,
+    categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
     level: c.level,
@@ -55,6 +58,7 @@ const EDITABLE_FIELDS = [
   "shortDescription",
   "description",
   "thumbnail",
+  "durationLabel",
   "category",
   "level",
   "language",
@@ -97,7 +101,7 @@ async function loadCourse(id) {
   if (!course) return null;
   getCategoryModel();
   return course.populate([
-    { path: "category", select: "name slug" },
+    { path: "category", select: "name slug i18n" },
     { path: "teacher", select: "name" },
   ]);
 }
@@ -186,11 +190,23 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // 🆕 i18n بيتعامل معاه لوحده: بندمج اللغات الجايه في body.i18n مع اللي
+    // موجودة بالفعل في الكورس (مش overwrite كامل)، عشان تحديث لغة واحدة بس
+    // (مثلاً المدرس عدّل النسخة الإنجليزية بس) ميمسحش النسخ التانية.
+    if (body.i18n !== undefined) {
+      const incoming = sanitizeCourseI18n(body.i18n);
+      const merged = existing.i18n instanceof Map ? new Map(existing.i18n) : new Map();
+      for (const [lang, content] of Object.entries(incoming)) {
+        merged.set(lang, content);
+      }
+      updates.i18n = merged;
+    }
+
     Object.assign(existing, updates);
     await existing.save();
 
     const populated = await existing.populate([
-      { path: "category", select: "name slug" },
+      { path: "category", select: "name slug i18n" },
       { path: "teacher", select: "name" },
     ]);
 

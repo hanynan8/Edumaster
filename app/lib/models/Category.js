@@ -24,6 +24,17 @@ const categorySchema = new mongoose.Schema(
     description: { type: String, default: "" },
     icon: { type: String, default: null }, // اسم أيقونة (lucide-react) أو رابط صورة
 
+    // 🆕 اسم/وصف التصنيف بلغات تانية (ar/en/es). "name"/"description" برّه
+    // بيفضلوا الـ fallback الافتراضي. نفس فكرة i18n بتاعة Course.js بالظبط.
+    i18n: {
+      type: Map,
+      of: new mongoose.Schema(
+        { name: { type: String, default: "" }, description: { type: String, default: "" } },
+        { _id: false }
+      ),
+      default: {},
+    },
+
     // ترتيب العرض في الصفحة العامة (الأصغر يظهر الأول)
     order: { type: Number, default: 0 },
 

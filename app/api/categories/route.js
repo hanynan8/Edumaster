@@ -25,6 +25,22 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
+const SUPPORTED_LANGS = ["ar", "en", "es"];
+
+function sanitizeCategoryI18n(input) {
+  const clean = {};
+  if (!input || typeof input !== "object") return clean;
+  for (const lang of SUPPORTED_LANGS) {
+    const raw = input[lang];
+    if (!raw || typeof raw !== "object") continue;
+    clean[lang] = {
+      name: String(raw.name || "").trim(),
+      description: String(raw.description || ""),
+    };
+  }
+  return clean;
+}
+
 export async function GET(request) {
   try {
     await connectToMongo();
@@ -54,6 +70,7 @@ export async function GET(request) {
         name: c.name,
         slug: c.slug,
         description: c.description,
+        i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},
         icon: c.icon,
         order: c.order,
         isActive: c.isActive,
@@ -89,6 +106,7 @@ export async function POST(request) {
       description: String(body?.description || ""),
       icon: body?.icon || null,
       order: Number.isFinite(body?.order) ? body.order : 0,
+      i18n: sanitizeCategoryI18n(body?.i18n),
     });
 
     return jsonResponse({ id: created._id.toString(), name: created.name, slug: created.slug }, 201);

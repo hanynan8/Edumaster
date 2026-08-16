@@ -12,6 +12,7 @@ const TABS = [
   { key: "content", label: "المحتوى", href: (id) => `/teacher/courses/${id}` },
   { key: "quizzes", label: "الكويزات", href: (id) => `/teacher/courses/${id}/quizzes` },
   { key: "assignments", label: "الواجبات", href: (id) => `/teacher/courses/${id}/assignments` },
+  { key: "announcements", label: "إعلانات", href: (id) => `/teacher/courses/${id}/announcements` },
   { key: "performance", label: "أداء الطلاب", href: (id) => `/teacher/courses/${id}/performance` },
 ];
 

@@ -74,7 +74,17 @@ const courseSchema = new mongoose.Schema(
 // فهرسة تسريع البحث والفلترة الشائعة في صفحة الكورسات العامة
 courseSchema.index({ status: 1, category: 1 });
 courseSchema.index({ teacher: 1 });
-courseSchema.index({ title: "text", shortDescription: "text" });
+// 🔒 FIX: بدون language_override، MongoDB بتفترض إن أي حقل اسمه "language"
+// في الـ document هو "لغة الفهرسة" (للـ stemming)، وده بيتعارض مع حقل
+// "language" بتاعنا (ar/en - لغة الكورس نفسه). لغة "ar" مش من اللغات
+// المدعومة لـ MongoDB text search، فأي إنشاء/تعديل كورس كان بيفشل بخطأ:
+// "language override unsupported: ar". الحل: نوجّه الـ override لحقل
+// وهمي مش موجود في الـ schema أصلاً، فمفيش تعارض ومفيش stemming خاص
+// (بيرجع للسلوك الافتراضي: English stemming بسيط، وهو كافي للبحث النصي).
+courseSchema.index(
+  { title: "text", shortDescription: "text" },
+  { language_override: "textIndexLanguage" }
+);
 
 export function getCourseModel() {
   return getOrCreateModel("course", courseSchema, "courses");

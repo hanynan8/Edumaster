@@ -209,11 +209,14 @@ const PUBLIC_READ_COLLECTIONS = new Set([
   "footer",
   "about",
   "services",
-  "courses", // 🔒 ملحوظة: نفس اسم كولكشن Course model اللي بيستخدمه app/api/courses —
-  // ده استخدام قائم فعلًا من تاب "Courses" في لوحة الأدمن (legacy)، سيبناه
-  // زي ما هو عشان منكسرش الأدمن بانل، لكن لازم الانتباه إنه بيرجّع كل
-  // الكورسات (حتى draft) لأي حد — لو ده غير مرغوب، الأنسب نقل التاب ده
-  // لاستخدام /api/courses (اللي بيفلتر published للعامة) بدل /api/data.
+  // 🔒 FIX: "courses" اتشال من هنا نهائيًا — كان نفس اسم الـ MongoDB
+  // collection اللي موديل Course الحقيقي بيستخدمه (teacher/status/price...).
+  // سيبه هنا كان بيرجّع كل الكورسات الحقيقية (بما فيها draft وبيانات
+  // المدرس) لأي حد من غير تسجيل دخول، وكمان بيكسر صفحة الكورسات العامة
+  // (بتاخد أول document بافتراض غلط إنه دايمًا الكونفيج). تاب الأدمن
+  // وصفحة الكورسات العامة اتنقلوا لـ collection مستقلة اسمها
+  // "courses_landing" (شوف أسفل).
+  "courses_landing",
   "countries",
   "blogs",
   "blog",

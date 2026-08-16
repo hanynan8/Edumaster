@@ -40,22 +40,33 @@ export default function TeacherCoursesPage() {
     });
   }
 
+  // 🩹 FIX: قبل كده أي خطأ غير "course_has_students" (403 forbidden، 404
+  // not_found، 500 داخلي، إلخ) كان بيظهر كرسالة واحدة عامة "حصل خطأ أثناء
+  // الحذف" — يعني مفيش طريقة تعرف الخطأ الحقيقي إيه من الواجهة. دلوقتي كل
+  // كود خطأ ليه رسالة واضحة، ولو كود جديد ظهر بنعرضه زي ما هو بدل رسالة
+  // مبهمة (أسهل في تشخيص أي مشكلة جديدة تحصل).
+  const DELETE_ERROR_MESSAGES = {
+    course_has_students: (data) => `مينفعش تحذف الكورس ده — فيه ${data.studentsCount} طالب مسجل. أرشفه بدل الحذف.`,
+    forbidden: () => "مش معاك صلاحية تحذف الكورس ده (مش صاحبه).",
+    not_found: () => "الكورس ده مش موجود أصلاً (يمكن اتحذف قبل كده).",
+    unauthorized: () => "لازم تسجّل دخول تاني عشان تقدر تحذف.",
+    delete_failed: () => "الحذف فشل من السيرفر — جرّب تاني، ولو استمرت المشكلة كلّم الدعم الفني.",
+    internal_error: () => "حصل خطأ في السيرفر أثناء الحذف. جرّب تاني بعد شوية.",
+  };
+
   async function handleDelete(course) {
     if (!confirm(`متأكد إنك عايز تحذف "${course.title}"؟ الإجراء ده مينفعش يترجع.`)) return;
     try {
       const res = await fetch(`/api/courses/${course.id}`, { method: "DELETE" });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data?.error === "course_has_students") {
-          alert(`مينفعش تحذف الكورس ده — فيه ${data.studentsCount} طالب مسجل. أرشفه بدل الحذف.`);
-        } else {
-          alert("حصل خطأ أثناء الحذف");
-        }
+        const buildMessage = DELETE_ERROR_MESSAGES[data?.error];
+        alert(buildMessage ? buildMessage(data) : `حصل خطأ أثناء الحذف${data?.error ? ` (${data.error})` : ""}`);
         return;
       }
       setCourses((prev) => prev.filter((c) => c.id !== course.id));
     } catch {
-      alert("حصل خطأ أثناء الحذف");
+      alert("حصل خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول تاني.");
     }
   }
 

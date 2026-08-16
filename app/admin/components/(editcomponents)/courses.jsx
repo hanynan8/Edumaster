@@ -9,6 +9,11 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL = '/api/data';
+// 🩹 FIX: كان بيستخدم "courses" (نفس اسم كولكشن كورسات المدرسين الحقيقية في
+// MongoDB) فكان بيحصل تصادم/تسريب بيانات. الكولكشن الصح للمحتوى الثابت بتاع
+// صفحة الكورسات (اللي المفروض المحرر ده يعدّله) هو "courses_landing" —
+// شوف app/api/data/route.js (PUBLIC_READ_COLLECTIONS).
+const COLLECTION_NAME = 'courses_landing';
 
 const COURSE_IDS = [
   'spanish-beginner',
@@ -57,7 +62,7 @@ export default function CoursesAdmin() {
   const fetchConfig = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}?collection=courses`);
+      const response = await fetch(`${API_BASE_URL}?collection=${COLLECTION_NAME}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       const data = Array.isArray(result) && result.length > 0 ? result[0] : null;
@@ -73,7 +78,7 @@ export default function CoursesAdmin() {
     setLoading(true);
     try {
       const isNew = config._id === 'temp' || !config._id;
-      const url = `${API_BASE_URL}?collection=courses${isNew ? '' : `&id=${config._id}`}`;
+      const url = `${API_BASE_URL}?collection=${COLLECTION_NAME}${isNew ? '' : `&id=${config._id}`}`;
       const method = isNew ? 'POST' : 'PUT';
       const response = await fetch(url, {
         method,

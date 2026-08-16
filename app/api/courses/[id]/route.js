@@ -67,11 +67,39 @@ const EDITABLE_FIELDS = [
   "status",
 ];
 
-async function loadCourse(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+// 🩹 FIX (باگ "مش بيتحذف"): بعض الكورسات ممكن تكون اتحطت في الداتابيز
+// مباشرة (سكريبت/استيراد بيانات/تعديل يدوي في الكلستر) من غير ما تعدي على
+// POST /api/courses، فبتفتقد حقول Mongoose بتحسبها تلقائي (totalDurationSeconds،
+// totalLessonsCount، studentsCount...) — عشان كده بتظهر في الكارت بـ "NaN"
+// أو قيم فاضية. المستند نفسه غالبًا سليم (_id عادي)، لكن أي عملية عليه لازم
+// تفضل تشتغل عادي؛ الدالة دي مجرد نقطة مركزية لجيب الكورس مستخدمة في
+// GET/PUT/DELETE عشان نضمن نفس السلوك في التلاتة.
+async function findCourseFlexible(id) {
   const Course = getCourseModel();
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    const found = await Course.findById(id);
+    if (found) return found;
+  }
+  // fallback: لو الـ id مش شكل ObjectId عادي (مثلاً كورس اتحط يدوي بـ _id
+  // نصي)، findById كان بيرفضه فورًا (invalid_id) قبل حتى ما يدوّر في
+  // الداتابيز — فمفيش طريقة تاني تحذفه من الواجهة أبدًا. بندوّر هنا بالـ
+  // driver الخام (من غير كاست Mongoose) عشان نلاقيه ونقدر نتعامل معاه.
+  try {
+    const raw = await Course.collection.findOne({ _id: id });
+    return raw ? Course.hydrate(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadCourse(id) {
+  const course = await findCourseFlexible(id);
+  if (!course) return null;
   getCategoryModel();
-  return Course.findById(id).populate("category", "name slug").populate("teacher", "name");
+  return course.populate([
+    { path: "category", select: "name slug" },
+    { path: "teacher", select: "name" },
+  ]);
 }
 
 export async function GET(request, { params }) {
@@ -99,11 +127,10 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
 
     await connectToMongo();
     const Course = getCourseModel();
-    const existing = await Course.findById(id);
+    const existing = await findCourseFlexible(id);
     if (!existing) return jsonResponse({ error: "not_found" }, 404);
 
     const auth = await requireSession();
@@ -177,11 +204,10 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
 
     await connectToMongo();
     const Course = getCourseModel();
-    const course = await Course.findById(id);
+    const course = await findCourseFlexible(id);
     if (!course) return jsonResponse({ error: "not_found" }, 404);
 
     const auth = await requireSession();
@@ -193,18 +219,45 @@ export async function DELETE(request, { params }) {
     // 🔒 SECURITY / DATA SAFETY: منع حذف كورس فيه طلاب مسجلين فعلاً — الحذف
     // العادي هيمسح كل الأقسام/الدروس وممكن يبوّظ تجربة طلاب دافعين. لو محتاج
     // "يقفل" كورس فيه طلاب، يستخدم status=archived بدل الحذف الفعلي.
-    if (course.studentsCount > 0) {
-      return jsonResponse({ error: "course_has_students", studentsCount: course.studentsCount }, 409);
+    // (Number(...) عشان كورسات قديمة/معطوبة ممكن يبقى studentsCount عندها
+    // undefined بدل 0 — undefined > 0 لوحدها كانت هتفوت بأمان برضه، لكن
+    // بنثبّتها صراحة عشان الفحص يبقى واضح.)
+    const studentsCount = Number(course.studentsCount) || 0;
+    if (studentsCount > 0) {
+      return jsonResponse({ error: "course_has_students", studentsCount }, 409);
     }
 
     const Section = getSectionModel();
     const Lesson = getLessonModel();
 
-    await Promise.all([
-      Lesson.deleteMany({ course: course._id }),
-      Section.deleteMany({ course: course._id }),
-    ]);
-    await course.deleteOne();
+    try {
+      await Promise.all([
+        Lesson.deleteMany({ course: course._id }),
+        Section.deleteMany({ course: course._id }),
+      ]);
+      await course.deleteOne();
+    } catch (deleteErr) {
+      // 🩹 FIX: كورسات معطوبة (اتحطت يدوي في الداتابيز، مش عن طريق
+      // التطبيق) ممكن يبقى فيها قيمة _id أو حقول تانية بشكل Mongoose مش
+      // متوقعه (مثلاً _id مش ObjectId قياسي) — في الحالة دي course.deleteOne()
+      // بيحاول يعمل cast للفلتر ويفشل برمي CastError، فالحذف كان بيفشل بصمت
+      // ويرجع "internal_error" عام من غير ما يتحذف أي حاجة فعليًا، والمستخدم
+      // يفضل شايف الكورس في الليستة ومحتار ليه "مش بيتحذف".
+      //
+      // هنا بنعمل fallback بالـ native driver (من غير أي كاست Mongoose)
+      // عشان نضمن حذف المستند الفعلي أيًا كان شكل الـ _id بتاعه، وبرضه
+      // ننضّف أي Sections/Lessons مرتبطة بيه لو موجودة.
+      console.error("[/api/courses/[id]] DELETE fallback (raw driver) triggered:", deleteErr?.message);
+      await Promise.all([
+        Lesson.collection.deleteMany({ course: course._id }).catch(() => null),
+        Section.collection.deleteMany({ course: course._id }).catch(() => null),
+      ]);
+      const rawResult = await Course.collection.deleteOne({ _id: course._id });
+      if (!rawResult?.deletedCount) {
+        console.error("[/api/courses/[id]] DELETE fallback failed to remove course:", course._id);
+        return jsonResponse({ error: "delete_failed" }, 500);
+      }
+    }
 
     return jsonResponse({ success: true });
   } catch (err) {

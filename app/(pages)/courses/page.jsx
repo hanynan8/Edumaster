@@ -143,7 +143,15 @@ function useAllCourses(language) {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch("/api/data?collection=courses").then((r) => (r.ok ? r.json() : null)),
+      // 🩹 FIX: الكولكشن اتنقل لـ "courses_landing" (شوف app/api/data/route.js —
+      // "courses" اتشال من الـ allowlist العامة لأنه نفس اسم كولكشن الكورسات
+      // الحقيقية بتاعة المدرسين، وده كان بيسبب تسريب/تصادم بيانات). الصفحة
+      // دي فضلت بتنادي "courses" القديم (مش مطابقة للباك إند)، فكانت بترجع
+      // 401 للزوار العاديين (تختفي كورسات الأدمن تمامًا)، ولو أدمن مسجل
+      // دخول كانت بترجع الكولكشن الحقيقي بتاع كورسات المدرسين وتاخد أول
+      // مستند فيه (ممكن يبقى مستند/كورس غريب مش الأدمن حاطه فعلاً — ده
+      // بالظبط اللي كان بيظهر كـ"كورس مالوش مصدر" في صفحة الكورسات).
+      fetch("/api/data?collection=courses_landing").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/courses?limit=50").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/categories").then((r) => (r.ok ? r.json() : [])),
     ])

@@ -10,16 +10,24 @@ if (!globalThis._mongo) globalThis._mongo = { conn: null, promise: null };
 if (!globalThis._mongoModels) globalThis._mongoModels = {};
 
 export async function connectToMongo() {
-  if (globalThis._mongo.conn) return globalThis._mongo.conn;
+  // ✅ لو عندنا conn متخزن لكن الاتصال الحقيقي وقع (مثلاً السيرفر قفل الاتصال)،
+  // مانرجعش نسخة ميتة — نتأكد إن readyState فعلاً 1 (connected).
+  if (globalThis._mongo.conn && mongoose.connection.readyState === 1) {
+    return globalThis._mongo.conn;
+  }
   if (!MONGO_URI) throw new Error("MONGO_URI is not defined");
 
   if (!globalThis._mongo.promise) {
     globalThis._mongo.promise = mongoose
-      .connect(MONGO_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      })
-      .then((m) => m);
+      .connect(MONGO_URI)
+      .then((m) => m)
+      .catch((err) => {
+        // ✅ لازم نصفّر الاتنين هنا، مش بس الـ promise — عشان أي نداء جاي
+        // يقدر يعيد المحاولة بدل ما يفضل عالق على فشل قديم للأبد.
+        globalThis._mongo.promise = null;
+        globalThis._mongo.conn = null;
+        throw err;
+      });
   }
 
   globalThis._mongo.conn = await globalThis._mongo.promise;

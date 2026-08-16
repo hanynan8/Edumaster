@@ -9,11 +9,11 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL = '/api/data';
-// 🩹 FIX: كان بيستخدم "courses" (نفس اسم كولكشن كورسات المدرسين الحقيقية في
-// MongoDB) فكان بيحصل تصادم/تسريب بيانات. الكولكشن الصح للمحتوى الثابت بتاع
-// صفحة الكورسات (اللي المفروض المحرر ده يعدّله) هو "courses_landing" —
-// شوف app/api/data/route.js (PUBLIC_READ_COLLECTIONS).
-const COLLECTION_NAME = 'courses_landing';
+// 🔄 SWAP: "courses" هو اسم الكولكشن الفعلي في MongoDB اللي بيحمل المحتوى
+// الثابت بتاع صفحة الكورسات (اللي المحرر ده بيعدّله)، و"courses_landing"
+// بقى اسم كولكشن كورسات المدرسين الحقيقية — شوف app/api/data/route.js
+// (PUBLIC_READ_COLLECTIONS) وapp/lib/models/Course.js.
+const COLLECTION_NAME = 'courses';
 
 const COURSE_IDS = [
   'spanish-beginner',

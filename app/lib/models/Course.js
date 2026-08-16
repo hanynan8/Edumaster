@@ -87,5 +87,5 @@ courseSchema.index(
 );
 
 export function getCourseModel() {
-  return getOrCreateModel("course", courseSchema, "courses");
+  return getOrCreateModel("course", courseSchema, "courses_landing");
 }

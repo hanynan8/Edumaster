@@ -7,33 +7,9 @@
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
+import { connectToMongo } from "@/app/lib/mongodb";
 
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-  console.warn("Warning: MONGO_URI not defined in environment");
-}
-
-if (!globalThis._mongo) globalThis._mongo = { conn: null, promise: null };
 if (!globalThis._mongoModels) globalThis._mongoModels = {};
-
-async function connectToMongo() {
-  if (globalThis._mongo.conn) return globalThis._mongo.conn;
-  if (!MONGO_URI) throw new Error("Please set MONGO_URI environment variable");
-
-  globalThis._mongo.promise = mongoose
-    .connect(MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 10000,
-    })
-    .then((mongooseInstance) => mongooseInstance)
-    .catch((err) => {
-      globalThis._mongo.promise = null;
-      throw err;
-    });
-  globalThis._mongo.conn = await globalThis._mongo.promise;
-  return globalThis._mongo.conn;
-}
 
 const schema = new mongoose.Schema({}, { strict: false, timestamps: true });
 
@@ -216,7 +192,13 @@ const PUBLIC_READ_COLLECTIONS = new Set([
   // (بتاخد أول document بافتراض غلط إنه دايمًا الكونفيج). تاب الأدمن
   // وصفحة الكورسات العامة اتنقلوا لـ collection مستقلة اسمها
   // "courses_landing" (شوف أسفل).
-  "courses_landing",
+  // 🔄 SWAP: بعد ما اتقرر إن "courses" (اسم الكولكشن الفعلي في MongoDB) هو
+  // اللي بيحمل محتوى صفحة الكورسات التسويقي (مستند الأدمن)، و"courses_landing"
+  // بقى اسم الكولكشن الفعلي بتاع كورسات المدرسين الحقيقية (Course model —
+  // شوف app/lib/models/Course.js). "courses_landing" اتشال من هنا عمدًا
+  // لنفس سبب ما "courses" كانت متشالة قبل كده: عشان محدش يقدر يشوف كورسات
+  // draft أو بيانات مدرس حساسة من الـ endpoint العام ده.
+  "courses",
   "countries",
   "blogs",
   "blog",

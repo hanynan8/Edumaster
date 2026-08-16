@@ -653,10 +653,10 @@ function AdminCourseDetail({ slug }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    // 🩹 FIX: زي صفحة /courses بالظبط — الكولكشن الصح "courses_landing"
-    // (شوف app/api/data/route.js)، مش "courses" (اللي هو كولكشن كورسات
-    // المدرسين الحقيقي).
-    fetch("/api/data?collection=courses_landing")
+    // 🔄 SWAP: زي صفحة /courses بالظبط — "courses" هو الكولكشن الصح
+    // لمحتوى الأدمن دلوقتي (شوف app/api/data/route.js)، و"courses_landing"
+    // بقى كولكشن كورسات المدرسين الحقيقي.
+    fetch("/api/data?collection=courses")
       .then((r) => r.json())
       .then((res) => setData(Array.isArray(res) ? res[0] : res))
       .catch(() => setData(false));

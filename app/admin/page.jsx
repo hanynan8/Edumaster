@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Database, Settings, Home, Navigation, Info, BookOpen,
+  Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3,
 } from 'lucide-react';
@@ -14,7 +14,6 @@ import FooterAdmin from './components/(editcomponents)/footer';
 import HomeAdmin from './components/(editcomponents)/home';
 import AboutAdmin from './components/(editcomponents)/about';
 import ServicesAdmin from './components/(editcomponents)/services';
-import CoursesAdmin from './components/(editcomponents)/courses';
 import CountriesAdmin from './components/(editcomponents)/countries';
 import SuccessStoriesAdmin from './components/(editcomponents)/success-stories';
 import BlogAdmin from './components/(editcomponents)/blogs';
@@ -105,7 +104,6 @@ export default function AdminDashboard() {
     { id: 'footer',           name: 'Footer',           icon: Info,          component: FooterAdmin },
     { id: 'about',            name: 'About',            icon: Users,         component: AboutAdmin },
     { id: 'services',         name: 'Services',         icon: Star,          component: ServicesAdmin },
-    { id: 'courses',          name: 'Courses',          icon: BookOpen,      component: CoursesAdmin },
     { id: 'categories',       name: 'Categories',       icon: Tags,          component: Gategories },
     { id: 'membership_plans', name: 'Membership Plans', icon: Layers,        component: MembershipPlansAdmin },
     { id: 'revenue',          name: 'Revenue',          icon: DollarSign,    component: RevenueAdmin },
@@ -126,7 +124,7 @@ export default function AdminDashboard() {
     // ⚠️ 'auth' متشالة من هنا عن قصد — كولكشن المستخدمين بقى محمي ومش بيتصدّر
     // مع باقي بيانات الموقع. راجع تبويب Users لو محتاج بيانات المستخدمين.
     const collections = [
-      'home', 'navbar', 'footer', 'about', 'services', 'courses',
+      'home', 'navbar', 'footer', 'about', 'services',
       'countries', 'success_stories', 'blog', 'contact', 'form'
     ];
 

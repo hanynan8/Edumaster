@@ -16,7 +16,7 @@
 // وترجّع null (شوف certificateHelpers.js)، فمفيش داعي try/catch إضافي هنا.
 
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getCertificateModel, getEnrollmentModel } from "@/app/lib/models";
+import { getCertificateModel, getEnrollmentModel, getCourseModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 import { issueCertificateForCompletedEnrollment } from "@/app/lib/certificateHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -60,6 +60,13 @@ export async function GET(request) {
     await connectToMongo();
     const Enrollment = getEnrollmentModel();
     const Certificate = getCertificateModel();
+    // 🩹 Registers "Model_course" with mongoose before the .populate("course")
+    // call below — without this, populate throws MissingSchemaError whenever
+    // the self-heal branch further down is skipped (i.e. the common case
+    // where the user already has all their certificates and nothing new
+    // needs to be issued), since that was the only other place in this
+    // route that touched the Course model.
+    getCourseModel();
 
     // 🩹 self-heal: كورسات مكتملة من غير شهادة مُصدرة — نصدرها دلوقتي
     const completedEnrollments = await Enrollment.find(

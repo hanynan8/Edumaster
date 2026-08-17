@@ -21,7 +21,7 @@
 // ═══════════════════════════════════════════════
 "use client";
 
-import { useEffect, useState, use as usePromise } from "react";
+import { useEffect, useRef, useState, use as usePromise } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -71,6 +71,8 @@ const STRINGS = {
     assignmentsTitle: "واجبات الكورس",
     openAssignment: "افتح الواجب",
     myGradesLink: "شوف درجاتك ونتائجك",
+    completed: "تم إكمال هذا الدرس",
+    progressTitle: "نسبة إكمال الكورس",
   },
   en: {
     back: "All Courses",
@@ -106,6 +108,8 @@ const STRINGS = {
     assignmentsTitle: "Course Assignments",
     openAssignment: "Open assignment",
     myGradesLink: "View your grades & results",
+    completed: "You completed this lesson",
+    progressTitle: "Course completion",
   },
 };
 
@@ -117,30 +121,97 @@ function formatDuration(seconds) {
   return `${m}m`;
 }
 
-function VideoEmbed({ lesson }) {
+// بيستخدم مكتبة player.js (اللي Bunny Stream بتدعمها رسميًا فوق الـ iframe
+// بتاعها، وبرضو بتشتغل مع يوتيوب لأن فيها adapter مبني فيها ليه) عشان
+// نعرف نمسك حدث "ended" الحقيقي (وصول الفيديو لآخره) — من غير المكتبة دي
+// مفيش وسيلة نوصل لأحداث الفيديو جوه iframe من دومين تاني (Bunny/YouTube).
+function VideoEmbed({ lesson, onEnded }) {
+  const iframeRef = useRef(null);
+  const endedFiredRef = useRef(false);
+
+  // كل درس فيديو جديد يفضل يقدر يبعت "ended" تاني من الأول
+  useEffect(() => {
+    endedFiredRef.current = false;
+  }, [lesson.id]);
+
+  useEffect(() => {
+    if (!lesson.videoUrl) return;
+    let cancelled = false;
+
+    function attach() {
+      if (cancelled || !iframeRef.current || !window.playerjs) return;
+      const player = new window.playerjs.Player(iframeRef.current);
+      player.on("ready", () => {
+        player.on("ended", () => {
+          if (!endedFiredRef.current) {
+            endedFiredRef.current = true;
+            onEnded?.();
+          }
+        });
+      });
+    }
+
+    if (window.playerjs) {
+      attach();
+    } else {
+      let script = document.getElementById("playerjs-cdn-script");
+      if (!script) {
+        script = document.createElement("script");
+        script.id = "playerjs-cdn-script";
+        script.src = "https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js";
+        script.async = true;
+        document.body.appendChild(script);
+      }
+      script.addEventListener("load", attach);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson.videoUrl, lesson.id, onEnded]);
+
   if (!lesson.videoUrl) return null;
+
+  let src;
   if (lesson.videoProvider === "youtube") {
-    // يقبل رابط youtube كامل أو ID مباشرة
+    // يقبل رابط youtube كامل أو ID مباشرة. enablejsapi=1 مطلوب عشان
+    // player.js يقدر يكلّم الـ iframe عن طريق postMessage.
     const match = lesson.videoUrl.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{6,})/);
     const videoId = match ? match[1] : lesson.videoUrl;
-    return (
-      <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
-        <iframe
-          src={`https://www.youtube.com/embed/${videoId}`}
-          className="absolute inset-0 w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
+    src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+  } else {
+    // فيديوهات Bunny Stream: buildStreamPlaybackUrl في app/lib/bunny.js
+    // بيرجّع رابط صفحة iframe embed كاملة، مش ملف فيديو مباشر — لازم
+    // يتحط جوه <iframe> مش جوه <video src=...>.
+    src = lesson.videoUrl;
   }
+
   return (
-    <video controls className="w-full aspect-video rounded-xl bg-black" src={lesson.videoUrl} />
+    <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
+      <iframe
+        ref={iframeRef}
+        src={src}
+        className="absolute inset-0 w-full h-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
   );
 }
 
-function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
+function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMarkComplete }) {
   const Icon = LESSON_ICONS[lesson.type] || FileText;
+
+  // تسجيل تقدّم الطالب أوتوماتيك:
+  // - نص/PDF: بمجرد ما الطالب يفتح الدرس (isOpen بيتحول true).
+  // - فيديو: عند وصوله لآخره (VideoEmbed بينده onEnded تحت، مش هنا).
+  useEffect(() => {
+    if (!hasAccess || isCompleted) return;
+    if (isOpen && (lesson.type === "text" || lesson.type === "pdf")) {
+      onMarkComplete();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, lesson.type, hasAccess, isCompleted]);
 
   // Phase 4 — اليوم 42: درس النوع "quiz" مالوش videoUrl/textContent/fileUrl
   // خالص — محتواه الفعلي (الأسئلة) في مستند Quiz منفصل ومحمي بفحصه الخاص
@@ -191,7 +262,11 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
         }`}
       >
         {canOpen ? (
-          <Icon size={17} className="text-[#1D6FD8] shrink-0" />
+          isCompleted ? (
+            <CheckCircle2 size={17} className="text-green-500 shrink-0" />
+          ) : (
+            <Icon size={17} className="text-[#1D6FD8] shrink-0" />
+          )
         ) : (
           <Lock size={16} className="text-gray-400 shrink-0" />
         )}
@@ -211,7 +286,14 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
 
       {isOpen && canOpen && (
         <div className="px-4 sm:px-5 pb-4">
-          {lesson.type === "video" && <VideoEmbed lesson={lesson} />}
+          {lesson.type === "video" && (
+            <VideoEmbed
+              lesson={lesson}
+              onEnded={() => {
+                if (hasAccess && !isCompleted) onMarkComplete();
+              }}
+            />
+          )}
           {lesson.type === "text" && lesson.textContent && (
             <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 rounded-xl p-4">
               {lesson.textContent}
@@ -223,6 +305,15 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess }) {
               <FileType2 size={15} /> {lesson.title}
             </a>
           )}
+          {/* تسجيل تقدّم الطالب بقى تلقائي بالكامل (نص/PDF عند الفتح،
+              فيديو عند وصوله لآخره) — هنا بنعرض بس تأكيد بصري لو الدرس
+              اتسجل مكتمل، مفيش زرار يدوي. */}
+          {hasAccess && isCompleted && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-green-600 mt-3">
+              <CheckCircle2 size={14} /> {t.completed}
+            </div>
+          )}
+
           {/* Phase 6 — اليوم 48-49: نقاش الدرس لطالب عنده وصول فعلي بس
               (مش لزائر preview — نفس شرط /api/lessons/[id]/comments). */}
           {hasAccess && <LessonComments lessonId={lesson.id} />}
@@ -266,6 +357,10 @@ function RealCourseDetail({ id }) {
   const [assignments, setAssignments] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  // تتبع تقدّم الطالب: أي درس (فيديو/PDF/نص) بيتحدد "مكتمل" لما الطالب
+  // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الكورس
+  // (progressPercent)، شوف app/lib/progressHelpers.js.
+  const [markingLessonId, setMarkingLessonId] = useState(null);
 
   async function loadAll() {
     try {
@@ -301,6 +396,43 @@ function RealCourseDetail({ id }) {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // IDs الدروس المكتملة من enrollment.completedLessons — enrollment هنا
+  // ممكن يبقى false (زائر) أو null (لسه بيحمّل) أو { enrolled, enrollment, ... }.
+  const completedLessonIds = new Set(enrollment?.enrollment?.completedLessons || []);
+
+  async function handleMarkComplete(lessonId) {
+    if (markingLessonId === lessonId) return; // منع ضغطات/نداءات متكررة لنفس الدرس
+    setMarkingLessonId(lessonId);
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}/complete`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        // نحدّث enrollment محليًا (completedLessons + progressPercent) من
+        // غير ما نعمل reload كامل للصفحة — نفس شكل الـ object اللي بيرجع
+        // من GET /api/enrollments?course=id.
+        setEnrollment((prev) => {
+          if (!prev || !prev.enrollment) return prev;
+          const prevCompleted = prev.enrollment.completedLessons || [];
+          const nextCompleted = prevCompleted.includes(lessonId)
+            ? prevCompleted
+            : [...prevCompleted, lessonId];
+          return {
+            ...prev,
+            enrollment: {
+              ...prev.enrollment,
+              completedLessons: nextCompleted,
+              progressPercent: data.progressPercent ?? prev.enrollment.progressPercent,
+            },
+          };
+        });
+      }
+    } catch {
+      // فشل الشبكة — نسيب الزرار زي ما هو، الطالب يقدر يحاول تاني
+    } finally {
+      setMarkingLessonId(null);
+    }
+  }
 
   // حالة الاشتراك بتتجاب لوحدها بعد ما نعرف فيه session ولا لأ
   useEffect(() => {
@@ -547,6 +679,8 @@ function RealCourseDetail({ id }) {
                         isOpen={openLessonId === lesson.id}
                         onToggle={(lid) => setOpenLessonId((prev) => (prev === lid ? null : lid))}
                         hasAccess={isOwner || isEnrolled}
+                        isCompleted={completedLessonIds.has(lesson.id)}
+                        onMarkComplete={() => handleMarkComplete(lesson.id)}
                       />
                     ))}
                   </div>
@@ -556,6 +690,26 @@ function RealCourseDetail({ id }) {
           </div>
 
           <div className="space-y-6">
+            {/* نسبة إكمال الكورس — بتتحسب سيرفر-سايد في
+                recomputeEnrollmentProgress (دروس مكتملة + كويزات منجوحة)،
+                هنا بس بنعرض القيمة الجاهزة من enrollment.progressPercent. */}
+            {isEnrolled && !isOwner && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-gray-800">{t.progressTitle}</h3>
+                  <span className="text-sm font-black text-[#1D6FD8]">
+                    {enrollment?.enrollment?.progressPercent ?? 0}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#1D6FD8] rounded-full transition-all"
+                    style={{ width: `${enrollment?.enrollment?.progressPercent ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Phase 6 — اليوم 46-47: إعلانات الكورس لصاحب الكورس/أدمن أو
                 طالب مسجّل فعليًا — نفس شرط الوصول اللي الـ API بيفرضه. */}
             {(isOwner || isEnrolled) && <CourseAnnouncements courseId={id} />}

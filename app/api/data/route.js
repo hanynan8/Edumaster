@@ -185,20 +185,14 @@ const PUBLIC_READ_COLLECTIONS = new Set([
   "footer",
   "about",
   "services",
-  // 🔒 FIX: "courses" اتشال من هنا نهائيًا — كان نفس اسم الـ MongoDB
-  // collection اللي موديل Course الحقيقي بيستخدمه (teacher/status/price...).
-  // سيبه هنا كان بيرجّع كل الكورسات الحقيقية (بما فيها draft وبيانات
-  // المدرس) لأي حد من غير تسجيل دخول، وكمان بيكسر صفحة الكورسات العامة
-  // (بتاخد أول document بافتراض غلط إنه دايمًا الكونفيج). تاب الأدمن
-  // وصفحة الكورسات العامة اتنقلوا لـ collection مستقلة اسمها
-  // "courses_landing" (شوف أسفل).
-  // 🔄 SWAP: بعد ما اتقرر إن "courses" (اسم الكولكشن الفعلي في MongoDB) هو
-  // اللي بيحمل محتوى صفحة الكورسات التسويقي (مستند الأدمن)، و"courses_landing"
-  // بقى اسم الكولكشن الفعلي بتاع كورسات المدرسين الحقيقية (Course model —
-  // شوف app/lib/models/Course.js). "courses_landing" اتشال من هنا عمدًا
-  // لنفس سبب ما "courses" كانت متشالة قبل كده: عشان محدش يقدر يشوف كورسات
-  // draft أو بيانات مدرس حساسة من الـ endpoint العام ده.
-  "courses",
+  // 🔄 UNIFY: "courses" و"courses_landing" الاتنين متشالين من هنا نهائيًا.
+  // مبقاش فيه "كورسات تسويقية" منفصلة عن الكورسات الحقيقية — كل كورس على
+  // الموقع (بما فيهم أي كورس كان قبل كده تسويقي) بقى نفس الموديل بالظبط
+  // (Course model، collection="courses_landing")، وبيتقرا للعامة من
+  // GET /api/courses بس (فلترة status=published هناك) — شوف
+  // app/api/courses/route.js وapp/lib/models/Course.js. أي محاولة قراءة
+  // كورسات من هنا (collection=courses أو courses_landing) لازم تتنقل
+  // لـ /api/courses، مش تتضاف تاني للـ allowlist دي.
   "countries",
   "blogs",
   "blog",

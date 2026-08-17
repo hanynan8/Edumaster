@@ -16,7 +16,7 @@
 // الشهادة نفسها، عشان صفحة التحقق العامة متسربش حاجة زيادة عن كده.
 
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getCertificateModel } from "@/app/lib/models";
+import { getCertificateModel, getCourseModel } from "@/app/lib/models";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -32,6 +32,10 @@ export async function GET(request, { params }) {
 
     await connectToMongo();
     const Certificate = getCertificateModel();
+    // 🩹 Registers "Model_course" with mongoose before .populate("course") —
+    // this route never queries Course directly otherwise, so without this
+    // call populate() throws MissingSchemaError on every request.
+    getCourseModel();
     const certificate = await Certificate.findOne({ certificateId: certId })
       .populate("course", "title")
       .lean();

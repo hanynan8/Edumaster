@@ -76,6 +76,14 @@ export default function StudentPaymentsPage() {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
+          <Link href="/student" className="hover:text-gray-700 flex items-center gap-1.5">
+            <BackArrow size={14} /> {t.myCourses}
+          </Link>
+          <span>/</span>
+          <span className="text-gray-700 font-semibold">{t.payments}</span>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
             <CreditCard className="text-white" size={22} />
@@ -84,13 +92,6 @@ export default function StudentPaymentsPage() {
             <h1 className="text-2xl font-bold text-gray-800">{t.title}</h1>
             <p className="text-sm text-gray-400">{t.subtitle}</p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 mb-6">
-          <Link href="/student" className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-100 text-gray-500 hover:text-gray-800 transition-colors">
-            {t.myCourses}
-          </Link>
-          <span className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#0a0a0a] text-white">{t.payments}</span>
         </div>
 
         {!data && !error && (

@@ -35,6 +35,7 @@ import { getCourseAccessForUser, hasActiveMembershipAccessToCourse } from "@/app
 // Phase 6 — اليوم 50-51: إشعار للمدرس لما طالب جديد يسجّل في كورسه.
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -59,7 +60,7 @@ function serializeEnrollment(e) {
     // موجودة بس لو الـ course اتعمله populate (شوف GET من غير ?course=)
     courseTitle: e.course?.title,
     courseSlug: e.course?.slug,
-    courseThumbnail: e.course?.thumbnail,
+    courseThumbnail: resolveSecureStoredUrl(e.course?.thumbnail),
     courseTotalLessonsCount: e.course?.totalLessonsCount,
   };
 }

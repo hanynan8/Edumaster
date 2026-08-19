@@ -16,6 +16,7 @@
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { requireSession } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -56,7 +57,7 @@ function serializeUser(u) {
     name: u.name || "",
     email: u.email || "",
     phone: u.phone || "",
-    avatar: u.profile?.avatar || null,
+    avatar: resolveSecureStoredUrl(u.profile?.avatar) || null,
     role: u.role,
   };
 }

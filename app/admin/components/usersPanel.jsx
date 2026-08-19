@@ -189,7 +189,23 @@ function UsersAdmin() {
                 {users.map((user, idx) => (
                   <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="py-3 px-4 text-gray-400">{idx + 1}</td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{user.name}</td>
+                    <td className="py-3 px-4 font-medium text-gray-800">
+                      <div className="flex items-center gap-2.5">
+                        {user.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={user.avatar}
+                            alt={user.name || ""}
+                            className="w-8 h-8 rounded-full object-cover ring-1 ring-black/5 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0">
+                            {user.name?.charAt(0)?.toUpperCase() || "U"}
+                          </div>
+                        )}
+                        <span>{user.name}</span>
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-blue-600">{user.email}</td>
                     <td className="py-3 px-4">
                       <select

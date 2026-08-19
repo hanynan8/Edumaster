@@ -24,10 +24,19 @@ import { getToken } from "next-auth/jwt";
 // تحمّل، مش بديل عن الفحص داخل كل API route (rbac.js) ولا داخل صفحة الأدمن
 // نفسها. أي مسار يبدأ بالـ prefix ده لازم يكون المستخدم مسجل دخول بـ role
 // من ضمن roles المذكورة، وإلا يتحول لصفحة تانية.
+//
+// 🆕 /student بقى مقصور على role="student" بس (كان قبل كده مسموح لـ
+// teacher/admin كمان يشوفوا "كورساتي" لو مسجلين في كورس). لو أدمن حاول
+// يدخل /student بيترحّل لـ /admin، ولو مدرس حاول بيترحّل لـ /teacher —
+// عن طريق redirectByRole (بدل الـ "/" العام الافتراضي لباقي الحالات).
 const PAGE_ROLE_RULES = [
   { prefix: "/admin", roles: ["admin"] },
   { prefix: "/teacher", roles: ["teacher", "admin"] },
-  { prefix: "/student", roles: ["student", "teacher", "admin"] }, // أي مستخدم مسجل دخول
+  {
+    prefix: "/student",
+    roles: ["student"],
+    redirectByRole: { admin: "/admin", teacher: "/teacher" },
+  },
 ];
 
 // نفس المنطق لكن لمسارات الـ API — بترجع 401/403 JSON بدل redirect، عشان
@@ -74,9 +83,9 @@ export async function middleware(request) {
     }
 
     if (!matchedRule.roles.includes(token.role)) {
-      return isApiPath
-        ? jsonError(403, "forbidden")
-        : NextResponse.redirect(new URL("/", request.url));
+      if (isApiPath) return jsonError(403, "forbidden");
+      const target = matchedRule.redirectByRole?.[token.role] || "/";
+      return NextResponse.redirect(new URL(target, request.url));
     }
   }
 

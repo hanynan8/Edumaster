@@ -8,6 +8,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,7 +24,7 @@ function serializeCourse(c) {
     slug: c.slug,
     shortDescription: c.shortDescription,
     description: c.description,
-    thumbnail: c.thumbnail,
+    thumbnail: resolveSecureStoredUrl(c.thumbnail),
     i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},
     durationLabel: c.durationLabel || "",
     category: c.category?._id ? c.category._id.toString() : c.category?.toString(),

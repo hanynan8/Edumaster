@@ -20,6 +20,7 @@ import { generateUniqueCourseSlug, sanitizeCourseI18n } from "@/app/lib/courseHe
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,7 +36,7 @@ function serializeCourse(c) {
     slug: c.slug,
     shortDescription: c.shortDescription,
     description: c.description,
-    thumbnail: c.thumbnail,
+    thumbnail: resolveSecureStoredUrl(c.thumbnail),
     // 🆕 محتوى مترجم لكل لغة مدعومة — c.i18n موديل Map في mongoose، لازم
     // نحوّلها لـ plain object عادي عشان JSON.stringify يشتغل صح.
     i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},

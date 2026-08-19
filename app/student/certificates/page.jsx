@@ -20,12 +20,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Award, Loader, Download, ShieldCheck, BookOpen, Calendar } from "lucide-react";
+import { Award, Loader, Download, ShieldCheck, BookOpen, Calendar, ArrowRight, ArrowLeft } from "lucide-react";
 
 const STRINGS = {
   ar: {
     title: "شهاداتي",
     subtitle: "الشهادات اللي حصلت عليها بعد إكمال الكورسات",
+    myCourses: "كورساتي",
     empty: "لسه معندكش أي شهادة",
     emptyHint: "كمّل أي كورس بنسبة 100% وهتلاقي شهادتك هنا تلقائيًا",
     browse: "تصفّح الكورسات",
@@ -41,6 +42,7 @@ const STRINGS = {
   en: {
     title: "My Certificates",
     subtitle: "Certificates you've earned after completing courses",
+    myCourses: "My Courses",
     empty: "You don't have any certificates yet",
     emptyHint: "Complete a course 100% and your certificate will appear here automatically",
     browse: "Browse Courses",
@@ -124,6 +126,7 @@ function CertificateCard({ cert, t, isRTL }) {
 export default function StudentCertificatesPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowLeft : ArrowRight;
 
   const [certificates, setCertificates] = useState(null);
   const [error, setError] = useState("");
@@ -139,6 +142,14 @@ export default function StudentCertificatesPage() {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
+          <Link href="/student" className="hover:text-gray-700 flex items-center gap-1.5">
+            <BackArrow size={14} /> {t.myCourses}
+          </Link>
+          <span>/</span>
+          <span className="text-gray-700 font-semibold">{t.title}</span>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
             <Award className="text-white" size={22} />

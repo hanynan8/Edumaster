@@ -410,7 +410,7 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
         session.user.address = token.address;
         session.user.paymentMethod = token.paymentMethod;
         session.user.role = token.role;
-        session.user.avatar = token.avatar ?? null;
+        session.user.avatar = resolveSecureStoredUrl(token.avatar ?? null);
       }
       return session;
     },

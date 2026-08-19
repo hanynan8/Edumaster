@@ -20,6 +20,7 @@ import { getCertificateModel, getEnrollmentModel, getCourseModel } from "@/app/l
 import { requireSession } from "@/app/lib/rbac";
 import { issueCertificateForCompletedEnrollment } from "@/app/lib/certificateHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,7 +36,7 @@ function serializeCertificate(c) {
     course: c.course?._id ? c.course._id.toString() : c.course?.toString?.() ?? c.course,
     courseTitle: c.course?.title || c.courseTitleSnapshot,
     courseSlug: c.course?.slug,
-    courseThumbnail: c.course?.thumbnail,
+    courseThumbnail: resolveSecureStoredUrl(c.course?.thumbnail),
     studentName: c.studentNameSnapshot,
     issuedAt: c.issuedAt,
   };

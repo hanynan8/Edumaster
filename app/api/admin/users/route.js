@@ -6,6 +6,7 @@ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMembershipPlanModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -84,6 +85,7 @@ export async function GET(request) {
         role: u.role || "student",
         status: u.status || "active",
         createdAt: u.createdAt || null,
+        avatar: resolveSecureStoredUrl(u.profile?.avatar) || null,
         membership: {
           plan: planId,
           planName: planId ? plansById[planId] || null : null,

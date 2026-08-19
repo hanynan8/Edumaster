@@ -15,7 +15,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap, Award, TrendingUp,
-  Camera, Mail, Phone, User, X, Pencil,
+  Camera, Mail, Phone, User, X, Pencil, CreditCard,
 } from "lucide-react";
 
 const STRINGS = {
@@ -38,6 +38,10 @@ const STRINGS = {
     statusLabels: { active: "فعّالة", inactive: "غير مفعّلة", expired: "منتهية", cancelled: "ملغاة" },
     continueLabel: "استكمال",
     myGrades: "درجاتي ونتائجي",
+    navCourses: "كورساتي",
+    navGrades: "درجاتي",
+    navCertificates: "شهاداتي",
+    navPayments: "مدفوعاتي",
     // Phase 7 — اليوم 57: ملخص شخصي (تقدمي/شهاداتي/كورساتي)
     summaryProgress: "متوسط تقدّمي",
     summaryActive: "كورسات جارية",
@@ -46,6 +50,8 @@ const STRINGS = {
     viewCertificates: "شوف شهاداتي",
     // Phase — الملف الشخصي (تعديل الاسم/الرقم/الصورة)
     editProfile: "تعديل الملف الشخصي",
+    viewFullSize: "تكبير الصورة",
+    close: "إغلاق",
     profileModalTitle: "الملف الشخصي",
     profileModalSubtitle: "عدّل بياناتك الشخصية",
     fieldEmail: "البريد الإلكتروني الحالي",
@@ -87,12 +93,18 @@ const STRINGS = {
     statusLabels: { active: "Active", inactive: "Inactive", expired: "Expired", cancelled: "Cancelled" },
     continueLabel: "Continue",
     myGrades: "My Grades & Results",
+    navCourses: "My Courses",
+    navGrades: "My Grades",
+    navCertificates: "My Certificates",
+    navPayments: "My Payments",
     summaryProgress: "Average Progress",
     summaryActive: "Active Courses",
     summaryCompleted: "Completed Courses",
     summaryCertificates: "My Certificates",
     viewCertificates: "View my certificates",
     editProfile: "Edit Profile",
+    viewFullSize: "View full size",
+    close: "Close",
     profileModalTitle: "My Profile",
     profileModalSubtitle: "Update your personal information",
     fieldEmail: "Current Email",
@@ -226,20 +238,33 @@ function isValidPhoneClient(phone) {
 
 /* ─── كارت مصغّر يظهر أعلى الصفحة: صورة + اسم + إيميل + زرار تعديل ─── */
 function ProfileSummaryCard({ user, t, onEdit }) {
+  const [showFullscreen, setShowFullscreen] = useState(false);
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap mb-6">
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-4 min-w-0">
         {user?.avatar ? (
-          <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover ring-1 ring-black/5 shrink-0" />
+          <button
+            type="button"
+            onClick={() => setShowFullscreen(true)}
+            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+            title={t.viewFullSize}
+          >
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover ring-2 ring-black/5 cursor-pointer hover:opacity-90 transition-opacity"
+            />
+          </button>
         ) : (
-          <div className="w-12 h-12 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-lg shrink-0">
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
             {user?.name?.charAt(0)?.toUpperCase() || "U"}
           </div>
         )}
         <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-800 truncate">{user?.name}</p>
-          <p className="text-xs text-gray-400 truncate flex items-center gap-1">
-            <Mail size={11} /> {user?.email}
+          <p className="text-lg sm:text-xl font-bold text-gray-800 truncate">{user?.name}</p>
+          <p className="text-sm text-gray-400 truncate flex items-center gap-1">
+            <Mail size={13} /> {user?.email}
           </p>
         </div>
       </div>
@@ -249,6 +274,57 @@ function ProfileSummaryCard({ user, t, onEdit }) {
       >
         <Pencil size={13} /> {t.editProfile}
       </button>
+
+      {showFullscreen && user?.avatar && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowFullscreen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowFullscreen(false)}
+            className="absolute top-4 end-4 sm:top-6 sm:end-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            title={t.close}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={user.avatar}
+            alt={user.name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── شريط تنقّل: كورساتي / درجاتي / شهاداتي / مدفوعاتي — كلهم جمب بعض ─── */
+function StudentQuickNav({ t }) {
+  const items = [
+    { href: "/student", label: t.navCourses, icon: BookOpen, active: true },
+    { href: "/student/grades", label: t.navGrades, icon: GraduationCap },
+    { href: "/student/certificates", label: t.navCertificates, icon: Award },
+    { href: "/student/payments", label: t.navPayments, icon: CreditCard },
+  ];
+
+  return (
+    <div className="flex items-center gap-2 sm:gap-3 mb-6 overflow-x-auto pb-1">
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={`flex items-center gap-2 shrink-0 text-sm font-semibold px-4 py-2.5 rounded-xl border transition-colors ${
+            item.active
+              ? "bg-[#1D6FD8] text-white border-[#1D6FD8]"
+              : "bg-white text-gray-700 border-gray-200 hover:border-[#1D6FD8] hover:text-[#1D6FD8]"
+          }`}
+        >
+          <item.icon size={16} />
+          {item.label}
+        </Link>
+      ))}
     </div>
   );
 }
@@ -581,13 +657,9 @@ export default function StudentMyCoursesPage() {
               <p className="text-sm text-gray-400">{t.subtitle}</p>
             </div>
           </div>
-          <Link
-            href="/student/grades"
-            className="flex items-center gap-2 text-sm font-semibold bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:border-[#1D6FD8] hover:text-[#1D6FD8] transition-colors"
-          >
-            <GraduationCap size={16} /> {t.myGrades}
-          </Link>
         </div>
+
+        <StudentQuickNav t={t} />
 
         {profileUser && (
           <ProfileSummaryCard user={profileUser} t={t} onEdit={() => setShowProfileModal(true)} />

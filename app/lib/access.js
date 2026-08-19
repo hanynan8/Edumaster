@@ -61,8 +61,12 @@ export async function getCourseAccessForUser({ userId, courseId }) {
   }
 
   const Enrollment = getEnrollmentModel();
+  // 🔒 SECURITY FIX (F1 — security audit): كنا بنتحقق بس من "الـ enrollment
+  // موجود" من غير ما نفحص status — فلو حصل مستقبلًا وحد لغى enrollment
+  // (status: "cancelled")، السجل كان لسه بيدي وصول كامل. "completed" لسه
+  // لازم تفضل بتدي وصول (خريج عايز يراجع الكورس)، بس "cancelled" لأ.
   const [enrollment, hasMembershipAccess] = await Promise.all([
-    Enrollment.findOne({ user: userId, course: courseId }).lean(),
+    Enrollment.findOne({ user: userId, course: courseId, status: { $ne: "cancelled" } }).lean(),
     hasActiveMembershipAccessToCourse(userId, courseId),
   ]);
 

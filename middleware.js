@@ -116,11 +116,14 @@ export async function middleware(request) {
   // بـ window.location.href، مش SDK/iframe مضمّن، فمفيش داعي لإضافة نطاق
   // paypal.com في script-src/frame-src).
   //
-  // ⚠️ بدأناها بـ Report-Only عن قصد: بيبعت تقارير انتهاك (لو ضبطتوا
-  // report-uri/report-to) من غير ما يمنع أي حاجة فعليًا. شغّلوا الموقع
-  // كام يوم وراقبوا الـ console/التقارير، ولو مفيش false positives،
-  // بدّلوا اسم الهيدر تحت من "Content-Security-Policy-Report-Only" لـ
-  // "Content-Security-Policy" عشان يبقى فعّال وبيمنع فعليًا.
+  // 🔒 SECURITY FIX (F5 — security audit): كانت شغّالة بوضع Report-Only —
+  // بتبعت تقارير بس من غير ما تمنع حاجة فعليًا. الـ directives هنا مبنية
+  // من النطاقات الحقيقية اللي المشروع بيستخدمها فعلًا (Bunny, Unsplash/
+  // placehold, Google Fonts, PayPal API), فمفيش سبب تفضل Report-Only —
+  // اتحوّلت لوضع enforcing (اسم الهيدر بقى "Content-Security-Policy" بدل
+  // "-Report-Only"). لو ظهرت مشاكل تحميل بعد الديبلوي (سكريبت/صورة/خط
+  // اتمنع)، ضيف النطاق الناقص للـ directive المناسبة بدل الرجوع لـ
+  // Report-Only بالكامل.
   const cspDirectives = [
     "default-src 'self'",
     // 'unsafe-inline' لسه لازمة لحد ما نراجع الـ inline styles/scripts
@@ -137,7 +140,7 @@ export async function middleware(request) {
     "form-action 'self'",
     "frame-ancestors 'self'",
   ];
-  response.headers.set("Content-Security-Policy-Report-Only", cspDirectives.join("; "));
+  response.headers.set("Content-Security-Policy", cspDirectives.join("; "));
 
   return response;
 }

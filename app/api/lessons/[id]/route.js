@@ -16,6 +16,7 @@ import { getCourseModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -27,17 +28,26 @@ function jsonResponse(data, status = 200) {
 const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
+// 🔒 Day 62: بيتنادى بس بعد ما GET/PUT يتأكدوا إن اللي طالب فعلاً عنده
+// وصول (owner/admin أو enrollment/membership) — فأمن نرجّع الرابط الموقّع
+// المؤقت هنا على طول، مفيش داعي لـ revealProtectedContent flag زي باقي
+// الملفات (هنا الفحص بيحصل قبل ما serializeLesson تتنادى أصلاً).
 function serializeLesson(l) {
+  const secure = resolveSecureLessonMediaUrls({
+    videoUrl: l.videoUrl,
+    videoProvider: l.videoProvider,
+    fileUrl: l.fileUrl,
+  });
   return {
     id: l._id.toString(),
     section: l.section.toString(),
     course: l.course.toString(),
     title: l.title,
     type: l.type,
-    videoUrl: l.videoUrl,
+    videoUrl: secure.videoUrl,
     videoProvider: l.videoProvider,
     durationSeconds: l.durationSeconds,
-    fileUrl: l.fileUrl,
+    fileUrl: secure.fileUrl,
     textContent: l.textContent,
     isPreview: l.isPreview,
     order: l.order,

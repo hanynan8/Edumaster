@@ -18,6 +18,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -43,9 +44,18 @@ function serializeLesson(l, { revealProtectedContent }) {
   // preview، أو صاحب الكورس/أدمن بيشوفه في لوحته، أو الطالب عنده وصول فعلي
   // (enrollment أو membership نشطة — revealProtectedContent محسوبة فوق).
   if (revealProtectedContent || l.isPreview) {
-    base.videoUrl = l.videoUrl;
+    // 🔒 Day 62: الرابط اللي بيتسرّب هنا موقّع ومؤقت لو Token Authentication
+    // مفعّلة (شوف app/lib/bunny.js) — عشان حتى لو حد اخد الرابط من الشبكة
+    // وشاركه، يبقى منتهي الصلاحية بعد كام ساعة مش قابل لإعادة الاستخدام
+    // للأبد زي الرابط العام الخام.
+    const secure = resolveSecureLessonMediaUrls({
+      videoUrl: l.videoUrl,
+      videoProvider: l.videoProvider,
+      fileUrl: l.fileUrl,
+    });
+    base.videoUrl = secure.videoUrl;
     base.videoProvider = l.videoProvider;
-    base.fileUrl = l.fileUrl;
+    base.fileUrl = secure.fileUrl;
     base.textContent = l.textContent;
   }
   return base;

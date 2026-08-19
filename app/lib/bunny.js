@@ -33,8 +33,33 @@
 // رابط صورة الغلاف (thumbnail) بتاعة الفيديو من غير API call إضافي:
 //   NEXT_PUBLIC_BUNNY_STREAM_CDN_HOSTNAME=   (مثلاً: vz-xxxxxxxx-xxx.b-cdn.net
 //   — تلاقيها في Bunny Dashboard → Stream → مكتبة الفيديو → CDN Hostname)
+//
+// 🔒 SECURITY (Day 62 audit): لحد دلوقتي buildStreamPlaybackUrl/
+// buildStoragePublicUrl كانوا بيرجّعوا رابط عام دائم من غير أي توقيع —
+// يعني حتى لو الـ API قفل صح مين ياخد الرابط (enrollment/membership)،
+// أي حد ياخد الرابط ده (Network tab في المتصفح مثلاً) يقدر يشاركه ويشغله
+// لحد الأبد من غير ما يكون طالب أو حتى عنده حساب أصلاً. اتضافت طبقة توقيع
+// اختيارية (Token Authentication الرسمية من Bunny) فوق الروابط دي — رابط
+// مؤقت بينتهي بعد ساعات قليلة، فمشاركته بره الموقع أو بعد انتهاء
+// الاشتراك بتبقى قيمته صفر عمليًا. الميزة اختيارية بالكامل (fallback
+// للرابط العام القديم لو الـ env vars الجديدة مش متظبطة) عشان متكسرش أي
+// حد شغّال بإعداد قديم — بالظبط زي isBunnyStreamConfigured الموجودة.
+//
+// env vars إضافية (اختيارية):
+//   BUNNY_STREAM_TOKEN_AUTH_KEY=   (من Bunny Dashboard → Stream → مكتبة
+//     الفيديو → Security → Token Authentication Key، وبعد كده لازم تفعّل
+//     "Token Authentication" toggle في نفس الصفحة عشان الحماية تشتغل فعليًا)
+//   BUNNY_STORAGE_TOKEN_AUTH_KEY=  (من Bunny Dashboard → Pull Zone بتاعة
+//     الـ Storage Zone → Security → Token Authentication Key، وكمان لازم
+//     تفعّل الـ toggle بتاعها)
 
 import crypto from "crypto";
+
+// كام ثانية يفضل رابط الفيديو/الملف الموقّع صالح بعد ما نولّده. قصير
+// كفاية إن مشاركة الرابط بره الموقع تبقى شبه من غير فايدة، وطويل كفاية
+// إن الطالب يخلّص مشاهدة الدرس أو تحميل الملف من غير ما ينتهي في نص
+// الطريق (الرابط بيتولّد من جديد في كل GET request أصلاً، مش مرة واحدة).
+const SIGNED_URL_EXPIRE_SECONDS = 4 * 60 * 60; // 4 ساعات
 
 const STREAM_API_BASE = "https://video.bunnycdn.com";
 const STREAM_TUS_ENDPOINT = "https://video.bunnycdn.com/tusupload";
@@ -142,6 +167,46 @@ export function buildStreamPlaybackUrl(videoId) {
   return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
 }
 
+export function isBunnyStreamTokenAuthConfigured() {
+  return Boolean(process.env.BUNNY_STREAM_TOKEN_AUTH_KEY);
+}
+
+/**
+ * 🔒 نفس buildStreamPlaybackUrl بس برابط موقّع ومؤقت (Bunny "Embed View
+ * Token Authentication" الرسمية): token = HEX(SHA256(security_key +
+ * video_id + expires)). لازم "Token Authentication" يكون مفعّل من
+ * Bunny Dashboard لمكتبة الفيديو دي، وإلا Bunny هترفض حتى الرابط المُوقّع
+ * صح (الحماية بتتفعّل من عندهم، الرابط بس بيبعت الدليل).
+ *
+ * بيتولّد من جديد في كل مرة الدرس بيتقرا (مش بيتخزن)، عشان مدة الصلاحية
+ * تبدأ من وقت المشاهدة الفعلي مش من وقت الرفع.
+ *
+ * لو BUNNY_STREAM_TOKEN_AUTH_KEY مش متظبط، بيرجع لنفس الرابط العام القديم
+ * (buildStreamPlaybackUrl) — مفيش أي كسر لإعداد قائم من غير الـ env var دي.
+ */
+export function buildSecureStreamPlaybackUrl(videoId, { expireSeconds = SIGNED_URL_EXPIRE_SECONDS } = {}) {
+  const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
+  const securityKey = process.env.BUNNY_STREAM_TOKEN_AUTH_KEY;
+  if (!securityKey) return buildStreamPlaybackUrl(videoId);
+
+  const expires = Math.floor(Date.now() / 1000) + expireSeconds;
+  const token = crypto
+    .createHash("sha256")
+    .update(`${securityKey}${videoId}${expires}`)
+    .digest("hex");
+
+  return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${token}&expires=${expires}`;
+}
+
+// بيستخرج videoId من رابط buildStreamPlaybackUrl (المُخزّن في lesson.videoUrl
+// وقت الرفع) عشان نقدر نعيد توليد رابط موقّع منه وقت العرض — من غير ما
+// نحتاج نضيف عمود جديد للموديل أو نعمل migration للبيانات القديمة.
+export function extractBunnyStreamVideoId(playbackUrl) {
+  if (typeof playbackUrl !== "string") return null;
+  const m = playbackUrl.match(/\/embed\/\d+\/([0-9a-fA-F-]+)/);
+  return m ? m[1] : null;
+}
+
 // ---------------------------------------------------------------------------
 // Bunny Storage (صور + PDF)
 // ---------------------------------------------------------------------------
@@ -190,4 +255,68 @@ export async function uploadToStorage({ path, body, contentType, contentLength }
 export function buildStoragePublicUrl(path) {
   const pullZoneHost = process.env.BUNNY_STORAGE_PULL_ZONE_HOSTNAME;
   return `https://${pullZoneHost}/${path}`;
+}
+
+export function isBunnyStorageTokenAuthConfigured() {
+  return Boolean(process.env.BUNNY_STORAGE_TOKEN_AUTH_KEY);
+}
+
+/**
+ * 🔒 نسخة موقّعة ومؤقتة من buildStoragePublicUrl (Bunny CDN "URL Token
+ * Authentication" الرسمية): token = base64url(MD5(security_key + path +
+ * expires)). زي buildSecureStreamPlaybackUrl بالظبط لكن للـ PDF/الصور —
+ * لازم "Token Authentication" مفعّل من إعدادات الـ Pull Zone بتاعة الـ
+ * storage zone في Bunny Dashboard.
+ *
+ * لو BUNNY_STORAGE_TOKEN_AUTH_KEY مش متظبط، بيرجع لنفس الرابط العام القديم.
+ */
+export function buildSecureStoragePublicUrl(path, { expireSeconds = SIGNED_URL_EXPIRE_SECONDS } = {}) {
+  const securityKey = process.env.BUNNY_STORAGE_TOKEN_AUTH_KEY;
+  if (!securityKey) return buildStoragePublicUrl(path);
+
+  const urlPath = path.startsWith("/") ? path : `/${path}`;
+  const expires = Math.floor(Date.now() / 1000) + expireSeconds;
+
+  const rawHash = crypto
+    .createHash("md5")
+    .update(`${securityKey}${urlPath}${expires}`)
+    .digest("base64");
+  const token = rawHash.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+  const pullZoneHost = process.env.BUNNY_STORAGE_PULL_ZONE_HOSTNAME;
+  return `https://${pullZoneHost}${urlPath}?token=${token}&expires=${expires}`;
+}
+
+// بيستخرج path الملف من رابط buildStoragePublicUrl (المُخزّن في
+// lesson.fileUrl وقت الرفع) عشان نقدر نعيد توليد رابط موقّع منه وقت
+// العرض، من غير migration للبيانات القديمة.
+export function extractBunnyStoragePath(publicUrl) {
+  if (typeof publicUrl !== "string") return null;
+  const pullZoneHost = process.env.BUNNY_STORAGE_PULL_ZONE_HOSTNAME;
+  if (!pullZoneHost) return null;
+  const prefix = `https://${pullZoneHost}/`;
+  if (!publicUrl.startsWith(prefix)) return null;
+  return publicUrl.slice(prefix.length - 1); // سايبين الـ "/" الأول
+}
+
+/**
+ * 🔒 نقطة واحدة تستخدمها كل route بيسرّب محتوى درس (videoUrl/fileUrl):
+ * بتاخد القيم المخزّنة زي ما هي وترجّع نسخة موقّعة ومؤقتة لو ممكن، وتسيب
+ * أي حاجة تانية (يوتيوب/فيميو/رابط خارجي عمومًا) زي ما هي — إحنا بس اللي
+ * نقدر نوقّع روابط Bunny بتاعتنا، روابط مزوّدين خارجيين مش تحت سيطرتنا.
+ */
+export function resolveSecureLessonMediaUrls({ videoUrl, videoProvider, fileUrl }) {
+  let secureVideoUrl = videoUrl;
+  if (videoUrl && videoProvider === "bunny" && isBunnyStreamTokenAuthConfigured()) {
+    const videoId = extractBunnyStreamVideoId(videoUrl);
+    if (videoId) secureVideoUrl = buildSecureStreamPlaybackUrl(videoId);
+  }
+
+  let secureFileUrl = fileUrl;
+  if (fileUrl && isBunnyStorageTokenAuthConfigured()) {
+    const path = extractBunnyStoragePath(fileUrl);
+    if (path) secureFileUrl = buildSecureStoragePublicUrl(path);
+  }
+
+  return { videoUrl: secureVideoUrl, fileUrl: secureFileUrl };
 }

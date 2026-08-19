@@ -20,6 +20,7 @@ import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/model
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -47,9 +48,16 @@ function serializeLesson(l, { revealProtectedContent }) {
     order: l.order,
   };
   if (revealProtectedContent || l.isPreview) {
-    base.videoUrl = l.videoUrl;
+    // 🔒 Day 62: نفس منطق courses/[id]/sections — رابط موقّع ومؤقت لو
+    // Token Authentication مفعّلة، بدل الرابط العام الدائم.
+    const secure = resolveSecureLessonMediaUrls({
+      videoUrl: l.videoUrl,
+      videoProvider: l.videoProvider,
+      fileUrl: l.fileUrl,
+    });
+    base.videoUrl = secure.videoUrl;
     base.videoProvider = l.videoProvider;
-    base.fileUrl = l.fileUrl;
+    base.fileUrl = secure.fileUrl;
     base.textContent = l.textContent;
   }
   return base;

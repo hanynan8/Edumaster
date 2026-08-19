@@ -3,10 +3,24 @@
 //  لوحة المدرس/الأدمن، بدعم 3 لغات لكل كورس عبر course.i18n). كل كورس —
 //  بما فيهم أي كورس جديد يتضاف بعد كده — بنفس البنية بالظبط، مفيش تفرقة
 //  بين "كورس تسويقي" و"كورس حقيقي" خالص.
+//
+//  🔄 UI REDESIGN: اتحول من عرض "صف بصف" (alternating rows) لتصميم شبكة
+//  كروت (card grid) + بحث + فلاتر + ترتيب، زي أنماط منصات الـ LMS الكبيرة.
+//  اتاخد بس العناصر الأساسية اللي بتفرق فعليًا في تجربة البحث عن كورس:
+//    - صندوق بحث نصي (عنوان/وصف/مدرس/تصنيف/تاجات) — كله client-side على
+//      البيانات المحملة فعليًا، مفيش API جديد أو حقول جديدة في الموديل.
+//    - فلاتر: التصنيف، المستوى، السعر (الكل/مجاني/مدفوع).
+//    - ترتيب: الأكثر شعبية، الأعلى تقييمًا، الأحدث، السعر (من الأقل/الأعلى).
+//    - كارت كورس يعرض: صورة، تصنيف، مستوى، عنوان، اسم المدرس، تقييم
+//      (نجوم من ratingAverage/ratingCount الموجودين أصلًا في الموديل)،
+//      عدد الطلاب، المدة، السعر.
+//  اتعمد عدم إضافة حاجات مش موجودة في الـ backend حاليًا (مفيش reviews
+//  page منفصلة، مفيش wishlist، مفيش forum) — دي هتتضاف لاحقًا لما يبقى
+//  ليها API فعلي.
 // ═══════════════════════════════════════════════
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,64 +34,92 @@ const LEVEL_COLORS = {
   advanced: "#ef4444",
 };
 
-const ACCENT_PALETTE = ["#1D6FD8", "#a855f7", "#10b981", "#f59e0b", "#3b82f6", "#ef4444"];
-
 const STRINGS = {
   en: {
     badge: "What We Offer",
-    headline: "Courses Built for\nYour Future",
+    headline: "Courses Built for Your Future",
     subheadline: "Browse everything available on our platform right now.",
-    filterAll: "All Courses",
-    who: "Requirements",
-    outcomes: "What you'll learn",
-    cta: "View Course",
+    searchPlaceholder: "Search courses, instructors, topics...",
+    filterCategory: "Category",
+    filterLevel: "Level",
+    filterPrice: "Price",
+    allCategories: "All Categories",
+    allLevels: "All Levels",
+    allPrices: "Any Price",
     free: "Free",
-    lessons: (n) => `${n} lessons`,
-    students: (n) => `${n} students`,
+    paid: "Paid",
+    sortLabel: "Sort by",
+    sort: { popular: "Most Popular", rating: "Highest Rated", newest: "Newest", priceLow: "Price: Low to High", priceHigh: "Price: High to Low" },
     levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
+    resultsCount: (n) => `${n} course${n === 1 ? "" : "s"}`,
+    clearFilters: "Clear filters",
+    by: "By",
+    students: (n) => `${n.toLocaleString()} students`,
+    noRatingYet: "No ratings yet",
+    cta: "View Course",
     loading: "Loading",
     empty: "No courses available yet — check back soon.",
+    noMatch: "No courses match your search or filters.",
     error: "Couldn't load courses. Please try again.",
   },
   ar: {
     badge: "كورساتنا",
-    headline: "كورسات مصمّمة\nلمستقبلك",
+    headline: "كورسات مصمّمة لمستقبلك",
     subheadline: "تصفّح كل الكورسات المتاحة على المنصة دلوقتي.",
-    filterAll: "كل الكورسات",
-    who: "المتطلبات",
-    outcomes: "هتتعلم إيه",
-    cta: "التفاصيل والتسجيل",
+    searchPlaceholder: "ابحث عن كورس، مدرس، أو موضوع...",
+    filterCategory: "التصنيف",
+    filterLevel: "المستوى",
+    filterPrice: "السعر",
+    allCategories: "كل التصنيفات",
+    allLevels: "كل المستويات",
+    allPrices: "أي سعر",
     free: "مجاني",
-    lessons: (n) => `${n} درس`,
-    students: (n) => `${n} طالب`,
+    paid: "مدفوع",
+    sortLabel: "ترتيب حسب",
+    sort: { popular: "الأكثر شعبية", rating: "الأعلى تقييمًا", newest: "الأحدث", priceLow: "السعر: من الأقل", priceHigh: "السعر: من الأعلى" },
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
+    resultsCount: (n) => `${n} كورس`,
+    clearFilters: "مسح الفلاتر",
+    by: "بواسطة",
+    students: (n) => `${n.toLocaleString()} طالب`,
+    noRatingYet: "لسه مفيش تقييمات",
+    cta: "التفاصيل والتسجيل",
     loading: "جارِ التحميل",
     empty: "لسه مفيش كورسات متاحة — تابعنا قريبًا.",
+    noMatch: "مفيش كورسات مطابقة لبحثك أو الفلاتر اللي اخترتها.",
     error: "تعذّر تحميل الكورسات، حاول تاني.",
   },
   es: {
     badge: "Lo Que Ofrecemos",
-    headline: "Cursos diseñados\npara tu futuro",
+    headline: "Cursos diseñados para tu futuro",
     subheadline: "Explora todo lo disponible en nuestra plataforma ahora.",
-    filterAll: "Todos los Cursos",
-    who: "Requisitos",
-    outcomes: "Lo que aprenderás",
-    cta: "Ver Curso",
+    searchPlaceholder: "Buscar cursos, instructores, temas...",
+    filterCategory: "Categoría",
+    filterLevel: "Nivel",
+    filterPrice: "Precio",
+    allCategories: "Todas las categorías",
+    allLevels: "Todos los niveles",
+    allPrices: "Cualquier precio",
     free: "Gratis",
-    lessons: (n) => `${n} lecciones`,
-    students: (n) => `${n} estudiantes`,
+    paid: "De pago",
+    sortLabel: "Ordenar por",
+    sort: { popular: "Más popular", rating: "Mejor valorado", newest: "Más reciente", priceLow: "Precio: menor a mayor", priceHigh: "Precio: mayor a menor" },
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
+    resultsCount: (n) => `${n} curso${n === 1 ? "" : "s"}`,
+    clearFilters: "Borrar filtros",
+    by: "Por",
+    students: (n) => `${n.toLocaleString()} estudiantes`,
+    noRatingYet: "Sin valoraciones aún",
+    cta: "Ver Curso",
     loading: "Cargando",
     empty: "Aún no hay cursos disponibles — vuelve pronto.",
+    noMatch: "Ningún curso coincide con tu búsqueda o filtros.",
     error: "No se pudieron cargar los cursos. Inténtalo de nuevo.",
   },
 };
 
 // ─── تطبيع كورس حقيقي (i18n-aware) لشكل موحّد يستخدمه العرض ───
-// بياخد النسخة المترجمة المناسبة للغة الحالية من course.i18n[language]،
-// ولو مش موجودة بيرجع للحقول الأساسية (title/shortDescription/...) اللي
-// دايمًا موجودة كـ fallback (نسخة لغة الكورس الافتراضية).
-function localizeCourse(c, language, t, index0, i) {
+function localizeCourse(c, language, t) {
   const i18nEntry = c.i18n?.[language] || c.i18n?.en || null;
   const categoryI18nEntry = c.categoryI18n?.[language] || c.categoryI18n?.en || null;
 
@@ -87,20 +129,25 @@ function localizeCourse(c, language, t, index0, i) {
     shortDescription: i18nEntry?.shortDescription || c.shortDescription || c.description || "",
     thumbnail: c.thumbnail,
     categoryName: categoryI18nEntry?.name || c.categoryName || "",
+    teacherName: c.teacherName || "",
+    level: c.level,
     levelLabel: t.levels[c.level] || c.level,
     levelColor: LEVEL_COLORS[c.level] || "#1D6FD8",
     durationLabel:
       c.durationLabel ||
-      (c.totalDurationSeconds > 0
-        ? formatSeconds(c.totalDurationSeconds)
-        : t.lessons(c.totalLessonsCount || 0)),
-    requirements: i18nEntry?.requirements?.length ? i18nEntry.requirements : c.requirements || [],
-    outcomes: i18nEntry?.outcomes?.length ? i18nEntry.outcomes : c.outcomes || [],
+      (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
+    lessonsCount: c.totalLessonsCount || 0,
     studentsCount: c.studentsCount || 0,
+    ratingAverage: c.ratingAverage || 0,
+    ratingCount: c.ratingCount || 0,
     isFree: c.isFree,
-    price: c.price,
-    currency: c.currency,
-    accent: ACCENT_PALETTE[(index0 + i) % ACCENT_PALETTE.length],
+    price: c.price || 0,
+    currency: c.currency || "",
+    createdAt: c.createdAt ? new Date(c.createdAt).getTime() : 0,
+    searchBlob: [c.title, c.shortDescription, c.teacherName, categoryI18nEntry?.name || c.categoryName, ...(c.tags || [])]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
   };
 }
 
@@ -110,8 +157,8 @@ function formatSeconds(s) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function useAllCourses(language) {
-  const [teacherCourses, setTeacherCourses] = useState(undefined);
+function useAllCourses() {
+  const [rawCourses, setRawCourses] = useState(undefined);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(false);
 
@@ -123,12 +170,12 @@ function useAllCourses(language) {
     ])
       .then(([coursesRes, categoriesRes]) => {
         if (cancelled) return;
-        setTeacherCourses(Array.isArray(coursesRes?.courses) ? coursesRes.courses : []);
+        setRawCourses(Array.isArray(coursesRes?.courses) ? coursesRes.courses : []);
         setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
       })
       .catch(() => {
         if (!cancelled) {
-          setTeacherCourses([]);
+          setRawCourses([]);
           setError(true);
         }
       });
@@ -137,40 +184,29 @@ function useAllCourses(language) {
     };
   }, []);
 
-  return { teacherCourses, categories, error };
+  return { rawCourses, categories, error };
 }
 
-function useReveal(threshold = 0.08) {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    const obs = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold }
-    );
-    obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
-  return [ref, visible];
-}
-
-function ArrowRight({ size = 14 }) {
+/* ─── Icons ─── */
+function SearchIcon({ size = 16 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M12 5l7 7-7 7" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
     </svg>
   );
 }
-function Check({ size = 11, color = "#1D6FD8" }) {
+function ChevronDown({ size = 14 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6L9 17l-5-5" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+function StarIcon({ size = 13, filled = true }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "#f59e0b" : "none"} stroke="#f59e0b" strokeWidth={1.5}>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
   );
 }
@@ -179,14 +215,6 @@ function Clock({ size = 13 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
-    </svg>
-  );
-}
-function Award({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="6" />
-      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
     </svg>
   );
 }
@@ -199,42 +227,139 @@ function Users({ size = 13 }) {
     </svg>
   );
 }
-function Target({ size = 13 }) {
+function XIcon({ size = 14 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
+  );
+}
+
+/* ─── Star rating display ─── */
+function RatingStars({ rating, count, t }) {
+  if (!count) {
+    return <span className="text-[11px] text-gray-400">{t.noRatingYet}</span>;
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-xs font-bold text-amber-600">{rating.toFixed(1)}</span>
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <StarIcon key={i} size={12} filled={i <= Math.round(rating)} />
+        ))}
+      </div>
+      <span className="text-[11px] text-gray-400">({count.toLocaleString()})</span>
+    </div>
+  );
+}
+
+/* ─── Reusable dropdown (native select styled) ─── */
+function FilterSelect({ value, onChange, options }) {
+  return (
+    <div className="relative shrink-0">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+        <ChevronDown size={13} />
+      </span>
+    </div>
   );
 }
 
 export default function CoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
-  const { teacherCourses, categories, error } = useAllCourses(language);
-  const [activeFilter, setActiveFilter] = useState("all");
+  const { rawCourses, error } = useAllCourses();
 
-  const merged = useMemo(() => {
-    if (teacherCourses === undefined) return null; // لسه بيحمّل
-    return teacherCourses.map((c, i) => localizeCourse(c, language, t, 0, i));
-  }, [teacherCourses, language, t]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [level, setLevel] = useState("all");
+  const [price, setPrice] = useState("all");
+  const [sort, setSort] = useState("popular");
 
-  const filterKeys = useMemo(() => {
-    if (!merged) return ["all"];
-    const present = new Set(merged.map((c) => c.categoryName).filter(Boolean));
-    const fromCategories = categories.map((c) => c.name).filter((n) => present.has(n));
-    const extra = [...present].filter((n) => !fromCategories.includes(n));
-    return ["all", ...fromCategories, ...extra];
-  }, [merged, categories]);
+  const localized = useMemo(() => {
+    if (rawCourses === undefined) return null;
+    return rawCourses.map((c) => localizeCourse(c, language, t));
+  }, [rawCourses, language, t]);
 
-  const filtered = !merged
-    ? []
-    : activeFilter === "all"
-    ? merged
-    : merged.filter((c) => c.categoryName === activeFilter);
+  const categoryOptions = useMemo(() => {
+    if (!localized) return [{ value: "all", label: t.allCategories }];
+    const present = new Set(localized.map((c) => c.categoryName).filter(Boolean));
+    return [{ value: "all", label: t.allCategories }, ...[...present].map((name) => ({ value: name, label: name }))];
+  }, [localized, t]);
 
-  if (merged === null) {
+  const levelOptions = [
+    { value: "all", label: t.allLevels },
+    { value: "beginner", label: t.levels.beginner },
+    { value: "intermediate", label: t.levels.intermediate },
+    { value: "advanced", label: t.levels.advanced },
+  ];
+
+  const priceOptions = [
+    { value: "all", label: t.allPrices },
+    { value: "free", label: t.free },
+    { value: "paid", label: t.paid },
+  ];
+
+  const sortOptions = [
+    { value: "popular", label: t.sort.popular },
+    { value: "rating", label: t.sort.rating },
+    { value: "newest", label: t.sort.newest },
+    { value: "priceLow", label: t.sort.priceLow },
+    { value: "priceHigh", label: t.sort.priceHigh },
+  ];
+
+  const filtered = useMemo(() => {
+    if (!localized) return [];
+    const q = search.trim().toLowerCase();
+
+    let list = localized.filter((c) => {
+      if (q && !c.searchBlob.includes(q)) return false;
+      if (category !== "all" && c.categoryName !== category) return false;
+      if (level !== "all" && c.level !== level) return false;
+      if (price === "free" && !c.isFree) return false;
+      if (price === "paid" && c.isFree) return false;
+      return true;
+    });
+
+    list = [...list].sort((a, b) => {
+      switch (sort) {
+        case "rating":
+          return b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount;
+        case "newest":
+          return b.createdAt - a.createdAt;
+        case "priceLow":
+          return (a.isFree ? 0 : a.price) - (b.isFree ? 0 : b.price);
+        case "priceHigh":
+          return (b.isFree ? 0 : b.price) - (a.isFree ? 0 : a.price);
+        case "popular":
+        default:
+          return b.studentsCount - a.studentsCount;
+      }
+    });
+
+    return list;
+  }, [localized, search, category, level, price, sort]);
+
+  const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
+
+  function clearFilters() {
+    setSearch("");
+    setCategory("all");
+    setLevel("all");
+    setPrice("all");
+  }
+
+  if (localized === null) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -250,208 +375,174 @@ export default function CoursesPage() {
       <style>{STYLES}</style>
       <div
         dir={isRTL ? "rtl" : "ltr"}
-        className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
+        className="min-h-screen bg-[#f7f7f8] text-[#0a0a0a] overflow-x-hidden"
         style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
-        <HeroSection t={t} />
-        {merged.length > 0 && (
-          <FilterBar filterKeys={filterKeys} t={t} activeFilter={activeFilter} setActiveFilter={setActiveFilter} />
+        <HeroSearchSection t={t} search={search} setSearch={setSearch} />
+
+        {localized.length > 0 && (
+          <div className="sticky top-[60px] sm:top-[68px] z-40 bg-white border-b border-gray-100 shadow-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+              <FilterSelect value={category} onChange={setCategory} options={categoryOptions} />
+              <FilterSelect value={level} onChange={setLevel} options={levelOptions} />
+              <FilterSelect value={price} onChange={setPrice} options={priceOptions} />
+
+              <span className="w-px h-6 bg-gray-200 shrink-0 mx-1" />
+
+              <FilterSelect value={sort} onChange={setSort} options={sortOptions} />
+
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="shrink-0 inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-gray-500 hover:text-red-500 transition-colors px-2 py-1"
+                >
+                  <XIcon size={12} />
+                  {t.clearFilters}
+                </button>
+              )}
+
+              <span className="shrink-0 ms-auto text-[11px] sm:text-xs font-semibold text-gray-400 whitespace-nowrap">
+                {t.resultsCount(filtered.length)}
+              </span>
+            </div>
+          </div>
         )}
+
         {error && <div className="max-w-3xl mx-auto px-5 pt-8 text-center text-sm text-red-500">{t.error}</div>}
-        {merged.length === 0 && !error ? (
+
+        {localized.length === 0 && !error ? (
           <div className="max-w-3xl mx-auto px-5 py-24 text-center text-gray-400 text-sm">{t.empty}</div>
+        ) : filtered.length === 0 ? (
+          <div className="max-w-3xl mx-auto px-5 py-24 text-center text-gray-400 text-sm">{t.noMatch}</div>
         ) : (
-          <CoursesList courses={filtered} t={t} />
+          <CoursesGrid courses={filtered} t={t} />
         )}
       </div>
     </>
   );
 }
 
-function HeroSection({ t }) {
+function HeroSearchSection({ t, search, setSearch }) {
   return (
-    <section className="relative h-[40vh] sm:h-[46vh] md:h-[52vh] overflow-hidden bg-[#f4f4f4]">
-      <div className="absolute inset-0 z-0">
-        <Image src={FALLBACK_IMAGE} alt="courses hero" fill className="object-cover object-center" priority unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
-      </div>
-      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-20">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05] whitespace-pre-line">
-            {t.headline}
-          </h1>
-          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.subheadline}</p>
+    <section className="relative bg-gradient-to-br from-[#0a2a5e] via-[#123a7a] to-[#1D6FD8] overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{ backgroundImage: "radial-gradient(circle at 20% 20%, white 1px, transparent 1px)", backgroundSize: "28px 28px" }}
+      />
+      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-8 sm:pb-10">
+        <span className="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/70 mb-3 animate-fadein">
+          {t.badge}
+        </span>
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white max-w-2xl mb-3 leading-[1.15] animate-fadein-up">
+          {t.headline}
+        </h1>
+        <p className="text-white/70 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-7 sm:mb-8 animate-fadein-up2">
+          {t.subheadline}
+        </p>
+
+        <div className="relative max-w-xl animate-fadein-up2">
+          <span className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 -translate-y-1/2 text-gray-400">
+            <SearchIcon size={18} />
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t.searchPlaceholder}
+            className="w-full bg-white rounded-xl pl-11 pr-4 rtl:pl-4 rtl:pr-11 py-3.5 sm:py-4 text-sm text-gray-800 placeholder:text-gray-400 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/20"
+          />
         </div>
       </div>
     </section>
   );
 }
 
-function FilterBar({ filterKeys, t, activeFilter, setActiveFilter }) {
+function CoursesGrid({ courses, t }) {
   return (
-    <div className="sticky top-[60px] sm:top-[68px] z-40 bg-white border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
-        {filterKeys.map((key) => (
-          <button
-            key={key}
-            onClick={() => setActiveFilter(key)}
-            className={`shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-wide transition-all duration-200 ${
-              activeFilter === key ? "bg-[#1D6FD8] text-white shadow-sm" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            {key === "all" ? t.filterAll : key}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CoursesList({ courses, t }) {
-  return (
-    <section className="py-14 sm:py-16 md:py-20 bg-white">
-      <div className="max-w-7xl mx-auto flex flex-col gap-0">
-        {courses.map((course, i) => (
-          <CourseRow key={course.id} course={course} index={i} t={t} />
+    <section className="py-8 sm:py-10 md:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+        {courses.map((course) => (
+          <CourseCard key={course.id} course={course} t={t} />
         ))}
       </div>
     </section>
   );
 }
 
-function CourseRow({ course, index, t }) {
-  const [ref, visible] = useReveal(0.06);
-  const isEven = index % 2 === 0;
-
+function CourseCard({ course, t }) {
   return (
-    <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
-      {/* الصورة */}
-      <div
-        className={`relative overflow-hidden min-h-[220px] sm:min-h-[300px] lg:min-h-[520px] order-1 ${
-          isEven ? "lg:order-1" : "lg:order-2"
-        } transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}
-      >
+    <Link
+      href={`/courses/${course.id}`}
+      className="group flex flex-col bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+    >
+      <div className="relative w-full aspect-video overflow-hidden bg-gray-100">
         <Image
           src={course.thumbnail || FALLBACK_IMAGE}
           alt={course.title}
           fill
-          className="object-cover hover:scale-105 transition-transform duration-700"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
           unoptimized
         />
-        <div className="absolute top-0 inset-x-0 h-[4px]" style={{ background: course.accent }} />
-        <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-gradient-to-t from-black/70 to-transparent flex items-end gap-2 sm:gap-3 flex-wrap">
+        {course.levelLabel && (
+          <span
+            className="absolute top-2.5 left-2.5 rtl:left-auto rtl:right-2.5 text-white text-[10px] font-bold px-2.5 py-1 rounded-full"
+            style={{ background: course.levelColor + "e6" }}
+          >
+            {course.levelLabel}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 p-4 flex-1">
+        {course.categoryName && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#1D6FD8]">{course.categoryName}</span>
+        )}
+
+        <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 leading-snug line-clamp-2 min-h-[2.5em]">
+          {course.title}
+        </h3>
+
+        {course.teacherName && (
+          <p className="text-xs text-gray-400">
+            {t.by} {course.teacherName}
+          </p>
+        )}
+
+        <RatingStars rating={course.ratingAverage} count={course.ratingCount} t={t} />
+
+        <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
           {course.durationLabel && (
-            <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="inline-flex items-center gap-1">
               <Clock size={11} />
               {course.durationLabel}
             </span>
           )}
-          {course.levelLabel && (
-            <span
-              className="inline-flex items-center gap-1.5 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
-              style={{ background: course.levelColor + "cc" }}
-            >
-              <Award size={11} />
-              {course.levelLabel}
-            </span>
-          )}
           {course.studentsCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="inline-flex items-center gap-1">
               <Users size={11} />
               {t.students(course.studentsCount)}
             </span>
           )}
         </div>
-        <div className="absolute top-4 sm:top-6 right-4 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-          <span className="text-white font-black text-sm sm:text-base leading-none">{String(index + 1).padStart(2, "0")}</span>
+
+        <div className="mt-auto pt-2.5 flex items-center justify-between">
+          <span className="text-base font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
+            {course.isFree || !course.price ? t.free : `${course.price} ${course.currency}`}
+          </span>
         </div>
       </div>
-
-      {/* المحتوى */}
-      <div
-        className={`flex flex-col justify-center px-5 sm:px-8 md:px-10 py-8 sm:py-12 lg:py-20 gap-5 sm:gap-6 lg:gap-8 order-2 ${
-          isEven ? "lg:order-2 bg-white" : "lg:order-1 bg-[#f7f7f7]"
-        } transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
-      >
-        <div>
-          {course.categoryName && (
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 inline-block" style={{ color: course.accent }}>
-              {course.categoryName}
-            </span>
-          )}
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-2 sm:mb-3">{course.title}</h2>
-          <p className="text-gray-500 text-sm sm:text-[15px] leading-relaxed">{course.shortDescription}</p>
-        </div>
-
-        {course.requirements?.length > 0 && (
-          <InfoBlock icon={<Users size={13} />} title={t.who} color={course.accent}>
-            <ul className="flex flex-col gap-2 mt-2">
-              {course.requirements.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span className="shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-white">
-                    <Check size={18} color={course.accent} />
-                  </span>
-                  <span className="text-gray-600 text-xs sm:text-sm leading-snug">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </InfoBlock>
-        )}
-
-        {course.outcomes?.length > 0 && (
-          <InfoBlock icon={<Target size={13} />} title={t.outcomes} color={course.accent}>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-              {course.outcomes.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span className="shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
-                    <Check size={20} color={course.accent} />
-                  </span>
-                  <span className="text-gray-700 text-xs sm:text-sm font-medium leading-snug">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </InfoBlock>
-        )}
-
-        <div className="flex items-center gap-4 flex-wrap">
-          <Link
-            href={`/courses/${course.id}`}
-            className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm hover:opacity-90"
-            style={{ background: course.accent }}
-          >
-            {t.cta} <ArrowRight size={13} />
-          </Link>
-          {course.isFree !== null && (
-            <span className="text-sm font-bold" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
-              {course.isFree || !course.price ? t.free : `${course.price} ${course.currency || ""}`}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoBlock({ icon, title, color, children }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
-        <span style={{ color }}>{icon}</span>
-        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-400">{title}</span>
-      </div>
-      {children}
-    </div>
+    </Link>
   );
 }
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,900&family=Tajawal:wght@400;700;800&display=swap');
   @keyframes fadein     { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes fadein-up  { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadein-up  { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .animate-fadein      { animation: fadein    0.6s ease both; }
   .animate-fadein-up   { animation: fadein-up 0.7s ease 0.1s both; }
   .animate-fadein-up2  { animation: fadein-up 0.7s ease 0.25s both; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 `;

@@ -269,6 +269,9 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
             paymentMethod: userDoc.paymentMethod || "cash",
             role,
             tokenVersion: userDoc.tokenVersion || 0,
+            // 🆕 صورة البروفايل (لو موجودة) — بتتعرض في الـ navbar وصفحة
+            // الملف الشخصي. مش حقل حساس، فمفيش داعي لأي تحقق إضافي هنا.
+            avatar: userDoc.profile?.avatar || null,
           };
         } catch (error) {
           // 🔒 SECURITY: الأخطاء المتعمّدة (rate_limited:N / account_locked:N /
@@ -310,7 +313,7 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.name = user.name;
@@ -320,8 +323,29 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
         token.paymentMethod = user.paymentMethod;
         token.role = user.role;
         token.tokenVersion = user.tokenVersion ?? 0;
+        token.avatar = user.avatar ?? null;
         token.lastValidated = Date.now();
         token.invalid = false;
+        return token;
+      }
+
+      // 🆕 لما الـ client يستدعي update() من useSession() بعد تعديل البروفايل
+      // (الاسم/الرقم/الصورة) في /api/profile، بنجيب أحدث نسخة من الداتابيز
+      // فورًا بدل ما نستنى الـ throttle العادي (60 ثانية تحت) — عشان التغيير
+      // يظهر في الـ navbar/الصفحة على طول من غير ما المستخدم يعمل logout/login.
+      if (trigger === "update" && token.id) {
+        try {
+          await connectToMongo();
+          const AuthModel = getAuthModel();
+          const fresh = await AuthModel.findById(token.id, "name phone profile.avatar").lean();
+          if (fresh) {
+            token.name = fresh.name ?? token.name;
+            token.phone = fresh.phone ?? token.phone;
+            token.avatar = fresh.profile?.avatar ?? null;
+          }
+        } catch (err) {
+          console.error("[authOptions] JWT update-trigger refresh error:", err);
+        }
         return token;
       }
 
@@ -338,7 +362,10 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
         try {
           await connectToMongo();
           const AuthModel = getAuthModel();
-          const dbUser = await AuthModel.findById(token.id, "tokenVersion role status").lean();
+          const dbUser = await AuthModel.findById(
+            token.id,
+            "tokenVersion role status name phone profile.avatar"
+          ).lean();
 
           // 🔒 SECURITY: لو الأدمن أوقف الحساب وهو شغّال بجلسة مفتوحة فعلاً،
           // بنبطّل الجلسة هنا كمان (مش بس وقت تسجيل دخول جديد) — أقصى نافذة
@@ -348,6 +375,12 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
           } else {
             token.invalid = false;
             token.role = dbUser.role || token.role; // تغيير الـ role ينعكس فورًا كمان
+            // 🆕 نفس فكرة الـ role: أي تعديل بروفايل (اسم/رقم/صورة) بيتزامن
+            // خلال نفس نافذة الـ 60 ثانية دي كمان، حتى لو من غير ما الـ client
+            // ينادي update() صراحةً.
+            token.name = dbUser.name ?? token.name;
+            token.phone = dbUser.phone ?? token.phone;
+            token.avatar = dbUser.profile?.avatar ?? token.avatar ?? null;
             token.lastValidated = now;
           }
         } catch (err) {
@@ -376,6 +409,7 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
         session.user.address = token.address;
         session.user.paymentMethod = token.paymentMethod;
         session.user.role = token.role;
+        session.user.avatar = token.avatar ?? null;
       }
       return session;
     },

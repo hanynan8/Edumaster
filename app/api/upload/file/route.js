@@ -51,6 +51,12 @@ const ALLOWED_KINDS = {
       ].includes(m) || isImageMime(m),
     roles: ["student", "teacher", "admin"],
   },
+  // 🆕 صورة البروفايل الشخصية — أي مستخدم مسجّل دخول (student/teacher/admin)
+  // يقدر يرفع صورة لنفسه بس (المسار تحت مبني على session.user.id، فمفيش
+  // حد يقدر يستبدل صورة حد تاني). منفصلة عن "image" (اللي لسه مقصورة على
+  // مرفقات الكورس/الدرس من المدرس) عشان الطالب ميقدرش يستخدم نفس المسار
+  // ده لرفع صور جوه كورس مش بتاعه.
+  avatar: { subfolder: "avatars", allowedMime: (m) => isImageMime(m), roles: ["student", "teacher", "admin"] },
 };
 
 // 🔒 SECURITY: file.type جاي من المتصفح ومُعلَن ذاتيًا — أي حد يقدر يزوّره
@@ -81,6 +87,7 @@ const MAX_BYTES_BY_KIND = {
   image: 15 * 1024 * 1024, // 15MB
   pdf: 50 * 1024 * 1024, // 50MB
   submission: 25 * 1024 * 1024, // 25MB
+  avatar: 4 * 1024 * 1024, // 4MB — كافي جدًا لصورة بروفايل
 };
 
 function safeFileName(originalName) {

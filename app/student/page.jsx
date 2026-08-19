@@ -8,12 +8,14 @@
 //     admin_grant)
 //   - GET /api/membership    → حالة عضوية الطالب الحالية (لو موجودة)
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap, Award, TrendingUp,
+  Camera, Mail, Phone, User, X, Pencil,
 } from "lucide-react";
 
 const STRINGS = {
@@ -42,6 +44,27 @@ const STRINGS = {
     summaryCompleted: "كورسات مكتملة",
     summaryCertificates: "شهاداتي",
     viewCertificates: "شوف شهاداتي",
+    // Phase — الملف الشخصي (تعديل الاسم/الرقم/الصورة)
+    editProfile: "تعديل الملف الشخصي",
+    profileModalTitle: "الملف الشخصي",
+    profileModalSubtitle: "عدّل بياناتك الشخصية",
+    fieldEmail: "البريد الإلكتروني الحالي",
+    emailLockedNote: "الإيميل مش قابل للتعديل من هنا",
+    fieldName: "الاسم المسجّل به",
+    fieldNamePlaceholder: "اكتب اسمك بالكامل",
+    fieldPhone: "رقم الهاتف",
+    fieldPhonePlaceholder: "أضف رقم هاتفك (اختياري)",
+    changePhoto: "تغيير الصورة",
+    save: "حفظ التعديلات",
+    saving: "جارِ الحفظ...",
+    cancel: "إلغاء",
+    saveSuccess: "تم حفظ بياناتك بنجاح",
+    errNameLen: "الاسم لازم يكون بين 2 و60 حرف",
+    errPhoneInvalid: "رقم الهاتف مش بصيغة صحيحة",
+    errAvatarType: "الصورة لازم تكون PNG أو JPG أو WEBP",
+    errAvatarSize: "حجم الصورة أكبر من المسموح (4MB)",
+    errGeneric: "حصل خطأ، حاول تاني",
+    uploadingPhoto: "جارِ رفع الصورة...",
   },
   en: {
     title: "My Courses",
@@ -67,6 +90,26 @@ const STRINGS = {
     summaryCompleted: "Completed Courses",
     summaryCertificates: "My Certificates",
     viewCertificates: "View my certificates",
+    editProfile: "Edit Profile",
+    profileModalTitle: "My Profile",
+    profileModalSubtitle: "Update your personal information",
+    fieldEmail: "Current Email",
+    emailLockedNote: "Email can't be changed from here",
+    fieldName: "Registered Name",
+    fieldNamePlaceholder: "Enter your full name",
+    fieldPhone: "Phone Number",
+    fieldPhonePlaceholder: "Add your phone number (optional)",
+    changePhoto: "Change Photo",
+    save: "Save Changes",
+    saving: "Saving...",
+    cancel: "Cancel",
+    saveSuccess: "Your profile was updated successfully",
+    errNameLen: "Name must be between 2 and 60 characters",
+    errPhoneInvalid: "Phone number format is invalid",
+    errAvatarType: "Image must be PNG, JPG, or WEBP",
+    errAvatarSize: "Image is larger than the 4MB limit",
+    errGeneric: "Something went wrong, please try again",
+    uploadingPhoto: "Uploading photo...",
   },
 };
 
@@ -163,6 +206,258 @@ function SummaryStats({ enrollments, certificatesCount, t }) {
   );
 }
 
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
+const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function isValidPhoneClient(phone) {
+  return /^\+?[0-9\s-]{7,20}$/.test(phone);
+}
+
+/* ─── كارت مصغّر يظهر أعلى الصفحة: صورة + اسم + إيميل + زرار تعديل ─── */
+function ProfileSummaryCard({ user, t, onEdit }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div className="flex items-center gap-3 min-w-0">
+        {user?.avatar ? (
+          <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover ring-1 ring-black/5 shrink-0" />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-lg shrink-0">
+            {user?.name?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-gray-800 truncate">{user?.name}</p>
+          <p className="text-xs text-gray-400 truncate flex items-center gap-1">
+            <Mail size={11} /> {user?.email}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onEdit}
+        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
+      >
+        <Pencil size={13} /> {t.editProfile}
+      </button>
+    </div>
+  );
+}
+
+function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
+  const { update } = useSession();
+  const fileInputRef = useRef(null);
+
+  const [name, setName] = useState(initialUser?.name || "");
+  const [phone, setPhone] = useState(initialUser?.phone || "");
+  const [avatar, setAvatar] = useState(initialUser?.avatar || null);
+  const [avatarPreview, setAvatarPreview] = useState(initialUser?.avatar || null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  async function handleAvatarPick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // يسمح باختيار نفس الملف تاني لو حبّ يعيد المحاولة
+    if (!file) return;
+    setError("");
+
+    if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
+      setError(t.errAvatarType);
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError(t.errAvatarSize);
+      return;
+    }
+
+    // معاينة فورية (client-side) قبل ما الرفع يخلص
+    const localPreview = URL.createObjectURL(file);
+    setAvatarPreview(localPreview);
+    setUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("kind", "avatar");
+      formData.append("file", file);
+      const res = await fetch("/api/upload/file", { method: "POST", body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.url) {
+        setError(t.errGeneric);
+        setAvatarPreview(avatar);
+        return;
+      }
+      setAvatar(data.url);
+      setAvatarPreview(data.url);
+    } catch {
+      setError(t.errGeneric);
+      setAvatarPreview(avatar);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleSave() {
+    setError("");
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 60) {
+      setError(t.errNameLen);
+      return;
+    }
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone && !isValidPhoneClient(trimmedPhone)) {
+      setError(t.errPhoneInvalid);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, phone: trimmedPhone, avatar: avatar || "" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(
+          data?.error === "invalid_name" ? t.errNameLen :
+          data?.error === "invalid_phone" ? t.errPhoneInvalid :
+          t.errGeneric
+        );
+        return;
+      }
+      // 🔄 نحدّث الـ NextAuth session فورًا (شوف authOptions.js — trigger:"update")
+      // عشان الاسم/الصورة يتغيروا في الـ navbar من غير ما يحتاج logout/login.
+      await update();
+      setSuccess(true);
+      onSaved?.(data.user);
+      setTimeout(onClose, 900);
+    } catch {
+      setError(t.errGeneric);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        dir={isRTL ? "rtl" : "ltr"}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl w-full max-w-md p-6 relative"
+        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 end-4 text-gray-400 hover:text-gray-700 transition-colors"
+          aria-label="close"
+        >
+          <X size={18} />
+        </button>
+
+        <h2 className="text-lg font-black text-gray-800 mb-1">{t.profileModalTitle}</h2>
+        <p className="text-xs text-gray-400 mb-5">{t.profileModalSubtitle}</p>
+
+        {/* الصورة */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative">
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="" className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100" />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-[#C9A227] text-white text-2xl font-bold flex items-center justify-center">
+                {name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
+              aria-label={t.changePhoto}
+            >
+              {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarPick}
+            />
+          </div>
+          {uploadingAvatar && <p className="text-[11px] text-gray-400 mt-2">{t.uploadingPhoto}</p>}
+        </div>
+
+        {/* الإيميل — للعرض بس */}
+        <div className="mb-4">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <Mail size={12} /> {t.fieldEmail}
+          </label>
+          <div className="w-full bg-gray-50 border border-gray-100 rounded-lg px-3.5 py-2.5 text-sm text-gray-500 flex items-center justify-between">
+            <span className="truncate">{initialUser?.email}</span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">{t.emailLockedNote}</p>
+        </div>
+
+        {/* الاسم */}
+        <div className="mb-4">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <User size={12} /> {t.fieldName}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t.fieldNamePlaceholder}
+            maxLength={60}
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+          />
+        </div>
+
+        {/* الهاتف */}
+        <div className="mb-6">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <Phone size={12} /> {t.fieldPhone}
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={t.fieldPhonePlaceholder}
+            maxLength={20}
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+          />
+        </div>
+
+        {error && <div className="bg-red-50 text-red-600 text-xs px-3.5 py-2.5 rounded-lg mb-4">{error}</div>}
+        {success && (
+          <div className="bg-green-50 text-green-600 text-xs px-3.5 py-2.5 rounded-lg mb-4 flex items-center gap-1.5">
+            <CheckCircle2 size={13} /> {t.saveSuccess}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving || uploadingAvatar}
+            className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {saving && <Loader size={14} className="animate-spin" />}
+            {saving ? t.saving : t.save}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            {t.cancel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentMyCoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
@@ -172,17 +467,21 @@ export default function StudentMyCoursesPage() {
   const [membership, setMembership] = useState(null);
   const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState("");
+  const [profileUser, setProfileUser] = useState(null); // { name, email, phone, avatar, role }
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/enrollments").then((r) => (r.ok ? r.json() : { enrollments: [] })),
       fetch("/api/membership").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/certificates").then((r) => (r.ok ? r.json() : { certificates: [] })),
+      fetch("/api/profile").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([enrollmentsData, membershipData, certificatesData]) => {
+      .then(([enrollmentsData, membershipData, certificatesData, profileData]) => {
         setEnrollments(Array.isArray(enrollmentsData?.enrollments) ? enrollmentsData.enrollments : []);
         setMembership(membershipData);
         setCertificatesCount(Array.isArray(certificatesData?.certificates) ? certificatesData.certificates.length : 0);
+        if (profileData?.user) setProfileUser(profileData.user);
       })
       .catch(() => setError(t.error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,6 +507,20 @@ export default function StudentMyCoursesPage() {
             <GraduationCap size={16} /> {t.myGrades}
           </Link>
         </div>
+
+        {profileUser && (
+          <ProfileSummaryCard user={profileUser} t={t} onEdit={() => setShowProfileModal(true)} />
+        )}
+
+        {showProfileModal && profileUser && (
+          <ProfileEditModal
+            initialUser={profileUser}
+            t={t}
+            isRTL={isRTL}
+            onClose={() => setShowProfileModal(false)}
+            onSaved={(updatedUser) => setProfileUser((prev) => ({ ...prev, ...updatedUser }))}
+          />
+        )}
 
         {enrollments !== null && (
           <SummaryStats enrollments={enrollments} certificatesCount={certificatesCount} t={t} />

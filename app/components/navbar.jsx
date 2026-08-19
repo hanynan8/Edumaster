@@ -116,10 +116,31 @@ function LangDropdown({ languages }) {
 /* ─────────────────────────────────────────
    USER DROPDOWN  (كان في NavUi.jsx)
 ───────────────────────────────────────── */
+function UserAvatar({ user, size = 28 }) {
+  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  if (user?.avatar) {
+    return (
+      <img
+        src={user.avatar}
+        alt={user?.name || "avatar"}
+        className="rounded-full object-cover ring-1 ring-black/5 shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+    >
+      {initial}
+    </span>
+  );
+}
+
 function UserDropdown({ user }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
 
   useEffect(() => {
     const handler = (e) => {
@@ -146,30 +167,49 @@ function UserDropdown({ user }) {
   }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 border border-gray-200 rounded-lg hover:border-gray-300 transition-all duration-150"
+    <div ref={ref} className="relative flex items-center">
+      {/* 🆕 الدوس على الصورة/الاسم بيودّي على طول لـ /student (لوحة
+          الطالب — نفس الرابط اللي في القائمة تحت)، بدل ما يفتح الدروب داون
+          بس. الدروب داون (باقي الروابط + تسجيل الخروج) بقى مفصول في زرار
+          السهم لوحده. */}
+      <Link
+        href="/student"
+        className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-1 py-1.5 border border-gray-200 border-r-0 rtl:border-r rtl:border-l-0 rounded-l-lg rtl:rounded-l-none rtl:rounded-r-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
+        title="لوحة الطالب"
       >
-        <span className="w-7 h-7 rounded-full bg-[#C9A227] text-white text-xs font-bold flex items-center justify-center">
-          {initial}
-        </span>
+        <UserAvatar user={user} size={28} />
         <span className="hidden sm:block text-sm font-semibold text-[#0a0a0a] max-w-[80px] truncate">
           {user?.name}
         </span>
-        <span className={`transition-transform duration-200 text-gray-400 ${open ? "rotate-180" : ""}`}>
+      </Link>
+
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Open user menu"
+        className="flex items-center px-1.5 sm:px-2 py-2.5 border border-gray-200 rounded-r-lg rtl:rounded-r-none rtl:rounded-l-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 text-gray-400"
+      >
+        <span className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <ChevronDown size={12} />
         </span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-bold text-[#0a0a0a] truncate">{user?.name}</p>
-            {user?.phone && (
-              <p className="text-xs text-gray-400 mt-0.5 truncate">{user.phone}</p>
-            )}
-          </div>
+        <div className="absolute right-0 rtl:right-auto rtl:left-0 top-[calc(100%+8px)] w-52 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
+          <Link
+            href="/student"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+          >
+            <UserAvatar user={user} size={36} />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#0a0a0a] truncate">{user?.name}</p>
+              {user?.phone ? (
+                <p className="text-xs text-gray-400 mt-0.5 truncate">{user.phone}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5 truncate">{user?.email}</p>
+              )}
+            </div>
+          </Link>
           <div className="py-1 border-b border-gray-100">
             {links.map((link) => (
               <Link
@@ -279,17 +319,19 @@ export default function Navbar() {
       return (
         <>
           <div className="flex items-center justify-between gap-3 py-3 px-2 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-[#C9A227] text-white text-sm font-bold flex items-center justify-center">
-                {session.user?.name?.charAt(0)?.toUpperCase()}
-              </span>
+            <Link
+              href="/student"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 -m-1 p-1 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <UserAvatar user={session.user} size={32} />
               <div>
                 <p className="text-sm font-bold text-[#0a0a0a]">{session.user?.name}</p>
                 {session.user?.phone && (
                   <p className="text-xs text-gray-400">{session.user.phone}</p>
                 )}
               </div>
-            </div>
+            </Link>
             <NotificationBell />
           </div>
           <button

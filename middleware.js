@@ -124,14 +124,21 @@ export async function middleware(request) {
   // "-Report-Only"). لو ظهرت مشاكل تحميل بعد الديبلوي (سكريبت/صورة/خط
   // اتمنع)، ضيف النطاق الناقص للـ directive المناسبة بدل الرجوع لـ
   // Report-Only بالكامل.
+  // 🔒 SECURITY FIX: في وضع development، React DevTools/Turbopack بيحتاجوا
+  // eval() لأدوات الديبج (زي إعادة بناء الـ call stack). ده مش موجود خالص
+  // في production build، فبنضيف 'unsafe-eval' لـ script-src بس لو
+  // process.env.NODE_ENV !== "production"، عشان الحماية في الـ production
+  // تفضل زي ما هي من غير أي تنازل.
+  const isDev = process.env.NODE_ENV !== "production";
+
   const cspDirectives = [
     "default-src 'self'",
     // 'unsafe-inline' لسه لازمة لحد ما نراجع الـ inline styles/scripts
     // الموجودة فعليًا (لو فيه)؛ ننصح نشيلها تدريجيًا بعد المراقبة.
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net",
+    "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://res.cloudinary.com https://raw.githubusercontent.com",
     "media-src 'self' https://*.b-cdn.net",
     "frame-src 'self' https://iframe.mediadelivery.net",
     "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://api-m.paypal.com https://api-m.sandbox.paypal.com",

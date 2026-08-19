@@ -12,7 +12,6 @@ import {
   ensureAttemptWindow,
   hasExceededAttempts,
   remainingAttempts,
-  msUntilNextAttempt,
   msUntilLockoutEnds,
 } from "@/app/lib/resetPasswordHelpers";
 import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
@@ -77,20 +76,6 @@ export async function POST(request) {
           error: "too_many_attempts",
           remainingAttempts: 0,
           retryAfterSeconds: Math.ceil(msUntilLockoutEnds(user) / 1000),
-        },
-        429
-      );
-    }
-
-    // 🔒 SECURITY: فاصل إجباري 5 دقايق بين كل محاولة والتانية — بيتفحص قبل
-    // ما نستهلك المحاولة، فمحاولة اتمنعت بسبب الفاصل مش بتنقص من الـ 5.
-    const waitMs = msUntilNextAttempt(user);
-    if (waitMs > 0) {
-      return jsonResponse(
-        {
-          error: "attempt_too_soon",
-          remainingAttempts: remainingAttempts(user),
-          retryAfterSeconds: Math.ceil(waitMs / 1000),
         },
         429
       );

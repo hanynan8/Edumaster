@@ -5,6 +5,7 @@
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMembershipPlanModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,6 +27,17 @@ export async function GET(request) {
   try {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
+    const { session } = auth;
+
+    // 🔒 SECURITY: بيانات مستخدمين حساسة كاملة بترجع هنا (حتى لو من غير
+    // password) — بيمنع أي محاولة scraping سريعة حتى لو الحساب اتسرق.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "admin:users:list",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const AuthModel = getAuthModel();

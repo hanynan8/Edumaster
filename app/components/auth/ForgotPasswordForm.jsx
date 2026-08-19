@@ -77,7 +77,6 @@ const AUTH_I18N = {
       errWeakPassword: "كلمة المرور لازم تكون 8 أحرف على الأقل",
       errInvalidCode: "الكود غلط أو انتهت صلاحيته",
       errTooManyAttempts: "تجاوزت عدد المحاولات المسموح (5 كل 12 ساعة)، حاول تاني بعدين",
-      errAttemptTooSoon: "لازم تستنى {m} دقيقة قبل ما تحاول تاني",
       errRateLimited: "طلبات كتير، حاول تاني بعد شوية",
       errPasswordMismatch: "كلمتا المرور غير متطابقتين",
       errFail: "حصل خطأ، حاول تاني",
@@ -160,7 +159,6 @@ const AUTH_I18N = {
       errWeakPassword: "Password must be at least 8 characters",
       errInvalidCode: "Invalid or expired code",
       errTooManyAttempts: "Too many attempts (max 5 per 12 hours), please try again later",
-      errAttemptTooSoon: "Please wait {m} minute(s) before trying again",
       errRateLimited: "Too many requests, please try again shortly",
       errPasswordMismatch: "Passwords do not match",
       errFail: "Something went wrong, try again",
@@ -242,7 +240,6 @@ const AUTH_I18N = {
       errWeakPassword: "La contraseña debe tener al menos 8 caracteres",
       errInvalidCode: "Código inválido o expirado",
       errTooManyAttempts: "Demasiados intentos (máx 5 cada 12 horas), inténtalo más tarde",
-      errAttemptTooSoon: "Espera {m} minuto(s) antes de volver a intentarlo",
       errRateLimited: "Demasiadas solicitudes, inténtalo de nuevo en un momento",
       errPasswordMismatch: "Las contraseñas no coinciden",
       errFail: "Algo salió mal, inténtalo de nuevo",
@@ -442,13 +439,6 @@ export default function ForgotPasswordForm({ onSwitch }) {
           setError(tx.errTooManyAttempts);
           return;
         }
-        // 🔒 SECURITY: لسه ما اتخصمش من الـ 5 محاولات — المستخدم لازم بس
-        // يستنى الفاصل الزمني (5 دقايق) قبل ما يحاول تاني.
-        if (data.error === "attempt_too_soon") {
-          const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 60));
-          setError(tx.errAttemptTooSoon.replace("{m}", minutes));
-          return;
-        }
         if (data.error === "invalid_or_expired_code") { setError(tx.errInvalidCode); return; }
         setError(tx.errFail);
         return;
@@ -495,11 +485,6 @@ export default function ForgotPasswordForm({ onSwitch }) {
         if (data.error === "too_many_attempts") {
           setAttemptsBlocked(true);
           setError(tx.errTooManyAttempts);
-          return;
-        }
-        if (data.error === "attempt_too_soon") {
-          const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 60));
-          setError(tx.errAttemptTooSoon.replace("{m}", minutes));
           return;
         }
         if (data.error === "invalid_or_expired_code") { setError(tx.errInvalidCode); return; }

@@ -23,6 +23,7 @@ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMembershipPlanModel, getPaymentModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 import { logAudit } from "@/app/lib/auditLog";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,6 +39,16 @@ export async function PATCH(request, { params }) {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY: نفس نمط admin/users/[id] (PATCH) — دفاع إضافي لو حساب
+    // أدمن اتسرق، بيبطّئ أي محاولة تعديل جماعي/سريع لعضويات مستخدمين كتير.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "admin:users:membership",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);

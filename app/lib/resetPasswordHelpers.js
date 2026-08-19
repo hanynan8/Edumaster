@@ -7,14 +7,16 @@
 export const CODE_TTL_MS = 15 * 60 * 1000;
 
 // 🔒 SECURITY: أقصى عدد محاولات تخمين للكود = 5.
-// - لازم فاصل 5 دقايق بين كل محاولة والتانية (MIN_ATTEMPT_INTERVAL_MS).
 // - لما الـ 5 محاولات تخلص، الحساب بيتقفل 24 ساعة (LOCKOUT_DURATION_MS)
 //   من وقت آخر محاولة، وبعدين بيرجع ياخد 5 محاولات جديدة تلقائيًا.
 // دي منفصلة تمامًا عن صلاحية الكود نفسه (15 دقيقة) — حتى لو المستخدم طلب
 // أكواد جديدة كتير، عداد المحاولات ده بيفضل شغال لحد ما القفل يخلص أو
 // الباسورد يتغيّر بنجاح.
+// ملحوظة: اتشال الفاصل الإجباري اللي كان بين كل محاولة والتانية (كان 5
+// دقايق) بناءً على طلب صاحب المشروع — دلوقتي المستخدم يقدر يجرب الـ 5
+// محاولات ورا بعض من غير أي انتظار، وبعد ما تخلص بيتفعّل قفل الـ 24 ساعة
+// زي ما هو.
 export const MAX_ATTEMPTS = 5;
-export const MIN_ATTEMPT_INTERVAL_MS = 5 * 60 * 1000; // 5 دقايق
 export const LOCKOUT_DURATION_MS = 24 * 60 * 60 * 1000; // 24 ساعة
 
 export function isCodeExpired(user) {
@@ -23,7 +25,7 @@ export function isCodeExpired(user) {
 
 // لو الـ 5 محاولات خلصت وعدّت 24 ساعة من وقت آخر محاولة، يرجع يبدأ دورة
 // جديدة من الصفر (5 محاولات تانية). لازم تتنادى قبل أي فحص لـ
-// hasExceededAttempts أو msUntilNextAttempt.
+// hasExceededAttempts.
 export function ensureAttemptWindow(user) {
   const now = Date.now();
   const attempts = user.resetAttempts || 0;
@@ -39,14 +41,6 @@ export function ensureAttemptWindow(user) {
 
 export function hasExceededAttempts(user) {
   return (user.resetAttempts || 0) >= MAX_ATTEMPTS;
-}
-
-// المللي ثانية الباقية لحد ما يقدر يحاول تاني (فاصل الـ 5 دقايق بين
-// المحاولات). 0 يعني مسموح يحاول دلوقتي.
-export function msUntilNextAttempt(user) {
-  if (!user.resetLastAttemptAt) return 0;
-  const elapsed = Date.now() - new Date(user.resetLastAttemptAt).getTime();
-  return Math.max(0, MIN_ATTEMPT_INTERVAL_MS - elapsed);
 }
 
 // المللي ثانية الباقية لحد ما قفل الـ 24 ساعة يخلص (بيتستخدم بس لما

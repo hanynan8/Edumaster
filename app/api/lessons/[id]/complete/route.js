@@ -14,6 +14,7 @@ import { getLessonModel, getEnrollmentModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -30,6 +31,16 @@ export async function POST(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY: بيمنع طالب (أو حساب اتسرق) من ضرب endpoint التقدّم بسرعة
+    // غير طبيعية — العملية idempotent أصلًا، لكن ده بيقلل الحمل على الـ DB.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "lessons:complete",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     await connectToMongo();
     const Lesson = getLessonModel();

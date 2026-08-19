@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCommentModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -29,6 +30,15 @@ export async function DELETE(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY: حماية خفيفة ضد حذف جماعي/سريع غير طبيعي (bot/سكريبت).
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "comments:delete",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const isAuthor = String(comment.user) === String(session.user.id);
     if (!isAuthor) {

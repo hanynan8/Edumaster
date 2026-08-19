@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getNotificationModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,6 +24,16 @@ export async function PATCH(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY: حماية خفيفة ضد ضرب سريع غير طبيعي (bot/سكريبت) على
+    // endpoint بسيط بيتنادى كتير من الواجهة عادةً.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "notifications:patch",
+      limit: 60,
+      windowSeconds: 60,
+      extraKey: `user:${session.user.id}`,
+    });
+    if (rl) return rl;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);

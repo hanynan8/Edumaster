@@ -11,7 +11,6 @@ import {
   ensureAttemptWindow,
   hasExceededAttempts,
   remainingAttempts,
-  msUntilNextAttempt,
   msUntilLockoutEnds,
   clearResetState,
 } from "@/app/lib/resetPasswordHelpers";
@@ -81,18 +80,6 @@ export async function POST(request) {
           error: "too_many_attempts",
           remainingAttempts: 0,
           retryAfterSeconds: Math.ceil(msUntilLockoutEnds(user) / 1000),
-        },
-        429
-      );
-    }
-
-    const waitMs = msUntilNextAttempt(user);
-    if (waitMs > 0) {
-      return jsonResponse(
-        {
-          error: "attempt_too_soon",
-          remainingAttempts: remainingAttempts(user),
-          retryAfterSeconds: Math.ceil(waitMs / 1000),
         },
         429
       );

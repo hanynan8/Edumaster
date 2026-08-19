@@ -6,11 +6,8 @@
 
 import bcrypt from "bcryptjs";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
-import {
-  CODE_TTL_MS,
-  ensureAttemptWindow,
-  hasExceededAttempts,
-} from "@/app/lib/resetPasswordHelpers";
+import { CODE_TTL_MS } from "@/app/lib/resetPasswordHelpers";
+import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -24,36 +21,20 @@ function isValidEmail(email) {
 }
 
 // 🔒 SECURITY: كود من 6 أرقام (000000-999999). مش سري بمفرده (بيتبعت
-// بالإيميل)، اللي بيحدد الأمان الفعلي هو محدودية المحاولات (شوف
-// resetPasswordHelpers: 5 محاولات كل 12 ساعة) + rate limiting الطلبات هنا.
+// بالإيميل)، اللي بيحدد الأمان الفعلي هو محدودية "الإرسال" هنا +
+// محدودية "التخمين" في resetPasswordHelpers (5 محاولات/12 ساعة لكل حساب).
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// 🔒 SECURITY: rate limiting في الميموري لكل IP + لكل إيميل — يمنع سبام
-// طلبات forgot-password (Resend quota + إزعاج المستخدم بإيميلات كتير).
-// ده حماية ضد "إرسال أكواد كتير"، ومنفصل تمامًا عن حماية "تخمين الكود"
-// (5 محاولات/12 ساعة) اللي بتفضل شغالة حتى لو المستخدم طلب أكواد جديدة.
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 3; // 3 طلبات كحد أقصى في الدقيقة لكل IP/إيميل
-if (!globalThis._forgotPassRateLimit) globalThis._forgotPassRateLimit = new Map();
-
-function getClientIp(request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip") || "unknown";
-}
-
-function isRateLimited(key) {
-  const now = Date.now();
-  const entry = globalThis._forgotPassRateLimit.get(key);
-  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-    globalThis._forgotPassRateLimit.set(key, { windowStart: now, count: 1 });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > RATE_LIMIT_MAX;
-}
+// 🔒 SECURITY (تعديل مقصود): حد إرسال الكود بقى بالكامل على مستوى الـ IP —
+// 3 محاولات إرسال (أول مرة + أي resend) كل 24 ساعة لكل IP، بغض النظر عن
+// الإيميل المُدخل، وبغض النظر عن كون الحساب موجود أصلاً ولا لأ. مفيش أي
+// تتبّع أو قفل على مستوى الحساب هنا خالص — لو IP معيّن استهلك الـ 3
+// محاولات (حتى لو على إيميلات مختلفة كل مرة)، بيتقفل لمدة يوم كامل.
+// ده منفصل تمامًا عن حد "تخمين الكود" (5 محاولات/12 ساعة لكل حساب) في
+// /api/verify-reset-code و /api/reset-password، اللي فضل زي ما هو.
+const SEND_CODE_IP_LIMIT = { limit: 3, windowSeconds: 24 * 60 * 60 };
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumaster365.com";
@@ -120,45 +101,47 @@ export async function POST(request) {
       return jsonResponse({ error: "invalid_email" }, 400);
     }
 
+    // 🔒 SECURITY: الفحص الوحيد قبل أي حاجة تانية — بالكامل على مستوى الـ
+    // IP، قبل حتى ما نستعلم عن الداتابيز. لو الـ IP استهلك الـ 3 محاولات،
+    // بيترفض فورًا من غير أي فرق حسب الإيميل المُدخل.
     const ip = getClientIp(request);
-    if (isRateLimited(`ip:${ip}`) || isRateLimited(`email:${email}`)) {
-      return jsonResponse({ error: "too_many_requests" }, 429);
+    const ipCheck = await checkRateLimit(`forgot-password:send:ip:${ip}`, SEND_CODE_IP_LIMIT);
+    if (!ipCheck.allowed) {
+      return jsonResponse(
+        { error: "too_many_requests", retryAfterSeconds: ipCheck.retryAfterSeconds },
+        429
+      );
     }
 
     await connectToMongo();
     const AuthModel = getAuthModel();
     const user = await AuthModel.findOne({ email });
 
-    // 🔒 SECURITY: نرجع نفس الرد سواء الإيميل موجود أو لأ — عشان مانديش
-    // لأي حد فرصة يعرف مين مسجل في الموقع ومين لأ (user enumeration).
+    // 🔒 SECURITY: نرجع نفس الرد ونفس عدد المحاولات المتبقية سواء الإيميل
+    // موجود أو لأ — عشان مانديش لأي حد فرصة يعرف مين مسجل في الموقع ومين
+    // لأ (user enumeration). بما إن العداد بقى IP-based بالكامل، الرد
+    // متطابق 100% دلوقتي بين الحالتين.
     if (user) {
-      // 🔒 SECURITY: لو المستخدم خلّص محاولاته الـ 5 خلال آخر 12 ساعة، مانبعتش
-      // كود جديد خالص — إرسال كود جديد كان هيدّي فرصة إضافية للمهاجم يستمر
-      // في التخمين. ⚠️ ملحوظة: الرد هنا بيرجع 429 مميز عن الرد العام، وده
-      // بيسرّب معلومة بسيطة (إن الإيميل ده حساب فعلي اتعمله محاولات كتير)
-      // — قبلناها كـ tradeoff عشان تجربة المستخدم الحقيقي تبقى واضحة.
-      ensureAttemptWindow(user);
-      if (hasExceededAttempts(user)) {
-        await user.save(); // نحفظ لو ensureAttemptWindow صفّر النافذة
-        return jsonResponse({ error: "too_many_attempts" }, 429);
-      }
-
       const code = generateCode();
       const codeHash = await bcrypt.hash(code, 10);
 
       user.resetCodeHash = codeHash;
       user.resetCodeExpiry = new Date(Date.now() + CODE_TTL_MS);
-      // ⚠️ عمدًا مش بنلمس resetAttempts / resetLastAttemptAt هنا.
-      // لو مسحناهم مع كل كود جديد، أي مهاجم كان هيقدر يصفّر عداد
-      // محاولاته بمجرد ما يطلب كود جديد ويفضل يخمن من غير حدود فعلية.
-      // العداد بيتصفر بس تلقائيًا لما الـ 24 ساعة قفل تعدي من وقت آخر
-      // محاولة (شوف ensureAttemptWindow)، أو لما الباسورد يتغيّر بنجاح.
+      // ⚠️ عمدًا مش بنلمس resetAttempts / resetLastAttemptAt هنا — دول
+      // خاصين بحد "تخمين الكود" في /api/verify-reset-code، مش بحد
+      // "الإرسال" اللي عدّلناه هنا، وكل واحد فيهم منفصل عن التاني عمدًا.
       await user.save();
 
       await sendResetCodeEmail(email, code, user.name);
     }
 
-    return jsonResponse({ message: "If this email is registered, a code has been sent." }, 200);
+    return jsonResponse(
+      {
+        message: "If this email is registered, a code has been sent.",
+        remainingAttempts: ipCheck.remaining,
+      },
+      200
+    );
   } catch (err) {
     console.error("[/api/forgot-password] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

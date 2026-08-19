@@ -33,6 +33,7 @@ const AUTH_I18N = {
       accountLockedBody: "الحساب اتقفل مؤقتًا بسبب محاولات دخول كتير غلط. حاول تاني بعد {m} دقيقة",
       rateLimitedBody: "طلبات كتير من نفس الشبكة. حاول تاني بعد {m} دقيقة",
       accountSuspendedBody: "الحساب ده متوقف حاليًا. تواصل مع الدعم لمزيد من التفاصيل",
+      mfaBack: "رجوع",
     },
     register: {
       title: "إنشاء حساب",
@@ -113,6 +114,7 @@ const AUTH_I18N = {
       accountLockedBody: "Account temporarily locked due to too many failed attempts. Try again in {m} minute(s)",
       rateLimitedBody: "Too many requests from this network. Try again in {m} minute(s)",
       accountSuspendedBody: "This account is currently suspended. Contact support for details",
+      mfaBack: "Back",
     },
     register: {
       title: "Create account",
@@ -193,6 +195,7 @@ const AUTH_I18N = {
       accountLockedBody: "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Inténtalo de nuevo en {m} minuto(s)",
       rateLimitedBody: "Demasiadas solicitudes desde esta red. Inténtalo de nuevo en {m} minuto(s)",
       accountSuspendedBody: "Esta cuenta está suspendida actualmente. Contacta con soporte para más detalles",
+      mfaBack: "Volver",
     },
     register: {
       title: "Crear cuenta",
@@ -488,6 +491,12 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-lg font-bold tracking-[0.3em] text-center text-[#0a0a0a] placeholder-gray-300 outline-none focus:border-[#C9A227] focus:ring-2 focus:ring-[#C9A227]/10 transition-all"
               dir="ltr"
             />
+            {/* ✅ عدد محاولات كود الـ MFA المتبقية قبل قفل الحساب مؤقتًا */}
+            {loginRemainingAttempts !== null && loginRemainingAttempts > 0 && (
+              <p className={`text-xs mt-1.5 font-semibold text-center ${loginRemainingAttempts <= 2 ? "text-[#C9A227]" : "text-gray-400"}`}>
+                {tx.attemptsRemainingLogin.replace("{n}", loginRemainingAttempts)}
+              </p>
+            )}
           </div>
 
           {error && (
@@ -519,7 +528,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
             onClick={() => { setMfaStep(false); setMfaCode(""); setError(""); }}
             className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-all text-center"
           >
-            {tx.backToLogin}
+            {tx.mfaBack}
           </button>
         </form>
       ) : (
@@ -589,6 +598,13 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
             {!isLogin && (
               <p className="text-xs text-gray-400 mt-1.5 font-medium">
                 {i18n.register.errWeakPassword}
+              </p>
+            )}
+            {/* ✅ عدد محاولات تسجيل الدخول المتبقية قبل قفل الحساب مؤقتًا —
+                بيظهر بس بعد أول محاولة فاشلة فعلية (السيرفر هو اللي بيحدد الرقم) */}
+            {isLogin && loginRemainingAttempts !== null && loginRemainingAttempts > 0 && (
+              <p className={`text-xs mt-1.5 font-semibold ${loginRemainingAttempts <= 2 ? "text-[#C9A227]" : "text-gray-400"}`}>
+                {tx.attemptsRemainingLogin.replace("{n}", loginRemainingAttempts)}
               </p>
             )}
           </div>

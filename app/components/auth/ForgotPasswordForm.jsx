@@ -77,12 +77,16 @@ const AUTH_I18N = {
       errWeakPassword: "كلمة المرور لازم تكون 8 أحرف على الأقل",
       errInvalidCode: "الكود غلط أو انتهت صلاحيته",
       errTooManyAttempts: "تجاوزت عدد المحاولات المسموح (5 كل 12 ساعة)، حاول تاني بعدين",
+      errAttemptTooSoon: "لازم تستنى {m} دقيقة قبل ما تحاول تاني",
       errRateLimited: "طلبات كتير، حاول تاني بعد شوية",
       errPasswordMismatch: "كلمتا المرور غير متطابقتين",
       errFail: "حصل خطأ، حاول تاني",
       attemptsRemaining: "متبقي لك {n} من 5 محاولات",
       attemptsBlockedTitle: "تم إيقاف المحاولات مؤقتًا",
       attemptsBlockedBody: "تجاوزت الحد الأقصى للمحاولات (5 كل 12 ساعة). من فضلك حاول تاني بعد فترة.",
+      // ✅ عداد "إرسال/إعادة إرسال الكود" الجديد — 3 محاولات كل 24 ساعة لكل IP
+      sendAttemptsRemaining: "متبقي لك {n} من 3 محاولات إرسال",
+      errSendBlocked: "تجاوزت الحد الأقصى لإرسال الأكواد (3 كل 24 ساعة). حاول تاني بعد {h} ساعة",
     },
   },
   en: {
@@ -156,12 +160,15 @@ const AUTH_I18N = {
       errWeakPassword: "Password must be at least 8 characters",
       errInvalidCode: "Invalid or expired code",
       errTooManyAttempts: "Too many attempts (max 5 per 12 hours), please try again later",
+      errAttemptTooSoon: "Please wait {m} minute(s) before trying again",
       errRateLimited: "Too many requests, please try again shortly",
       errPasswordMismatch: "Passwords do not match",
       errFail: "Something went wrong, try again",
       attemptsRemaining: "{n} of 5 attempts remaining",
       attemptsBlockedTitle: "Attempts temporarily blocked",
       attemptsBlockedBody: "You've reached the maximum number of attempts (5 per 12 hours). Please try again later.",
+      sendAttemptsRemaining: "{n} of 3 send attempts remaining",
+      errSendBlocked: "Too many codes sent (max 3 per 24 hours). Try again in {h} hour(s)",
     },
   },
   es: {
@@ -235,12 +242,15 @@ const AUTH_I18N = {
       errWeakPassword: "La contraseña debe tener al menos 8 caracteres",
       errInvalidCode: "Código inválido o expirado",
       errTooManyAttempts: "Demasiados intentos (máx 5 cada 12 horas), inténtalo más tarde",
+      errAttemptTooSoon: "Espera {m} minuto(s) antes de volver a intentarlo",
       errRateLimited: "Demasiadas solicitudes, inténtalo de nuevo en un momento",
       errPasswordMismatch: "Las contraseñas no coinciden",
       errFail: "Algo salió mal, inténtalo de nuevo",
       attemptsRemaining: "Te quedan {n} de 5 intentos",
       attemptsBlockedTitle: "Intentos bloqueados temporalmente",
       attemptsBlockedBody: "Has alcanzado el número máximo de intentos (5 cada 12 horas). Inténtalo más tarde.",
+      sendAttemptsRemaining: "Te quedan {n} de 3 intentos de envío",
+      errSendBlocked: "Demasiados códigos enviados (máx 3 cada 24 horas). Inténtalo de nuevo en {h} hora(s)",
     },
   },
 };
@@ -312,6 +322,13 @@ export default function ForgotPasswordForm({ onSwitch }) {
   const [remainingAttempts, setRemainingAttempts] = useState(null);
   const [attemptsBlocked, setAttemptsBlocked] = useState(false);
 
+  // ✅ عداد منفصل تمامًا عن اللي فوق — ده خاص بـ "إرسال/إعادة إرسال الكود"
+  // نفسه (مش تخمين الكود)، وبقى IP-based بالكامل: 3 محاولات إرسال كل 24
+  // ساعة لكل IP، بغض النظر عن الإيميل أو هل الحساب موجود ولا لأ (شوف
+  // /api/forgot-password/route.js). null لحد ما يوصلنا أول رد.
+  const [sendRemaining, setSendRemaining] = useState(null);
+  const [sendBlocked, setSendBlocked] = useState(false);
+
   const i18n = AUTH_I18N[language] ?? AUTH_I18N["en"];
   const tx = i18n.forgot;
 
@@ -348,7 +365,10 @@ export default function ForgotPasswordForm({ onSwitch }) {
     if (!forgotEmail) { setError(tx.errEmpty); return; }
     if (!SIMPLE_EMAIL_REGEX.test(forgotEmail)) { setError(tx.errInvalidEmail); return; }
 
-    // ✅ إيميل جديد = صفحة جديدة تمامًا بالنسبة لعداد المحاولات المعروض
+    // ✅ إيميل جديد = صفحة جديدة تمامًا بالنسبة لعداد "تخمين الكود" المعروض
+    // (خاص بالحساب). عداد "الإرسال" (sendRemaining/sendBlocked) مش بيتصفّر
+    // هنا عمدًا — هو IP-based، فلو الـ IP مقفول، هيفضل مقفول حتى لو
+    // المستخدم غيّر الإيميل.
     setRemainingAttempts(null);
     setAttemptsBlocked(false);
 
@@ -363,15 +383,16 @@ export default function ForgotPasswordForm({ onSwitch }) {
       const data = await res.json().catch(() => ({}));
       setLoading(false);
 
-      // 🔒 SECURITY: لو الحساب ده خلّص محاولاته الـ 5 خلال آخر 12 ساعة،
-      // السيرفر بيرفض يبعت كود جديد خالص — نوقف المستخدم هنا ونوضحله السبب.
-      if (res.status === 429 && data.error === "too_many_attempts") {
-        setAttemptsBlocked(true);
-        setError(tx.errTooManyAttempts);
-        return;
+      if (typeof data.remainingAttempts === "number") {
+        setSendRemaining(data.remainingAttempts);
       }
+
+      // 🔒 SECURITY: الـ IP خلّص الـ 3 محاولات إرسال بتاعته — مفيش أي رسالة
+      // مميزة حسب الإيميل، الرد نفسه مهما كان الإيميل المُدخل.
       if (res.status === 429) {
-        setError(tx.errRateLimited);
+        setSendBlocked(true);
+        const hours = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 3600));
+        setError(tx.errSendBlocked.replace("{h}", hours));
         return;
       }
       if (!res.ok && res.status !== 400) {
@@ -500,9 +521,9 @@ export default function ForgotPasswordForm({ onSwitch }) {
   };
 
   // ✅ إعادة إرسال الكود من غير ما نرجّع المستخدم لخطوة 1 (نفس الإيميل)،
-  // متاحة بس لو العداد وصل للصفر
+  // متاحة بس لو العداد وصل للصفر ومفيش قفل IP سارٍ
   const handleResendCode = async () => {
-    if (resendCooldown > 0 || loading || attemptsBlocked) return;
+    if (resendCooldown > 0 || loading || sendBlocked) return;
     setError("");
     setLoading(true);
     try {
@@ -514,12 +535,16 @@ export default function ForgotPasswordForm({ onSwitch }) {
       const data = await res.json().catch(() => ({}));
       setLoading(false);
 
-      if (res.status === 429 && data.error === "too_many_attempts") {
-        setAttemptsBlocked(true);
-        setError(tx.errTooManyAttempts);
+      if (typeof data.remainingAttempts === "number") {
+        setSendRemaining(data.remainingAttempts);
+      }
+
+      if (res.status === 429) {
+        setSendBlocked(true);
+        const hours = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 3600));
+        setError(tx.errSendBlocked.replace("{h}", hours));
         return;
       }
-      if (res.status === 429) { setError(tx.errRateLimited); return; }
 
       setForgotInfo(tx.genericSent);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
@@ -561,7 +586,7 @@ export default function ForgotPasswordForm({ onSwitch }) {
           </button>
         )}
         <h2 className="text-xl sm:text-2xl font-black text-[#0a0a0a] tracking-tight">
-          {tx.title}<span className="text-[#C9A227]">.</span>
+          {tx.title}
         </h2>
         <p className="text-sm text-gray-400 mt-1 font-medium">{forgotSubtitle}</p>
       </div>
@@ -705,11 +730,19 @@ export default function ForgotPasswordForm({ onSwitch }) {
           <button
             type="button"
             onClick={handleResendCode}
-            disabled={loading || resendCooldown > 0}
+            disabled={loading || resendCooldown > 0 || sendBlocked}
             className="text-center text-xs font-bold text-[#C9A227] hover:underline transition-all disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
           >
             {resendLabel}
           </button>
+          {/* ✅ عدد محاولات الإرسال المتبقية (3 كل 24 ساعة، IP-based) —
+              بتظهر بعد أول محاولة فعلية، وبتختفي لو الـ IP اتقفل خالص
+              (وقتها رسالة القفل في الـ error box كفاية). */}
+          {sendRemaining !== null && !sendBlocked && (
+            <p className={`text-xs text-center font-semibold ${sendRemaining <= 1 ? "text-[#C9A227]" : "text-gray-400"}`}>
+              {tx.sendAttemptsRemaining.replace("{n}", sendRemaining)}
+            </p>
+          )}
         </form>
         )
       ) : (

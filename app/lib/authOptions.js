@@ -176,7 +176,14 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
             $or: [{ name: identifierPattern }, { email: identifierPattern }],
           });
 
-          if (!userDoc) return null;
+          // 🔒 SECURITY: الحساب مش موجود أصلاً — بنرجّع نفس شكل رسالة الباسورد
+          // الغلط بالظبط (invalid_credentials:N)، مستخدمين عداد الـ IP نفسه
+          // كـ "remaining" (مفيش حساب فردي نتابع محاولاته عليه). كده مفيش أي
+          // فرق ملحوظ في الرسالة أو في الرقم بين حساب حقيقي وحساب مش موجود —
+          // مهاجم بيجرب إيميلات عشوائية مش هيقدر يميّز الاتنين عن بعض.
+          if (!userDoc) {
+            throw new Error(`invalid_credentials:${ipCheck.remaining}`);
+          }
 
           // 🔒 SECURITY: الحساب موقوف يدويًا من الأدمن (status === "suspended")
           // — نرفض فورًا من غير ما نتحقق من الباسورد، وبدون كشف تفاصيل زيادة

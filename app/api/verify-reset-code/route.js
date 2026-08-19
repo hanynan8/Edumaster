@@ -12,6 +12,8 @@ import {
   ensureAttemptWindow,
   hasExceededAttempts,
   remainingAttempts,
+  msUntilNextAttempt,
+  msUntilLockoutEnds,
 } from "@/app/lib/resetPasswordHelpers";
 import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
 
@@ -66,17 +68,39 @@ export async function POST(request) {
       return invalidResponse();
     }
 
-    // 🔒 SECURITY: نافذة الـ 12 ساعة + حد أقصى 5 محاولات تخمين للكود.
+    // 🔒 SECURITY: حد أقصى 5 محاولات تخمين للكود، بقفل 24 ساعة لما تخلص.
     ensureAttemptWindow(user);
     if (hasExceededAttempts(user)) {
-      await user.save(); // نحفظ لو ensureAttemptWindow صفّر النافذة
-      return jsonResponse({ error: "too_many_attempts", remainingAttempts: 0 }, 429);
+      await user.save(); // نحفظ لو ensureAttemptWindow صفّر الدورة
+      return jsonResponse(
+        {
+          error: "too_many_attempts",
+          remainingAttempts: 0,
+          retryAfterSeconds: Math.ceil(msUntilLockoutEnds(user) / 1000),
+        },
+        429
+      );
+    }
+
+    // 🔒 SECURITY: فاصل إجباري 5 دقايق بين كل محاولة والتانية — بيتفحص قبل
+    // ما نستهلك المحاولة، فمحاولة اتمنعت بسبب الفاصل مش بتنقص من الـ 5.
+    const waitMs = msUntilNextAttempt(user);
+    if (waitMs > 0) {
+      return jsonResponse(
+        {
+          error: "attempt_too_soon",
+          remainingAttempts: remainingAttempts(user),
+          retryAfterSeconds: Math.ceil(waitMs / 1000),
+        },
+        429
+      );
     }
 
     const matches = await bcrypt.compare(code, user.resetCodeHash);
 
     if (!matches) {
       user.resetAttempts = (user.resetAttempts || 0) + 1;
+      user.resetLastAttemptAt = new Date();
       await user.save();
       return jsonResponse(
         { error: "invalid_or_expired_code", remainingAttempts: remainingAttempts(user) },

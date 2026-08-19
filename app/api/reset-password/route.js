@@ -11,6 +11,8 @@ import {
   ensureAttemptWindow,
   hasExceededAttempts,
   remainingAttempts,
+  msUntilNextAttempt,
+  msUntilLockoutEnds,
   clearResetState,
 } from "@/app/lib/resetPasswordHelpers";
 import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
@@ -68,18 +70,39 @@ export async function POST(request) {
       return invalidResponse();
     }
 
-    // 🔒 SECURITY: نفس نافذة الـ 12 ساعة / 5 محاولات المستخدمة في
-    // verify-reset-code — بيمنع أي حد يتخطى الخطوة دي ويضرب الكود مباشرة هنا.
+    // 🔒 SECURITY: نفس حد الـ 5 محاولات / فاصل الـ 5 دقايق / قفل الـ 24 ساعة
+    // المستخدم في verify-reset-code — بيمنع أي حد يتخطى الخطوة دي ويضرب
+    // الكود مباشرة هنا.
     ensureAttemptWindow(user);
     if (hasExceededAttempts(user)) {
       await user.save();
-      return jsonResponse({ error: "too_many_attempts", remainingAttempts: 0 }, 429);
+      return jsonResponse(
+        {
+          error: "too_many_attempts",
+          remainingAttempts: 0,
+          retryAfterSeconds: Math.ceil(msUntilLockoutEnds(user) / 1000),
+        },
+        429
+      );
+    }
+
+    const waitMs = msUntilNextAttempt(user);
+    if (waitMs > 0) {
+      return jsonResponse(
+        {
+          error: "attempt_too_soon",
+          remainingAttempts: remainingAttempts(user),
+          retryAfterSeconds: Math.ceil(waitMs / 1000),
+        },
+        429
+      );
     }
 
     const matches = await bcrypt.compare(code, user.resetCodeHash);
 
     if (!matches) {
       user.resetAttempts = (user.resetAttempts || 0) + 1;
+      user.resetLastAttemptAt = new Date();
       await user.save();
       return jsonResponse(
         { error: "invalid_or_expired_code", remainingAttempts: remainingAttempts(user) },

@@ -58,9 +58,10 @@ const authSchema = new mongoose.Schema(
     resetCodeHash: { type: String, default: null },
     resetCodeExpiry: { type: Date, default: null },
     resetAttempts: { type: Number, default: 0 },
-    // 🔒 SECURITY: بداية نافذة الـ 12 ساعة لعدّ محاولات تخمين الكود
-    // (منفصلة عن resetCodeExpiry بتاع صلاحية الكود نفسه).
-    resetAttemptsWindowStart: { type: Date, default: null },
+    // 🔒 SECURITY: وقت آخر محاولة تخمين للكود (ناجحة أو فاشلة) — بيُستخدم
+    // لحساب فاصل الـ 5 دقايق الإجباري بين كل محاولة والتانية، وكمان لحساب
+    // الـ 24 ساعة قفل بعد ما الـ 5 محاولات تخلص (شوف resetPasswordHelpers.js).
+    resetLastAttemptAt: { type: Date, default: null },
 
     // 🔒 SECURITY: وقت آخر تغيير للباسورد + رقم نسخة الجلسة (tokenVersion).
     // كل JWT بيحمل tokenVersion وقت إصداره؛ لما نزوّد الرقم ده (عند تغيير

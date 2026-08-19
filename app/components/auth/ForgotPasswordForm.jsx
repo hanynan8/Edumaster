@@ -421,6 +421,13 @@ export default function ForgotPasswordForm({ onSwitch }) {
           setError(tx.errTooManyAttempts);
           return;
         }
+        // 🔒 SECURITY: لسه ما اتخصمش من الـ 5 محاولات — المستخدم لازم بس
+        // يستنى الفاصل الزمني (5 دقايق) قبل ما يحاول تاني.
+        if (data.error === "attempt_too_soon") {
+          const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 60));
+          setError(tx.errAttemptTooSoon.replace("{m}", minutes));
+          return;
+        }
         if (data.error === "invalid_or_expired_code") { setError(tx.errInvalidCode); return; }
         setError(tx.errFail);
         return;
@@ -467,6 +474,11 @@ export default function ForgotPasswordForm({ onSwitch }) {
         if (data.error === "too_many_attempts") {
           setAttemptsBlocked(true);
           setError(tx.errTooManyAttempts);
+          return;
+        }
+        if (data.error === "attempt_too_soon") {
+          const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds || 0) / 60));
+          setError(tx.errAttemptTooSoon.replace("{m}", minutes));
           return;
         }
         if (data.error === "invalid_or_expired_code") { setError(tx.errInvalidCode); return; }

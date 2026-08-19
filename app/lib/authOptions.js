@@ -148,9 +148,10 @@ export const authOptions = {
 
         // 🔒 SECURITY: rate limit عام على مستوى الـ IP — أول خط دفاع، بيتفحص
         // قبل أي استعلام للداتابيز عشان يوقف هجوم credential-stuffing بسرعة
-        // ويقلل الحمل على الداتابيز. 20 محاولة كل 15 دقيقة لكل IP.
+        // ويقلل الحمل على الداتابيز. 5 محاولات كل 15 دقيقة لكل IP (بيغطي كل
+        // محاولات الدخول من الـ IP ده، مهما كان الحساب المستهدف مختلف).
         const ipCheck = await checkRateLimit(`login:ip:${ip}`, {
-          limit: 20,
+          limit: 5,
           windowSeconds: 15 * 60,
         });
         if (!ipCheck.allowed) {
@@ -208,7 +209,11 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
             if (attempt.locked) {
               throw new Error(`account_locked:${attempt.lockSeconds}`);
             }
-            throw new Error(`invalid_credentials:${attempt.remaining}`);
+            // 🔒 SECURITY: نورّي المستخدم أقل رقم بين حد الحساب وحد الـ IP —
+            // ده الرقم الفعلي اللي بيحدد فعليًا قد إيه محاولة باقيتله قبل
+            // ما يتقفل (أيًا كان القفل اللي هيوصله الأول).
+            const remaining = Math.min(attempt.remaining, ipCheck.remaining);
+            throw new Error(`invalid_credentials:${remaining}`);
           }
 
           // 🔒 SECURITY: الـ role حصريًا من الداتابيز. مفيش أي مقارنة إيميل هنا خالص —
@@ -234,7 +239,8 @@ const identifier = credentials.nameOrEmail.toLowerCase().trim();
               if (attempt.locked) {
                 throw new Error(`account_locked:${attempt.lockSeconds}`);
               }
-              throw new Error(`mfa_invalid:${attempt.remaining}`);
+              const remaining = Math.min(attempt.remaining, ipCheck.remaining);
+              throw new Error(`mfa_invalid:${remaining}`);
             }
 
             if (backupValid) {

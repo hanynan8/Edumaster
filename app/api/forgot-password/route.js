@@ -148,11 +148,11 @@ export async function POST(request) {
 
       user.resetCodeHash = codeHash;
       user.resetCodeExpiry = new Date(Date.now() + CODE_TTL_MS);
-      // ⚠️ عمدًا مش بنلمس resetAttempts / resetAttemptsWindowStart هنا.
+      // ⚠️ عمدًا مش بنلمس resetAttempts / resetLastAttemptAt هنا.
       // لو مسحناهم مع كل كود جديد، أي مهاجم كان هيقدر يصفّر عداد
       // محاولاته بمجرد ما يطلب كود جديد ويفضل يخمن من غير حدود فعلية.
-      // العداد بيتصفر بس تلقائيًا لما الـ 12 ساعة تعدي (shou في
-      // ensureAttemptWindow)، أو لما الباسورد يتغيّر بنجاح.
+      // العداد بيتصفر بس تلقائيًا لما الـ 24 ساعة قفل تعدي من وقت آخر
+      // محاولة (شوف ensureAttemptWindow)، أو لما الباسورد يتغيّر بنجاح.
       await user.save();
 
       await sendResetCodeEmail(email, code, user.name);

@@ -107,6 +107,38 @@ export async function middleware(request) {
     "max-age=31536000; includeSubDomains"
   );
 
+  // 🔒 SECURITY: Content-Security-Policy — طبقة دفاع إضافية ضد XSS (حتى لو
+  // حصل بطريقة ما رغم عدم وجود dangerouslySetInnerHTML/eval في الكود
+  // الحالي). النطاقات هنا مبنية فعليًا من النطاقات المستخدمة في المشروع:
+  // Bunny (CDN + Stream player iframe)، Unsplash/placehold (صور)،
+  // Google Fonts، و connect-src لـ PayPal API (السيرفر بينادي PayPal من
+  // الباك اند مش من المتصفح فعليًا — الدفع بيتم عن طريق redirect كامل
+  // بـ window.location.href، مش SDK/iframe مضمّن، فمفيش داعي لإضافة نطاق
+  // paypal.com في script-src/frame-src).
+  //
+  // ⚠️ بدأناها بـ Report-Only عن قصد: بيبعت تقارير انتهاك (لو ضبطتوا
+  // report-uri/report-to) من غير ما يمنع أي حاجة فعليًا. شغّلوا الموقع
+  // كام يوم وراقبوا الـ console/التقارير، ولو مفيش false positives،
+  // بدّلوا اسم الهيدر تحت من "Content-Security-Policy-Report-Only" لـ
+  // "Content-Security-Policy" عشان يبقى فعّال وبيمنع فعليًا.
+  const cspDirectives = [
+    "default-src 'self'",
+    // 'unsafe-inline' لسه لازمة لحد ما نراجع الـ inline styles/scripts
+    // الموجودة فعليًا (لو فيه)؛ ننصح نشيلها تدريجيًا بعد المراقبة.
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net",
+    "media-src 'self' https://*.b-cdn.net",
+    "frame-src 'self' https://iframe.mediadelivery.net",
+    "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://api-m.paypal.com https://api-m.sandbox.paypal.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+  ];
+  response.headers.set("Content-Security-Policy-Report-Only", cspDirectives.join("; "));
+
   return response;
 }
 

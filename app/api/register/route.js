@@ -57,18 +57,27 @@ export async function POST(request) {
     await connectToMongo();
     const AuthModel = getAuthModel();
 
-    // نفس منطق فحص التكرار اللي كان في الـ frontend، لكن دلوقتي على السيرفر
-    // بحيث الباسوردات متبقاش بترجع للمتصفح أبدًا في نص العملية.
-    const existing = await AuthModel.find({}, "name email").lean();
-    const nameTaken = existing.some(
-      (u) => u.name?.toLowerCase().trim() === name.toLowerCase()
-    );
-    const emailTaken = existing.some(
-      (u) => u.email?.toLowerCase().trim() === email
-    );
+    // 🔒 PERFORMANCE/SECURITY (audit fix): كان بيجيب كل مستند في كولكشن الـ
+    // auth بالكامل (find({})) في كل محاولة تسجيل — مع نمو عدد المستخدمين ده
+    // بيبقى أبطأ وأتقل على الداتابيز والذاكرة تدريجيًا، وكمان قابل للاستغلال
+    // كـ DoS بسيط (سبام تسجيلات يفرض collection scan متكرر). استبدلناه
+    // بـ findOne({ $or: [...] }) واحد بيوقف عند أول تطابق — واستعلام الإيميل
+    // فيه بيستفيد من الـ unique index الموجود أصلاً على email (mongodb.js).
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const existing = await AuthModel.findOne(
+      {
+        $or: [{ email }, { name: new RegExp(`^${escapedName}$`, "i") }],
+      },
+      "name email"
+    ).lean();
 
-    if (nameTaken) return jsonResponse({ error: "name_taken" }, 409);
-    if (emailTaken) return jsonResponse({ error: "email_taken" }, 409);
+    if (existing) {
+      const emailTaken = existing.email?.toLowerCase().trim() === email;
+      const nameTaken = existing.name?.toLowerCase().trim() === name.toLowerCase();
+      // بنفحص الإيميل الأول لأنه المعرّف الأهم/الفريد فعليًا على مستوى الداتابيز.
+      if (emailTaken) return jsonResponse({ error: "email_taken" }, 409);
+      if (nameTaken) return jsonResponse({ error: "name_taken" }, 409);
+    }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const now = new Date();

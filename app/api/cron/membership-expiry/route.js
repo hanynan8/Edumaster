@@ -43,8 +43,16 @@ export async function GET(request) {
       if (auth !== `Bearer ${CRON_SECRET}`) {
         return jsonResponse({ error: "unauthorized" }, 401);
       }
+    } else if (process.env.NODE_ENV === "production") {
+      // 🔒 SECURITY (audit fix): في التطوير المحلي، تشغيل بدون تحقق مقبول
+      // (fallback مريح). لكن في production، عدم ضبط CRON_SECRET كان معناه
+      // إن أي حد عارف الرابط يقدر ينادي الـ endpoint ده من غير أي مصادقة
+      // (فتح emails فعلية، Query على الداتابيز). بدل السماح الصامت، بنرفض
+      // صراحة ونطلب ضبط المتغير أولًا.
+      console.error("[cron/membership-expiry] CRON_SECRET not set in production — refusing request");
+      return jsonResponse({ error: "cron_secret_not_configured" }, 503);
     } else {
-      console.warn("[cron/membership-expiry] CRON_SECRET not set — running without auth check");
+      console.warn("[cron/membership-expiry] CRON_SECRET not set — running without auth check (dev only)");
     }
 
     await connectToMongo();

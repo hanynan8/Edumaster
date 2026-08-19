@@ -149,18 +149,13 @@ function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
 }
 
-// 🔒 SECURITY: مفيش أي fallback ثابت (زي "admin@gmail.com") تاني.
-// لو ADMIN_EMAIL مش متظبطة في الـ env، الـ admin check هيرجع false دايمًا
-// (يعني محدش يقدر يعمل حاجات admin) بدل ما يفتح ثغرة لأي حد يسجل بإيميل معروف.
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL
-  ? process.env.ADMIN_EMAIL.toLowerCase()
-  : null;
-
-if (!ADMIN_EMAIL) {
-  console.warn(
-    "⚠️ ADMIN_EMAIL is not set — admin fallback via email is DISABLED. Only session role='admin' will grant admin access."
-  );
-}
+// 🔒 SECURITY (audit fix): مسار admin بديل عن طريق ADMIN_EMAIL اتشال
+// نهائيًا. كان ده fallback زيادة عن الحاجة أصلاً (isAdminRequest تحت
+// بتتحقق من role === "admin" من الداتابيز، وده كافٍ لوحده)، وأي مسار
+// بديل زيادة بيوسّع سطح الهجوم من غير داعي حقيقي — لو الـ env var اتغيّر
+// أو الإيميل اتسجل بيه حساب مش أدمن، كان ممكن يدّي صلاحيات أدمن بالغلط.
+// الاعتماد دلوقتي حصريًا على role === "admin" الآتي من سجل المستخدم في
+// الداتابيز.
 
 // 🔒 SECURITY (Day 59 audit — CRITICAL): الـ endpoint العام ده الأصل كان
 // مصمم بس لمحتوى الموقع التسويقي (navbar/home/about/services...)، لكن
@@ -209,12 +204,9 @@ function isPublicReadCollection(name) {
 
 async function isAdminRequest() {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
-  const role = session?.user?.role;
-
-  if (role === "admin") return true;
-  if (ADMIN_EMAIL && email === ADMIN_EMAIL) return true;
-  return false;
+  // 🔒 SECURITY (audit fix): المصدر الوحيد لصلاحية الأدمن هو role المخزّن
+  // في سجل المستخدم بالداتابيز (اللي بيتحدث من لوحة الأدمن نفسها فقط).
+  return session?.user?.role === "admin";
 }
 
 // 🔒 SECURITY: Rate limiting بسيط في الميموري لكل IP، بيطبق بس على POST /form

@@ -138,6 +138,12 @@ const authSchema = new mongoose.Schema(
 // /api/register مش كافي لوحده لمنع ده).
 authSchema.index({ email: 1 }, { unique: true, sparse: true });
 
+// ⚡ PERFORMANCE (audit fix): بيسرّع فحص تكرار الاسم في /api/register
+// (findOne({ $or: [{email}, {name}] })) — مش unique لأن الاسم مسموح
+// يتكرر فعليًا في نظرية النظام الحالي (الفحص بيتم على مستوى التطبيق بس)،
+// فده index عادي للسرعة فقط، مش قيد على مستوى الداتابيز.
+authSchema.index({ name: 1 });
+
 // ⚡ PERFORMANCE (Phase 8 — اليوم 60): "membership.status" + "membership.expiresAt"
 // بيتفلتر بيهم في مكانين: app/api/cron/membership-expiry (بيتشغّل يوميًا،
 // أو أكتر) وapp/api/admin/users (?membershipExpiringWithinDays=N). من غير

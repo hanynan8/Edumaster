@@ -18,13 +18,26 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+// 🔒 SECURITY: SVG بيُعرض في المتصفح كـ document حي، وممكن يحتوي على
+// <script> أو event handlers (onload, onerror...) — أي مكان بيسمح برفع
+// "image/*" ويعرض الرابط بعد كده (حتى لو React مش بيعمل render مباشر
+// للمحتوى) بيبقى فيه احتمال XSS مخزّن لو المستخدم فتح ملف الـ SVG مباشرة
+// في تاب جديد أو اتحط جوه <img>/<object>/<iframe> في مكان تاني. فبنستثنيه
+// صراحة من كل الأنواع اللي بتقبل "image/*".
+function isSvgMime(mime) {
+  return /image\/svg(\+xml)?/i.test(mime);
+}
+function isImageMime(mime) {
+  return mime.startsWith("image/") && !isSvgMime(mime);
+}
+
 // 🔒 نوع الملف بيحدد الفولدر ونوع الـ content المسموح بيه.
 //
 // Phase 4 — اليوم 39-40: ضيفنا "submission" عشان الطالب يقدر يرفع ملف
 // تسليم واجب (PDF/Word/Zip/صورة) — الأنواع التانية (image/pdf) لسه مقصورة
 // على المدرس/الأدمن (رفع مرفقات الدروس/الواجبات نفسها).
 const ALLOWED_KINDS = {
-  image: { subfolder: "images", allowedMime: (m) => m.startsWith("image/"), roles: ["teacher", "admin"] },
+  image: { subfolder: "images", allowedMime: (m) => isImageMime(m), roles: ["teacher", "admin"] },
   pdf: { subfolder: "files", allowedMime: (m) => m === "application/pdf", roles: ["teacher", "admin"] },
   submission: {
     subfolder: "submissions",
@@ -35,10 +48,34 @@ const ALLOWED_KINDS = {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/zip",
         "application/x-zip-compressed",
-      ].includes(m) || m.startsWith("image/"),
+      ].includes(m) || isImageMime(m),
     roles: ["student", "teacher", "admin"],
   },
 };
+
+// 🔒 SECURITY: file.type جاي من المتصفح ومُعلَن ذاتيًا — أي حد يقدر يزوّره
+// بسهولة (يرفع .html ويسميه صورة بامتداد .jpg ويبعت header مزوّر). بنتأكد
+// من أول بايتات الملف الفعلية (magic bytes) بتطابق نوعه المُعلَن، كطبقة
+// دفاع إضافية فوق فحص الـ MIME، مش بديل عنه.
+const MAGIC_BYTES = [
+  { mime: "image/jpeg", check: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { mime: "image/png", check: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  { mime: "image/gif", check: (b) => b.length >= 6 && b.toString("ascii", 0, 6).match(/^GIF8[79]a$/) },
+  {
+    mime: "image/webp",
+    check: (b) => b.length >= 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP",
+  },
+  { mime: "application/pdf", check: (b) => b.length >= 4 && b.toString("ascii", 0, 4) === "%PDF" },
+];
+
+function magicBytesMatch(buffer, mime) {
+  const rule = MAGIC_BYTES.find((r) => r.mime === mime);
+  // لو مفيش قاعدة معروفة للنوع ده (زي .docx/.zip اللي هي أصلًا ZIP-based
+  // ومتشابهة كتير في الهيدر)، منسيبش الفحص يفشل الرفع بالغلط — بنكتفي
+  // بفحص الـ MIME المعلن + الامتداد زي ما هو. الفحص هنا إضافي مش حصري.
+  if (!rule) return true;
+  return rule.check(buffer);
+}
 
 const MAX_BYTES_BY_KIND = {
   image: 15 * 1024 * 1024, // 15MB
@@ -104,6 +141,13 @@ export async function POST(request) {
     const path = `edumaster/${roleFolder}/${session.user.id}/${subfolder}/${safeFileName(file.name)}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // 🔒 فحص إضافي: تأكيد إن محتوى الملف الفعلي متطابق مع الـ MIME المُعلَن،
+    // مش بس الاعتماد على file.type اللي المتصفح بيبعته (وممكن يتزوّر).
+    if (!magicBytesMatch(buffer, mime)) {
+      return jsonResponse({ error: "file_content_mismatch" }, 400);
+    }
+
     const { url } = await uploadToStorage({ path, body: buffer, contentType: mime });
 
     return jsonResponse({ url, bytes: file.size, format: mime });

@@ -300,6 +300,32 @@ export function extractBunnyStoragePath(publicUrl) {
 }
 
 /**
+ * 🔒 SECURITY FIX: نفس فكرة resolveSecureLessonMediaUrls لكن لأي رابط
+ * مُخزّن مفرد من Bunny Storage (مش بس videoUrl/fileUrl بتوع الدرس) — أهم
+ * استخدام حاليًا: صورة البروفايل (avatar). المشكلة اللي حلّها الهيلبر ده:
+ * لما "Token Authentication" يتفعّل على الـ Pull Zone من لوحة Bunny (بغض
+ * النظر عن env vars عندنا)، أي رابط بيتخزن عادي (buildStoragePublicUrl)
+ * ومن غير توقيع بيترجع 403 Forbidden من Bunny مباشرة — ده اللي كان بيسبب
+ * "الصورة بتحمل وفي الآخر بتطلع بايظة".
+ *
+ * الحل: بنخزّن الرابط العادي زي ما هو في الداتابيز (دايمًا، عشان الرابط
+ * الموقّع بينتهي بعد ساعات — لو خزّناه هو اللي هيبوظ لاحقًا)، وكل مرة
+ * الرابط ده بيتبعت للعميل (session، /api/profile...) بنولّد توقيع طازة
+ * له في اللحظة دي بالظبط عن طريق الدالة دي. لو Token Authentication مش
+ * مفعّل من الأساس (BUNNY_STORAGE_TOKEN_AUTH_KEY مش متظبط)، بترجع الرابط
+ * زي ما هو من غير أي تغيير — مفيش أي تأثير على إعداد قديم شغّال.
+ *
+ * @param {string|null|undefined} storedUrl - الرابط المخزّن في الداتابيز
+ */
+export function resolveSecureStoredUrl(storedUrl) {
+  if (!storedUrl) return storedUrl ?? null;
+  if (!isBunnyStorageTokenAuthConfigured()) return storedUrl;
+  const path = extractBunnyStoragePath(storedUrl);
+  if (!path) return storedUrl; // رابط مش من Bunny Storage بتاعنا (مثلاً placehold.co) — نسيبه زي ما هو
+  return buildSecureStoragePublicUrl(path);
+}
+
+/**
  * 🔒 نقطة واحدة تستخدمها كل route بيسرّب محتوى درس (videoUrl/fileUrl):
  * بتاخد القيم المخزّنة زي ما هي وترجّع نسخة موقّعة ومؤقتة لو ممكن، وتسيب
  * أي حاجة تانية (يوتيوب/فيميو/رابط خارجي عمومًا) زي ما هي — إحنا بس اللي

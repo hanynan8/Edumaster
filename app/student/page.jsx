@@ -61,10 +61,12 @@ const STRINGS = {
     saveSuccess: "تم حفظ بياناتك بنجاح",
     errNameLen: "الاسم لازم يكون بين 2 و60 حرف",
     errPhoneInvalid: "رقم الهاتف مش بصيغة صحيحة",
-    errAvatarType: "الصورة لازم تكون PNG أو JPG أو WEBP",
-    errAvatarSize: "حجم الصورة أكبر من المسموح (4MB)",
+    errAvatarType: "الصورة لازم تكون JPG أو GIF أو PNG",
+    errAvatarSize: "حجم الصورة أكبر من المسموح (1MB)",
+    errAvatarBroken: "حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني",
     errGeneric: "حصل خطأ، حاول تاني",
     uploadingPhoto: "جارِ رفع الصورة...",
+    avatarHint: "أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG",
   },
   en: {
     title: "My Courses",
@@ -106,10 +108,12 @@ const STRINGS = {
     saveSuccess: "Your profile was updated successfully",
     errNameLen: "Name must be between 2 and 60 characters",
     errPhoneInvalid: "Phone number format is invalid",
-    errAvatarType: "Image must be PNG, JPG, or WEBP",
-    errAvatarSize: "Image is larger than the 4MB limit",
+    errAvatarType: "Image must be JPG, GIF, or PNG",
+    errAvatarSize: "Image is larger than the 1MB limit",
+    errAvatarBroken: "Something went wrong loading the photo after upload, please try again",
     errGeneric: "Something went wrong, please try again",
     uploadingPhoto: "Uploading photo...",
+    avatarHint: "Maximum size: 1MB. Supported formats: JPG, GIF, or PNG",
   },
 };
 
@@ -206,8 +210,15 @@ function SummaryStats({ enrollments, certificatesCount, t }) {
   );
 }
 
-const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
-const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const AVATAR_MAX_BYTES = 1 * 1024 * 1024; // 1MB
+const AVATAR_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif"];
+
+// 🔒 بعض المتصفحات والأدوات (خصوصًا القديمة أو بعض تطبيقات الموبايل)
+// بتبعت "image/jpg" بدل الصيغة القياسية "image/jpeg" — لو سبنا الفحص زي ما
+// هو، الملف ده هيترفض غلط بـ errAvatarType رغم إنه JPEG سليم فعليًا.
+function normalizeImageMime(mime) {
+  return mime === "image/jpg" ? "image/jpeg" : mime;
+}
 
 function isValidPhoneClient(phone) {
   return /^\+?[0-9\s-]{7,20}$/.test(phone);
@@ -253,22 +264,55 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // 🆕 خطأ مخصص لرفع الصورة بس، بيتحط تحت الصورة على طول بدل ما يستنى
+  // آخر الفورم زي error العادي — عشان لو الرفع فشل، الطالب يشوف السبب فورًا
+  // مش يحس إن الصفحة "علّقت" وهي في الحقيقة خلصت (بنجاح أو فشل) من زمان.
+  const [avatarError, setAvatarError] = useState("");
   const [success, setSuccess] = useState(false);
+  // 🆕 السبب الحقيقي وراء "بتحمل وفي الآخر بتطلع صورة بايظة": الرفع (PUT)
+  // لـ Bunny Storage بيرجع نجاح فورًا، لكن رابط الـ CDN (Pull Zone) بياخد
+  // كسر ثانية لحد ما يتنشر على edge nodes — فأول <img> بيحاول يحمّل الرابط
+  // بسرعة جدًا بعد الرفع ممكن يوصله 404/خطأ مؤقت فيظهر أيقونة "صورة بايظة".
+  // الحل: نعيد محاولة تحميل الصورة كذا مرة بفاصل بسيط قبل ما نستسلم.
+  const [avatarLoadAttempt, setAvatarLoadAttempt] = useState(0);
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const AVATAR_LOAD_RETRIES = 4;
+  const AVATAR_LOAD_RETRY_DELAY_MS = 900;
+
+  function handleAvatarImgError() {
+    // معاينة محلية (blob:) مش من CDN — لو فشلت فده خطأ فعلي مش propagation delay
+    if (avatarPreview?.startsWith("blob:")) return;
+    if (avatarLoadAttempt < AVATAR_LOAD_RETRIES) {
+      setTimeout(() => setAvatarLoadAttempt((n) => n + 1), AVATAR_LOAD_RETRY_DELAY_MS);
+    } else {
+      setAvatarBroken(true);
+      setAvatarError(t.errAvatarBroken);
+    }
+  }
 
   async function handleAvatarPick(e) {
-    const file = e.target.files?.[0];
+    const rawFile = e.target.files?.[0];
     e.target.value = ""; // يسمح باختيار نفس الملف تاني لو حبّ يعيد المحاولة
-    if (!file) return;
+    if (!rawFile) return;
+    setAvatarError("");
     setError("");
+    setAvatarBroken(false);
+    setAvatarLoadAttempt(0);
 
-    if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
-      setError(t.errAvatarType);
+    const normalizedType = normalizeImageMime(rawFile.type);
+    if (!AVATAR_ALLOWED_TYPES.includes(normalizedType)) {
+      setAvatarError(t.errAvatarType);
       return;
     }
-    if (file.size > AVATAR_MAX_BYTES) {
-      setError(t.errAvatarSize);
+
+    // 🚫 مفيش ضغط تلقائي — لو الصورة أكبر من الحد المسموح بيترفض الرفع على
+    // طول وبنوضح للطالب إنه لازم يختار صورة أصغر (مش نعدّل الملف بالنيابة عنه).
+    if (rawFile.size > AVATAR_MAX_BYTES) {
+      setAvatarError(t.errAvatarSize);
       return;
     }
+
+    const file = rawFile;
 
     // معاينة فورية (client-side) قبل ما الرفع يخلص
     const localPreview = URL.createObjectURL(file);
@@ -280,17 +324,37 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
       formData.append("kind", "avatar");
       formData.append("file", file);
       const res = await fetch("/api/upload/file", { method: "POST", body: formData });
-      const data = await res.json().catch(() => null);
+
+      // 🔒 لو الرد مش JSON (مثلاً 413 Payload Too Large من بروكسي/سيرفر
+      // قبل ما الطلب يوصل لـ Next.js أصلاً، أو صفحة خطأ HTML من المنصة)،
+      // res.json() هيفشل — كنا قبل كده بنبلعه بصمت ونعرض رسالة عامة تحت
+      // خالص. دلوقتي بنميّز الحالة دي برسالة أوضح تحت الصورة نفسها.
+      let data = null;
+      let parseFailed = false;
+      try {
+        data = await res.json();
+      } catch {
+        parseFailed = true;
+      }
+
       if (!res.ok || !data?.url) {
-        setError(t.errGeneric);
+        if (parseFailed || res.status === 413) {
+          setAvatarError(t.errAvatarSize);
+        } else if (res.status === 401) {
+          setAvatarError(t.errGeneric); // الجلسة انتهت — الطالب هيحتاج يعمل login تاني
+        } else {
+          setAvatarError(data?.error ? `${t.errGeneric} (${data.error})` : t.errGeneric);
+        }
         setAvatarPreview(avatar);
         return;
       }
       setAvatar(data.url);
       setAvatarPreview(data.url);
-    } catch {
-      setError(t.errGeneric);
+    } catch (err) {
+      // فشل الشبكة نفسه (مفيش نت، أو الطلب اتقطع)
+      setAvatarError(t.errGeneric);
       setAvatarPreview(avatar);
+      console.error("[avatar upload] network error:", err);
     } finally {
       setUploadingAvatar(false);
     }
@@ -363,8 +427,19 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
         {/* الصورة */}
         <div className="flex flex-col items-center mb-6">
           <div className="relative">
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="" className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100" />
+            {avatarPreview && !avatarBroken ? (
+              <img
+                key={avatarLoadAttempt}
+                src={
+                  avatarPreview.startsWith("blob:")
+                    ? avatarPreview
+                    : `${avatarPreview}${avatarPreview.includes("?") ? "&" : "?"}retry=${avatarLoadAttempt}`
+                }
+                alt=""
+                onError={handleAvatarImgError}
+                onLoad={() => setAvatarBroken(false)}
+                className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100"
+              />
             ) : (
               <div className="w-20 h-20 rounded-full bg-[#C9A227] text-white text-2xl font-bold flex items-center justify-center">
                 {name?.charAt(0)?.toUpperCase() || "U"}
@@ -381,12 +456,18 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/jpeg,image/png,image/gif"
               className="hidden"
               onChange={handleAvatarPick}
             />
           </div>
+          {!uploadingAvatar && !avatarError && (
+            <p className="text-[11px] text-gray-400 mt-2 text-center max-w-[220px]">{t.avatarHint}</p>
+          )}
           {uploadingAvatar && <p className="text-[11px] text-gray-400 mt-2">{t.uploadingPhoto}</p>}
+          {avatarError && !uploadingAvatar && (
+            <p className="text-[11px] text-red-500 mt-2 text-center max-w-[220px]">{avatarError}</p>
+          )}
         </div>
 
         {/* الإيميل — للعرض بس */}

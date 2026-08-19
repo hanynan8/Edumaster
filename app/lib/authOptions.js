@@ -17,6 +17,7 @@ import bcrypt from "bcryptjs";
 import { TOTP, Secret } from "otpauth";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { checkRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function isBcryptHash(value) {
   return typeof value === "string" && /^\$2[aby]\$/.test(value);

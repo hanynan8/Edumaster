@@ -168,27 +168,21 @@ function UserDropdown({ user }) {
 
   return (
     <div ref={ref} className="relative flex items-center">
-      {/* 🆕 الدوس على الصورة/الاسم بيودّي على طول لـ /student (لوحة
-          الطالب — نفس الرابط اللي في القائمة تحت)، بدل ما يفتح الدروب داون
-          بس. الدروب داون (باقي الروابط + تسجيل الخروج) بقى مفصول في زرار
-          السهم لوحده. */}
-      <Link
-        href="/student"
-        className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-1 py-1.5 border border-gray-200 border-r-0 rtl:border-r rtl:border-l-0 rounded-l-lg rtl:rounded-l-none rtl:rounded-r-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
-        title="لوحة الطالب"
+      {/* 🆕 الصورة + الاسم + السهم بقوا كلهم جوه زرار واحد بس، دوسة واحدة
+          عليه بتفتح/تقفل القائمة المنسدلة (زي أي دروب داون قياسي). رابط
+          لوحة الطالب اتنقل جوه القائمة نفسها (أول عنصر فيها). */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label="Open user menu"
+        className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-2 py-1.5 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
       >
         <UserAvatar user={user} size={28} />
         <span className="hidden sm:block text-sm font-semibold text-[#0a0a0a] max-w-[80px] truncate">
           {user?.name}
         </span>
-      </Link>
-
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Open user menu"
-        className="flex items-center px-1.5 sm:px-2 py-2.5 border border-gray-200 rounded-r-lg rtl:rounded-r-none rtl:rounded-l-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 text-gray-400"
-      >
-        <span className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <span className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <ChevronDown size={12} />
         </span>
       </button>

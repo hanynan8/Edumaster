@@ -31,6 +31,10 @@ function isImageMime(mime) {
   return mime.startsWith("image/") && !isSvgMime(mime);
 }
 
+function isAvatarAllowedMime(mime) {
+  return ["image/jpeg", "image/png", "image/gif"].includes(mime);
+}
+
 // 🔒 نوع الملف بيحدد الفولدر ونوع الـ content المسموح بيه.
 //
 // Phase 4 — اليوم 39-40: ضيفنا "submission" عشان الطالب يقدر يرفع ملف
@@ -56,7 +60,10 @@ const ALLOWED_KINDS = {
   // حد يقدر يستبدل صورة حد تاني). منفصلة عن "image" (اللي لسه مقصورة على
   // مرفقات الكورس/الدرس من المدرس) عشان الطالب ميقدرش يستخدم نفس المسار
   // ده لرفع صور جوه كورس مش بتاعه.
-  avatar: { subfolder: "avatars", allowedMime: (m) => isImageMime(m), roles: ["student", "teacher", "admin"] },
+  // 🔒 مقصورة على JPG/PNG/GIF بس (مش أي image/* زي WEBP) — بيطابق الفورم في
+  // app/student/page.jsx (AVATAR_ALLOWED_TYPES) بالظبط عشان مفيش صورة تتقبل
+  // في المتصفح وترفض هنا أو العكس.
+  avatar: { subfolder: "avatars", allowedMime: isAvatarAllowedMime, roles: ["student", "teacher", "admin"] },
 };
 
 // 🔒 SECURITY: file.type جاي من المتصفح ومُعلَن ذاتيًا — أي حد يقدر يزوّره
@@ -87,7 +94,7 @@ const MAX_BYTES_BY_KIND = {
   image: 15 * 1024 * 1024, // 15MB
   pdf: 50 * 1024 * 1024, // 50MB
   submission: 25 * 1024 * 1024, // 25MB
-  avatar: 4 * 1024 * 1024, // 4MB — كافي جدًا لصورة بروفايل
+  avatar: 1 * 1024 * 1024, // 1MB — كافي جدًا لصورة بروفايل
 };
 
 function safeFileName(originalName) {

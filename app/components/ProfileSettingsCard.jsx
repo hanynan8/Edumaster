@@ -93,32 +93,30 @@ function ProfileSummaryCard({ user, t, isRTL, onEdit }) {
   const [showFullscreen, setShowFullscreen] = useState(false);
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap mb-6">
-      <div className="flex items-center gap-4 min-w-0">
-        {user?.avatar ? (
-          <button
-            type="button"
-            onClick={() => setShowFullscreen(true)}
-            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
-            title={t.viewFullSize}
-          >
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover ring-2 ring-black/5 cursor-pointer hover:opacity-90 transition-opacity"
-            />
-          </button>
-        ) : (
-          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
-            {user?.name?.charAt(0)?.toUpperCase() || "U"}
-          </div>
-        )}
-        <div className="min-w-0">
-          <p className="text-lg sm:text-xl font-bold text-gray-800 truncate">{user?.name}</p>
-          <p className="text-sm text-gray-400 truncate flex items-center gap-1">
-            <Mail size={13} /> {user?.email}
-          </p>
+    <div dir={isRTL ? "rtl" : "ltr"} className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex flex-col items-center text-center gap-3 mb-6">
+      {user?.avatar ? (
+        <button
+          type="button"
+          onClick={() => setShowFullscreen(true)}
+          className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+          title={t.viewFullSize}
+        >
+          <img
+            src={user.avatar}
+            alt={user.name}
+            className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover ring-2 ring-black/5 cursor-pointer hover:opacity-90 transition-opacity"
+          />
+        </button>
+      ) : (
+        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
+          {user?.name?.charAt(0)?.toUpperCase() || "U"}
         </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-lg sm:text-xl font-bold text-gray-800 truncate">{user?.name}</p>
+        <p className="text-sm text-gray-400 truncate flex items-center justify-center gap-1">
+          <Mail size={13} /> {user?.email}
+        </p>
       </div>
       <button
         onClick={onEdit}

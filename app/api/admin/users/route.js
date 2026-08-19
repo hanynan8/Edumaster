@@ -82,6 +82,7 @@ export async function GET(request) {
         id: u._id?.toString(),
         name: u.name || null,
         email: u.email || null,
+        phone: u.phone || null,
         role: u.role || "student",
         status: u.status || "active",
         createdAt: u.createdAt || null,

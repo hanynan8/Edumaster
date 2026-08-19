@@ -180,6 +180,7 @@ function UsersAdmin() {
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">#</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Name</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Phone</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Role</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Membership</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Actions</th>
@@ -207,6 +208,7 @@ function UsersAdmin() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-blue-600">{user.email}</td>
+                    <td className="py-3 px-4 text-gray-600">{user.phone || '—'}</td>
                     <td className="py-3 px-4">
                       <select
                         value={user.role}

@@ -16,7 +16,7 @@
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { requireSession } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
-import { resolveSecureStoredUrl } from "@/app/lib/bunny";
+import { resolveSecureStoredUrl, extractBunnyStoragePath, buildStoragePublicUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -50,6 +50,20 @@ function isAllowedAvatarUrl(url) {
   } catch {
     return false;
   }
+}
+
+// 🔒 لازم اللي يتخزن في الداتابيز يكون دايمًا الرابط الخام (من غير أي
+// ?token=/&expires=)، حتى لو اللي وصل من الـ client كان رابط موقّع (مثلاً
+// راجع من رد /api/upload/file اللي بيرجّع رابط موقّع للعرض الفوري بعد
+// الرفع مباشرة). لو خزّنّا الرابط الموقّع زي ما هو، أي مرة GET بعد كده
+// هتوقّعه من جديد فوق التوقيع القديم (resolveSecureStoredUrl) وينتج رابط
+// بايظ فيه "?" مرتين. هنا بنقطع أي query string ونعيد بناء الرابط الخام
+// دايمًا قبل التخزين — التوقيع الفعلي بيتولّد بس وقت الإرسال للعميل.
+function normalizeAvatarUrl(url) {
+  if (typeof url !== "string" || !url) return url;
+  const baseUrl = url.split("?")[0];
+  const path = extractBunnyStoragePath(baseUrl);
+  return path ? buildStoragePublicUrl(path) : baseUrl;
 }
 
 function serializeUser(u) {
@@ -134,7 +148,7 @@ export async function PATCH(request) {
       } else if (!isAllowedAvatarUrl(body.avatar)) {
         return jsonResponse({ error: "invalid_avatar_url" }, 400);
       } else {
-        user.profile = { ...(user.profile || {}), avatar: body.avatar };
+        user.profile = { ...(user.profile || {}), avatar: normalizeAvatarUrl(body.avatar) };
       }
     }
 

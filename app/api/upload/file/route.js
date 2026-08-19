@@ -8,7 +8,7 @@
 // تصطدم بحدود body size اللي كانت المشكلة الأساسية مع الفيديو.
 
 import { requireSession } from "@/app/lib/rbac";
-import { uploadToStorage, isBunnyStorageConfigured } from "@/app/lib/bunny";
+import { uploadToStorage, isBunnyStorageConfigured, resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
@@ -164,7 +164,14 @@ export async function POST(request) {
 
     const { url } = await uploadToStorage({ path, body: buffer, contentType: mime });
 
-    return jsonResponse({ url, bytes: file.size, format: mime });
+    // 🔒 لازم الرابط اللي بيرجع هنا فور الرفع يكون موقّع (لو Token
+    // Authentication مفعّل على Bunny) بنفس الطريقة اللي /api/profile
+    // GET/PATCH بيرجّع بيها روابط الصور المخزّنة (resolveSecureStoredUrl).
+    // من غير كده، لو التوقيع مفعّل من لوحة Bunny، الرابط الخام اللي كان
+    // بيترجع هنا كان بيدّي 403 من Bunny على طول — يعني الصورة تفضل "بايظة"
+    // فورًا بعد الرفع وتتصلح لوحدها بعد أي refresh (لأن /api/profile كان
+    // بيوقّعها صح من الأساس). دلوقتي الاتنين بيرجعوا نفس شكل الرابط دايمًا.
+    return jsonResponse({ url: resolveSecureStoredUrl(url), bytes: file.size, format: mime });
   } catch (err) {
     console.error("[/api/upload/file] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

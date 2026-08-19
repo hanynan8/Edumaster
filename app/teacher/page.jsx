@@ -4,17 +4,391 @@
 //
 // بتجيب كورسات المدرس الحالي بس (GET /api/courses بيرجع كورسات صاحب
 // السيشن تلقائيًا لو role=teacher — شوف app/api/courses/route.js).
+//
+// 🆕 كارت "الملف الشخصي" (صورة + اسم + إيميل + زرار تعديل) — نفس التصميم
+// والمنطق اللي في app/student/page.jsx بالظبط (نفس الـ GET/PATCH
+// /api/profile + رفع الصورة عن طريق POST /api/upload/file بـ kind="avatar")،
+// اتنقل هنا حرفيًا عشان صفحة المدرّس تبقى مطابقة لصفحة الطالب بالكامل.
 
-import { useEffect, useState } from "react";
-import { Plus, Loader, BookOpen, GraduationCap, BarChart3 } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Plus, Loader, BookOpen, GraduationCap, BarChart3, Camera, Mail, Phone, User, X, Pencil, CheckCircle2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
 import CourseFormModal from "./components/CourseFormModal";
+
+const AVATAR_MAX_BYTES = 1 * 1024 * 1024; // 1MB
+const AVATAR_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif"];
+
+// 🔒 بعض المتصفحات والأدوات (خصوصًا القديمة أو بعض تطبيقات الموبايل)
+// بتبعت "image/jpg" بدل الصيغة القياسية "image/jpeg" — لو سبنا الفحص زي ما
+// هو، الملف ده هيترفض غلط بـ errAvatarType رغم إنه JPEG سليم فعليًا.
+function normalizeImageMime(mime) {
+  return mime === "image/jpg" ? "image/jpeg" : mime;
+}
+
+function isValidPhoneClient(phone) {
+  return /^\+?[0-9\s-]{7,20}$/.test(phone);
+}
+
+/* ─── كارت مصغّر يظهر أعلى الصفحة: صورة + اسم + إيميل + زرار تعديل ─── */
+function ProfileSummaryCard({ user, onEdit }) {
+  const [showFullscreen, setShowFullscreen] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div className="flex items-center gap-4 min-w-0">
+        {user?.avatar ? (
+          <button
+            type="button"
+            onClick={() => setShowFullscreen(true)}
+            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+            title="تكبير الصورة"
+          >
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover ring-2 ring-black/5 cursor-pointer hover:opacity-90 transition-opacity"
+            />
+          </button>
+        ) : (
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
+            {user?.name?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-lg sm:text-xl font-bold text-gray-800 truncate">{user?.name}</p>
+          <p className="text-sm text-gray-400 truncate flex items-center gap-1">
+            <Mail size={13} /> {user?.email}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onEdit}
+        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
+      >
+        <Pencil size={13} /> تعديل الملف الشخصي
+      </button>
+
+      {showFullscreen && user?.avatar && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowFullscreen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowFullscreen(false)}
+            className="absolute top-4 end-4 sm:top-6 sm:end-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            title="إغلاق"
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={user.avatar}
+            alt={user.name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileEditModal({ initialUser, onClose, onSaved }) {
+  const { update } = useSession();
+  const fileInputRef = useRef(null);
+
+  const [name, setName] = useState(initialUser?.name || "");
+  const [phone, setPhone] = useState(initialUser?.phone || "");
+  const [avatar, setAvatar] = useState(initialUser?.avatar || null);
+  const [avatarPreview, setAvatarPreview] = useState(initialUser?.avatar || null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  // 🆕 خطأ مخصص لرفع الصورة بس، بيتحط تحت الصورة على طول بدل ما يستنى
+  // آخر الفورم زي error العادي — عشان لو الرفع فشل، المدرّس يشوف السبب فورًا
+  // مش يحس إن الصفحة "علّقت" وهي في الحقيقة خلصت (بنجاح أو فشل) من زمان.
+  const [avatarError, setAvatarError] = useState("");
+  const [success, setSuccess] = useState(false);
+  // 🆕 السبب الحقيقي وراء "بتحمل وفي الآخر بتطلع صورة بايظة": الرفع (PUT)
+  // لـ Bunny Storage بيرجع نجاح فورًا، لكن رابط الـ CDN (Pull Zone) بياخد
+  // كسر ثانية لحد ما يتنشر على edge nodes — فأول <img> بيحاول يحمّل الرابط
+  // بسرعة جدًا بعد الرفع ممكن يوصله 404/خطأ مؤقت فيظهر أيقونة "صورة بايظة".
+  // الحل: نعيد محاولة تحميل الصورة كذا مرة بفاصل بسيط قبل ما نستسلم.
+  const [avatarLoadAttempt, setAvatarLoadAttempt] = useState(0);
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const AVATAR_LOAD_RETRIES = 4;
+  const AVATAR_LOAD_RETRY_DELAY_MS = 900;
+
+  function handleAvatarImgError() {
+    // معاينة محلية (blob:) مش من CDN — لو فشلت فده خطأ فعلي مش propagation delay
+    if (avatarPreview?.startsWith("blob:")) return;
+    if (avatarLoadAttempt < AVATAR_LOAD_RETRIES) {
+      setTimeout(() => setAvatarLoadAttempt((n) => n + 1), AVATAR_LOAD_RETRY_DELAY_MS);
+    } else {
+      setAvatarBroken(true);
+      setAvatarError("حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني");
+    }
+  }
+
+  async function handleAvatarPick(e) {
+    const rawFile = e.target.files?.[0];
+    e.target.value = ""; // يسمح باختيار نفس الملف تاني لو حبّ يعيد المحاولة
+    if (!rawFile) return;
+    setAvatarError("");
+    setError("");
+    setAvatarBroken(false);
+    setAvatarLoadAttempt(0);
+
+    const normalizedType = normalizeImageMime(rawFile.type);
+    if (!AVATAR_ALLOWED_TYPES.includes(normalizedType)) {
+      setAvatarError("الصورة لازم تكون JPG أو GIF أو PNG");
+      return;
+    }
+
+    // 🚫 مفيش ضغط تلقائي — لو الصورة أكبر من الحد المسموح بيترفض الرفع على
+    // طول وبنوضح للمدرّس إنه لازم يختار صورة أصغر (مش نعدّل الملف بالنيابة عنه).
+    if (rawFile.size > AVATAR_MAX_BYTES) {
+      setAvatarError("حجم الصورة أكبر من المسموح (1MB)");
+      return;
+    }
+
+    const file = rawFile;
+
+    // معاينة فورية (client-side) قبل ما الرفع يخلص
+    const localPreview = URL.createObjectURL(file);
+    setAvatarPreview(localPreview);
+    setUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("kind", "avatar");
+      formData.append("file", file);
+      const res = await fetch("/api/upload/file", { method: "POST", body: formData });
+
+      // 🔒 لو الرد مش JSON (مثلاً 413 Payload Too Large من بروكسي/سيرفر
+      // قبل ما الطلب يوصل لـ Next.js أصلاً، أو صفحة خطأ HTML من المنصة)،
+      // res.json() هيفشل — كنا قبل كده بنبلعه بصمت ونعرض رسالة عامة تحت
+      // خالص. دلوقتي بنميّز الحالة دي برسالة أوضح تحت الصورة نفسها.
+      let data = null;
+      let parseFailed = false;
+      try {
+        data = await res.json();
+      } catch {
+        parseFailed = true;
+      }
+
+      if (!res.ok || !data?.url) {
+        if (parseFailed || res.status === 413) {
+          setAvatarError("حجم الصورة أكبر من المسموح (1MB)");
+        } else if (res.status === 401) {
+          setAvatarError("حصل خطأ، حاول تاني"); // الجلسة انتهت — المدرّس هيحتاج يعمل login تاني
+        } else {
+          setAvatarError(data?.error ? `حصل خطأ، حاول تاني (${data.error})` : "حصل خطأ، حاول تاني");
+        }
+        setAvatarPreview(avatar);
+        return;
+      }
+      setAvatar(data.url);
+      setAvatarPreview(data.url);
+    } catch (err) {
+      // فشل الشبكة نفسه (مفيش نت، أو الطلب اتقطع)
+      setAvatarError("حصل خطأ، حاول تاني");
+      setAvatarPreview(avatar);
+      console.error("[avatar upload] network error:", err);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleSave() {
+    setError("");
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 60) {
+      setError("الاسم لازم يكون بين 2 و60 حرف");
+      return;
+    }
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone && !isValidPhoneClient(trimmedPhone)) {
+      setError("رقم الهاتف مش بصيغة صحيحة");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, phone: trimmedPhone, avatar: avatar || "" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(
+          data?.error === "invalid_name" ? "الاسم لازم يكون بين 2 و60 حرف" :
+          data?.error === "invalid_phone" ? "رقم الهاتف مش بصيغة صحيحة" :
+          "حصل خطأ، حاول تاني"
+        );
+        return;
+      }
+      // 🔄 نحدّث الـ NextAuth session فورًا (شوف authOptions.js — trigger:"update")
+      // عشان الاسم/الصورة يتغيروا في الـ navbar من غير ما يحتاج logout/login.
+      await update();
+      setSuccess(true);
+      onSaved?.(data.user);
+      setTimeout(onClose, 900);
+    } catch {
+      setError("حصل خطأ، حاول تاني");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        dir="rtl"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl w-full max-w-md p-6 relative"
+        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 end-4 text-gray-400 hover:text-gray-700 transition-colors"
+          aria-label="close"
+        >
+          <X size={18} />
+        </button>
+
+        <h2 className="text-lg font-black text-gray-800 mb-1">الملف الشخصي</h2>
+        <p className="text-xs text-gray-400 mb-5">عدّل بياناتك الشخصية</p>
+
+        {/* الصورة */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative">
+            {avatarPreview && !avatarBroken ? (
+              <img
+                key={avatarLoadAttempt}
+                src={
+                  avatarPreview.startsWith("blob:")
+                    ? avatarPreview
+                    : `${avatarPreview}${avatarPreview.includes("?") ? "&" : "?"}retry=${avatarLoadAttempt}`
+                }
+                alt=""
+                onError={handleAvatarImgError}
+                onLoad={() => setAvatarBroken(false)}
+                className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-[#C9A227] text-white text-2xl font-bold flex items-center justify-center">
+                {name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
+              aria-label="تغيير الصورة"
+            >
+              {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif"
+              className="hidden"
+              onChange={handleAvatarPick}
+            />
+          </div>
+          {!uploadingAvatar && !avatarError && (
+            <p className="text-[11px] text-gray-400 mt-2 text-center max-w-[220px]">
+              أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG
+            </p>
+          )}
+          {uploadingAvatar && <p className="text-[11px] text-gray-400 mt-2">جارِ رفع الصورة...</p>}
+          {avatarError && !uploadingAvatar && (
+            <p className="text-[11px] text-red-500 mt-2 text-center max-w-[220px]">{avatarError}</p>
+          )}
+        </div>
+
+        {/* الإيميل — للعرض بس */}
+        <div className="mb-4">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <Mail size={12} /> البريد الإلكتروني الحالي
+          </label>
+          <div className="w-full bg-gray-50 border border-gray-100 rounded-lg px-3.5 py-2.5 text-sm text-gray-500 flex items-center justify-between">
+            <span className="truncate">{initialUser?.email}</span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">الإيميل مش قابل للتعديل من هنا</p>
+        </div>
+
+        {/* الاسم */}
+        <div className="mb-4">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <User size={12} /> الاسم المسجّل به
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="اكتب اسمك بالكامل"
+            maxLength={60}
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+          />
+        </div>
+
+        {/* الهاتف */}
+        <div className="mb-6">
+          <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
+            <Phone size={12} /> رقم الهاتف
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="أضف رقم هاتفك (اختياري)"
+            maxLength={20}
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+          />
+        </div>
+
+        {error && <div className="bg-red-50 text-red-600 text-xs px-3.5 py-2.5 rounded-lg mb-4">{error}</div>}
+        {success && (
+          <div className="bg-green-50 text-green-600 text-xs px-3.5 py-2.5 rounded-lg mb-4 flex items-center gap-1.5">
+            <CheckCircle2 size={13} /> تم حفظ بياناتك بنجاح
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving || uploadingAvatar}
+            className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {saving && <Loader size={14} className="animate-spin" />}
+            {saving ? "جارِ الحفظ..." : "حفظ التعديلات"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TeacherCoursesPage() {
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
   const [modalCourse, setModalCourse] = useState(undefined); // undefined=closed, null=new, object=edit
+  const [profileUser, setProfileUser] = useState(null); // { name, email, phone, avatar, role }
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   async function loadCourses() {
     try {
@@ -27,8 +401,19 @@ export default function TeacherCoursesPage() {
     }
   }
 
+  async function loadProfile() {
+    try {
+      const res = await fetch("/api/profile");
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.user) setProfileUser(data.user);
+    } catch {
+      // مفيش داعي نوقف الصفحة بسبب فشل تحميل البروفايل بس
+    }
+  }
+
   useEffect(() => {
     loadCourses();
+    loadProfile();
   }, []);
 
   function handleSaved(saved) {
@@ -97,6 +482,18 @@ export default function TeacherCoursesPage() {
           </button>
         </div>
       </div>
+
+      {profileUser && (
+        <ProfileSummaryCard user={profileUser} onEdit={() => setShowProfileModal(true)} />
+      )}
+
+      {showProfileModal && profileUser && (
+        <ProfileEditModal
+          initialUser={profileUser}
+          onClose={() => setShowProfileModal(false)}
+          onSaved={(updatedUser) => setProfileUser((prev) => ({ ...prev, ...updatedUser }))}
+        />
+      )}
 
       {courses === null && !error && (
         <div className="flex justify-center py-20">

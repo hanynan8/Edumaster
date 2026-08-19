@@ -25,6 +25,7 @@ import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,7 +38,17 @@ function serializeComment(c) {
   return {
     id: c._id.toString(),
     body: c.body,
-    user: { id: c.user._id ? c.user._id.toString() : c.user.toString(), name: c.user.name ?? null },
+    user: {
+      id: c.user._id ? c.user._id.toString() : c.user.toString(),
+      name: c.user.name ?? null,
+      // 🔒 SECURITY: زي أي رابط Bunny Storage تاني (شوف resolveSecureStoredUrl
+      // في bunny.js) — لازم نولّد توقيع طازة وقت الإرسال للعميل، مش نبعت
+      // الرابط الخام المخزّن زي ما هو، وإلا هيرجع 403 لو Token Authentication
+      // مفعّل (اللي كان بيظهر كـ "صورة بايظة" لغير صاحب الكومنت نفسه — هو
+      // بس شايفها كويسة لأن رد الـ POST بيستخدم session.user.avatar الموقّع
+      // أصلاً، لكن أي حد تاني بيجيبها من هنا (GET) خام).
+      avatar: resolveSecureStoredUrl(c.user.profile?.avatar ?? null),
+    },
     parentComment: c.parentComment ? c.parentComment.toString() : null,
     createdAt: c.createdAt,
   };
@@ -78,7 +89,7 @@ export async function GET(request, { params }) {
 
     const all = await Comment.find({ lesson: id })
       .sort({ createdAt: 1 })
-      .populate("user", "name")
+      .populate("user", "name profile.avatar")
       .lean();
 
     const questions = all.filter((c) => !c.parentComment);
@@ -172,7 +183,13 @@ export async function POST(request, { params }) {
     }
 
     return jsonResponse(
-      { ...serializeComment(created.toObject()), user: { id: session.user.id, name: session.user.name ?? null }, replies: [] },
+      {
+        ...serializeComment(created.toObject()),
+        // 🖼️ الأفتار موجودة جاهزة على الـ session (authOptions.js) — مفيش داعي
+        // نعمل query تاني على اليوزر عشان بس نجيب الصورة هنا.
+        user: { id: session.user.id, name: session.user.name ?? null, avatar: session.user.avatar ?? null },
+        replies: [],
+      },
       201
     );
   } catch (err) {

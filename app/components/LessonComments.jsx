@@ -17,6 +17,31 @@ import { useSession } from "next-auth/react";
 import { MessageCircle, Send, Trash2, Loader } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+// 🖼️ صورة صاحب التعليق/الرد جمب اسمه — نفس شكل UserAvatar في navbar.jsx
+// (صورة لو موجودة، وإلا حرف أول الاسم كـ fallback) عشان يبقى الشكل متسق
+// في كل الموقع.
+function CommentAvatar({ user, size = 24 }) {
+  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  if (user?.avatar) {
+    return (
+      <img
+        src={user.avatar}
+        alt={user?.name || "avatar"}
+        className="rounded-full object-cover ring-1 ring-black/5 shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+    >
+      {initial}
+    </span>
+  );
+}
+
 const STRINGS = {
   ar: {
     title: "أسئلة ونقاش",
@@ -149,9 +174,12 @@ export default function LessonComments({ lessonId }) {
           {comments.map((c) => (
             <div key={c.id} className="bg-gray-50 rounded-xl p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-gray-800">{c.user?.name || "—"}</p>
-                  <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{c.body}</p>
+                <div className="flex items-start gap-2 min-w-0">
+                  <CommentAvatar user={c.user} size={26} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-800">{c.user?.name || "—"}</p>
+                    <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{c.body}</p>
+                  </div>
                 </div>
                 {userId === c.user?.id && (
                   <button
@@ -169,9 +197,12 @@ export default function LessonComments({ lessonId }) {
                   key={r.id}
                   className="mt-2 ms-4 ps-3 border-s-2 border-gray-200 flex items-start justify-between gap-2"
                 >
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-700">{r.user?.name || "—"}</p>
-                    <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{r.body}</p>
+                  <div className="flex items-start gap-2 min-w-0">
+                    <CommentAvatar user={r.user} size={22} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-700">{r.user?.name || "—"}</p>
+                      <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{r.body}</p>
+                    </div>
                   </div>
                   {userId === r.user?.id && (
                     <button

@@ -166,6 +166,14 @@ function UserDropdown({ user }) {
     links.push({ href: "/admin", label: "لوحة الأدمن" });
   }
 
+  // 🆕 رابط "الملف الشخصي" في رأس القائمة (الصورة + الاسم) كان مربوط بشكل
+  // ثابت بـ /student لأي مستخدم — دلوقتي بيوجّه للوحة صاحب السيشن فعليًا:
+  // أدمن → /admin، مدرّس → /teacher، وأي حد تاني (طالب) → /student.
+  const profileHref =
+    user?.role === "admin" ? "/admin" :
+    user?.role === "teacher" ? "/teacher" :
+    "/student";
+
   return (
     <div ref={ref} className="relative flex items-center">
       {/* 🆕 الصورة + الاسم + السهم بقوا كلهم جوه زرار واحد بس، دوسة واحدة
@@ -190,7 +198,7 @@ function UserDropdown({ user }) {
       {open && (
         <div className="absolute right-0 rtl:right-auto rtl:left-0 top-[calc(100%+8px)] w-52 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
           <Link
-            href="/student"
+            href={profileHref}
             onClick={() => setOpen(false)}
             className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
           >
@@ -310,11 +318,13 @@ export default function Navbar() {
   const MobileAuthControls = () => {
     if (isLoading) return null;
     if (isLoggedIn) {
+      const role = session.user?.role;
+      const profileHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
       return (
         <>
           <div className="flex items-center justify-between gap-3 py-3 px-2 border-b border-gray-100">
             <Link
-              href="/student"
+              href={profileHref}
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3 -m-1 p-1 rounded-lg hover:bg-gray-50 transition-colors"
             >

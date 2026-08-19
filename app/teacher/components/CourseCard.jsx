@@ -55,7 +55,7 @@ export default function CourseCard({ course, onEdit, onDelete }) {
         <div className="flex gap-2">
           <Link
             href={`/teacher/courses/${course.id}`}
-            className="flex-1 text-center text-sm font-semibold bg-blue-50 text-blue-600 rounded-lg py-2 hover:bg-blue-100"
+            className="flex-1 text-center text-sm font-semibold bg-[#1D6FD8]/10 text-[#1D6FD8] rounded-lg py-2 hover:bg-[#1D6FD8]/20"
           >
             المحتوى
           </Link>

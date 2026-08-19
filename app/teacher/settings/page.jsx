@@ -1,0 +1,39 @@
+"use client";
+
+// app/teacher/settings/page.jsx
+//
+// صفحة "إعدادات المدرس" — بتستخدم نفس المكوّن المشترك اللي بيتعرض في
+// /student (ProfileSettingsCard)، عشان المدرس يقدر يعدّل اسمه/رقمه/صورته
+// بنفس المنطق بالظبط، من غير أي تكرار كود. الحماية (تسجيل الدخول + الدور)
+// متكفّل بيها app/teacher/layout.jsx و middleware.js أصلاً.
+
+import Link from "next/link";
+import { ArrowRight, Settings, BookOpen } from "lucide-react";
+import ProfileSettingsCard from "@/app/components/ProfileSettingsCard";
+
+export default function TeacherSettingsPage() {
+  return (
+    <div dir="rtl" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+            <Settings className="text-white" size={22} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">إعدادات الحساب</h1>
+            <p className="text-sm text-gray-400">عدّل اسمك ورقم هاتفك وصورة البروفايل</p>
+          </div>
+        </div>
+        <Link
+          href="/teacher"
+          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+        >
+          <BookOpen size={16} /> كورساتي
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <ProfileSettingsCard locale="ar" isRTL />
+    </div>
+  );
+}

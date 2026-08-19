@@ -13,7 +13,7 @@
 // باسم مدرس تاني).
 
 import mongoose from "mongoose";
-import { connectToMongo } from "@/app/lib/mongodb";
+import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 import { generateUniqueCourseSlug, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
@@ -70,6 +70,13 @@ export async function GET(request) {
     const Course = getCourseModel();
     // بنتأكد إن موديل الـ Category متسجل عشان .populate("category") يشتغل
     getCategoryModel();
+    // 🐛 BUG FIX: .populate("teacher") تحت بيحتاج موديل "Model_auth" يكون
+    // متسجل في mongoose الأول (Course.teacher الفعلي بيشاور عليه بالاسم
+    // ده — شوف app/lib/models/_helpers.js: USER_MODEL_NAME). getAuthModel()
+    // كان بيتسجل بس "بالصدفة" لو route تاني (زي login) نادى عليه قبل كده
+    // في نفس الـ process — لو /api/courses كان أول حاجة بتتنادى، كان
+    // بيطلع MissingSchemaError. بننادي عليه هنا صراحة عشان الترتيب مايفرقش.
+    getAuthModel();
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);

@@ -275,11 +275,11 @@ export default function HomePageLoggedOut() {
         {/* 2) ALL COURSES — same source as /courses, 4-per-row grid */}
         <CoursesSection rawCourses={rawCourses} lang={lang} ui={ui} />
 
-        {/* 3) SERVICES — same source as /services, 4-per-row grid */}
-        {servicesData && <ServicesSection data={servicesData} lang={lang} ui={ui} />}
-
-        {/* 4) COUNTRIES PREVIEW — same source as /countries, a few cards only */}
+        {/* 3) COUNTRIES PREVIEW — same source as /countries, a few cards only */}
         {countriesData && <CountriesPreviewSection data={countriesData} lang={lang} ui={ui} />}
+
+        {/* 4) SERVICES — same source as /services, 4-per-row grid */}
+        {servicesData && <ServicesSection data={servicesData} lang={lang} ui={ui} />}
 
         {/* 5) MISSION & VISION — same source as /about */}
         {aboutData && <MissionVisionSection data={aboutData} lang={lang} ui={ui} />}

@@ -115,6 +115,23 @@ const authSchema = new mongoose.Schema(
       expiresAt: { type: Date, default: null },
     },
 
+    // 🆕 ONBOARDING — خطوات جمع المعلومات اللي بتظهر أول مرة بعد التسجيل
+    // مباشرة (زي تدفق Coursera: الهدف → الدور الحالي → المهارات المطلوب
+    // تطويرها → المستوى التعليمي). بتتسجل مرة واحدة بس (completed=true بعد
+    // "Finish")؛ لو المستخدم دخل تاني على /onboarding بعد ما خلّص، الصفحة
+    // بتحوّله على طول للداشبورد بدل ما تعرضله الخطوات تاني.
+    onboarding: {
+      completed: { type: Boolean, default: false },
+      completedAt: { type: Date, default: null },
+      // start_career | change_career | grow_current_role | explore_topics
+      goal: { type: String, default: null },
+      // اسم الدور الحالي — إما مُختار من القايمة الجاهزة أو مكتوب يدويًا
+      // لو مختار "something else" في الواجهة.
+      currentRole: { type: String, default: null },
+      skills: { type: [String], default: [] },
+      educationLevel: { type: String, default: null },
+    },
+
     // ⚠️ قرار تصميم مقصود: purchases / enrollments / quizResults /
     // certificates / notifications *ماتمش* إضافتهم كـ arrays مُضمّنة (embedded)
     // جوه الـ User زي ما كانوا في الخريطة الأصلية. السبب: الحقول دي بتكبر

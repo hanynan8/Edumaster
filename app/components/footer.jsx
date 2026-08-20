@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 /* ─────────────────────────────────────────
@@ -95,8 +96,13 @@ function Newsletter({ t }) {
    FOOTER COMPONENT
 ═══════════════════════════════════════ */
 export default function Footer() {
+  const pathname = usePathname();
   const { language, isRTL } = useLanguage();
   const data = useFooterData();
+
+  // 🆕 صفحة /onboarding عندها layout مستقل (هيدر بسيط بس، من غير navbar/
+  // footer الموقع العادي) — زي تدفق Coursera بالظبط.
+  if (pathname.startsWith("/onboarding")) return null;
 
   if (!data) return null;
 

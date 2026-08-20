@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { signIn } from "next-auth/react";
 
@@ -295,6 +296,7 @@ function ShieldIcon({ size = 16, color = "#2563eb" }) {
    mode: "login" | "register"
 ═══════════════════════════════════════════════════════ */
 export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
+  const router = useRouter();
   const { language, isRTL } = useLanguage();
   const [form, setForm] = useState({ nameOrEmail: "", name: "", email: "", password: "" });
   const [showPass, setShowPass] = useState(false);
@@ -449,8 +451,18 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
         password: form.password,
       });
       setLoading(false);
-      if (signInRes?.error) { setError(tx.errRegistered); onSwitch("login"); }
-      else onClose();
+      if (signInRes?.error) {
+        setError(tx.errRegistered);
+        onSwitch("login");
+        return;
+      }
+      // 🆕 حساب جديد فعلًا وباين إنه دخل بنجاح → بدل ما نقفل المودال بس
+      // ونسيبه على نفس الصفحة، بنقفله ونوديه لصفحة onboarding (خطوات
+      // "أول مرة": الهدف، الدور الحالي، المهارات، المستوى التعليمي)، زي
+      // تدفق Coursera بالظبط. لو رجع لاحقًا وكان خلّص onboarding قبل كده،
+      // صفحة /onboarding نفسها هتحوّله على طول من غير ما تعرضله الخطوات.
+      onClose();
+      router.push("/onboarding");
     } catch {
       setLoading(false);
       setError(tx.errFail);

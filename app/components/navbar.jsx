@@ -274,6 +274,9 @@ export default function Navbar() {
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   if (pathname.startsWith("/admin")) return null;
+  // 🆕 صفحة /onboarding عندها الهيدر المستقل بتاعها (لوجو + Exit فقط)، زي
+  // تدفق Coursera بالظبط — من غير الـ navbar العادي بروابط الموقع.
+  if (pathname.startsWith("/onboarding")) return null;
   if (!data || !data.i18n) return null;
 
   const t = data.i18n[language] ?? data.i18n["en"];

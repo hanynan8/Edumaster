@@ -1,41 +1,33 @@
 "use client";
 
 /* ════════════════════════════════════════════════════════════════════
-   app/components/home/CoursesSection.jsx
+   components/CoursesSection.jsx
    ------------------------------------------------------------------
-   SHARED "All Courses" section used by BOTH home pages:
-     - app/(home)/Homepageloggedin.jsx   (logged-in user)
-     - app/(home)/HomePageLoggedOut.jsx  (guest / not logged in)
+   Shared "All Courses" section, extracted from both home pages
+   (logged-in and guest). Fetches the exact same endpoint the
+   /courses page uses: GET /api/courses?limit=50, and reformats it
+   as a 4-per-row grid with search + filters.
 
-   Both pages used to duplicate the exact same fetch logic, course
-   normalization, course card markup and icons. That duplicated code
-   now lives here as a single component, imported by both pages:
-
-     import CoursesSection from "@/app/components/home/CoursesSection";
-     <CoursesSection ui={ui} lang={lang} variant="loggedIn" />
-     <CoursesSection ui={ui} lang={lang} variant="loggedOut" />
-
-   It fetches its own data — GET /api/courses?limit=50, the exact same
-   endpoint the /courses page uses — so no page needs to fetch or pass
-   courses down anymore.
-
-   `variant` controls the only real visual differences between the two
-   original implementations:
-     - "loggedIn"  → no search/filter bar, shows the small "Label" eyebrow
-                     above the title, taller section padding
-                     (matches the original Homepageloggedin.jsx layout)
-     - "loggedOut" → full search + category/level/price filter bar, no
-                     eyebrow label, tighter section padding
-                     (matches the original HomePageLoggedOut.jsx layout)
+   Props:
+     - lang            (string)  current language ("en" | "ar" | "es")
+     - ui               (object) translation strings — must contain:
+         coursesTitle, coursesSubtitle, coursesEmpty, coursesLoading,
+         coursesCta, by, free, students, noRatingYet, levels,
+         searchPlaceholder, allCategories, allLevels, allPrices,
+         paid, clearFilters, noMatch
+         (coursesLabel is optional — only used if showLabel is true)
+     - showLabel        (bool, optional) render the small eyebrow
+                         label above the title (uses ui.coursesLabel)
+     - bgClassName       (string, optional) section background,
+                         default "bg-white"
+     - paddingClassName  (string, optional) section vertical padding,
+                         default "py-8 sm:py-14 md:py-20"
 ════════════════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-/* ─────────────────────────────────────────
-   CONSTANTS
-───────────────────────────────────────── */
 const LEVEL_COLORS = {
   beginner: "#10b981",
   intermediate: "#f59e0b",
@@ -45,10 +37,7 @@ const LEVEL_COLORS = {
 const FALLBACK_COURSE_IMAGE =
   "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=900&q=80";
 
-/* ─────────────────────────────────────────
-   FETCH HOOK — same as /courses page:
-   GET /api/courses?limit=50
-───────────────────────────────────────── */
+/* same as /courses page: GET /api/courses?limit=50 */
 function useAllCourses() {
   const [rawCourses, setRawCourses] = useState(undefined);
   useEffect(() => {
@@ -67,7 +56,6 @@ function useAllCourses() {
   return rawCourses;
 }
 
-/* same normalization logic as /courses page */
 function localizeCourse(c, language, ui) {
   const i18nEntry = c.i18n?.[language] || c.i18n?.en || null;
   const categoryI18nEntry = c.categoryI18n?.[language] || c.categoryI18n?.en || null;
@@ -81,7 +69,7 @@ function localizeCourse(c, language, ui) {
     categoryName,
     teacherName: c.teacherName || "",
     level: c.level,
-    levelLabel: ui.levels?.[c.level] || c.level,
+    levelLabel: ui.levels[c.level] || c.level,
     levelColor: LEVEL_COLORS[c.level] || "#1D6FD8",
     durationLabel: c.durationLabel || (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
     studentsCount: c.studentsCount || 0,
@@ -97,15 +85,14 @@ function localizeCourse(c, language, ui) {
       .toLowerCase(),
   };
 }
+
 function formatSeconds(s) {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-/* ─────────────────────────────────────────
-   SCROLL REVEAL HOOK
-───────────────────────────────────────── */
+/* scroll reveal hook */
 function useReveal(threshold = 0.1) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -127,11 +114,15 @@ function useReveal(threshold = 0.1) {
 }
 
 /* ═══════════════════════════════════════
-   MAIN EXPORT — ALL COURSES SECTION
+   MAIN EXPORT
 ═══════════════════════════════════════ */
-export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
-  const isCompact = variant === "loggedIn";
-
+export default function CoursesSection({
+  lang,
+  ui,
+  showLabel = false,
+  bgClassName = "bg-white",
+  paddingClassName = "py-8 sm:py-14 md:py-20",
+}) {
   const rawCourses = useAllCourses();
   const [ref, visible] = useReveal();
 
@@ -166,19 +157,16 @@ export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
 
   const filtered = useMemo(() => {
     if (!courses) return [];
-    if (!isCompact) {
-      const q = search.trim().toLowerCase();
-      return courses.filter((c) => {
-        if (q && !c.searchBlob.includes(q)) return false;
-        if (category !== "all" && c.categoryName !== category) return false;
-        if (level !== "all" && c.level !== level) return false;
-        if (price === "free" && !c.isFree) return false;
-        if (price === "paid" && c.isFree) return false;
-        return true;
-      });
-    }
-    return courses;
-  }, [courses, search, category, level, price, isCompact]);
+    const q = search.trim().toLowerCase();
+    return courses.filter((c) => {
+      if (q && !c.searchBlob.includes(q)) return false;
+      if (category !== "all" && c.categoryName !== category) return false;
+      if (level !== "all" && c.level !== level) return false;
+      if (price === "free" && !c.isFree) return false;
+      if (price === "paid" && c.isFree) return false;
+      return true;
+    });
+  }, [courses, search, category, level, price]);
 
   const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
 
@@ -190,20 +178,15 @@ export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
   }
 
   return (
-    <section
-      ref={ref}
-      className={isCompact ? "py-10 sm:py-20 md:py-28 bg-white" : "py-8 sm:py-14 md:py-20 bg-white"}
-    >
+    <section ref={ref} className={`${paddingClassName} ${bgClassName}`}>
       <div className="px-5 sm:px-10 md:px-16">
         <div
-          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 ${
-            isCompact ? "mb-7 sm:mb-14" : "mb-7"
-          } transition-all duration-700 ${
+          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 transition-all duration-700 ${
             visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
           <div>
-            {isCompact && <Label text={ui.coursesLabel} visible={visible} />}
+            {showLabel && ui.coursesLabel && <Label text={ui.coursesLabel} visible={visible} />}
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">
               {ui.coursesTitle}
             </h2>
@@ -218,7 +201,7 @@ export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
           </Link>
         </div>
 
-        {!isCompact && courses !== null && courses.length > 0 && (
+        {courses !== null && courses.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 mb-6 sm:mb-8">
             <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
               <span className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -262,7 +245,7 @@ export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
           <div className="text-center text-gray-400 text-sm py-16">{ui.coursesEmpty}</div>
         )}
 
-        {!isCompact && courses?.length > 0 && filtered.length === 0 && (
+        {courses?.length > 0 && filtered.length === 0 && (
           <div className="text-center text-gray-400 text-sm py-16">{ui.noMatch}</div>
         )}
 
@@ -278,9 +261,6 @@ export default function CoursesSection({ ui, lang, variant = "loggedOut" }) {
   );
 }
 
-/* ═══════════════════════════════════════
-   COURSE CARD
-═══════════════════════════════════════ */
 function CourseCard({ course, ui, visible, delay }) {
   return (
     <Link
@@ -343,9 +323,9 @@ function CourseCard({ course, ui, visible, delay }) {
   );
 }
 
-/* ═══════════════════════════════════════
-   SHARED UI BITS (local to this section)
-═══════════════════════════════════════ */
+/* ─────────────────────────────────────────
+   SHARED UI BITS (local to this component)
+───────────────────────────────────────── */
 function Label({ text, visible }) {
   return (
     <div className={`flex items-center gap-2 mb-3 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
@@ -376,9 +356,7 @@ function FilterSelect({ value, onChange, options }) {
   );
 }
 
-/* ─────────────────────────────────────────
-   INLINE SVG ICONS
-───────────────────────────────────────── */
+/* icons */
 function ArrowIcon({ size = 16, color = "currentColor" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">

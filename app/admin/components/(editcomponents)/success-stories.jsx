@@ -169,7 +169,7 @@ export default function SuccessStoriesAdmin() {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-purple-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-purple-900">
             <Heart size={28} />
             Success Stories Configuration
           </h2>
@@ -207,7 +207,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== IMAGES & MEDIA ========== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('images')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Image size={20} /> Images & Media
             </h3>
             {expandedSections.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -304,7 +304,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== STATS VALUES ========== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('stats')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <BarChart2 size={20} /> Stats Values (numbers)
             </h3>
             {expandedSections.stats ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -334,7 +334,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== TESTIMONIALS METADATA ========== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('testimonialsMeta')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <MessageCircle size={20} /> Testimonials – Metadata (country, university, type)
             </h3>
             {expandedSections.testimonialsMeta ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -368,7 +368,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== JOURNEYS METADATA ========== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('journeysMeta')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <MapPin size={20} /> Journeys – Metadata (country, flag, color)
             </h3>
             {expandedSections.journeysMeta ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -403,7 +403,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== VIDEOS METADATA ========== */}
         {/* <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('videosMeta')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Video size={20} /> Videos – Metadata (country, color)
             </h3>
             {expandedSections.videosMeta ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -433,7 +433,7 @@ export default function SuccessStoriesAdmin() {
         {/* ========== TRANSLATIONS ========== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
               <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{languages.length} langs</span>
             </h3>

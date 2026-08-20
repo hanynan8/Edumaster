@@ -105,7 +105,7 @@ function RevenueAdmin() {
       {/* Header */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <DollarSign size={28} /> Revenue
           </h2>
           <button
@@ -147,7 +147,7 @@ function RevenueAdmin() {
 
       {/* Monthly trend (simple CSS bar chart) */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6">
-        <h3 className="text-lg font-bold text-gray-700 mb-6">Last 6 Months</h3>
+        <h3 className="text-lg font-semibold text-gray-700 mb-6">Last 6 Months</h3>
         {data.monthly.length === 0 ? (
           <p className="text-center text-gray-400 py-10">No revenue recorded in the last 6 months</p>
         ) : (
@@ -172,7 +172,7 @@ function RevenueAdmin() {
 
       {/* Status breakdown */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6">
-        <h3 className="text-lg font-bold text-gray-700 mb-4">Payments by Status</h3>
+        <h3 className="text-lg font-semibold text-gray-700 mb-4">Payments by Status</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(STATUS_META).map(([key, meta]) => {
             const Icon = meta.icon;
@@ -192,7 +192,7 @@ function RevenueAdmin() {
       {/* Recent successful payments */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200">
-          <h3 className="text-lg font-bold text-gray-700">Recent Payments</h3>
+          <h3 className="text-lg font-semibold text-gray-700">Recent Payments</h3>
         </div>
         <div className="p-6">
           <div className="overflow-x-auto">

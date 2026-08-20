@@ -37,7 +37,7 @@ export default function CourseCard({ course, onEdit, onDelete }) {
       </div>
 
       <div className="p-4">
-        <h3 className="font-bold text-gray-800 line-clamp-1 mb-1">{course.title}</h3>
+        <h3 className="font-semibold text-gray-800 line-clamp-1 mb-1">{course.title}</h3>
         <p className="text-xs text-gray-500 line-clamp-2 mb-3 min-h-[32px]">{course.shortDescription || "—"}</p>
 
         <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">

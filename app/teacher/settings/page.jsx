@@ -20,7 +20,7 @@ export default function TeacherSettingsPage() {
             <Settings className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">إعدادات الحساب</h1>
+            <h1 className="text-2xl font-semibold text-gray-800">إعدادات الحساب</h1>
             <p className="text-sm text-gray-400">عدّل اسمك ورقم هاتفك وصورة البروفايل</p>
           </div>
         </div>

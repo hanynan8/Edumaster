@@ -89,7 +89,6 @@ export default function AboutPage() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <HeroSection   data={data} t={t} />
         <WhoWeAre      data={data} t={t} />
@@ -110,7 +109,7 @@ function HeroSection({ data, t }) {
       </div>
       <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
               const black = words.slice(0, 2).join(" ");
@@ -149,7 +148,7 @@ function WhoWeAre({ data, t }) {
           </div>
         </div>
         <div>
-          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight mb-5 sm:mb-6 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight mb-5 sm:mb-6 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             {t.whoWeAre.title}
           </h2>
           <div className={`space-y-4 transition-all duration-700 delay-150 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
@@ -173,7 +172,7 @@ const cards = [
     <section ref={ref} className="py-16 sm:py-20 md:py-28 bg-[#f7f7f7]">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">{t.mvTitle}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight">{t.mvTitle}</h2>
         </div>
         <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
           {cards.map((card, i) => (
@@ -185,7 +184,7 @@ const cards = [
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-5 sm:mb-6" style={{ background: `${card.color}12`, color: card.color }}>
                 {card.icon}
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight mb-3" style={{ color: card.color }}>{card.title}</h3>
+              <h3 className="text-xl sm:text-2xl font-semibold tracking-tight mb-3" style={{ color: card.color }}>{card.title}</h3>
 <ul className="flex flex-col gap-1.5 list-none">
   {card.body.split("\n").filter(line => line.trim() !== "").map((line, i) => (
     i === 0 ? (
@@ -217,7 +216,7 @@ function WhyChooseUs({ data, t }) {
     <section ref={ref} className="py-16 sm:py-20 md:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6 grid lg:grid-cols-2 gap-10 md:gap-16 lg:gap-20 items-center">
         <div>
-          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight mb-8 sm:mb-10 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight mb-8 sm:mb-10 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             {t.why.title}
           </h2>
           <ul className="flex flex-col divide-y divide-gray-100">
@@ -260,7 +259,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">{t.stats.title}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/8 rounded-2xl overflow-hidden border border-white/8">
           {data.stats.items.map((s, i) => (

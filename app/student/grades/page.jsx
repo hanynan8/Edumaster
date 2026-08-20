@@ -236,7 +236,7 @@ export default function StudentGradesPage() {
             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
               <GraduationCap size={20} className="text-blue-600" />
             </div>
-            <h1 className="text-2xl font-black text-gray-800">{t.title}</h1>
+            <h1 className="text-2xl font-semibold text-gray-800">{t.title}</h1>
           </div>
           <button
             onClick={exportToExcel}
@@ -279,7 +279,7 @@ export default function StudentGradesPage() {
 
                 {/* الكويزات */}
                 <div className="mb-5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2.5">{t.quizzes}</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">{t.quizzes}</h3>
                   {c.quizzes.length === 0 ? (
                     <p className="text-sm text-gray-300">{t.noQuizzes}</p>
                   ) : (
@@ -318,7 +318,7 @@ export default function StudentGradesPage() {
 
                 {/* الواجبات */}
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2.5">{t.assignments}</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">{t.assignments}</h3>
                   {c.assignments.length === 0 ? (
                     <p className="text-sm text-gray-300">{t.noAssignments}</p>
                   ) : (

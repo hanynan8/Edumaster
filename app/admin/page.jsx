@@ -63,7 +63,7 @@ function PlaceholderAdmin({ title }) {
       <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
         <Settings size={36} className="text-blue-400" />
       </div>
-      <h2 className="text-2xl font-bold text-gray-700 mb-2">{title}</h2>
+      <h2 className="text-2xl font-semibold text-gray-700 mb-2">{title}</h2>
       <p className="text-gray-400">This section is under development</p>
     </div>
   );
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
               >
                 <ArrowLeft size={32} strokeWidth={1.25} />
               </Link>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+              <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
                 <Database size={30} className="animate-pulse" />
                 Edumaster Admin Panel
               </h1>
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
             <ProfileSettingsCard locale="en" isRTL={false} />
 
             <div className="bg-white rounded-2xl shadow-xl p-5 sticky top-4 border border-gray-200">
-              <h2 className="text-lg font-bold mb-5 pb-3 border-b flex items-center gap-2 text-gray-700">
+              <h2 className="text-lg font-semibold mb-5 pb-3 border-b flex items-center gap-2 text-gray-700">
                 <Settings size={20} className="text-blue-500" />
                 Sections
               </h2>

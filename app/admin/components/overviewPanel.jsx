@@ -43,7 +43,7 @@ function TrendChart({ title, data, color }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6">
-      <h3 className="text-lg font-bold text-gray-700 mb-6">{title}</h3>
+      <h3 className="text-lg font-semibold text-gray-700 mb-6">{title}</h3>
       <div className="flex items-end justify-between gap-3 h-40">
         {data.map((d, i) => {
           const heightPct = Math.max(4, Math.round((d.count / max) * 100));
@@ -72,7 +72,7 @@ function CourseStatusBreakdown({ counts }) {
   const total = Math.max(1, counts.totalCourses);
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6">
-      <h3 className="text-lg font-bold text-gray-700 mb-5">Courses by Status</h3>
+      <h3 className="text-lg font-semibold text-gray-700 mb-5">Courses by Status</h3>
       <div className="w-full h-3 rounded-full overflow-hidden flex mb-5 bg-gray-100">
         {rows.map((r) => (
           <div
@@ -239,7 +239,7 @@ export default function OverviewAdmin() {
       {/* Header */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <TrendingUp size={28} /> Overview
           </h2>
           <div className="flex items-center gap-2">

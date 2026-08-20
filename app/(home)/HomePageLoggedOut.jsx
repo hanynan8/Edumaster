@@ -233,7 +233,6 @@ export default function HomePageLoggedOut() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         {/* 1) HERO — unchanged, same as current Home */}
         <Hero data={homeData} t={tHome} />
@@ -287,7 +286,7 @@ function Hero({ data, t }) {
         <div className="absolute inset-0 flex items-center">
           <div className="w-full px-5 sm:px-8 md:px-12">
             <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-[300px] sm:max-w-[340px] md:max-w-[400px] px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
-              <h1 className="font-black tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
                 {t.hero.headline}
               </h1>
               <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
@@ -325,7 +324,7 @@ function ServicesSection({ data, lang, ui }) {
           }`}
         >
           <div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
               {ui.servicesTitle}
             </h2>
           </div>
@@ -355,7 +354,7 @@ function ServicesSection({ data, lang, ui }) {
                 <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: s.color }} />
               </div>
               <div className="p-4 flex flex-col gap-2 flex-1">
-                <h3 className="font-black text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
+                <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
                   {s.title}
                 </h3>
                 <p className="text-gray-500 text-xs leading-relaxed flex-1 line-clamp-3">{s.desc}</p>
@@ -429,7 +428,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
           }`}
         >
           <div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
               {ui.countriesTitle}
             </h2>
           </div>
@@ -468,7 +467,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
                   </span>
                 </div>
                 <div className="p-4 flex flex-col gap-2 flex-1">
-                  <h3 className="font-black text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
+                  <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
                     {card.title}
                   </h3>
                   <p className="text-gray-500 text-xs leading-relaxed flex-1 line-clamp-3">{card.desc}</p>
@@ -512,7 +511,7 @@ function MissionVisionSection({ data, lang, ui }) {
     <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
       <div className="px-5 sm:px-10 md:px-16">
         <div className={`mb-7 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">{t.mvTitle || ui.mvTitle}</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">{t.mvTitle || ui.mvTitle}</h2>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
@@ -531,7 +530,7 @@ function MissionVisionSection({ data, lang, ui }) {
               >
                 {card.icon}
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight mb-3" style={{ color: card.color }}>
+              <h3 className="text-xl sm:text-2xl font-semibold tracking-tight mb-3" style={{ color: card.color }}>
                 {card.title}
               </h3>
               <ul className="flex flex-col gap-1.5 list-none">
@@ -577,7 +576,7 @@ function Stats({ data, t }) {
       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#C9A227] z-10" />
       <div className="relative z-10 px-5 sm:px-10 md:px-16">
         <div className={`mb-7 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">{t.stats.title}</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.08] rounded-2xl overflow-hidden border border-white/[0.08]">
           {merged.map((s, i) => (

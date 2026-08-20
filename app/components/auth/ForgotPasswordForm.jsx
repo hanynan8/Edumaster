@@ -570,7 +570,7 @@ export default function ForgotPasswordForm({ onSwitch }) {
             {tx.changeEmail}
           </button>
         )}
-        <h2 className="text-xl sm:text-2xl font-black text-[#0a0a0a] tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-semibold text-[#0a0a0a] tracking-tight">
           {tx.title}
         </h2>
         <p className="text-sm text-gray-400 mt-1 font-medium">{forgotSubtitle}</p>

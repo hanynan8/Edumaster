@@ -82,7 +82,6 @@ export default function NotFound() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden flex items-center justify-center"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <div className="max-w-2xl w-full px-5 text-center">
           {/* Overline (same style as your Hero) */}
@@ -95,12 +94,12 @@ export default function NotFound() {
           </div>
 
           {/* Giant 404 */}
-          <h1 className="text-[120px] sm:text-[160px] md:text-[180px] font-black tracking-tighter leading-none text-[#C9A227] mb-2 animate-fadein-up">
+          <h1 className="text-[120px] sm:text-[160px] md:text-[180px] font-semibold tracking-tight leading-none text-[#C9A227] mb-2 animate-fadein-up">
             {t.title}
           </h1>
 
           {/* Subtitle */}
-          <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-6 animate-fadein-up">
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight mb-6 animate-fadein-up">
             {t.subtitle}
           </h2>
 

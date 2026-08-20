@@ -178,7 +178,7 @@ function UsersAdmin() {
     <div className="flex flex-col gap-6">
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <Users size={28} /> Registered Users
             <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{users.length}</span>
           </h2>
@@ -298,7 +298,7 @@ function UsersAdmin() {
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete this user?</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete this user?</h3>
             <p className="text-sm text-gray-500 mb-6">
               <span className="font-semibold">{confirmDelete.name}</span> ({confirmDelete.email}) will be permanently deleted. This action is logged and cannot be undone.
             </p>
@@ -349,7 +349,7 @@ function OnboardingDetailsModal({ user, onClose }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b-2 border-gray-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <ClipboardList size={20} className="text-blue-600" />
             Onboarding — {user.name}
           </h3>
@@ -466,7 +466,7 @@ function MembershipManageModal({ user, plans, actionError, saving, onClose, onSa
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <CreditCard size={20} className="text-blue-600" /> Manage Membership
           </h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
@@ -655,7 +655,7 @@ function AdminMfaPanel() {
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-        <h2 className="text-xl font-bold flex items-center gap-3 text-blue-900">
+        <h2 className="text-xl font-semibold flex items-center gap-3 text-blue-900">
           <Lock size={22} /> Two-Factor Authentication (MFA)
         </h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -771,7 +771,7 @@ function AuditLogPanel() {
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-        <h2 className="text-xl font-bold flex items-center gap-3 text-blue-900">
+        <h2 className="text-xl font-semibold flex items-center gap-3 text-blue-900">
           <FileText size={22} /> Audit Log
           <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{logs.length}</span>
         </h2>

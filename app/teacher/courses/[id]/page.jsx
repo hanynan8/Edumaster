@@ -110,7 +110,7 @@ export default function CourseEditorPage({ params }) {
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 mb-1">{course.title}</h1>
+          <h1 className="text-xl font-semibold text-gray-800 mb-1">{course.title}</h1>
           <p className="text-sm text-gray-400">{course.shortDescription}</p>
         </div>
         <button
@@ -123,7 +123,7 @@ export default function CourseEditorPage({ params }) {
 
       <CourseTabs courseId={id} active="content" />
 
-      <h2 className="text-lg font-bold text-gray-700 mb-4">محتوى الكورس</h2>
+      <h2 className="text-lg font-semibold text-gray-700 mb-4">محتوى الكورس</h2>
       <CourseTree
         sections={sections}
         onAddSection={() => setSectionModal(null)}

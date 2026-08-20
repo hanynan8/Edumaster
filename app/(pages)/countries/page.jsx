@@ -124,8 +124,7 @@ export default function CountriesPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <CountryFilter countries={allCountries} selectedId={selectedId} setSelectedId={setSelectedId} />
         {activeCountry && (
@@ -171,7 +170,7 @@ function HeroSection({ data, t }) {
       </div>
       <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
               return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
@@ -201,7 +200,7 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-24 sm:py-28 md:py-32">
           <div className={`transition-all duration-700 ${headerVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             <div className="mb-3 sm:mb-4">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">{country.name}</h2>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white tracking-tight">{country.name}</h2>
               <p className="text-gray-400 text-xs sm:text-sm font-medium mt-0.5">{country.tagline}</p>
             </div>
             <p className="text-gray-300 text-sm sm:text-[15px] max-w-2xl leading-relaxed">{country.desc}</p>
@@ -286,7 +285,7 @@ function SectionRow({ countryId, sectionKey, sectionData, content, meta, index, 
 
       {/* Content */}
       <div className={`flex flex-col justify-center px-5 sm:px-8 md:px-10 py-8 sm:py-12 lg:py-20 order-2 ${isEven ? "lg:order-2 bg-white" : "lg:order-1 bg-[#f7f7f7]"} transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-        <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight mb-3 sm:mb-4">{content.title}</h3>
+        <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight mb-3 sm:mb-4">{content.title}</h3>
         <p className="text-gray-500 text-sm sm:text-[15px] leading-relaxed mb-6 sm:mb-8">{content.desc}</p>
 
         {isUniversityList ? (
@@ -347,7 +346,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">{t.stats.title}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/8 rounded-2xl overflow-hidden border border-white/8">
           {data.stats.items.map((s, i) => (

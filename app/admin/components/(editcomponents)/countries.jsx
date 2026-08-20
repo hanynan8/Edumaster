@@ -175,7 +175,7 @@ export default function CountriesAdmin() {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-purple-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-purple-900">
             <Globe size={28} />
             Countries Page Configuration
           </h2>
@@ -230,7 +230,7 @@ export default function CountriesAdmin() {
         {/* Images & Media */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('images')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Image size={20} /> Images & Media
               <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
                  {selectedCountryId}
@@ -348,7 +348,7 @@ export default function CountriesAdmin() {
         {/* Stats Values (global) */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('stats')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <BarChart2 size={20} /> Stats Values
               <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
                 {(config.stats?.items || []).length}
@@ -381,7 +381,7 @@ export default function CountriesAdmin() {
         {/* Translations */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
               <span className="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{languages.length} langs</span>
               <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">

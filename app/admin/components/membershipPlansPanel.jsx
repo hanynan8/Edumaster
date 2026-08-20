@@ -203,7 +203,7 @@ function MembershipPlansAdmin() {
     <div className="flex flex-col gap-6">
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <Layers size={28} /> Membership Plans
             <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{plans.length}</span>
           </h2>
@@ -296,7 +296,7 @@ function MembershipPlansAdmin() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full my-8">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-gray-800">{isEditing ? 'Edit Plan' : 'New Plan'}</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{isEditing ? 'Edit Plan' : 'New Plan'}</h3>
               <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
                 <X size={20} />
               </button>
@@ -457,7 +457,7 @@ function MembershipPlansAdmin() {
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete this plan?</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete this plan?</h3>
             <p className="text-sm text-gray-500 mb-6">
               <span className="font-semibold">{confirmDelete.name}</span> will be permanently deleted. This is blocked
               if any user is currently subscribed to it.

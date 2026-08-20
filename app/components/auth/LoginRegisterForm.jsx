@@ -475,7 +475,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
   return (
     <>
       <div className="mb-6 sm:mb-7">
-        <h2 className="text-xl sm:text-2xl font-black text-[#0a0a0a] tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-semibold text-[#0a0a0a] tracking-tight">
           {tx.title}<span className="text-[#C9A227]">.</span>
         </h2>
         <p className="text-sm text-gray-400 mt-1 font-medium">{tx.subtitle}</p>

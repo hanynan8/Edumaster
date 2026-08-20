@@ -389,7 +389,6 @@ export default function Navbar() {
       <nav
         dir={isRTL ? "rtl" : "ltr"}
         className="sticky top-0 z-50 bg-white border-b border-gray-100"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         {/* Navbar bar — px-5 on mobile, px-16 on desktop */}
         <div className="mx-auto px-5 sm:px-8 md:px-16 h-[60px] sm:h-[68px] flex items-center justify-between gap-4">
@@ -403,7 +402,7 @@ export default function Navbar() {
                 className="h-12 w-12 sm:h-14 sm:w-14 md:h-14 md:w-14 object-cover rounded-full ring-2 ring-[#C9A227]/30"
               />
             )}
-            <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-[#C9A227]">
+            <span className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-[#C9A227]">
               {t.brand}
             </span>
           </Link>

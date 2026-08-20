@@ -115,7 +115,6 @@ export default function Footer() {
       <footer
         dir={isRTL ? "rtl" : "ltr"}
         className="bg-[#0a0a0a] text-white"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <div className="h-[3px] bg-[#C9A227]" />
 

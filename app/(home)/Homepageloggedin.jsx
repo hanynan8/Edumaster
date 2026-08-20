@@ -190,7 +190,6 @@ export default function HomePageLoggedIn() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         {/* 1) WELCOME SECTION — replaces the Hero */}
         <WelcomeSection user={user} role={role} ui={ui} isRTL={isRTL} />
@@ -243,7 +242,7 @@ function WelcomeSection({ user, role, ui, isRTL }) {
 
           {/* Info */}
           <div className="min-w-0 flex-1">
-            <h1 className="font-black tracking-tight text-white text-2xl sm:text-3xl md:text-4xl leading-tight animate-fadein-up">
+            <h1 className="font-semibold tracking-tight text-white text-2xl sm:text-3xl md:text-4xl leading-tight animate-fadein-up">
               {ui.welcomeBack(name)}
             </h1>
             <p className="text-gray-300 text-sm sm:text-base mt-2 animate-fadein-up2">{subtitle}</p>

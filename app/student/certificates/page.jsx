@@ -92,7 +92,7 @@ function CertificateCard({ cert, t, isRTL }) {
         <Award className="text-white relative z-10" size={40} />
       </div>
       <div className="p-4">
-        <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-1">{cert.courseTitle || "—"}</h3>
+        <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-1">{cert.courseTitle || "—"}</h3>
         <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
           <Calendar size={13} /> {t.issuedOn(new Date(cert.issuedAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US"))}
         </div>
@@ -140,7 +140,7 @@ export default function StudentCertificatesPage() {
   }, []);
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
           <Link href="/student" className="hover:text-gray-700 flex items-center gap-1.5">
@@ -155,7 +155,7 @@ export default function StudentCertificatesPage() {
             <Award className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">{t.title}</h1>
+            <h1 className="text-2xl font-semibold text-gray-800">{t.title}</h1>
             <p className="text-sm text-gray-400">{t.subtitle}</p>
           </div>
         </div>

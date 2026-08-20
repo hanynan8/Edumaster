@@ -77,7 +77,6 @@ export default function VerifyCertificatePage({ params }) {
     <div
       dir={isRTL ? "rtl" : "ltr"}
       className="min-h-screen bg-[#f7f7f7] py-14 px-4"
-      style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
     >
       <div className="max-w-lg mx-auto">
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -96,7 +95,7 @@ export default function VerifyCertificatePage({ params }) {
               )}
             </div>
 
-            <h1 className="text-xl font-black text-gray-800 mb-1">
+            <h1 className="text-xl font-semibold text-gray-800 mb-1">
               {isValid ? t.validTitle : t.invalidTitle}
             </h1>
             <p className="text-sm text-gray-400 mb-6">

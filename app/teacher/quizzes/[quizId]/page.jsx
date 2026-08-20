@@ -72,7 +72,7 @@ export default function QuizQuestionsPage({ params }) {
       </Link>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
-        <h1 className="text-xl font-bold text-gray-800 mb-1">{quiz.title}</h1>
+        <h1 className="text-xl font-semibold text-gray-800 mb-1">{quiz.title}</h1>
         {quiz.description && <p className="text-sm text-gray-400">{quiz.description}</p>}
         {!quiz.isPublished && (
           <p className="text-xs text-amber-600 bg-amber-50 inline-block px-2.5 py-1 rounded-full mt-3">
@@ -82,7 +82,7 @@ export default function QuizQuestionsPage({ params }) {
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-700">الأسئلة ({quiz.questions.length})</h2>
+        <h2 className="text-lg font-semibold text-gray-700">الأسئلة ({quiz.questions.length})</h2>
         <button
           onClick={() => setModal(null)}
           className="flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700"

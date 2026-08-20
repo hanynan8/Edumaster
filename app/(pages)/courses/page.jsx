@@ -376,7 +376,6 @@ export default function CoursesPage() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-[#f7f7f8] text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <HeroSearchSection t={t} search={search} setSearch={setSearch} />
 
@@ -433,7 +432,7 @@ function HeroSearchSection({ t, search, setSearch }) {
         <span className="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/70 mb-3 animate-fadein">
           {t.badge}
         </span>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white max-w-2xl mb-3 leading-[1.15] animate-fadein-up">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white max-w-2xl mb-3 leading-[1.15] animate-fadein-up">
           {t.headline}
         </h1>
         <p className="text-white/70 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-7 sm:mb-8 animate-fadein-up2">
@@ -498,7 +497,7 @@ function CourseCard({ course, t }) {
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#1D6FD8]">{course.categoryName}</span>
         )}
 
-        <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 leading-snug line-clamp-2 min-h-[2.5em]">
+        <h3 className="text-sm sm:text-[15px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5em]">
           {course.title}
         </h3>
 

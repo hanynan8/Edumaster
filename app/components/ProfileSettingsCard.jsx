@@ -290,7 +290,6 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
         dir={isRTL ? "rtl" : "ltr"}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl w-full max-w-md p-6 relative"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <button
           onClick={onClose}
@@ -300,7 +299,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
           <X size={18} />
         </button>
 
-        <h2 className="text-lg font-black text-gray-800 mb-1">{t.profileModalTitle}</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">{t.profileModalTitle}</h2>
         <p className="text-xs text-gray-400 mb-5">{t.profileModalSubtitle}</p>
 
         <div className="flex flex-col items-center mb-6">

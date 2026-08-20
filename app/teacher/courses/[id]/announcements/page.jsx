@@ -93,7 +93,7 @@ export default function CourseAnnouncementsPage({ params }) {
 
       <CourseTabs courseId={id} active="announcements" />
 
-      <h1 className="text-xl font-bold text-gray-800 mb-1">إعلانات الكورس</h1>
+      <h1 className="text-xl font-semibold text-gray-800 mb-1">إعلانات الكورس</h1>
       <p className="text-sm text-gray-400 mb-6">
         أي إعلان تنشره هنا هيوصل فورًا كإشعار داخلي لكل طالب مسجّل فعليًا في الكورس ده.
       </p>
@@ -143,7 +143,7 @@ export default function CourseAnnouncementsPage({ params }) {
               className="bg-white rounded-2xl border border-gray-200 p-4 flex items-start justify-between gap-4"
             >
               <div className="min-w-0">
-                <h3 className="font-bold text-gray-800">{a.title}</h3>
+                <h3 className="font-semibold text-gray-800">{a.title}</h3>
                 <p className="text-sm text-gray-500 mt-1 whitespace-pre-line">{a.body}</p>
                 <p className="text-[11px] text-gray-400 mt-2">{formatDateTime(a.createdAt)}</p>
               </div>

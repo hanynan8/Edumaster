@@ -65,7 +65,7 @@ export default function CourseAssignmentsPage({ params }) {
       <CourseTabs courseId={id} active="assignments" />
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">الواجبات</h1>
+        <h1 className="text-xl font-semibold text-gray-800">الواجبات</h1>
         <button
           onClick={() => setModal(null)}
           className="flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700"
@@ -90,7 +90,7 @@ export default function CourseAssignmentsPage({ params }) {
             <div key={a.id} className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-gray-800 truncate">{a.title}</h3>
+                  <h3 className="font-semibold text-gray-800 truncate">{a.title}</h3>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                       a.isPublished ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"

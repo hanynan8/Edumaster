@@ -156,7 +156,7 @@ export default function BlogAdmin() {
       {/* ── Header ── */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-orange-50 to-rose-50">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-orange-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-orange-900">
             <BookOpen size={28} /> Blog Page Configuration
           </h2>
           <div className="flex gap-3">
@@ -630,7 +630,7 @@ function CollapsibleCard({ title, icon, badge, open, onToggle, color = 'orange',
   return (
     <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
       <div className="flex justify-between items-center cursor-pointer" onClick={onToggle}>
-        <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+        <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
           {icon} {title}
           {badge !== null && badge !== undefined && (
             <span className={`text-sm bg-${color}-100 text-${color}-700 px-2 py-0.5 rounded-full`}>{badge}</span>

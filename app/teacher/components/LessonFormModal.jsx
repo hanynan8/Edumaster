@@ -70,7 +70,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl">
-          <h3 className="text-lg font-bold text-gray-800">{isEdit ? "تعديل الدرس" : "درس جديد"}</h3>
+          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? "تعديل الدرس" : "درس جديد"}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
           </button>

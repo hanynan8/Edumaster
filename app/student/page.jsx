@@ -487,7 +487,6 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
         dir={isRTL ? "rtl" : "ltr"}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl w-full max-w-md p-6 relative"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <button
           onClick={onClose}
@@ -497,7 +496,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
           <X size={18} />
         </button>
 
-        <h2 className="text-lg font-black text-gray-800 mb-1">{t.profileModalTitle}</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">{t.profileModalTitle}</h2>
         <p className="text-xs text-gray-400 mb-5">{t.profileModalSubtitle}</p>
 
         {/* الصورة */}
@@ -645,7 +644,7 @@ export default function StudentMyCoursesPage() {
   }, []);
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-3">
@@ -653,7 +652,7 @@ export default function StudentMyCoursesPage() {
               <BookOpen className="text-white" size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">{t.title}</h1>
+              <h1 className="text-2xl font-semibold text-gray-800">{t.title}</h1>
               <p className="text-sm text-gray-400">{t.subtitle}</p>
             </div>
           </div>
@@ -722,7 +721,7 @@ export default function StudentMyCoursesPage() {
                   </span>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-[#1D6FD8] transition-colors">
+                  <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2 group-hover:text-[#1D6FD8] transition-colors">
                     {e.courseTitle || "—"}
                   </h3>
                   <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">

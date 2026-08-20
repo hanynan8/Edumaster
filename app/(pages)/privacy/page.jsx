@@ -72,7 +72,6 @@ export default function PrivacyPage() {
       <div
         dir={isRTL ? "rtl" : "ltr"}
         className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <PageHeader t={t} />
         <CompanyInfo t={t} />
@@ -89,7 +88,7 @@ function PageHeader({ t }) {
   return (
     <section className="relative overflow-hidden bg-[#1E3561]">
       <div className="w-full px-5 sm:px-10 md:px-16 py-12 sm:py-20 md:py-28">
-        <h1 className="font-black tracking-tighter mb-3 sm:mb-4 leading-[1.1] text-white animate-fadein-up text-2xl sm:text-4xl md:text-5xl">
+        <h1 className="font-semibold tracking-tight mb-3 sm:mb-4 leading-[1.1] text-white animate-fadein-up text-2xl sm:text-4xl md:text-5xl">
           {t.pageTitle}
         </h1>
         <p className="text-gray-300 text-sm sm:text-base animate-fadein-up2">
@@ -110,7 +109,7 @@ function CompanyInfo({ t }) {
     <section ref={ref} className="py-10 sm:py-16 md:py-20 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-10 md:px-16">
         <h2
-          className={`text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight mb-5 sm:mb-8 transition-all duration-700 ${
+          className={`text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight mb-5 sm:mb-8 transition-all duration-700 ${
             visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -165,7 +164,7 @@ function SectionBlock({ section }) {
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
       }`}
     >
-      <h3 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight leading-tight mb-3 sm:mb-5">
+      <h3 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight leading-tight mb-3 sm:mb-5">
         {section.title}
       </h3>
 

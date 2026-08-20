@@ -148,9 +148,9 @@ export default function MembershipPage() {
   }
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       <section className="bg-[#0a0a0a] text-white text-center py-14 px-4">
-        <h1 className="text-3xl sm:text-4xl font-black mb-3">{t.title}</h1>
+        <h1 className="text-3xl sm:text-4xl font-semibold mb-3">{t.title}</h1>
         <p className="text-gray-300">{t.subtitle}</p>
       </section>
 
@@ -191,7 +191,7 @@ export default function MembershipPage() {
                   <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mb-4">
                     <Crown size={18} className="text-amber-500" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
                   {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
 
                   <p className="text-2xl font-black text-gray-900 mb-1">

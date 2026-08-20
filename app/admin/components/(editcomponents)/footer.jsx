@@ -282,7 +282,7 @@ export default function FooterAdmin() {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <FileText size={28} />
             Footer Configuration
           </h2>
@@ -319,7 +319,7 @@ export default function FooterAdmin() {
         {/* Contact Information */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('contact')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <FileText size={22} /> Contact Information
             </h3>
             {expandedSections.contact ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
@@ -345,7 +345,7 @@ export default function FooterAdmin() {
         {/* Social Media */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('socials')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Link2 size={22} /> Social Media <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">{config.socials?.length || 0}</span>
             </h3>
             {expandedSections.socials ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
@@ -367,7 +367,7 @@ export default function FooterAdmin() {
         {/* Quick Links */}
         {/* <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('quickLinks')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Link2 size={22} /> Quick Links <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">{config.quickLinks?.length || 0}</span>
             </h3>
             {expandedSections.quickLinks ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
@@ -389,7 +389,7 @@ export default function FooterAdmin() {
         {/* Legal Links
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('legalLinks')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Link2 size={22} /> Legal Links <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">{config.legalLinks?.length || 0}</span>
             </h3>
             {expandedSections.legalLinks ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
@@ -411,7 +411,7 @@ export default function FooterAdmin() {
         {/* Languages
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('languages')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Globe size={22} /> Languages <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">{config.languages?.length || 0}</span>
             </h3>
             {expandedSections.languages ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
@@ -434,7 +434,7 @@ export default function FooterAdmin() {
         {/* Translations */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Languages size={22} /> Translations
             </h3>
             {expandedSections.translations ? <ChevronUp size={22} /> : <ChevronDown size={22} />}

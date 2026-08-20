@@ -99,7 +99,6 @@ export default function ReceiptPage({ params }) {
     <div
       dir={isRTL ? "rtl" : "ltr"}
       className="min-h-screen bg-[#f7f7f7] py-10 px-4"
-      style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
     >
       <div className="max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-4 print:hidden">
@@ -117,7 +116,7 @@ export default function ReceiptPage({ params }) {
         <div className="bg-white rounded-2xl border border-gray-100 p-8">
           <div className="flex items-center justify-between border-b border-gray-100 pb-6 mb-6">
             <div>
-              <h1 className="text-lg font-black text-gray-800">EduMaster</h1>
+              <h1 className="text-lg font-semibold text-gray-800">EduMaster</h1>
               <p className="text-xs text-gray-400 mt-1">{t.title}</p>
             </div>
             <span

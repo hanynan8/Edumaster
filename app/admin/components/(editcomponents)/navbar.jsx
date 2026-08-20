@@ -229,7 +229,7 @@ export default function NavbarAdmin() {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <Navigation size={28} />
             Navbar Configuration
           </h2>
@@ -265,7 +265,7 @@ export default function NavbarAdmin() {
       <div className="p-6 space-y-8">
         {/* ==================== Basic Settings ==================== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
-          <h3 className="text-xl font-bold mb-5 flex items-center gap-2">
+          <h3 className="text-xl font-semibold mb-5 flex items-center gap-2">
             <FileText size={22} /> Basic Settings
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -288,7 +288,7 @@ export default function NavbarAdmin() {
         {/* ==================== Translations ==================== */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
               <Languages size={22} /> Translations
             </h3>
             {expandedSections.translations ? <ChevronUp size={22} /> : <ChevronDown size={22} />}

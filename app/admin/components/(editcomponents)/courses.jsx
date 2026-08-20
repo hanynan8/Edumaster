@@ -127,7 +127,7 @@ export default function CoursesAdmin() {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <BookOpen size={28} />
             Courses Page Configuration
           </h2>
@@ -165,7 +165,7 @@ export default function CoursesAdmin() {
         {/* Images & Media */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('images')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Image size={20} /> Images & Media
             </h3>
             {expandedSections.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -209,7 +209,7 @@ export default function CoursesAdmin() {
         {/* Courses Static Data */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('courses')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Tag size={20} /> Courses — Static Data
               <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                 {(config.courses || []).length}
@@ -388,7 +388,7 @@ export default function CoursesAdmin() {
         {/* Translations */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
               <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{languages.length} langs</span>
             </h3>

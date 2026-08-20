@@ -638,7 +638,7 @@ const GOAL_BLUE = "#155DFC";
 function StepGoal({ t, goal, setGoal, displayName }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black text-[#0a0a0a] text-center tracking-tight">
+      <h1 className="text-2xl sm:text-3xl font-semibold text-[#0a0a0a] text-center tracking-tight">
         {t.step1Hello(displayName || "")}
       </h1>
       {/* 🆕 الساب تايتل بقى أتقل شوية (font-semibold بدل font-medium)،
@@ -690,7 +690,7 @@ function StepRole({
 }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black text-[#0a0a0a] text-center tracking-tight mb-7">
+      <h1 className="text-2xl sm:text-3xl font-semibold text-[#0a0a0a] text-center tracking-tight mb-7">
         {t.step2Title}
       </h1>
 
@@ -762,7 +762,7 @@ function StepSkills({
 }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black text-[#0a0a0a] text-center tracking-tight">
+      <h1 className="text-2xl sm:text-3xl font-semibold text-[#0a0a0a] text-center tracking-tight">
         {t.step3Title}
       </h1>
       <p className="text-gray-400 text-sm font-medium text-center mt-2 mb-7">{t.step3Subtitle}</p>
@@ -812,7 +812,7 @@ function StepSkills({
 function StepEducation({ t, educationLevel, setEducationLevel }) {
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-black text-[#0a0a0a] text-center tracking-tight mb-8">
+      <h1 className="text-2xl sm:text-3xl font-semibold text-[#0a0a0a] text-center tracking-tight mb-8">
         {t.step4Title}
       </h1>
 

@@ -62,8 +62,7 @@ export default function BlogsPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <BlogHero data={data} t={t} />
         <CategoryFilter data={data} t={t} active={activeCategory} setActive={setActiveCategory} />
         {activeCategory === "all" && featuredPost && <FeaturedPost post={featuredPost} t={t} lang={lang} />}
@@ -85,7 +84,7 @@ function BlogHero({ data, t }) {
       <div className="relative z-10 w-full px-5 pt-16 pb-12 sm:px-8 md:px-6 sm:pt-0 sm:pb-0 md:pt-0 md:pb-0">
         <div className="max-w-7xl mx-auto">
 
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
               const black = words.slice(0, 2).join(" ");
@@ -142,7 +141,7 @@ function FeaturedPost({ post, t, lang }) {
               <span className="w-1 h-1 rounded-full bg-gray-300" />
               <span className="text-xs text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-4 sm:mb-5 group-hover:text-[#1D6FD8] transition-colors duration-200">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-4 sm:mb-5 group-hover:text-[#1D6FD8] transition-colors duration-200">
               {postT.title}
             </h2>
             <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-6 sm:mb-8">{postT.excerpt}</p>
@@ -193,7 +192,7 @@ function PostCard({ post, t, lang, visible, delay }) {
           <span className="w-0.5 h-0.5 rounded-full bg-gray-300" />
           <span className="text-[11px] text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
         </div>
-        <h3 className="font-black text-[#0a0a0a] text-sm sm:text-base leading-snug group-hover:text-[#1D6FD8] transition-colors duration-150">{postT.title}</h3>
+        <h3 className="font-semibold text-[#0a0a0a] text-sm sm:text-base leading-snug group-hover:text-[#1D6FD8] transition-colors duration-150">{postT.title}</h3>
         <p className="text-gray-500 text-xs sm:text-sm leading-relaxed flex-1 line-clamp-3">{postT.excerpt}</p>
         <div className="flex items-center gap-1 text-xs font-bold text-[#1D6FD8] mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200">
           {t.readMore} <ArrowRight size={12} />
@@ -215,7 +214,7 @@ function Newsletter({ data, t }) {
       </div>
       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
       <div className={`relative z-10 max-w-2xl mx-auto text-center transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.newsletter.title}</h2>
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.newsletter.title}</h2>
         <p className="text-gray-400 text-sm sm:text-base mb-8 sm:mb-10">{t.newsletter.subtitle}</p>
         {submitted ? (
           <div className="flex items-center justify-center gap-3 text-[#1D6FD8] font-bold text-lg">

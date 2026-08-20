@@ -253,7 +253,6 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl w-full max-w-md p-6 relative"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         <button
           onClick={onClose}
@@ -263,7 +262,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
           <X size={18} />
         </button>
 
-        <h2 className="text-lg font-black text-gray-800 mb-1">الملف الشخصي</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">الملف الشخصي</h2>
         <p className="text-xs text-gray-400 mb-5">عدّل بياناتك الشخصية</p>
 
         {/* الصورة */}
@@ -463,7 +462,7 @@ export default function TeacherCoursesPage() {
             <GraduationCap className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">كورساتي</h1>
+            <h1 className="text-2xl font-semibold text-gray-800">كورساتي</h1>
             <p className="text-sm text-gray-400">إدارة الكورسات اللي إنت بتدرّسها</p>
           </div>
         </div>

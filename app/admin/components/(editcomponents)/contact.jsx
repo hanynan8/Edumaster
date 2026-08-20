@@ -127,7 +127,7 @@ export default function ContactAdmin() {
       {/* ── Header ── */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-teal-50 to-cyan-50">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-teal-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-teal-900">
             <MessageSquare size={28} /> Contact Page Configuration
           </h2>
           <div className="flex gap-3">
@@ -169,7 +169,7 @@ export default function ContactAdmin() {
             className="flex justify-between items-center cursor-pointer"
             onClick={() => toggleSection('contact')}
           >
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Settings size={20} /> Global Contact Settings
             </h3>
             {expandedSections.contact ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -255,7 +255,7 @@ export default function ContactAdmin() {
             className="flex justify-between items-center cursor-pointer"
             onClick={() => toggleSection('translations')}
           >
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
               <span className="text-sm bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
                 {languages.length} langs

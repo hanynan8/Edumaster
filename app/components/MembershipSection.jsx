@@ -187,7 +187,7 @@ export default function MembershipSection() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`max-w-2xl mx-auto text-center mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <Label text={t.label} visible={visible} />
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-3">{t.title}</h2>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-3">{t.title}</h2>
           <p className="text-gray-500 text-sm sm:text-base leading-relaxed">{t.subtitle}</p>
         </div>
 
@@ -241,7 +241,7 @@ export default function MembershipSection() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#1D6FD8]/10" : "bg-amber-50"}`}>
                       <Crown size={18} className={isFeatured || isCurrent ? "text-[#1D6FD8]" : "text-amber-500"} />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
                     {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
 
                     <p className="text-2xl font-black text-gray-900 mb-1">

@@ -36,13 +36,12 @@ export default function PaymentFailedPage({ searchParams }) {
     <div
       dir={isRTL ? "rtl" : "ltr"}
       className="min-h-screen bg-[#f7f7f7] flex items-center justify-center px-4 py-16"
-      style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
     >
       <div className="max-w-md w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
           <XCircle className="text-red-400" size={32} />
         </div>
-        <h1 className="text-xl font-black text-gray-800 mb-2">{t.title}</h1>
+        <h1 className="text-xl font-semibold text-gray-800 mb-2">{t.title}</h1>
         {reasonText && <p className="text-sm text-gray-400 mb-6">{reasonText}</p>}
 
         <div className="flex flex-col gap-2.5">

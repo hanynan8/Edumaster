@@ -196,7 +196,7 @@ export default function CategoriesAdmin() {
   return (
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6 sm:p-8" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6 pb-4 border-b border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
           <Tags size={22} className="text-blue-500" /> تصنيفات الكورسات
         </h2>
         <button

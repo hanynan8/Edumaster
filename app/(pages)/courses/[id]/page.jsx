@@ -536,7 +536,7 @@ function RealCourseDetail({ id }) {
   if (notFound) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-        <h1 className="text-2xl font-bold text-gray-700 mb-2">404</h1>
+        <h1 className="text-2xl font-semibold text-gray-700 mb-2">404</h1>
         <p className="text-gray-400 mb-6">{t.error}</p>
         <Link href="/courses" className="text-[#1D6FD8] font-semibold hover:underline">{t.back}</Link>
       </div>
@@ -575,7 +575,7 @@ function RealCourseDetail({ id }) {
   };
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       {/* Hero */}
       <section className="relative bg-[#0a0a0a] text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
@@ -590,7 +590,7 @@ function RealCourseDetail({ id }) {
                   {loc.categoryName}
                 </span>
               )}
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-3">{loc.title}</h1>
+              <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight leading-tight mb-3">{loc.title}</h1>
               {loc.shortDescription && (
                 <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-5">{loc.shortDescription}</p>
               )}
@@ -661,7 +661,7 @@ function RealCourseDetail({ id }) {
             )}
 
             <div>
-              <h2 className="text-lg font-bold text-gray-800 mb-4">{t.content}</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">{t.content}</h2>
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 {sections.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-10">{t.noSections}</p>
@@ -669,7 +669,7 @@ function RealCourseDetail({ id }) {
                 {sections.map((section) => (
                   <div key={section.id} className="border-b border-gray-100 last:border-0">
                     <div className="px-4 sm:px-5 py-3 bg-gray-50/70">
-                      <h3 className="text-sm font-bold text-gray-700">{section.title}</h3>
+                      <h3 className="text-sm font-semibold text-gray-700">{section.title}</h3>
                     </div>
                     {section.lessons.map((lesson) => (
                       <LessonRow
@@ -696,7 +696,7 @@ function RealCourseDetail({ id }) {
             {isEnrolled && !isOwner && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-gray-800">{t.progressTitle}</h3>
+                  <h3 className="text-sm font-semibold text-gray-800">{t.progressTitle}</h3>
                   <span className="text-sm font-black text-[#1D6FD8]">
                     {enrollment?.enrollment?.progressPercent ?? 0}%
                   </span>
@@ -724,7 +724,7 @@ function RealCourseDetail({ id }) {
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 {quizzes.length > 0 && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-3">{t.quizzesTitle}</h3>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.quizzesTitle}</h3>
                     <ul className="space-y-2">
                       {quizzes.map((q) => (
                         <li key={q.id}>
@@ -742,7 +742,7 @@ function RealCourseDetail({ id }) {
                 )}
                 {assignments.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-bold text-gray-800 mb-3">{t.assignmentsTitle}</h3>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.assignmentsTitle}</h3>
                     <ul className="space-y-2">
                       {assignments.map((a) => (
                         <li key={a.id}>
@@ -769,7 +769,7 @@ function RealCourseDetail({ id }) {
 
             {course.outcomes?.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">{t.outcomes}</h3>
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.outcomes}</h3>
                 <ul className="space-y-2">
                   {course.outcomes.map((o, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
@@ -781,7 +781,7 @@ function RealCourseDetail({ id }) {
             )}
             {course.requirements?.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">{t.requirements}</h3>
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.requirements}</h3>
                 <ul className="space-y-2 list-disc ps-5">
                   {course.requirements.map((r, i) => (
                     <li key={i} className="text-sm text-gray-600">{r}</li>

@@ -274,7 +274,7 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
       <div className="p-4 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <Inbox size={28} /> Form Submissions
             <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{submissions.length}</span>
           </h2>
@@ -300,7 +300,7 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
             <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={26} className="text-red-500" />
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete this message?</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete this message?</h3>
             <p className="text-sm text-gray-500 mb-6">
               This will permanently delete the message from{' '}
               <span className="font-semibold text-gray-700">{confirmTarget.name || 'this contact'}</span>.
@@ -327,7 +327,7 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Submission Details</h3>
+              <h3 className="text-xl font-semibold text-gray-800">Submission Details</h3>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
             <div className="flex flex-col gap-4">

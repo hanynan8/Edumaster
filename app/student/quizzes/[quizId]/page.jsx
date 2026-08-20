@@ -155,7 +155,7 @@ export default function TakeQuizPage({ params }) {
           )}
         </div>
 
-        <h2 className="text-lg font-bold text-gray-700 mb-4">مراجعة إجاباتك</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">مراجعة إجاباتك</h2>
         <div className="space-y-3 mb-8">
           {quiz.questions.map((q, idx) => {
             const a = answerByQuestion[q.id];
@@ -220,7 +220,7 @@ export default function TakeQuizPage({ params }) {
         </Link>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
-          <h1 className="text-xl font-bold text-gray-800 mb-2">{quiz.title}</h1>
+          <h1 className="text-xl font-semibold text-gray-800 mb-2">{quiz.title}</h1>
           {quiz.description && <p className="text-sm text-gray-500 mb-4">{quiz.description}</p>}
 
           <div className="flex items-center justify-center flex-wrap gap-4 text-xs text-gray-500 mb-6">
@@ -266,7 +266,7 @@ export default function TakeQuizPage({ params }) {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 pb-28">
       <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#f7f7f7] py-3 z-10">
-        <h1 className="text-lg font-bold text-gray-800 truncate">{quiz.title}</h1>
+        <h1 className="text-lg font-semibold text-gray-800 truncate">{quiz.title}</h1>
         {secondsLeft !== null && (
           <span
             className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full shrink-0 ${

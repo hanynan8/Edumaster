@@ -53,7 +53,7 @@ export default function CourseAnnouncements({ courseId }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
-      <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
         <Megaphone size={15} className="text-[#1D6FD8]" /> {t.title}
       </h3>
       <div className="space-y-4 max-h-80 overflow-y-auto">

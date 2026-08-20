@@ -38,7 +38,7 @@ export default function SectionFormModal({ courseId, section, onClose, onSaved }
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-bold text-gray-800">{isEdit ? "تعديل القسم" : "قسم جديد"}</h3>
+          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? "تعديل القسم" : "قسم جديد"}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
           </button>

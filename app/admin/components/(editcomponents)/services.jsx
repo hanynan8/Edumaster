@@ -457,7 +457,7 @@ if (data) {
       {/* Header */}
       <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold flex items-center gap-3 text-blue-900">
+          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
             <Settings size={28} />
             Services Page Configuration
           </h2>
@@ -494,7 +494,7 @@ if (data) {
         {/* Hero Section */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('hero')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Image size={20} /> Hero Section Background
             </h3>
             {expandedSections.hero ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -519,7 +519,7 @@ if (data) {
         {/* Services List Management */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('services')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Link2 size={20} /> Services
               <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{(config.services || []).length}</span>
             </h3>
@@ -582,7 +582,7 @@ if (data) {
         {/* Stats Section */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('stats')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <TrendingUp size={20} /> Statistics Section
             </h3>
             {expandedSections.stats ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -626,7 +626,7 @@ if (data) {
         {/* Translations */}
         <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200">
           <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleSection('translations')}>
-            <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-gray-800">
               <Languages size={20} /> Translations
             </h3>
             {expandedSections.translations ? <ChevronUp size={20} /> : <ChevronDown size={20} />}

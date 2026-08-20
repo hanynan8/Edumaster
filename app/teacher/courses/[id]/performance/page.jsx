@@ -84,7 +84,7 @@ export default function CoursePerformancePage({ params }) {
       <CourseTabs courseId={id} active="performance" />
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">أداء الطلاب</h1>
+        <h1 className="text-xl font-semibold text-gray-800">أداء الطلاب</h1>
         <span className="flex items-center gap-1.5 text-sm text-gray-400">
           <Users size={15} /> {data.students.length} طالب
         </span>

@@ -187,7 +187,7 @@ export default function CoursesSection({
         >
           <div>
             {showLabel && ui.coursesLabel && <Label text={ui.coursesLabel} visible={visible} />}
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
               {ui.coursesTitle}
             </h2>
             <p className="text-gray-500 text-sm mt-2 max-w-md">{ui.coursesSubtitle}</p>
@@ -291,7 +291,7 @@ function CourseCard({ course, ui, visible, delay }) {
         {course.categoryName && (
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#C9A227]">{course.categoryName}</span>
         )}
-        <h3 className="font-black text-[#0a0a0a] text-sm leading-snug line-clamp-2 min-h-[2.4em] group-hover:text-[#C9A227] transition-colors duration-150">
+        <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug line-clamp-2 min-h-[2.4em] group-hover:text-[#C9A227] transition-colors duration-150">
           {course.title}
         </h3>
         {course.teacherName && <p className="text-xs text-gray-400">{ui.by} {course.teacherName}</p>}

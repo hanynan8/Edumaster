@@ -56,8 +56,7 @@ export default function ContactPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <ContactHero data={data} t={t} />
         <ContactMain data={data} t={t} />
       </div>
@@ -76,7 +75,7 @@ function ContactHero({ data, t }) {
       </div>
       <div className="relative z-10 w-full px-5 sm:px-8 md:px-6 pb-12 sm:pb-16 md:pb-20 pt-24 sm:pt-28 md:pt-32">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.92] tracking-tighter text-white max-w-2xl mb-4 sm:mb-5 animate-fadein-up">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-semibold leading-[0.92] tracking-tight text-white max-w-2xl mb-4 sm:mb-5 animate-fadein-up">
             {t.hero.headline.split(",").map((chunk, i, arr) =>
               i === arr.length - 1
                 ? <span key={i} className="text-white">{chunk}</span>
@@ -100,7 +99,7 @@ function ContactMain({ data, t }) {
     <section ref={ref} className="py-16 sm:py-20 md:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6 grid lg:grid-cols-2 gap-12 md:gap-14 lg:gap-16 items-start">
         <div>
-          <h2 className={`text-3xl sm:text-4xl font-black tracking-tight leading-tight mb-8 sm:mb-10 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+          <h2 className={`text-3xl sm:text-4xl font-semibold tracking-tight leading-tight mb-8 sm:mb-10 transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             {t.info.title}
           </h2>
           <div className="flex flex-col gap-4 sm:gap-5">
@@ -194,13 +193,13 @@ function ConsultationForm({ data, t, visible }) {
 
   return (
     <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-6 sm:mb-8">{t.form.title}</h2>
+      <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-6 sm:mb-8">{t.form.title}</h2>
       {status === "sent" ? (
         <div className="p-8 sm:p-10 rounded-2xl bg-[#1D6FD8]/5 border border-[#1D6FD8]/20 flex flex-col items-center text-center gap-4">
           <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1D6FD8] flex items-center justify-center">
             <Check size={22} color="white" />
           </span>
-          <h3 className="font-black text-lg sm:text-xl">{t.form.successTitle}</h3>
+          <h3 className="font-semibold text-lg sm:text-xl">{t.form.successTitle}</h3>
           <p className="text-gray-500 text-sm max-w-xs">{t.form.successMsg}</p>
         </div>
       ) : (

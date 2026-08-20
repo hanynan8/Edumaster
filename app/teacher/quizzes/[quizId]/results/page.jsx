@@ -39,7 +39,7 @@ export default function QuizResultsPage({ params }) {
         <ArrowRight size={15} /> رجوع لأسئلة الكويز
       </Link>
 
-      <h1 className="text-xl font-bold text-gray-800 mb-1">نتائج: {data.quizTitle}</h1>
+      <h1 className="text-xl font-semibold text-gray-800 mb-1">نتائج: {data.quizTitle}</h1>
       <p className="text-sm text-gray-400 mb-6">{data.courseTitle}</p>
 
       <div className="grid grid-cols-2 gap-4 mb-8">

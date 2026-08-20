@@ -140,7 +140,7 @@ export default function TeacherPerformancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f7f7]" style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+    <div className="min-h-screen bg-[#f7f7f7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
           <Link href="/teacher" className="hover:text-gray-700 flex items-center gap-1.5">
@@ -156,7 +156,7 @@ export default function TeacherPerformancePage() {
               <BarChart3 className="text-white" size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Course Performance</h1>
+              <h1 className="text-2xl font-semibold text-gray-800">Course Performance</h1>
               <p className="text-sm text-gray-400">Students, completion rate, and average grades across all your courses</p>
             </div>
           </div>
@@ -195,7 +195,7 @@ export default function TeacherPerformancePage() {
           <>
             {/* مقارنة بصرية سريعة بين الكورسات — Completion Rate */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-              <h3 className="text-sm font-bold text-gray-700 mb-5 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-700 mb-5 flex items-center gap-2">
                 <TrendingUp size={16} className="text-[#1D6FD8]" /> Completion Rate by Course
               </h3>
               <div className="space-y-4">

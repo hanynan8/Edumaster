@@ -1,10 +1,15 @@
-import { Rubik, Geist_Mono } from "next/font/google";
+import { Cairo, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./components/Providers";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
 
-const rubik = Rubik({ variable: "--font-rubik-sans", subsets: ["latin"] });
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
+});
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -116,7 +121,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${rubik.className} ${geistMono.variable} antialiased`}
+        className={`${cairo.className} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <Providers>

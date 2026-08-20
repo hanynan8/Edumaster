@@ -115,7 +115,7 @@ export default function AssignmentSubmissionsPage({ params }) {
         <ArrowRight size={15} /> رجوع لكورساتي
       </Link>
 
-      <h1 className="text-xl font-bold text-gray-800 mb-1">تسليمات: {data.assignmentTitle}</h1>
+      <h1 className="text-xl font-semibold text-gray-800 mb-1">تسليمات: {data.assignmentTitle}</h1>
       <p className="text-sm text-gray-400 mb-8">{data.courseTitle} · الدرجة الكاملة {data.maxScore}</p>
 
       {data.submissions.length === 0 ? (

@@ -64,8 +64,7 @@ export default function SuccessStoriesPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <StatsStrip data={data} t={t} />
         <Testimonials data={data} t={t} />
@@ -87,7 +86,7 @@ function HeroSection({ data, t }) {
       </div>
       <div className="relative z-10 w-full px-5 sm:px-8 md:px-6 pb-12 sm:pb-16 md:pb-20 pt-24 sm:pt-30 md:pt-36">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
               return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
@@ -126,7 +125,7 @@ function Testimonials({ data, t }) {
     <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-white">
       <div className="max-w-7xl mx-auto">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">{t.sections.testimonials}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight">{t.sections.testimonials}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {merged.map((item, i) => (
@@ -162,7 +161,7 @@ function Journeys({ data, t }) {
     <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-[#f7f7f7]">
       <div className="max-w-7xl mx-auto">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight">{t.sections.journeys}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight">{t.sections.journeys}</h2>
         </div>
         <div className="flex flex-col gap-4 sm:gap-5">
           {merged.map((j, i) => (
@@ -206,7 +205,7 @@ function Approvals({ data, t }) {
     <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-white">
       <div className="max-w-7xl mx-auto">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-2 sm:mb-3">{ta.title}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">{ta.title}</h2>
           <p className="text-gray-500 max-w-xl text-sm sm:text-[15px] leading-relaxed">{ta.desc}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -242,7 +241,7 @@ function Approvals({ data, t }) {
 //       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8]" />
 //       <div className="relative z-10 max-w-3xl mx-auto text-center">
 //         <div className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-//           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.cta.title}</h2>
+//           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.cta.title}</h2>
 //           <p className="text-gray-400 text-sm sm:text-[15px] mb-8 sm:mb-10 leading-relaxed">{t.cta.desc}</p>
 //           <Link href="/contact"
 //             className="inline-flex items-center gap-2 bg-[#1D6FD8] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base hover:bg-[#a50d24] transition-colors shadow-lg">

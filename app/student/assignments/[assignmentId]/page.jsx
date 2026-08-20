@@ -109,7 +109,7 @@ export default function SubmitAssignmentPage({ params }) {
       </Link>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-        <h1 className="text-xl font-bold text-gray-800 mb-2">{assignment.title}</h1>
+        <h1 className="text-xl font-semibold text-gray-800 mb-2">{assignment.title}</h1>
         {assignment.description && (
           <p className="text-sm text-gray-600 whitespace-pre-line mb-4">{assignment.description}</p>
         )}
@@ -139,7 +139,7 @@ export default function SubmitAssignmentPage({ params }) {
       {mySubmission && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-gray-700">تسليمك الحالي</h2>
+            <h2 className="text-sm font-semibold text-gray-700">تسليمك الحالي</h2>
             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_LABELS[mySubmission.status]?.cls}`}>
               {STATUS_LABELS[mySubmission.status]?.label}
             </span>
@@ -160,7 +160,7 @@ export default function SubmitAssignmentPage({ params }) {
 
       {canSubmit ? (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <h2 className="text-sm font-bold text-gray-700">{mySubmission ? "إعادة التسليم" : "تسليم الواجب"}</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{mySubmission ? "إعادة التسليم" : "تسليم الواجب"}</h2>
 
           {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{submitError}</div>}
 

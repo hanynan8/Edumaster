@@ -28,7 +28,7 @@ function Blocked() {
       <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
         <BookOpen className="text-red-400" size={30} />
       </div>
-      <h2 className="text-xl font-bold text-gray-700 mb-2">مفيش صلاحية وصول</h2>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">مفيش صلاحية وصول</h2>
       <p className="text-gray-400 mb-4">لازم تسجّل دخولك الأول عشان تشوف كورساتك.</p>
       <Link href="/" className="text-blue-600 font-semibold hover:underline">
         الرجوع للرئيسية

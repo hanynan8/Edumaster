@@ -69,7 +69,7 @@ export default function BlogPostPage({ params }) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-black mb-4">Post not found</h1>
+          <h1 className="text-2xl font-semibold mb-4">Post not found</h1>
           <Link href="/blog" className="text-[#1D6FD8] font-bold underline">{t.backToBlog}</Link>
         </div>
       </div>
@@ -82,8 +82,7 @@ export default function BlogPostPage({ params }) {
   return (
     <>
       <style>{STYLES}</style>
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden"
-        style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}>
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <PostHero postMeta={postMeta} postContent={postContent} t={t} lang={lang} />
 
         {toc.length > 0 && (
@@ -160,7 +159,7 @@ function PostHero({ postMeta, postContent, t, lang }) {
             {t.categories[postMeta.category]}
           </span>
         </div>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tighter mb-5 sm:mb-6 animate-fadein-up">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-white leading-tight tracking-tight mb-5 sm:mb-6 animate-fadein-up">
           {postContent.title}
         </h1>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 animate-fadein-up2">
@@ -202,7 +201,7 @@ function Section({ section, postColor, onVisible }) {
               <span className="text-xs sm:text-sm font-black" style={{ color: postColor }}>{section.number}</span>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg sm:text-xl font-black text-[#0a0a0a] mb-2 sm:mb-3 leading-snug">{section.heading}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-[#0a0a0a] mb-2 sm:mb-3 leading-snug">{section.heading}</h2>
               <p className="text-gray-600 leading-relaxed text-sm sm:text-[15px]">{section.text}</p>
             </div>
           </div>
@@ -279,7 +278,7 @@ function CTACard() {
   return (
     <div className="rounded-2xl bg-[#1D6FD8] p-5 sm:p-6 text-white">
       <div className="w-8 h-[3px] bg-white/40 mb-4" />
-      <h3 className="font-black text-base sm:text-lg leading-tight mb-2">Need Help with Your Application?</h3>
+      <h3 className="font-semibold text-base sm:text-lg leading-tight mb-2">Need Help with Your Application?</h3>
       <p className="text-blue-100 text-xs sm:text-sm leading-relaxed mb-4 sm:mb-5">Our experts are ready to guide you through every step. Free 30-min consultation.</p>
       <Link href="/consultation"
         className="flex items-center justify-center gap-2 bg-white text-[#1D6FD8] font-bold text-sm py-2.5 sm:py-3 px-5 rounded-lg hover:bg-blue-50 transition-colors">
@@ -316,7 +315,7 @@ function RelatedPosts({ posts, t, lang, data }) {
                     <span className="w-0.5 h-0.5 rounded-full bg-gray-300" />
                     <span className="text-[11px] text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
                   </div>
-                  <h3 className="font-black text-[#0a0a0a] text-sm leading-snug group-hover:text-[#1D6FD8] transition-colors">{postT.title}</h3>
+                  <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#1D6FD8] transition-colors">{postT.title}</h3>
                   <div className="flex items-center gap-1 text-xs font-bold text-[#1D6FD8] mt-auto pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {t.readMore} <ArrowRight size={11} />
                   </div>

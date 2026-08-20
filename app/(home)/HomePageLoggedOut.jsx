@@ -19,7 +19,11 @@
                               link to /countries
      5) Mission & Vision   → same data as /about page
                               (GET /api/data?collection=about)
-     6) Numbers Speak      → same as the current Home page "Stats" section
+     6) Membership (preview)→ same data as /membership page
+                              (GET /api/membership-plans) — only the first
+                              4 active plans, 4 per row, with a "see all"
+                              link to /membership
+     7) Numbers Speak      → same as the current Home page "Stats" section
                               (collection=home)
 
    IMPORTANT: every fetch below hits the EXACT same endpoint/collection the
@@ -33,7 +37,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import AuthModal from "@/app/components/auth/authModel";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2 } from "lucide-react";
 
 /* ─────────────────────────────────────────
    TEXT FOR THE NEW SECTION HEADERS
@@ -51,6 +58,17 @@ const UI = {
     students: (n) => `${n.toLocaleString()} students`,
     noRatingYet: "No ratings yet",
     levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
+    searchPlaceholder: "Search courses, instructors, topics...",
+    filterCategory: "Category",
+    filterLevel: "Level",
+    filterPrice: "Price",
+    allCategories: "All Categories",
+    allLevels: "All Levels",
+    allPrices: "Any Price",
+    paid: "Paid",
+    clearFilters: "Clear filters",
+    noMatch: "No courses match your search or filters.",
+    resultsCount: (n) => `${n} course${n === 1 ? "" : "s"}`,
 
     servicesTitle: "How We Help You Study Abroad",
     servicesCta: "View All Services",
@@ -71,6 +89,17 @@ const UI = {
     students: (n) => `${n.toLocaleString()} طالب`,
     noRatingYet: "لسه مفيش تقييمات",
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
+    searchPlaceholder: "ابحث عن كورس، مدرس، أو موضوع...",
+    filterCategory: "التصنيف",
+    filterLevel: "المستوى",
+    filterPrice: "السعر",
+    allCategories: "كل التصنيفات",
+    allLevels: "كل المستويات",
+    allPrices: "أي سعر",
+    paid: "مدفوع",
+    clearFilters: "مسح الفلاتر",
+    noMatch: "مفيش كورسات مطابقة لبحثك أو الفلاتر اللي اخترتها.",
+    resultsCount: (n) => `${n} كورس`,
 
     servicesTitle: "إزاي بنساعدك تدرس بره",
     servicesCta: "شوف كل خدماتنا",
@@ -91,6 +120,17 @@ const UI = {
     students: (n) => `${n.toLocaleString()} estudiantes`,
     noRatingYet: "Sin valoraciones aún",
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
+    searchPlaceholder: "Buscar cursos, instructores, temas...",
+    filterCategory: "Categoría",
+    filterLevel: "Nivel",
+    filterPrice: "Precio",
+    allCategories: "Todas las categorías",
+    allLevels: "Todos los niveles",
+    allPrices: "Cualquier precio",
+    paid: "De pago",
+    clearFilters: "Borrar filtros",
+    noMatch: "Ningún curso coincide con tu búsqueda o filtros.",
+    resultsCount: (n) => `${n} curso${n === 1 ? "" : "s"}`,
 
     servicesTitle: "Cómo Te Ayudamos a Estudiar Fuera",
     servicesCta: "Ver Todos los Servicios",
@@ -151,6 +191,19 @@ function useCountriesData() {
   return data;
 }
 
+// same as /membership page: GET /api/membership-plans (active plans only)
+function useMembershipPlans() {
+  const [plans, setPlans] = useState(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    fetch("/api/membership-plans")
+      .then((r) => r.json())
+      .then((res) => setPlans(Array.isArray(res) ? res : []))
+      .catch(() => setError(true));
+  }, []);
+  return { plans, error };
+}
+
 // same as /about page: collection=about
 function useAboutData() {
   const [data, setData] = useState(null);
@@ -186,12 +239,14 @@ function useAllCourses() {
 function localizeCourse(c, language, ui) {
   const i18nEntry = c.i18n?.[language] || c.i18n?.en || null;
   const categoryI18nEntry = c.categoryI18n?.[language] || c.categoryI18n?.en || null;
+  const categoryName = categoryI18nEntry?.name || c.categoryName || "";
+  const title = i18nEntry?.title || c.title;
   return {
     id: c.id,
-    title: i18nEntry?.title || c.title,
+    title,
     shortDescription: i18nEntry?.shortDescription || c.shortDescription || c.description || "",
     thumbnail: c.thumbnail,
-    categoryName: categoryI18nEntry?.name || c.categoryName || "",
+    categoryName,
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: ui.levels[c.level] || c.level,
@@ -203,6 +258,11 @@ function localizeCourse(c, language, ui) {
     isFree: c.isFree,
     price: c.price || 0,
     currency: c.currency || "",
+    createdAt: c.createdAt ? new Date(c.createdAt).getTime() : 0,
+    searchBlob: [title, c.teacherName, categoryName, ...(c.tags || [])]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
   };
 }
 function formatSeconds(s) {
@@ -284,7 +344,10 @@ export default function HomePageLoggedOut() {
         {/* 5) MISSION & VISION — same source as /about */}
         {aboutData && <MissionVisionSection data={aboutData} lang={lang} ui={ui} />}
 
-        {/* 6) NUMBERS SPEAK — unchanged, same as current Home "Stats" */}
+        {/* 6) MEMBERSHIP — same source as /membership, copied as-is from the /services page */}
+        <MembershipSection isRTL={isRTL} />
+
+        {/* 7) NUMBERS SPEAK — unchanged, same as current Home "Stats" */}
         <Stats data={homeData} t={tHome} />
       </div>
     </>
@@ -292,54 +355,34 @@ export default function HomePageLoggedOut() {
 }
 
 /* ═══════════════════════════════════════
-   1) HERO  (identical to current Home page)
+   1) HERO  (compact Udemy-style banner:
+   smaller image with a white card of
+   headline/subheadline overlapping it)
 ═══════════════════════════════════════ */
 function Hero({ data, t }) {
-  const titleRef = useRef(null);
-
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    const fit = () => {
-      const parent = el.parentElement;
-      const startSize = window.innerWidth < 768 ? 1.5 : 3.5;
-      el.style.fontSize = startSize + "rem";
-      while (el.scrollWidth > parent.clientWidth) {
-        const current = parseFloat(window.getComputedStyle(el).fontSize);
-        el.style.fontSize = current - 0.1 + "px";
-      }
-    };
-    const observer = new ResizeObserver(fit);
-    observer.observe(el.parentElement);
-    fit();
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section className="relative overflow-hidden bg-[#1E3561]">
-      <div className="w-full flex flex-col md:flex-row md:items-stretch">
-        <div className="w-full md:w-[35%] flex flex-col justify-center px-5 sm:px-8 md:px-10 pt-6 sm:py-16 md:py-0 min-h-[220px] md:min-h-[340px]">
-          <h1
-            ref={titleRef}
-            className="font-black tracking-tighter mb-4 animate-fadein-up leading-[1.1] whitespace-nowrap"
-            style={{ color: "#ffffff" }}
-          >
-            {t.hero.headline}
-          </h1>
-          <p className="text-gray-300 text-sm sm:text-base md:text-lg leading-relaxed animate-fadein-up2 max-w-[280px] sm:max-w-xs md:max-w-none">
-            {t.hero.subheadline}
-          </p>
-        </div>
-        <div className="w-full md:w-[65%] flex items-center justify-center md:justify-end pb-6 sm:py-6 px-4 sm:px-6">
-          <div className="relative w-full md:w-[92%] aspect-[16/9] md:aspect-[4/3]">
-            <Image
-              src={data.hero.backgroundImage}
-              alt="hero"
-              fill
-              className="object-cover object-center rounded-xl"
-              priority
-              unoptimized
-            />
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20 pt-6 sm:pt-10">
+      <div className="relative w-full h-[300px] sm:h-[360px] md:h-[420px]">
+        <Image
+          src={data.hero.backgroundImage}
+          alt="hero"
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
+
+        {/* White card overlapping the image, Udemy-style */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-[300px] sm:max-w-[340px] md:max-w-[400px] px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-black tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {t.hero.headline}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
+                {t.hero.subheadline}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -348,21 +391,67 @@ function Hero({ data, t }) {
 }
 
 /* ═══════════════════════════════════════
-   2) COURSES — ALL courses, 4 per row
+   2) COURSES — ALL courses, 4 per row, with search + filters
 ═══════════════════════════════════════ */
 function CoursesSection({ rawCourses, lang, ui }) {
   const [ref, visible] = useReveal();
+
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [level, setLevel] = useState("all");
+  const [price, setPrice] = useState("all");
 
   const courses = useMemo(() => {
     if (!rawCourses) return null;
     return rawCourses.map((c) => localizeCourse(c, lang, ui));
   }, [rawCourses, lang, ui]);
 
+  const categoryOptions = useMemo(() => {
+    if (!courses) return [{ value: "all", label: ui.allCategories }];
+    const present = new Set(courses.map((c) => c.categoryName).filter(Boolean));
+    return [{ value: "all", label: ui.allCategories }, ...[...present].map((name) => ({ value: name, label: name }))];
+  }, [courses, ui]);
+
+  const levelOptions = [
+    { value: "all", label: ui.allLevels },
+    { value: "beginner", label: ui.levels.beginner },
+    { value: "intermediate", label: ui.levels.intermediate },
+    { value: "advanced", label: ui.levels.advanced },
+  ];
+
+  const priceOptions = [
+    { value: "all", label: ui.allPrices },
+    { value: "free", label: ui.free },
+    { value: "paid", label: ui.paid },
+  ];
+
+  const filtered = useMemo(() => {
+    if (!courses) return [];
+    const q = search.trim().toLowerCase();
+    return courses.filter((c) => {
+      if (q && !c.searchBlob.includes(q)) return false;
+      if (category !== "all" && c.categoryName !== category) return false;
+      if (level !== "all" && c.level !== level) return false;
+      if (price === "free" && !c.isFree) return false;
+      if (price === "paid" && c.isFree) return false;
+      return true;
+    });
+  }, [courses, search, category, level, price]);
+
+  const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
+
+  function clearFilters() {
+    setSearch("");
+    setCategory("all");
+    setLevel("all");
+    setPrice("all");
+  }
+
   return (
-    <section ref={ref} className="py-10 sm:py-20 md:py-28 bg-white">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-white">
       <div className="px-5 sm:px-10 md:px-16">
         <div
-          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
+          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 transition-all duration-700 ${
             visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -381,6 +470,39 @@ function CoursesSection({ rawCourses, lang, ui }) {
           </Link>
         </div>
 
+        {courses !== null && courses.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 mb-6 sm:mb-8">
+            <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+              <span className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <SearchIcon size={15} />
+              </span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={ui.searchPlaceholder}
+                className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2 text-xs sm:text-[13px] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A227]/20 focus:border-[#C9A227] transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar">
+              <FilterSelect value={category} onChange={setCategory} options={categoryOptions} />
+              <FilterSelect value={level} onChange={setLevel} options={levelOptions} />
+              <FilterSelect value={price} onChange={setPrice} options={priceOptions} />
+
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="shrink-0 inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-gray-500 hover:text-red-500 transition-colors px-2 py-1"
+                >
+                  <XIcon size={12} />
+                  {ui.clearFilters}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {courses === null && (
           <div className="flex flex-col items-center gap-3 py-16">
             <div className="w-7 h-7 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -392,9 +514,13 @@ function CoursesSection({ rawCourses, lang, ui }) {
           <div className="text-center text-gray-400 text-sm py-16">{ui.coursesEmpty}</div>
         )}
 
-        {courses?.length > 0 && (
+        {courses?.length > 0 && filtered.length === 0 && (
+          <div className="text-center text-gray-400 text-sm py-16">{ui.noMatch}</div>
+        )}
+
+        {filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-            {courses.map((course, i) => (
+            {filtered.map((course, i) => (
               <CourseCard key={course.id} course={course} ui={ui} visible={visible} delay={i * 50} />
             ))}
           </div>
@@ -482,7 +608,7 @@ function ServicesSection({ data, lang, ui }) {
   });
 
   return (
-    <section ref={ref} className="py-10 sm:py-20 md:py-28 bg-[#f7f7f7]">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-white">
       <div className="px-5 sm:px-10 md:px-16">
         <div
           className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
@@ -586,7 +712,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
   if (cards.length === 0) return null;
 
   return (
-    <section ref={ref} className="py-10 sm:py-20 md:py-28 bg-white">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
       <div className="px-5 sm:px-10 md:px-16">
         <div
           className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
@@ -674,7 +800,7 @@ function MissionVisionSection({ data, lang, ui }) {
   ];
 
   return (
-    <section ref={ref} className="py-10 sm:py-20 md:py-28 bg-[#f7f7f7]">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
       <div className="px-5 sm:px-10 md:px-16">
         <div className={`mb-7 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">{t.mvTitle || ui.mvTitle}</h2>
@@ -728,14 +854,268 @@ function MissionVisionSection({ data, lang, ui }) {
 }
 
 /* ═══════════════════════════════════════
-   6) NUMBERS SPEAK  (identical to current Home "Stats" section)
+   6) MEMBERSHIP — copied as-is from app/(pages)/services/page.jsx
+═══════════════════════════════════════ */
+const MEMBERSHIP_STRINGS = {
+  ar: {
+    label: "خطط الاشتراك",
+    title: "افتح كل الكورسات باشتراك واحد",
+    subtitle: "اختار الخطة اللي تناسبك وابدأ تعلّم من غير ما تدفع كل كورس لوحده",
+    free: "مجانية",
+    perMonth: "/شهر",
+    perYear: "/سنة",
+    allCourses: "كل الكورسات متاحة",
+    someCourses: (n) => `${n} كورس متاح`,
+    cta: "اشترك دلوقتي",
+    viewAll: "شوف كل خطط الاشتراك",
+    loading: "جارِ تحميل الخطط...",
+    empty: "لسه مفيش خطط اشتراك متاحة",
+    popular: "الأكتر طلبًا",
+    subscribing: "جارِ التفعيل...",
+    redirecting: "جارِ التحويل لـ PayPal...",
+    subscribed: "خطتك الحالية",
+    login: "سجّل دخولك للاشتراك",
+    paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتفعيل اليدوي",
+    paymentGatewayError: "تعذّر بدء عملية الدفع، حاول مرة أخرى",
+    error: "تعذّر تحميل الخطط",
+  },
+  en: {
+    label: "Membership Plans",
+    title: "Unlock every course with one membership",
+    subtitle: "Pick the plan that fits you and start learning without paying per course",
+    free: "Free",
+    perMonth: "/mo",
+    perYear: "/yr",
+    allCourses: "All courses included",
+    someCourses: (n) => `${n} courses included`,
+    cta: "Subscribe now",
+    viewAll: "View all membership plans",
+    loading: "Loading plans...",
+    empty: "No membership plans available yet",
+    popular: "Most popular",
+    subscribing: "Activating...",
+    redirecting: "Redirecting to PayPal...",
+    subscribed: "Your current plan",
+    login: "Log in to subscribe",
+    paymentSoon: "Online payment isn't available right now — contact us to activate manually",
+    paymentGatewayError: "Couldn't start the payment, please try again",
+    error: "Couldn't load plans",
+  },
+};
+
+function MembershipSection({ isRTL }) {
+  const { language } = useLanguage();
+  const t = MEMBERSHIP_STRINGS[language] ?? MEMBERSHIP_STRINGS.en;
+  const { plans, error } = useMembershipPlans();
+  const [ref, visible] = useReveal(0.08);
+
+  // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع (مجاني أو PayPal)
+  const { data: session, status: sessionStatus } = useSession();
+  const [currentPlanId, setCurrentPlanId] = useState(null);
+  const [subscribingId, setSubscribingId] = useState(null);
+  const [subscribeError, setSubscribeError] = useState("");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
+    fetch("/api/membership")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setCurrentPlanId(data?.status === "active" ? data?.plan?.id || null : null))
+      .catch(() => {});
+  }, [sessionStatus]);
+
+  async function handleSubscribeWithPaypal(plan) {
+    setSubscribeError("");
+    setSubscribingId(plan.id);
+    try {
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "membership", id: plan.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.approveUrl) {
+        setSubscribeError(
+          data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
+        );
+        setSubscribingId(null);
+        return;
+      }
+      window.location.href = data.approveUrl;
+    } catch {
+      setSubscribeError(t.paymentGatewayError);
+      setSubscribingId(null);
+    }
+  }
+
+  async function handleSubscribe(plan) {
+    if (!session?.user) {
+      setAuthMode("login");
+      setShowAuthModal(true);
+      return;
+    }
+
+    const isFree = plan.billingCycle === "free" || plan.price === 0;
+    if (!isFree) {
+      return handleSubscribeWithPaypal(plan);
+    }
+
+    setSubscribeError("");
+    setSubscribingId(plan.id);
+    try {
+      const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.error === "payment_required") return handleSubscribeWithPaypal(plan);
+        setSubscribeError(t.error);
+        return;
+      }
+      setCurrentPlanId(plan.id);
+    } catch {
+      setSubscribeError(t.error);
+    } finally {
+      setSubscribingId(null);
+    }
+  }
+
+  // مفيش أي شرط تسجيل دخول لعرض الخطط — القسم ده لازم يظهر لأي زائر عادي.
+  if (error) return null;
+
+  return (
+    <section ref={ref} className="py-14 sm:py-16 md:py-20 bg-[#f7f7f7]">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
+        <div className={`max-w-2xl mx-auto text-center mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+          <Label text={t.label} visible={visible} />
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-3">{t.title}</h2>
+          <p className="text-gray-500 text-sm sm:text-base leading-relaxed">{t.subtitle}</p>
+        </div>
+
+        {plans === null && (
+          <div className="flex justify-center py-16">
+            <Loader className="animate-spin text-[#1D6FD8]" size={28} />
+          </div>
+        )}
+
+        {plans?.length === 0 && (
+          <p className="text-center text-gray-400 py-10">{t.empty}</p>
+        )}
+
+        {subscribeError && (
+          <div className="max-w-xl mx-auto bg-amber-50 text-amber-700 text-sm px-4 py-3 rounded-xl text-center mb-8">
+            {subscribeError}
+          </div>
+        )}
+
+        {plans?.length > 0 && (() => {
+          const featuredIndex = Math.floor((plans.length - 1) / 2);
+          return (
+            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-7">
+              {plans.map((plan, i) => {
+                const isCurrent = currentPlanId === plan.id;
+                const isFree = plan.billingCycle === "free" || plan.price === 0;
+                const isFeatured = plans.length > 1 && i === featuredIndex;
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative w-full sm:w-[260px] bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
+                      isCurrent
+                        ? "border-[#1D6FD8] ring-2 ring-[#1D6FD8]/20"
+                        : isFeatured
+                        ? "border-[#1D6FD8] shadow-xl shadow-[#1D6FD8]/10 sm:scale-110 z-10"
+                        : "border-gray-100 sm:scale-95 opacity-100"
+                    } ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+                    style={{ transitionDelay: `${i * 80}ms` }}
+                  >
+                    {isFeatured && !isCurrent && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#1D6FD8] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                        {t.popular}
+                      </span>
+                    )}
+                    {isCurrent && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#1D6FD8] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                        {t.subscribed}
+                      </span>
+                    )}
+
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#1D6FD8]/10" : "bg-amber-50"}`}>
+                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#1D6FD8]" : "text-amber-500"} />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
+                    {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
+
+                    <p className="text-2xl font-black text-gray-900 mb-1">
+                      {isFree ? t.free : `${plan.price} ${plan.currency || "EGP"}`}
+                      {!isFree && (
+                        <span className="text-sm font-medium text-gray-400">
+                          {plan.billingCycle === "yearly" ? t.perYear : t.perMonth}
+                        </span>
+                      )}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mb-4">
+                      {(plan.allowedCourses?.length ?? 0) === 0 ? t.allCourses : t.someCourses(plan.allowedCourses.length)}
+                    </p>
+
+                    {plan.features?.length > 0 && (
+                      <ul className="space-y-2 mb-6 flex-1">
+                        {plan.features.slice(0, 4).map((f, fi) => (
+                          <li key={fi} className="flex items-start gap-2 text-sm text-gray-600">
+                            <CheckIcon size={15} className="text-[#1D6FD8] shrink-0 mt-0.5" /> {f}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {isCurrent ? (
+                      <div className="mt-auto flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold py-2.5 rounded-xl text-sm">
+                        <CheckCircle2 size={15} /> {t.subscribed}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleSubscribe(plan)}
+                        disabled={subscribingId === plan.id}
+                        className={`mt-auto w-full inline-flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl transition-opacity text-sm text-center disabled:opacity-60 ${
+                          isFeatured ? "bg-[#1D6FD8] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
+                        }`}
+                      >
+                        {subscribingId === plan.id
+                          ? (isFree ? t.subscribing : t.redirecting)
+                          : t.cta}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {plans?.length > 0 && (
+          <div className="flex justify-center mt-8 sm:mt-10">
+            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#1D6FD8] hover:underline text-sm">
+              {t.viewAll} <ArrowRight size={13} />
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {showAuthModal && (
+        <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitch={(next) => setAuthMode(next)} />
+      )}
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════
+   7) NUMBERS SPEAK  (identical to current Home "Stats" section)
 ═══════════════════════════════════════ */
 function Stats({ data, t }) {
   const [ref, visible] = useReveal();
   const merged = data.stats.items.map((item, i) => ({ ...item, label: t.stats.items[i] }));
 
   return (
-    <section ref={ref} className="relative py-10 sm:py-20 md:py-28 overflow-hidden bg-[#0a0a0a]">
+    <section ref={ref} className="relative py-8 sm:py-14 md:py-20 overflow-hidden bg-[#0a0a0a]">
       <div className="absolute inset-0 z-0 opacity-15">
         <Image src={data.stats.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
@@ -782,6 +1162,48 @@ function ArrowRight({ size = 16, color = "currentColor" }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 12h14M12 5l7 7-7 7" />
     </svg>
+  );
+}
+function SearchIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+function ChevronDownIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+function XIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+function FilterSelect({ value, onChange, options }) {
+  return (
+    <div className="relative shrink-0">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C9A227]/20 focus:border-[#C9A227] transition-colors"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+        <ChevronDownIcon size={13} />
+      </span>
+    </div>
   );
 }
 function StarIcon({ size = 13 }) {
@@ -889,6 +1311,8 @@ const STYLES = `
 
   .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
   * { box-sizing: border-box; }
   img { max-width: 100%; }

@@ -34,8 +34,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const UI = {
   en: {
     welcomeBack: (name) => `Welcome back, ${name}!`,
-    subtitle: "Great to see you again. Ready to keep learning?",
-    profileLink: "Profile",
+    subtitleByRole: {
+      student: "Great to see you again. Ready to keep learning?",
+      teacher: "Great to see you again. Ready to manage your courses?",
+      admin: "Great to see you again.",
+    },
+    profileLinkByRole: {
+      student: "Profile",
+      teacher: "Go to Dashboard",
+      admin: "Go to Dashboard",
+    },
+    dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
     coursesLabel: "Keep Learning",
     coursesTitle: "All Our Courses",
@@ -51,8 +60,17 @@ const UI = {
   },
   ar: {
     welcomeBack: (name) => `أهلاً بيك تاني، ${name}!`,
-    subtitle: "سعداء برجوعك. جاهز تكمل تعلّمك؟",
-    profileLink: "الملف الشخصي",
+    subtitleByRole: {
+      student: "سعداء برجوعك. جاهز تكمل تعلّمك؟",
+      teacher: "سعداء برجوعك. جاهز تتابع كورساتك؟",
+      admin: "سعداء برجوعك.",
+    },
+    profileLinkByRole: {
+      student: "الملف الشخصي",
+      teacher: "لوحة التحكم",
+      admin: "لوحة التحكم",
+    },
+    dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
     coursesLabel: "كمّل تعلّمك",
     coursesTitle: "كل الكورسات عندنا",
@@ -68,8 +86,17 @@ const UI = {
   },
   es: {
     welcomeBack: (name) => `¡Bienvenido de nuevo, ${name}!`,
-    subtitle: "Qué bueno verte otra vez. ¿Listo para seguir aprendiendo?",
-    profileLink: "Perfil",
+    subtitleByRole: {
+      student: "Qué bueno verte otra vez. ¿Listo para seguir aprendiendo?",
+      teacher: "Qué bueno verte otra vez. ¿Listo para gestionar tus cursos?",
+      admin: "Qué bueno verte otra vez.",
+    },
+    profileLinkByRole: {
+      student: "Perfil",
+      teacher: "Ir al panel",
+      admin: "Ir al panel",
+    },
+    dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
     coursesLabel: "Sigue Aprendiendo",
     coursesTitle: "Todos Nuestros Cursos",
@@ -190,8 +217,9 @@ export default function HomePageLoggedIn() {
   // Fall back to next-auth session fields while /api/profile is loading,
   // so the welcome section can render instantly.
   const user = profileUser || (session?.user
-    ? { name: session.user.name, email: session.user.email, phone: session.user.phone, avatar: session.user.avatar || session.user.image }
+    ? { name: session.user.name, email: session.user.email, phone: session.user.phone, avatar: session.user.avatar || session.user.image, role: session.user.role }
     : null);
+  const role = user?.role || session?.user?.role || "student";
 
   if (status === "loading" && !user) {
     return (
@@ -213,7 +241,7 @@ export default function HomePageLoggedIn() {
         style={{ fontFamily: "'DM Sans', 'Tajawal', sans-serif" }}
       >
         {/* 1) WELCOME SECTION — replaces the Hero */}
-        <WelcomeSection user={user} ui={ui} isRTL={isRTL} />
+        <WelcomeSection user={user} role={role} ui={ui} isRTL={isRTL} />
 
         {/* 2) ALL COURSES */}
         <CoursesSection rawCourses={rawCourses} lang={lang} ui={ui} />
@@ -226,9 +254,12 @@ export default function HomePageLoggedIn() {
 /* ═══════════════════════════════════════
    1) WELCOME SECTION (read-only — editing happens on /student)
 ═══════════════════════════════════════ */
-function WelcomeSection({ user, ui, isRTL }) {
+function WelcomeSection({ user, role, ui, isRTL }) {
   const name = user?.name || "";
   const initial = name?.charAt(0)?.toUpperCase() || "U";
+  const subtitle = ui.subtitleByRole[role] || ui.subtitleByRole.student;
+  const profileLabel = ui.profileLinkByRole[role] || ui.profileLinkByRole.student;
+  const dashboardHref = ui.dashboardHrefByRole[role] || "/student";
 
   return (
     <section className="relative overflow-hidden bg-[#1E3561]">
@@ -254,7 +285,7 @@ function WelcomeSection({ user, ui, isRTL }) {
             <h1 className="font-black tracking-tight text-white text-2xl sm:text-3xl md:text-4xl leading-tight animate-fadein-up">
               {ui.welcomeBack(name)}
             </h1>
-            <p className="text-gray-300 text-sm sm:text-base mt-2 animate-fadein-up2">{ui.subtitle}</p>
+            <p className="text-gray-300 text-sm sm:text-base mt-2 animate-fadein-up2">{subtitle}</p>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5 mt-4 text-gray-300 text-xs sm:text-sm">
               {user?.email && (
@@ -270,10 +301,10 @@ function WelcomeSection({ user, ui, isRTL }) {
             </div>
 
             <Link
-              href="/student"
+              href={dashboardHref}
               className="inline-flex items-center gap-2 bg-[#C9A227] text-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:opacity-90 transition-all mt-6"
             >
-              {ui.profileLink}
+              {profileLabel}
               <ArrowIcon size={13} flip={isRTL} />
             </Link>
           </div>

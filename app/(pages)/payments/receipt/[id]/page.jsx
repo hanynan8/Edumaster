@@ -9,6 +9,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Loader, Printer, ArrowRight, ArrowLeft } from "lucide-react";
 
@@ -57,6 +58,12 @@ export default function ReceiptPage({ params }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowLeft : ArrowRight;
+  // 🔧 GET /api/payments/[id] بيسمح لصاحب الدفعة أو للأدمن — يعني ممكن
+  // مدرّس (صاحب دفعة) أو أدمن (بيشوف دفعة حد تاني) يوصلوا هنا. رابط "رجوع"
+  // كان "/student/payments" ثابت، واللي بيرفض دلوقتي أي role غير student.
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+  const backHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student/payments";
 
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");
@@ -96,7 +103,7 @@ export default function ReceiptPage({ params }) {
     >
       <div className="max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-4 print:hidden">
-          <Link href="/student/payments" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
+          <Link href={backHref} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
             <BackArrow size={15} className={isRTL ? "rotate-180" : ""} /> {t.back}
           </Link>
           <button

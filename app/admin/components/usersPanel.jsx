@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText, CreditCard, X, Check, Clock,
+  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText, CreditCard, X, Check, Clock, ClipboardList,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -25,6 +25,26 @@ function membershipBadgeColor(status) {
   return 'bg-gray-50 text-gray-500 border-gray-200';
 }
 
+// 🆕 ONBOARDING — خرائط بسيطة لتحويل المفاتيح المخزنة (goal/educationLevel)
+// لنص مقروء في لوحة الأدمن (اللوحة بالإنجليزي زي باقي usersPanel).
+const GOAL_LABELS = {
+  start_career: 'Start my career',
+  change_career: 'Change my career',
+  grow_current_role: 'Grow in my current role',
+  explore_topics: 'Explore topics outside of work',
+};
+
+const EDUCATION_LABELS = {
+  less_than_high_school: 'Less than high school diploma',
+  high_school: 'High school diploma',
+  some_college: 'Some college, no degree',
+  associate: 'Associate Degree',
+  bachelor: "Bachelor's degree",
+  master: "Master's degree",
+  professional: 'Professional school degree',
+  doctorate: 'Doctorate degree',
+};
+
 function UsersAdmin() {
   const { data: session } = useSession();
   const [users, setUsers] = useState([]);
@@ -35,6 +55,7 @@ function UsersAdmin() {
   const [savingId, setSavingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // user targeted for delete confirmation
   const [manageMembershipUser, setManageMembershipUser] = useState(null); // user targeted for membership management
+  const [viewOnboardingUser, setViewOnboardingUser] = useState(null); // 🆕 user targeted for onboarding details view
 
   const myId = session?.user?.id;
 
@@ -183,6 +204,7 @@ function UsersAdmin() {
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Phone</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Role</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Membership</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-500">Onboarding</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-500">Actions</th>
                 </tr>
               </thead>
@@ -234,6 +256,19 @@ function UsersAdmin() {
                       >
                         {user.membership?.planName ? user.membership.planName : 'None'}
                         {user.membership?.status && user.membership.status !== 'inactive' ? ` · ${user.membership.status}` : ''}
+                      </button>
+                    </td>
+                    <td className="py-3 px-4">
+                      <button
+                        onClick={() => setViewOnboardingUser(user)}
+                        className={`px-2 py-1 rounded-lg text-xs font-semibold border-2 transition-colors hover:brightness-95 ${
+                          user.onboarding?.completed
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-gray-50 text-gray-500 border-gray-200'
+                        }`}
+                        title="View onboarding details"
+                      >
+                        {user.onboarding?.completed ? 'Completed' : 'Not done'}
                       </button>
                     </td>
                     <td className="py-3 px-4">
@@ -295,6 +330,97 @@ function UsersAdmin() {
           onSave={(payload) => handleMembershipSave(manageMembershipUser.id, payload)}
         />
       )}
+
+      {viewOnboardingUser && (
+        <OnboardingDetailsModal
+          user={viewOnboardingUser}
+          onClose={() => setViewOnboardingUser(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// 🆕 ONBOARDING — مودال بسيط (عرض بس، من غير تعديل) بيورّي إجابات المستخدم
+// الأربعة (الهدف، الدور الحالي، المهارات، المؤهل الدراسي) + وقت الإنهاء.
+function OnboardingDetailsModal({ user, onClose }) {
+  const o = user.onboarding || {};
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b-2 border-gray-100 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <ClipboardList size={20} className="text-blue-600" />
+            Onboarding — {user.name}
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-2 py-1 rounded-lg text-xs font-semibold border-2 ${
+                o.completed
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-gray-50 text-gray-500 border-gray-200'
+              }`}
+            >
+              {o.completed ? 'Completed' : 'Not completed yet'}
+            </span>
+            {o.completedAt && (
+              <span className="text-xs text-gray-400">on {new Date(o.completedAt).toLocaleString()}</span>
+            )}
+          </div>
+
+          {!o.completed && !o.goal && !o.currentRole && o.skills.length === 0 && !o.educationLevel ? (
+            <div className="text-center py-6 text-gray-400 text-sm">
+              This user hasn&apos;t gone through onboarding yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Goal</p>
+                <p className="text-sm text-gray-800 font-medium">{GOAL_LABELS[o.goal] || o.goal || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Current role</p>
+                <p className="text-sm text-gray-800 font-medium">{o.currentRole || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Skills to develop</p>
+                {o.skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {o.skills.map((s) => (
+                      <span key={s} className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-xs font-medium">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-800 font-medium">—</p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Education level</p>
+                <p className="text-sm text-gray-800 font-medium">
+                  {EDUCATION_LABELS[o.educationLevel] || o.educationLevel || '—'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 pt-0">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

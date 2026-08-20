@@ -11,6 +11,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle2, Loader, Receipt, ArrowRight, ArrowLeft, BookOpen, Crown } from "lucide-react";
 
@@ -47,6 +48,14 @@ export default function PaymentSuccessPage({ searchParams }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowLeft : ArrowRight;
+  // 🔧 checkout متاح لأي مستخدم مسجّل دخول من غير قيد على الـ role (شوف
+  // app/api/payments/checkout/route.js) — يعني مدرّس أو أدمن يقدروا يشتروا
+  // كورس/عضوية زي أي طالب. الرابط تحت كان "/student" ثابت، وبعد ما middleware
+  // بقى يمنع أي role غير student من دخول /student، كان بيوديهم لصفحة
+  // هيترحّلوا منها فورًا لصفحتهم هم من غير ما يوصلوا للمحتوى اللي اشتروه.
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+  const dashboardHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
 
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");
@@ -103,7 +112,7 @@ export default function PaymentSuccessPage({ searchParams }) {
           {payment && (
             isMembership ? (
               <Link
-                href="/student"
+                href={dashboardHref}
                 className="flex items-center justify-center gap-2 bg-[#0a0a0a] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
               >
                 <Crown size={15} /> {t.goToCourses}
@@ -119,7 +128,7 @@ export default function PaymentSuccessPage({ searchParams }) {
           )}
           {!payment && (
             <Link
-              href="/student"
+              href={dashboardHref}
               className="flex items-center justify-center gap-2 bg-[#0a0a0a] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
             >
               {t.goToCourses}

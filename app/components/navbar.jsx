@@ -150,15 +150,22 @@ function UserDropdown({ user }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // روابط لوحة الطالب متاحة لأي مستخدم مسجّل دخول (student/teacher/admin —
-  // نفس منطق app/student/layout.jsx: مدرس أو أدمن ممكن يكونوا مسجلين في
-  // كورس زي أي طالب عادي). روابط لوحة المدرس/الأدمن بتتضاف فوقها حسب الدور.
-  const links = [
-    { href: "/student", label: "كورساتي" },
-    { href: "/student/grades", label: "درجاتي" },
-    { href: "/student/certificates", label: "شهاداتي" },
-    { href: "/student/payments", label: "مدفوعاتي" },
-  ];
+  // 🔧 كان فيه هنا bug: الروابط دي كانت بتظهر لأي مستخدم (student/teacher/
+  // admin) بافتراض إن مدرس أو أدمن ممكن يكونوا مسجلين في كورس زي طالب عادي.
+  // لكن middleware.js اتغيّر بعد كده وبقى يقصر /student على role="student"
+  // بس (أي أدمن أو مدرس يحاول يدخلها بيترحّل تلقائي لـ /admin أو /teacher) —
+  // فالروابط دي فضلت ظاهرة لمدرس/أدمن في القايمة بس أي ضغطة عليها كانت
+  // بترجعهم فورًا لصفحتهم هم من غير ما توصلهم لحاجة (رابط "ميت" فعليًا).
+  // دلوقتي روابط /student بتظهر لـ role="student" بس، متسقة مع middleware.js.
+  const links =
+    user?.role === "student"
+      ? [
+          { href: "/student", label: "كورساتي" },
+          { href: "/student/grades", label: "درجاتي" },
+          { href: "/student/certificates", label: "شهاداتي" },
+          { href: "/student/payments", label: "مدفوعاتي" },
+        ]
+      : [];
   if (user?.role === "teacher" || user?.role === "admin") {
     links.push({ href: "/teacher", label: "لوحة المدرس" });
   }

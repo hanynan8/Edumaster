@@ -484,7 +484,9 @@ export default function OnboardingPage() {
         setError(t.errGeneric);
         return;
       }
-      router.replace(redirectTarget);
+      // 🆕 بعد إنهاء onboarding، المستخدم بيتنقل للصفحة الرئيسية (Home) عادي
+      // بدل التوجيه حسب الـ role (admin/teacher/student) اللي كان بيحصل قبل كده.
+      router.replace("/");
     } catch {
       setSaving(false);
       setError(t.errGeneric);

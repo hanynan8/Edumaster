@@ -178,8 +178,12 @@ export function getAuthModel() {
   // ✅ لو الموديل كان متسجل قبل كده بالـ schema القديمة (بدون الحقول دي)،
   // نمسحه ونسجله تاني بالـ schema الجديدة — عشان في بيئة dev مع hot-reload
   // الموديل القديم يفضل عالق في mongoose.models.
+  // 🔧 لازم نتأكد من *كل* الحقول اللي اتضافت بعد tokenVersion (زي onboarding)،
+  // مش بس tokenVersion نفسه — وإلا لو السيرفر شغال من قبل إضافة onboarding
+  // (أو بعد git pull من غير إعادة تشغيل)، الموديل هيفضل مسجل بالـ schema
+  // القديمة وأي بيانات onboarding هترجع/تتسجل غلط بصمت من غير أي error ظاهر.
   const existing = mongoose.models[modelName];
-  if (existing && !existing.schema.path("tokenVersion")) {
+  if (existing && (!existing.schema.path("tokenVersion") || !existing.schema.path("onboarding.completed"))) {
     delete mongoose.models[modelName];
     if (mongoose.modelSchemas) delete mongoose.modelSchemas[modelName];
   }

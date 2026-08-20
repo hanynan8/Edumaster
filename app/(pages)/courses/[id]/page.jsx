@@ -714,7 +714,13 @@ function RealCourseDetail({ id }) {
                 طالب مسجّل فعليًا — نفس شرط الوصول اللي الـ API بيفرضه. */}
             {(isOwner || isEnrolled) && <CourseAnnouncements courseId={id} />}
 
-            {isEnrolled && (quizzes.length > 0 || assignments.length > 0) && (
+            {/* 🔧 كان الشرط هنا isEnrolled بس — لكن enroll في كورس متاح لأي
+                role (مفيش قيد في checkout/enroll API)، فمدرس أو أدمن ممكن
+                يبقوا isEnrolled=true. الروابط الجاية (quizzes/assignments/
+                grades) كلها تحت /student، والـ middleware بقى يرفض أي role
+                غير student من دخولها — فضفنا شرط role === "student" هنا
+                عشان السكشن ده يظهر بس لمين فعلاً هيقدر يفتح الروابط. */}
+            {isEnrolled && session?.user?.role === "student" && (quizzes.length > 0 || assignments.length > 0) && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 {quizzes.length > 0 && (
                   <div className="mb-4">

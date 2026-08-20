@@ -94,6 +94,16 @@ export async function GET(request) {
           startedAt: u.membership?.startedAt || null,
           expiresAt,
         },
+        // 🆕 onboarding — بيانات خطوات "أول مرة" (الهدف/الدور/المهارات/المؤهل)
+        // عشان لوحة الأدمن تقدر تعرضها بدون أي API إضافي.
+        onboarding: {
+          completed: !!u.onboarding?.completed,
+          completedAt: u.onboarding?.completedAt || null,
+          goal: u.onboarding?.goal || null,
+          currentRole: u.onboarding?.currentRole || null,
+          skills: Array.isArray(u.onboarding?.skills) ? u.onboarding.skills : [],
+          educationLevel: u.onboarding?.educationLevel || null,
+        },
       };
     });
 

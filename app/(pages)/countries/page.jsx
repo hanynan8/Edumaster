@@ -162,21 +162,23 @@ function CountryFilter({ countries, selectedId, setSelectedId }) {
 
 function HeroSection({ data, t }) {
   return (
-    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
-      <div className="relative w-full h-75 sm:h-90 md:h-105">
-        <Image
-          src={data.hero.backgroundImage}
-          alt="countries hero"
-          fill
-          className="object-cover object-center"
-          priority
-          unoptimized
-        />
+    <section className="relative overflow-hidden bg-white px-0 min-[851px]:px-20">
+      <div className="relative w-full">
+        <div className="relative w-full h-75 sm:h-90 md:h-105">
+          <Image
+            src={data.hero.backgroundImage}
+            alt="countries hero"
+            fill
+            className="object-cover object-center"
+            priority
+            unoptimized
+          />
+        </div>
 
-        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full px-5 sm:px-8 md:px-12">
-            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+        {/* White card: stacked below the image up to 850px, overlapping it above 850px — matches guest home hero */}
+        <div className="min-[851px]:absolute min-[851px]:inset-0 flex items-center">
+          <div className="w-full px-0 min-[851px]:px-12">
+            <div className="bg-white rounded-none min-[851px]:rounded-md shadow-none min-[851px]:shadow-xl w-full max-w-full min-[851px]:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
               <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
                 {(() => {
                   const words = t.hero.headline.split(" ");

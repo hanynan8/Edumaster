@@ -1,19 +1,17 @@
 // app/lib/models/Meeting.js
 //
-// 🆕 محاضرات لايف (Meetings) — المدرس بيضيف رابط اجتماع Microsoft Teams
-// (يدوي: بيعمله بنفسه من حسابه الشخصي/المؤسسي وينسخ اللينك) لكورس معيّن،
-// مع معاد وتاريخ. الطلاب المسجلين في الكورس بيشوفوه في صفحة /meet
-// ويقدروا يدخلوا عليه وقت المحاضرة.
+// 🆕 محاضرات لايف (Meetings) لكورس معيّن، مع معاد وتاريخ. الطلاب المسجلين
+// في الكورس بيشوفوها في صفحة /meet ويقدروا يدخلوا عليها وقت المحاضرة.
 //
-// 🔒 القرار ده مقصود بسيط عن قصد (يدوي، مش عن طريق Microsoft Graph API):
-// مش كل مدرس عنده حساب Microsoft 365 برخصة Teams مدفوعة (شرط أساسي لأي
-// تكامل API حقيقي بيعمل اجتماعات تلقائيًا). فبدل ما الميزة تتقفل على
-// المدرسين اللي عندهم اشتراك بس، أي مدرس يقدر يستخدمها — يعمل اجتماع
-// Teams عادي بحسابه (حتى لو مجاني) وينسخ اللينك هنا. لو المشروع لاحقًا
-// عمل Azure AD App Registration + حساب مؤسسي برخصة Teams، ممكن نضيف
-// إنشاء تلقائي للاجتماعات عن طريق Microsoft Graph (Online Meetings API)
-// من غير ما نغيّر شكل الموديل ده (هيفضل فيه link يتخزن، بس هيتولّد تلقائي
-// بدل ما يتلصق يدوي).
+// 🔄 التحديث: بقى فيه مصدرين لرابط الاجتماع (شوف حقل `source` تحت):
+//   - "graph": الرابط اتولّد تلقائيًا عن طريق Microsoft Graph API (Online
+//     Meetings) بعد ما المدرس ربط حساب Microsoft بتاعه مرة واحدة — شوف
+//     app/lib/microsoftGraph.js و app/api/integrations/microsoft/*.
+//     دي الطريقة الافتراضية/الاحترافية لمين عنده حساب مربوط.
+//   - "manual": fallback للمدرسين اللي لسه ما ربطوش حسابهم (أو مش عايزين) —
+//     بيعملوا اجتماع Teams (أو Zoom أو أي منصة) بنفسهم وينسخوا اللينك هنا،
+//     بالظبط زي السلوك القديم. بنسيب المسار ده متاح عشان الميزة متتقفلش
+//     على مين عنده تكامل Microsoft بس.
 
 import mongoose from "mongoose";
 import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
@@ -30,11 +28,20 @@ const meetingSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, default: "", maxlength: 2000 },
 
-    // رابط اجتماع Teams يدوي (المدرس بيلزقه بنفسه). بنتحقق إنه رابط http(s)
+    // رابط الانضمام للاجتماع — إما متولّد تلقائيًا (source: "graph") أو
+    // ملزوق يدويًا من المدرس (source: "manual"). بنتحقق إنه رابط http(s)
     // صالح بس — مش بنجبر دومين teams.microsoft.com تحديدًا، عشان بعض
     // الروابط المؤسسية بتتوزع عن طريق نطاقات مختصرة (aka.ms, custom domain
     // redirect...) ومش عايزين نرفض روابط شغالة فعليًا بسبب فحص صارم زيادة.
     link: { type: String, required: true, trim: true },
+
+    // 🆕 مصدر الرابط — بيتحدد في الـ API route وقت الإنشاء، مش المدرس بيختاره.
+    source: { type: String, enum: ["graph", "manual"], default: "manual" },
+
+    // 🆕 معرّف الاجتماع في Microsoft Graph — موجود بس لو source === "graph".
+    // مفيد لو حبينا لاحقًا نلغي/نعدّل الاجتماع الأصلي في Teams (PATCH/DELETE
+    // على /me/onlineMeetings/{id}) مش بس نمسحه من عندنا.
+    graphMeetingId: { type: String, default: null },
 
     scheduledAt: { type: Date, required: true },
 

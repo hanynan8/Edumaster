@@ -23,5 +23,10 @@ export { getNotificationModel } from "./Notification";
 export { getAnnouncementModel } from "./Announcement";
 export { getCommentModel } from "./Comment";
 
-// 🆕 محاضرات لايف (روابط Teams يدوية) — شوف app/lib/models/Meeting.js
+// 🆕 محاضرات لايف (Teams — تلقائي عبر Microsoft Graph، مع fallback يدوي
+// لو المدرس مش رابط حسابه) — شوف app/lib/models/Meeting.js
 export { getMeetingModel } from "./Meeting";
+
+// 🆕 حساب Microsoft المربوط بكل مدرس (OAuth) — شوف
+// app/lib/models/MicrosoftAccount.js و app/lib/microsoftGraph.js
+export { getMicrosoftAccountModel } from "./MicrosoftAccount";

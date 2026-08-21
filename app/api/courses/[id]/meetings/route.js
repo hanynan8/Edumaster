@@ -8,9 +8,15 @@
 //   يقدر يحضّر معاد المحاضرة قبل ما الكورس يتنشر أصلاً)، وأي حد تاني لازم
 //   يكون عنده وصول فعلي (enrollment أو membership نشطة).
 //
-// POST /api/courses/[id]/meetings { title, link, scheduledAt, description?,
-//   durationMinutes? } → صاحب الكورس/أدمن بس. بعد الإنشاء بيبعت إشعار
+// POST /api/courses/[id]/meetings { title, scheduledAt, description?,
+//   durationMinutes?, link? } → صاحب الكورس/أدمن بس. بعد الإنشاء بيبعت إشعار
 //   "meeting_scheduled" لكل طالب مسجّل فعليًا في الكورس (insertMany، مش loop).
+//
+// 🔄 التحديث (Microsoft Graph): لو المدرس رابط حساب Microsoft بتاعه (شوف
+//   app/api/integrations/microsoft/*)، الرابط بقى اختياري في الـ body —
+//   بنستخدم getValidAccessTokenForTeacher + createOnlineMeeting عشان ننشئ
+//   اجتماع Teams فعلي ونجيب رابطه تلقائيًا (source: "graph"). لو مش رابط
+//   حسابه، بنرجع للسلوك القديم: لازم يبعت `link` يدوي (source: "manual").
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
@@ -19,6 +25,7 @@ import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { getValidAccessTokenForTeacher, createOnlineMeeting } from "@/app/lib/microsoftGraph";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,6 +42,7 @@ function serializeMeeting(m) {
     title: m.title,
     description: m.description || "",
     link: m.link,
+    source: m.source || "manual",
     scheduledAt: m.scheduledAt,
     durationMinutes: m.durationMinutes,
     createdAt: m.createdAt,
@@ -111,11 +119,10 @@ export async function POST(request, { params }) {
 
     const body = await request.json().catch(() => null);
     const title = String(body?.title || "").trim();
-    const link = String(body?.link || "").trim();
+    const manualLink = String(body?.link || "").trim();
     const description = String(body?.description || "").trim();
 
     if (!title) return jsonResponse({ error: "missing_title" }, 400);
-    if (!link || !isValidHttpUrl(link)) return jsonResponse({ error: "invalid_link" }, 400);
 
     const scheduledAt = new Date(body?.scheduledAt);
     if (Number.isNaN(scheduledAt.getTime())) return jsonResponse({ error: "invalid_scheduled_at" }, 400);
@@ -124,6 +131,47 @@ export async function POST(request, { params }) {
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) durationMinutes = 60;
     durationMinutes = Math.min(480, Math.max(5, Math.round(durationMinutes)));
 
+    // 🔄 المسار الاحترافي أولًا: لو المدرس (صاحب الاجتماع الفعلي — نفس
+    // session.user.id اللي هيتخزن في Meeting.teacher) رابط حساب Microsoft
+    // بتاعه، بننشئ اجتماع Teams فعلي ونجيب رابطه تلقائيًا. لو مش رابط
+    // حسابه، لازم يكون بعت `link` يدوي زي السلوك القديم بالظبط.
+    let link;
+    let source;
+    let graphMeetingId = null;
+
+    const accessToken = await getValidAccessTokenForTeacher(session.user.id);
+    if (accessToken) {
+      try {
+        const endDateTime = new Date(scheduledAt.getTime() + durationMinutes * 60_000);
+        const graphMeeting = await createOnlineMeeting({
+          accessToken,
+          subject: title.slice(0, 200),
+          startDateTime: scheduledAt.toISOString(),
+          endDateTime: endDateTime.toISOString(),
+        });
+        link = graphMeeting.joinUrl;
+        graphMeetingId = graphMeeting.graphMeetingId;
+        source = "graph";
+      } catch (err) {
+        // فشل الإنشاء التلقائي (توكن اتلغى من ناحية Microsoft، مشكلة شبكة...)
+        // — بنرجع للـ fallback اليدوي بدل ما نمنع المدرس من إنشاء المحاضرة
+        // خالص. لو مبعتش link يدوي في الحالة دي، بنرجع خطأ واضح للواجهة.
+        console.error("[/api/courses/[id]/meetings] Graph auto-create failed, falling back:", err);
+        if (!manualLink || !isValidHttpUrl(manualLink)) {
+          return jsonResponse(
+            { error: "graph_meeting_failed", message: "فشل إنشاء الاجتماع تلقائيًا عبر Microsoft — ابعت رابط يدوي كبديل." },
+            502
+          );
+        }
+        link = manualLink;
+        source = "manual";
+      }
+    } else {
+      if (!manualLink || !isValidHttpUrl(manualLink)) return jsonResponse({ error: "invalid_link" }, 400);
+      link = manualLink;
+      source = "manual";
+    }
+
     const Meeting = getMeetingModel();
     const created = await Meeting.create({
       course: id,
@@ -131,6 +179,8 @@ export async function POST(request, { params }) {
       title: title.slice(0, 200),
       description: description.slice(0, 2000),
       link,
+      source,
+      graphMeetingId,
       scheduledAt,
       durationMinutes,
     });

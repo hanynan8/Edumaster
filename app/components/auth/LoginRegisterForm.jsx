@@ -42,6 +42,8 @@ const AUTH_I18N = {
       name: "الاسم الكامل",
       namePlaceholder: "الاسم الكامل",
       email: "الإيميل",
+      phone: "رقم الهاتف",
+      phonePlaceholder: "01xxxxxxxxx",
       password: "كلمة المرور",
       submit: "إنشاء الحساب",
       switchText: "عندك حساب بالفعل؟",
@@ -52,6 +54,7 @@ const AUTH_I18N = {
       errNameTaken: "الاسم ده موجود بالفعل، جرب اسم تاني",
       errEmailTaken: "الإيميل ده مسجل بالفعل، جرب تسجيل الدخول",
       errWeakPassword: "كلمة المرور لازم تكون 8 أحرف على الأقل",
+      errInvalidPhone: "رقم الهاتف مش بصيغة صحيحة",
       errRateLimitedRetry: "محاولات تسجيل كتير من نفس الشبكة. حاول تاني بعد {m} دقيقة",
     },
     forgot: {
@@ -123,6 +126,8 @@ const AUTH_I18N = {
       name: "Full Name",
       namePlaceholder: "Your full name",
       email: "Email",
+      phone: "Phone Number",
+      phonePlaceholder: "+1 234 567 8900",
       password: "Password",
       submit: "Create account",
       switchText: "Already have an account?",
@@ -133,6 +138,7 @@ const AUTH_I18N = {
       errNameTaken: "This name is already taken",
       errEmailTaken: "This email is already registered",
       errWeakPassword: "Password must be at least 8 characters",
+      errInvalidPhone: "Please enter a valid phone number",
       errRateLimitedRetry: "Too many sign-ups from this network. Try again in {m} minute(s)",
     },
     forgot: {
@@ -204,6 +210,8 @@ const AUTH_I18N = {
       name: "Nombre completo",
       namePlaceholder: "Tu nombre completo",
       email: "Correo electrónico",
+      phone: "Número de teléfono",
+      phonePlaceholder: "+34 600 000 000",
       password: "Contraseña",
       submit: "Crear cuenta",
       switchText: "¿Ya tienes cuenta?",
@@ -214,6 +222,7 @@ const AUTH_I18N = {
       errNameTaken: "Este nombre ya está en uso",
       errEmailTaken: "Este correo ya está registrado",
       errWeakPassword: "La contraseña debe tener al menos 8 caracteres",
+      errInvalidPhone: "Ingresa un número de teléfono válido",
       errRateLimitedRetry: "Demasiados registros desde esta red. Inténtalo de nuevo en {m} minuto(s)",
     },
     forgot: {
@@ -290,6 +299,12 @@ function ShieldIcon({ size = 16, color = "#2563eb" }) {
   );
 }
 
+// نفس منطق التحقق من رقم الهاتف المستخدم في ProfileSettingsCard و
+// /api/register — مرن وبيقبل أكتر من صيغة دولة.
+function isValidPhoneClient(phone) {
+  return /^\+?[0-9\s-]{7,20}$/.test(phone);
+}
+
 /* ═══════════════════════════════════════════════════════
    LOGIN / REGISTER FORM  (كومبوننت 1 من تقسيم authModel.jsx)
    بيتعامل مع: تسجيل الدخول، إنشاء حساب، وخطوة الـ MFA
@@ -298,7 +313,7 @@ function ShieldIcon({ size = 16, color = "#2563eb" }) {
 export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
   const router = useRouter();
   const { language, isRTL } = useLanguage();
-  const [form, setForm] = useState({ nameOrEmail: "", name: "", email: "", password: "" });
+  const [form, setForm] = useState({ nameOrEmail: "", name: "", email: "", phone: "", password: "" });
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -415,7 +430,8 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.password) { setError(tx.errEmpty); return; }
+    if (!form.name || !form.email || !form.phone || !form.password) { setError(tx.errEmpty); return; }
+    if (!isValidPhoneClient(form.phone)) { setError(tx.errInvalidPhone); return; }
     if (form.password.length < 8) { setError(tx.errWeakPassword); return; }
 
     setLoading(true);
@@ -423,7 +439,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password }),
       });
 
       if (!res.ok) {
@@ -441,6 +457,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
         if (data.error === "name_taken")     { setError(tx.errNameTaken);     return; }
         if (data.error === "email_taken")    { setError(tx.errEmailTaken);    return; }
         if (data.error === "weak_password")  { setError(tx.errWeakPassword);  return; }
+        if (data.error === "invalid_phone")  { setError(tx.errInvalidPhone);  return; }
         setError(tx.errFail);
         return;
       }
@@ -574,6 +591,22 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
               dir={isLogin && isRTL ? "rtl" : "ltr"}
             />
           </div>
+
+          {!isLogin && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                {i18n.register.phone}
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={handleChange("phone")}
+                placeholder={i18n.register.phonePlaceholder}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-[#0a0a0a] placeholder-gray-300 outline-none focus:border-[#C9A227] focus:ring-2 focus:ring-[#C9A227]/10 transition-all"
+                dir="ltr"
+              />
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-1.5">

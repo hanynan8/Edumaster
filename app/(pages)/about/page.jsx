@@ -101,34 +101,40 @@ export default function AboutPage() {
 }
 function HeroSection({ data, t }) {
   return (
-    <section className="relative h-[48vh] sm:h-[55vh] md:h-[62vh] overflow-hidden bg-[#f4f4f4]">
-      <div className="absolute inset-0 z-0">
-        <Image src={data.hero.backgroundImage} alt="about hero" fill className="object-cover object-center" priority unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
-      </div>
-      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
-            {(() => {
-              const words = t.hero.headline.split(" ");
-              const black = words.slice(0, 2).join(" ");
-              const blue  = words.slice(2).join(" ");
-              return (
-                <>
-                  <span className="text-[#0a0a0a]">{black}</span>
-                  <br />
-                  <span className="text-[#1D6FD8]">{blue}</span>
-                </>
-              );
-            })()}
-          </h1>
-          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
+        <Image
+          src={data.hero.backgroundImage}
+          alt="about hero"
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
+
+        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {(() => {
+                  const words = t.hero.headline.split(" ");
+                  const black = words.slice(0, 2).join(" ");
+                  const blue  = words.slice(2).join(" ");
+                  return (
+                    <>
+                      <span className="text-[#1c1d1f]">{black}</span>{" "}
+                      <span className="text-[#1D6FD8]">{blue}</span>
+                    </>
+                  );
+                })()}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
+                {t.hero.subheadline}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 animate-bounce">
-        <div className="w-px h-8 bg-gray-300" />
-        <span className="text-[10px] tracking-[0.2em] uppercase text-gray-400 font-medium">Scroll</span>
       </div>
     </section>
   );
@@ -139,7 +145,7 @@ function WhoWeAre({ data, t }) {
   return (
     <section ref={ref} className="py-16 sm:py-20 md:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6 grid lg:grid-cols-2 gap-10 md:gap-16 lg:gap-20 items-center">
-        <div className={`relative overflow-hidden rounded-2xl aspect-[4/3] transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+        <div className={`relative overflow-hidden rounded-2xl aspect-4/3 transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <Image src={data.whoWeAre.image} alt="Who We Are" fill className="object-cover" unoptimized />
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#1D6FD8]" />
           <div className="absolute top-4 sm:top-6 left-4 sm:left-6 bg-white rounded-xl px-3 sm:px-4 py-2 sm:py-3 shadow-lg">
@@ -180,7 +186,7 @@ const cards = [
               className={`relative bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 md:p-10 overflow-hidden transition-all duration-500 hover:shadow-xl hover:shadow-black/5 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
               style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: card.color }} />
+              <div className="absolute top-0 inset-x-0 h-0.75" style={{ background: card.color }} />
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-5 sm:mb-6" style={{ background: `${card.color}12`, color: card.color }}>
                 {card.icon}
               </div>
@@ -236,13 +242,13 @@ function WhyChooseUs({ data, t }) {
             ))}
           </ul>
         </div>
-        <div className={`relative overflow-hidden rounded-2xl aspect-[4/3] transition-all duration-700 delay-200 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+        <div className={`relative overflow-hidden rounded-2xl aspect-4/3 transition-all duration-700 delay-200 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <Image src={data.why.image} alt="Why Choose Edumaster" fill className="object-cover" unoptimized />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
           <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
             <p className="text-white font-black text-base sm:text-xl leading-snug drop-shadow-md">{t.why.imageCaption}</p>
           </div>
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#1D6FD8]" />
+          <div className="absolute top-0 left-0 right-0 h-0.75 bg-[#1D6FD8]" />
         </div>
       </div>
     </section>
@@ -256,7 +262,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.stats.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#1D6FD8] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>

@@ -17,6 +17,12 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// نفس منطق التحقق من رقم الهاتف المستخدم في /api/profile — مرن وبيقبل
+// أكتر من صيغة دولة، عشان المنصة عندها طلاب من أكتر من بلد.
+function isValidPhone(phone) {
+  return /^\+?[0-9\s-]{7,20}$/.test(phone);
+}
+
 // 🔒 SECURITY: بدون rate limiting كان أي حد يقدر يعمل مئات الحسابات الوهمية
 // بسكريبت بسيط. 10 تسجيلات كحد أقصى كل ساعة لكل IP كافية لأي استخدام حقيقي
 // (شخص أو أسرة على نفس الشبكة) ومزعجة كفاية لأي سكريبت آلي.
@@ -43,12 +49,16 @@ export async function POST(request) {
     const name = String(body.name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
+    const phone = String(body.phone || "").trim();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phone) {
       return jsonResponse({ error: "missing_fields" }, 400);
     }
     if (!isValidEmail(email)) {
       return jsonResponse({ error: "invalid_email" }, 400);
+    }
+    if (!isValidPhone(phone)) {
+      return jsonResponse({ error: "invalid_phone" }, 400);
     }
     if (password.length < 8) {
       return jsonResponse({ error: "weak_password" }, 400);
@@ -89,6 +99,7 @@ export async function POST(request) {
       name,
       email,
       password: passwordHash,
+      phone,
       role: "student",
       status: "active",
       createdAt: now,
@@ -100,6 +111,7 @@ export async function POST(request) {
         id: created._id.toString(),
         name: created.name,
         email: created.email,
+        phone: created.phone,
         role: created.role,
       },
       201

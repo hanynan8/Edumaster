@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -64,25 +65,34 @@ export default function ContactPage() {
   );
 }
 
+const CONTACT_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1600&q=80";
+
 function ContactHero({ data, t }) {
   return (
-    <section className="relative flex items-end overflow-hidden bg-[#f4f4f4] min-h-[38vh]">
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
-      <div className="absolute inset-0 z-0 bg-[#0a0a0a]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#3730a3] via-[#4f46e5] to-[#2563eb]" />
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: "linear-gradient(#1D6FD8 1px, transparent 1px), linear-gradient(90deg, #1D6FD8 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
-      </div>
-      <div className="relative z-10 w-full px-5 sm:px-8 md:px-6 pb-12 sm:pb-16 md:pb-20 pt-24 sm:pt-28 md:pt-32">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-semibold leading-[0.92] tracking-tight text-white max-w-2xl mb-4 sm:mb-5 animate-fadein-up">
-            {t.hero.headline.split(",").map((chunk, i, arr) =>
-              i === arr.length - 1
-                ? <span key={i} className="text-white">{chunk}</span>
-                : <span key={i}>{chunk},<br /></span>
-            )}
-          </h1>
-          <p className="text-gray-400 text-sm sm:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
+        <Image
+          src={data?.hero?.backgroundImage || CONTACT_FALLBACK_IMAGE}
+          alt={t.hero.headline ?? "Contact background"}
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
+
+        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {t.hero.headline}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
+                {t.hero.subheadline}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </section>

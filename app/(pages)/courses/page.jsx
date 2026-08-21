@@ -380,7 +380,7 @@ export default function CoursesPage() {
         <HeroSearchSection t={t} search={search} setSearch={setSearch} />
 
         {localized.length > 0 && (
-          <div className="sticky top-[60px] sm:top-[68px] z-40 bg-white border-b border-gray-100 shadow-sm">
+          <div className="sticky top-15 sm:top-17 z-40 bg-white border-b border-gray-100 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
               <FilterSelect value={category} onChange={setCategory} options={categoryOptions} />
               <FilterSelect value={level} onChange={setLevel} options={levelOptions} />
@@ -423,33 +423,42 @@ export default function CoursesPage() {
 
 function HeroSearchSection({ t, search, setSearch }) {
   return (
-    <section className="relative bg-gradient-to-br from-[#0a2a5e] via-[#123a7a] to-[#1D6FD8] overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-10"
-        style={{ backgroundImage: "radial-gradient(circle at 20% 20%, white 1px, transparent 1px)", backgroundSize: "28px 28px" }}
-      />
-      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-8 sm:pb-10">
-        <span className="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/70 mb-3 animate-fadein">
-          {t.badge}
-        </span>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white max-w-2xl mb-3 leading-[1.15] animate-fadein-up">
-          {t.headline}
-        </h1>
-        <p className="text-white/70 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-7 sm:mb-8 animate-fadein-up2">
-          {t.subheadline}
-        </p>
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
+        <Image
+          src={FALLBACK_IMAGE}
+          alt="courses hero"
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
 
-        <div className="relative max-w-xl animate-fadein-up2">
-          <span className="absolute left-4 rtl:left-auto rtl:right-4 top-1/2 -translate-y-1/2 text-gray-400">
-            <SearchIcon size={18} />
-          </span>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t.searchPlaceholder}
-            className="w-full bg-white rounded-xl pl-11 pr-4 rtl:pl-4 rtl:pr-11 py-3.5 sm:py-4 text-sm text-gray-800 placeholder:text-gray-400 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/20"
-          />
+        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {t.headline}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-4 animate-fadein-up2">
+                {t.subheadline}
+              </p>
+
+              <div className="relative animate-fadein-up2">
+                <span className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <SearchIcon size={15} />
+                </span>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t.searchPlaceholder}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ExcelJS from 'exceljs';
 import {
-  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText, CreditCard, X, Check, Clock, ClipboardList,
+  Users, Loader, AlertCircle, Trash2, Lock, ShieldCheck, FileText, CreditCard, X, Check, Clock, ClipboardList, Download,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -58,6 +59,83 @@ function UsersAdmin() {
   const [viewOnboardingUser, setViewOnboardingUser] = useState(null); // 🆕 user targeted for onboarding details view
 
   const myId = session?.user?.id;
+
+  // 🆕 Export to Excel — نفس نمط exportToExcel في overviewPanel.jsx/formsPanel.jsx
+  // (ExcelJS في المتصفح، تنزيل مباشر بـ Blob، من غير أي route سيرفر إضافي).
+  // roleFilter: null = كل المستخدمين، "teacher" = المدرسين بس، "student" = الطلاب بس.
+  const [exportingRole, setExportingRole] = useState(null);
+
+  const exportUsersToExcel = async (roleFilter) => {
+    const rows = roleFilter ? users.filter((u) => u.role === roleFilter) : users;
+    if (rows.length === 0) return;
+
+    setExportingRole(roleFilter || 'all');
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Edumaster Admin';
+      workbook.created = new Date();
+
+      const sheetName = roleFilter === 'teacher' ? 'Teachers' : roleFilter === 'student' ? 'Students' : 'All Users';
+      const sheet = workbook.addWorksheet(sheetName);
+      sheet.columns = [
+        { header: '#', key: 'idx', width: 6 },
+        { header: 'Name', key: 'name', width: 26 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 18 },
+        { header: 'Role', key: 'role', width: 12 },
+        { header: 'Status', key: 'status', width: 12 },
+        { header: 'Membership Plan', key: 'planName', width: 20 },
+        { header: 'Membership Status', key: 'membershipStatus', width: 18 },
+        { header: 'Joined', key: 'createdAt', width: 18 },
+      ];
+
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 12 };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      headerRow.height = 26;
+
+      rows.forEach((u, idx) => {
+        const row = sheet.addRow({
+          idx: idx + 1,
+          name: u.name || '—',
+          email: u.email || '—',
+          phone: u.phone || '—',
+          role: u.role || 'student',
+          status: u.status || 'active',
+          planName: u.membership?.planName || 'None',
+          membershipStatus: u.membership?.status || 'inactive',
+          createdAt: u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—',
+        });
+        const isEven = idx % 2 === 0;
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFEFF6FF' } };
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const fileTag = roleFilter === 'teacher' ? 'teachers' : roleFilter === 'student' ? 'students' : 'all-users';
+      a.download = `edumaster-${fileTag}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Excel export failed:', err);
+      setActionError('Failed to export to Excel, please try again.');
+    } finally {
+      setExportingRole(null);
+    }
+  };
 
   const loadUsers = () => {
     setLoading(true);
@@ -178,10 +256,41 @@ function UsersAdmin() {
     <div className="flex flex-col gap-6">
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100">
         <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-          <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
-            <Users size={28} /> Registered Users
-            <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{users.length}</span>
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold flex items-center gap-3 text-blue-900">
+              <Users size={28} /> Registered Users
+              <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{users.length}</span>
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => exportUsersToExcel(null)}
+                disabled={exportingRole !== null || users.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors disabled:opacity-50"
+                title="Export all users to Excel"
+              >
+                {exportingRole === 'all' ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
+                Export All
+              </button>
+              <button
+                onClick={() => exportUsersToExcel('teacher')}
+                disabled={exportingRole !== null || users.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-blue-700 border-2 border-blue-200 text-sm font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50"
+                title="Export teachers only to Excel"
+              >
+                {exportingRole === 'teacher' ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
+                Export Teachers
+              </button>
+              <button
+                onClick={() => exportUsersToExcel('student')}
+                disabled={exportingRole !== null || users.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-blue-700 border-2 border-blue-200 text-sm font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50"
+                title="Export students only to Excel"
+              >
+                {exportingRole === 'student' ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
+                Export Students
+              </button>
+            </div>
+          </div>
         </div>
         {error && (
           <div className="mx-6 mt-4 px-6 py-4 rounded-xl bg-red-500 text-white flex items-center gap-3">

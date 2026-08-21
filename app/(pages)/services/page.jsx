@@ -260,7 +260,7 @@ function MembershipSection({ isRTL }) {
                 return (
                   <div
                     key={plan.id}
-                    className={`relative w-full sm:w-[260px] bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
+                    className={`relative w-full sm:w-65 bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
                       isCurrent
                         ? "border-[#1D6FD8] ring-2 ring-[#1D6FD8]/20"
                         : isFeatured
@@ -350,27 +350,30 @@ function MembershipSection({ isRTL }) {
 }
 function HeroSection({ data, t }) {
   return (
-    <section className="relative h-[48vh] sm:h-[55vh] md:h-[62vh] overflow-hidden bg-[#f4f4f4]">
-      <div className="absolute inset-0 z-0">
-        <Image src={data.hero.backgroundImage} alt={t.hero.headline ?? "Services background"} fill className="object-cover object-center" priority unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
-      </div>
-      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
-            {t.hero.headline.split(",").map((chunk, i, arr) =>
-              i === arr.length - 1
-                ? <span key={i} className="text-[#1D6FD8]">{chunk}</span>
-                : <span key={i}>{chunk},<br /></span>
-            )}
-          </h1>
-          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
+        <Image
+          src={data.hero.backgroundImage}
+          alt={t.hero.headline ?? "Services background"}
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
+
+        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {t.hero.headline}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
+                {t.hero.subheadline}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 animate-bounce">
-        <div className="w-px h-8 bg-gray-300" />
-        <span className="text-[10px] tracking-[0.2em] uppercase text-gray-400 font-medium">Scroll</span>
       </div>
     </section>
   );
@@ -403,9 +406,9 @@ function ServiceRow({ service, index }) {
   return (
     <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
       {/* Image — always first on mobile */}
-      <div className={`relative overflow-hidden min-h-[220px] sm:min-h-[300px] lg:min-h-[460px] order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
+      <div className={`relative overflow-hidden min-h-55 sm:min-h-75 lg:min-h-115 order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
         <Image src={service.image} alt={service.title ?? "Service image"} fill  className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
-        <div className="absolute top-0 inset-x-0 h-[4px]" style={{ background: service.color }} />
+        <div className="absolute top-0 inset-x-0 h-1" style={{ background: service.color }} />
         <div className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
           <span className="text-white font-black text-base sm:text-xl leading-none">{String(index + 1).padStart(2, "0")}</span>
         </div>
@@ -443,7 +446,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.stats.backgroundImage} alt="" aria-hidden="true" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#1D6FD8] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>

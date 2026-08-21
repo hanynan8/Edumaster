@@ -138,7 +138,7 @@ export default function CountriesPage() {
 
 function CountryFilter({ countries, selectedId, setSelectedId }) {
   return (
-    <div className="sticky top-[60px] sm:top-[68px] z-50 bg-white border-b border-gray-100">
+    <div className="sticky top-15 sm:top-17 z-50 bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
         {countries.map((c) => {
           const isActive = c.id === selectedId;
@@ -162,26 +162,33 @@ function CountryFilter({ countries, selectedId, setSelectedId }) {
 
 function HeroSection({ data, t }) {
   return (
-    <section className="relative h-[48vh] sm:h-[55vh] md:h-[62vh] overflow-hidden bg-[#f4f4f4]">
-      <div className="absolute inset-0 z-0">
-        <Image src={data.hero.backgroundImage} alt="countries hero" fill className="object-cover object-center" priority unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-24 sm:h-32 md:h-40 bg-gradient-to-t from-white to-transparent" />
-      </div>
-      <div className="relative z-10 w-full h-full items-start px-5 sm:px-8 md:px-6 pt-10 sm:pt-16 md:pt-24">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl mb-2 sm:mb-4 animate-fadein-up leading-[1.15] sm:leading-[1.05]">
-            {(() => {
-              const words = t.hero.headline.split(" ");
-              return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
-            })()}
-          </h1>
-          <p className="text-gray-500 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
+        <Image
+          src={data.hero.backgroundImage}
+          alt="countries hero"
+          fill
+          className="object-cover object-center"
+          priority
+          unoptimized
+        />
+
+        {/* White card overlapping the image, Udemy-style — matches guest home hero */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full px-5 sm:px-8 md:px-12">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+              <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
+                {(() => {
+                  const words = t.hero.headline.split(" ");
+                  return (<><span className="text-[#1c1d1f]">{words.slice(0, 2).join(" ")}</span> <span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
+                })()}
+              </h1>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
+                {t.hero.subheadline}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 animate-bounce">
-        <div className="w-px h-8 bg-gray-300" />
-        <span className="text-[10px] tracking-[0.2em] uppercase text-gray-400 font-medium">Scroll</span>
       </div>
     </section>
   );
@@ -196,7 +203,7 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
         <div className="absolute inset-0 z-0 opacity-20">
           <Image src={country.image} alt={country.name} fill className="object-cover" unoptimized />
         </div>
-        <div className="absolute top-0 inset-x-0 h-[3px] z-10" style={{ background: country.color }} />
+        <div className="absolute top-0 inset-x-0 h-0.75 z-10" style={{ background: country.color }} />
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-24 sm:py-28 md:py-32">
           <div className={`transition-all duration-700 ${headerVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             <div className="mb-3 sm:mb-4">
@@ -230,7 +237,7 @@ function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }
     }
   };
   return (
-    <div className="sticky top-[112px] sm:top-[128px] z-40 bg-white border-b border-gray-100 shadow-sm">
+    <div className="sticky top-28 sm:top-32 z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
         {sectionKeys.map((key) => {
           const meta = SECTION_META[key] || { icon: BookOpen, color: "#1D6FD8" };
@@ -268,15 +275,15 @@ function SectionRow({ countryId, sectionKey, sectionData, content, meta, index, 
   return (
     <div id={id} ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0 scroll-mt-36">
       {/* Image — always on top on mobile */}
-      <div className={`relative overflow-hidden min-h-[220px] sm:min-h-[300px] lg:min-h-[480px] order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
+      <div className={`relative overflow-hidden min-h-55 sm:min-h-75 lg:min-h-120 order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
         {imageSrc && (
           <Image src={imageSrc} alt={content.title} fill className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
         )}
-        <div className="absolute top-0 inset-x-0 h-[4px]" style={{ background: meta.color }} />
+        <div className="absolute top-0 inset-x-0 h-1" style={{ background: meta.color }} />
         <div className="absolute top-4 sm:top-6 right-4 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: meta.color }}>
           <Icon size={16} color="white" />
         </div>
-        <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-linear-to-t from-black/60 to-transparent">
           <span className="inline-flex items-center gap-1.5 text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest">
             <div className="w-3 sm:w-4 h-px bg-white/60" />{content.label}
           </span>
@@ -343,7 +350,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.stats.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#1D6FD8] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>

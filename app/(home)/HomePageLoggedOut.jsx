@@ -5,13 +5,13 @@
    ------------------------------------------------------------------
    Sections (top → bottom):
      1) Hero               → same as the current Home page (collection=home)
-     2) Courses            → shared <CoursesSection /> component
+     2) Services           → same data as /services page
+                              (GET /api/data?collection=services)
+     3) Courses            → shared <CoursesSection /> component
                               (components/CoursesSection.jsx), same fetch
                               as /courses page (GET /api/courses?limit=50)
-     3) Countries (preview)→ same data as /countries page
+     4) Countries (preview)→ same data as /countries page
                               (GET /api/data?collection=countries)
-     4) Services           → same data as /services page
-                              (GET /api/data?collection=services)
      5) Mission & Vision   → same data as /about page
                               (GET /api/data?collection=about)
      6) Membership (preview)→ shared <MembershipSection /> component
@@ -237,7 +237,10 @@ export default function HomePageLoggedOut() {
         {/* 1) HERO — unchanged, same as current Home */}
         <Hero data={homeData} t={tHome} />
 
-        {/* 2) ALL COURSES — shared component, same source as /courses */}
+        {/* 2) SERVICES — same source as /services, 4-per-row grid */}
+        {servicesData && <ServicesSection data={servicesData} lang={lang} ui={ui} />}
+
+        {/* 3) ALL COURSES — shared component, same source as /courses */}
         <CoursesSection
           lang={lang}
           ui={ui}
@@ -245,11 +248,8 @@ export default function HomePageLoggedOut() {
           paddingClassName="py-8 sm:py-14 md:py-20"
         />
 
-        {/* 3) COUNTRIES PREVIEW — same source as /countries, a few cards only */}
+        {/* 4) COUNTRIES PREVIEW — same source as /countries, a few cards only */}
         {countriesData && <CountriesPreviewSection data={countriesData} lang={lang} ui={ui} />}
-
-        {/* 4) SERVICES — same source as /services, 4-per-row grid */}
-        {servicesData && <ServicesSection data={servicesData} lang={lang} ui={ui} />}
 
         {/* 5) MISSION & VISION — same source as /about */}
         {aboutData && <MissionVisionSection data={aboutData} lang={lang} ui={ui} />}
@@ -271,8 +271,8 @@ export default function HomePageLoggedOut() {
 ═══════════════════════════════════════ */
 function Hero({ data, t }) {
   return (
-    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20 pt-6 sm:pt-10">
-      <div className="relative w-full h-[300px] sm:h-[360px] md:h-[420px]">
+    <section className="relative overflow-hidden bg-white px-6 sm:px-12 md:px-20">
+      <div className="relative w-full h-75 sm:h-90 md:h-105">
         <Image
           src={data.hero.backgroundImage}
           alt="hero"
@@ -285,7 +285,7 @@ function Hero({ data, t }) {
         {/* White card overlapping the image, Udemy-style */}
         <div className="absolute inset-0 flex items-center">
           <div className="w-full px-5 sm:px-8 md:px-12">
-            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-[300px] sm:max-w-[340px] md:max-w-[400px] px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
+            <div className="bg-white rounded-none sm:rounded-md shadow-xl w-full max-w-75 sm:max-w-85 md:max-w-100 px-6 sm:px-8 py-6 sm:py-8 animate-fadein-up">
               <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
                 {t.hero.headline}
               </h1>
@@ -316,7 +316,7 @@ function ServicesSection({ data, lang, ui }) {
   });
 
   return (
-    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-white">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
       <div className="px-5 sm:px-10 md:px-16">
         <div
           className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
@@ -351,7 +351,7 @@ function ServicesSection({ data, lang, ui }) {
                 {s.image && (
                   <Image src={s.image} alt={s.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
                 )}
-                <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: s.color }} />
+                <div className="absolute top-0 inset-x-0 h-0.75" style={{ background: s.color }} />
               </div>
               <div className="p-4 flex flex-col gap-2 flex-1">
                 <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
@@ -458,7 +458,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
                   {card.image && (
                     <Image src={card.image} alt={card.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
                   )}
-                  <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: card.countryColor }} />
+                  <div className="absolute top-0 inset-x-0 h-0.75" style={{ background: card.countryColor }} />
                   <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 w-8 h-8 rounded-lg flex items-center justify-center shadow-md" style={{ background: meta.color }}>
                     <Icon size={14} color="white" />
                   </div>
@@ -508,7 +508,7 @@ function MissionVisionSection({ data, lang, ui }) {
   ];
 
   return (
-    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
+    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-white">
       <div className="px-5 sm:px-10 md:px-16">
         <div className={`mb-7 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">{t.mvTitle || ui.mvTitle}</h2>
@@ -523,7 +523,7 @@ function MissionVisionSection({ data, lang, ui }) {
               }`}
               style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: card.color }} />
+              <div className="absolute top-0 inset-x-0 h-0.75" style={{ background: card.color }} />
               <div
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-5 sm:mb-6"
                 style={{ background: `${card.color}12`, color: card.color }}
@@ -573,12 +573,12 @@ function Stats({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-15">
         <Image src={data.stats.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#C9A227] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#C9A227] z-10" />
       <div className="relative z-10 px-5 sm:px-10 md:px-16">
         <div className={`mb-7 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.08] rounded-2xl overflow-hidden border border-white/[0.08]">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/8 rounded-2xl overflow-hidden border border-white/8">
           {merged.map((s, i) => (
             <div
               key={i}

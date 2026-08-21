@@ -66,6 +66,7 @@ function TrendChart({ title, data, color }) {
 function CourseStatusBreakdown({ counts }) {
   const rows = [
     { key: 'coursesPublished', label: 'Published', color: 'bg-green-500', text: 'text-green-700' },
+    { key: 'coursesPending', label: 'Pending review', color: 'bg-blue-500', text: 'text-blue-700' },
     { key: 'coursesDraft', label: 'Draft', color: 'bg-gray-400', text: 'text-gray-600' },
     { key: 'coursesArchived', label: 'Archived', color: 'bg-amber-500', text: 'text-amber-700' },
   ];
@@ -83,7 +84,7 @@ function CourseStatusBreakdown({ counts }) {
           />
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {rows.map((r) => (
           <div key={r.key} className="text-center">
             <p className={`text-xl font-bold ${r.text}`}>{counts[r.key] || 0}</p>
@@ -151,6 +152,7 @@ export default function OverviewAdmin() {
         ['Total Admins', data.counts.admins],
         ['Total Users', data.counts.totalUsers],
         ['Published Courses', data.counts.coursesPublished],
+        ['Pending Review Courses', data.counts.coursesPending],
         ['Draft Courses', data.counts.coursesDraft],
         ['Archived Courses', data.counts.coursesArchived],
         ['Total Courses', data.counts.totalCourses],

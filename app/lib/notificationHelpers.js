@@ -10,6 +10,7 @@
 // واجب، إلخ). كل الدوال هنا بتمسك أي خطأ وتسجله في الـ console بس.
 
 import { getNotificationModel, getEnrollmentModel } from "@/app/lib/models";
+import { getAuthModel } from "@/app/lib/mongodb";
 
 /**
  * إشعار لمستخدم واحد.
@@ -62,6 +63,22 @@ export async function getEnrolledUserIds(courseId) {
     return enrollments.map((e) => e.user.toString());
   } catch (err) {
     console.error("[getEnrolledUserIds] error:", err);
+    return [];
+  }
+}
+
+/**
+ * 🆕 كل الـ IDs بتاعة الأدمنز الحاليين — مستخدمة لإشعار كل الأدمنز لما مدرس
+ * يبعت كورس للمراجعة (course_pending_review)، بدل ما نختار أدمن واحد
+ * بالصدفة. بترجع array من strings.
+ */
+export async function getAdminUserIds() {
+  try {
+    const Auth = getAuthModel();
+    const admins = await Auth.find({ role: "admin" }, "_id").lean();
+    return admins.map((a) => a._id.toString());
+  } catch (err) {
+    console.error("[getAdminUserIds] error:", err);
     return [];
   }
 }

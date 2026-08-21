@@ -9,6 +9,7 @@ import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } fro
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
+import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -140,7 +141,8 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, existing.teacher)) {
+    const { session } = auth;
+    if (!isOwnerOrAdmin(session, existing.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -168,8 +170,25 @@ export async function PUT(request, { params }) {
     if (updates.level !== undefined && !["beginner", "intermediate", "advanced"].includes(updates.level)) {
       return jsonResponse({ error: "invalid_level" }, 400);
     }
-    if (updates.status !== undefined && !["draft", "published", "archived"].includes(updates.status)) {
+    if (updates.status !== undefined && !["draft", "pending", "published", "archived"].includes(updates.status)) {
       return jsonResponse({ error: "invalid_status" }, 400);
+    }
+
+    // 🔒 PRODUCT RULE: مدرس (مش أدمن) مينفعش "ينشر" كورس مباشرة. لو حاول
+    // يحط status="published" — سواء كورس جديد لسه draft، أو كورس رجّعه
+    // draft بعدين حب ينشره تاني — بنحوّل الطلب لـ "pending" (قيد المراجعة)
+    // بدل ما ننفذه زي ما هو، وبنبعت إشعار لكل الأدمنز إن فيه كورس مستني
+    // مراجعة. لو الكورس أصلاً published ومحدّش غيّر status (لسه published
+    // في الـ body)، ده مش "نشر جديد" فمنعملش حاجة (تعديل عادي مش لازم
+    // مراجعة تانية).
+    let submittedForReview = false;
+    if (
+      updates.status === "published" &&
+      existing.status !== "published" &&
+      session.user.role !== "admin"
+    ) {
+      updates.status = "pending";
+      submittedForReview = true;
     }
     if (updates.price !== undefined) {
       updates.price = Math.max(0, Number(updates.price) || 0);
@@ -211,7 +230,28 @@ export async function PUT(request, { params }) {
       { path: "teacher", select: "name" },
     ]);
 
-    return jsonResponse(serializeCourse(populated));
+    // 🆕 best-effort: مش لازم نستنى الإشعارات دي أو نفشل الطلب لو فشلت —
+    // شوف تعليق notificationHelpers.js عن نفس المبدأ في certificateHelpers.js
+    if (submittedForReview) {
+      getAdminUserIds()
+        .then((adminIds) =>
+          Promise.all(
+            adminIds.map((adminId) =>
+              createNotification({
+                user: adminId,
+                type: "course_pending_review",
+                title: "كورس جديد بينتظر المراجعة",
+                message: `المدرس "${populated.teacher?.name || ""}" طلب نشر الكورس "${populated.title}" — محتاج مراجعتك.`,
+                link: "/admin",
+                course: populated._id,
+              })
+            )
+          )
+        )
+        .catch((err) => console.error("[/api/courses/[id]] PUT notify admins error:", err));
+    }
+
+    return jsonResponse({ ...serializeCourse(populated), submittedForReview });
   } catch (err) {
     console.error("[/api/courses/[id]] PUT error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

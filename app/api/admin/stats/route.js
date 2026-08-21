@@ -111,6 +111,11 @@ export async function GET() {
         totalUsers: roleCounts.reduce((sum, r) => sum + r.count, 0),
         coursesPublished: statusMap.published || 0,
         coursesDraft: statusMap.draft || 0,
+        // 🆕 كورسات بعتها المدرسين وبتستنى موافقة/رفض الأدمن (شوف
+        // app/admin/components/coursesReviewPanel.jsx) — كانت قبل كده مش
+        // بتتحسب في أي عمود هنا فكان totalCourses بيبقى أكبر من مجموع
+        // Published+Draft+Archived من غير تفسير في الواجهة.
+        coursesPending: statusMap.pending || 0,
         coursesArchived: statusMap.archived || 0,
         totalCourses: courseStatusCounts.reduce((sum, c) => sum + c.count, 0),
         totalEnrollments,

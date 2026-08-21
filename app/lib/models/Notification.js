@@ -28,6 +28,9 @@ const notificationSchema = new mongoose.Schema(
         "comment_reply", // رد على تعليق (لصاحب التعليق الأصلي)
         "comment_question", // سؤال جديد تحت درس (للمدرس)
         "payment_succeeded", // دفع ناجح (للطالب)
+        "course_pending_review", // 🆕 مدرس نشر كورس وبينتظر مراجعة (لكل الأدمنز)
+        "course_approved", // 🆕 الأدمن وافق على نشر الكورس (للمدرس صاحب الكورس)
+        "course_rejected", // 🆕 الأدمن رفض الكورس وحذفه (للمدرس صاحب الكورس)
       ],
       required: true,
     },

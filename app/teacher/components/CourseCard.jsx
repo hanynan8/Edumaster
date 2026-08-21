@@ -6,10 +6,12 @@ import { Pencil, Trash2, BookOpen, Users, Clock } from "lucide-react";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
+  // 🆕 pending: الكورس اتبعت للأدمن وبينتظر مراجعة (لسه مش ظاهر للطلاب)
+  pending: "bg-blue-100 text-blue-700",
   published: "bg-green-100 text-green-700",
   archived: "bg-amber-100 text-amber-700",
 };
-const STATUS_LABELS = { draft: "مسودة", published: "منشور", archived: "مؤرشف" };
+const STATUS_LABELS = { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" };
 
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600);

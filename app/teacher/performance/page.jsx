@@ -20,6 +20,10 @@ import {
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
+  // 🆕 pending: الكورس بعتوه المدرس للمراجعة وبينتظر موافقة/رفض الأدمن —
+  // كان الكورس ده هيظهر من غير أي لون (className undefined) قبل الإضافة دي
+  // لأن status الجديدة دي مكنتش موجودة في الماب أصلاً وقت ما كان فيه draft/published/archived بس.
+  pending: "bg-blue-100 text-blue-700",
   published: "bg-green-100 text-green-700",
   archived: "bg-amber-100 text-amber-700",
 };

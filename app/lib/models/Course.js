@@ -92,10 +92,20 @@ const courseSchema = new mongoose.Schema(
     outcomes: { type: [String], default: [] }, // "هتتعلم إيه"
     tags: { type: [String], default: [] },
 
-    // draft: لسه بيتظبط ومش ظاهر للطلاب | published: ظاهر ومتاح | archived: مخفي بدون حذف
+    // draft: لسه بيتظبط ومش ظاهر للطلاب | pending: المدرس دوس "نشر" وبينتظر
+    // مراجعة/موافقة الأدمن — مش ظاهر للطلاب برضه بالظبط زي draft، بس ظاهر في
+    // قائمة "الكورسات المعلّقة" في لوحة الأدمن | published: راجعه الأدمن
+    // ووافق عليه، ظاهر ومتاح فعليًا على الموقع | archived: مخفي بدون حذف.
+    //
+    // 🔒 SECURITY / PRODUCT RULE: مفيش طريقة لكورس يوصل لـ "published" غير
+    // عن طريق موافقة أدمن صريحة (شوف app/api/courses/[id]/route.js PUT —
+    // أي محاولة من مدرس (مش أدمن) إنه يحط status="published" مباشرة بتتحول
+    // تلقائيًا لـ "pending" بدل ما تتنفذ زي ما هي). لو الأدمن رفض الكورس،
+    // بيتحذف بالكامل (مفيش status="rejected" — الرفض = حذف، شوف
+    // app/api/admin/courses/[id]/reject/route.js).
     status: {
       type: String,
-      enum: ["draft", "published", "archived"],
+      enum: ["draft", "pending", "published", "archived"],
       default: "draft",
     },
 

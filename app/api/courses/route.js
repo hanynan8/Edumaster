@@ -94,10 +94,16 @@ export async function GET(request) {
       // مدرس: كورساته هو بس، بكل الحالات
       query.teacher = session.user.id;
     } else if (role === "admin") {
-      // أدمن: كل الكورسات، مع فلترة اختيارية بمدرس معيّن
+      // أدمن: كل الكورسات، مع فلترة اختيارية بمدرس معيّن و/أو بحالة معيّنة
+      // (🆕 status=pending بتُستخدم في لوحة "مراجعة الكورسات" — شوف
+      // app/admin/components/coursesReviewPanel.jsx)
       const teacherFilter = searchParams.get("teacher");
       if (teacherFilter && mongoose.Types.ObjectId.isValid(teacherFilter)) {
         query.teacher = teacherFilter;
+      }
+      const statusFilter = searchParams.get("status");
+      if (statusFilter && ["draft", "pending", "published", "archived"].includes(statusFilter)) {
+        query.status = statusFilter;
       }
     } else {
       // زائر/طالب: المنشور بس (الكتالوج العام)

@@ -16,9 +16,15 @@ const LEVELS = [
   { value: "advanced", label: "متقدم" },
 ];
 
+// 🔒 PRODUCT RULE: المدرس مش بيقدر ينشر كورس مباشرة — لما يختار "نشر"، الباك
+// إند (app/api/courses/[id]/route.js) بيحول الحالة لـ "قيد المراجعة" تلقائي
+// لحد ما الأدمن يوافق عليها من لوحته (شوف app/admin/components/coursesReviewPanel.jsx).
+// "قيد المراجعة" نفسها موجودة هنا كـ option بس عشان لو المدرس بيعدّل كورس
+// اتبعت بالفعل ومازال مستني، يشوف حالته الحقيقية في الفورم من غير لبس.
 const STATUSES = [
   { value: "draft", label: "مسودة" },
-  { value: "published", label: "منشور" },
+  { value: "published", label: "نشر (يحتاج موافقة الأدمن)" },
+  { value: "pending", label: "قيد المراجعة (بانتظار الأدمن)" },
   { value: "archived", label: "مؤرشف" },
 ];
 
@@ -87,6 +93,15 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "save_failed");
+
+      // 🆕 لو المدرس اختار "نشر" بس الباك إند حوّل الحالة لـ "قيد المراجعة"
+      // (شوف تعليق app/api/courses/[id]/route.js PUT)، لازم يعرف إن الكورس
+      // مش هيظهر للطلاب دلوقتي — الفورم بيتقفل فورًا (onSaved) فمفيش وقت
+      // نعرض رسالة جوه المودال نفسه، فبنستخدم alert زي باقي رسائل الحالة
+      // المشابهة في الصفحة (شوف teacher/page.jsx handleDelete).
+      if (data?.submittedForReview) {
+        alert("تم إرسال الكورس للأدمن للمراجعة. هيظهر للطلاب بعد ما يوافق عليه.");
+      }
 
       onSaved(data);
     } catch (err) {

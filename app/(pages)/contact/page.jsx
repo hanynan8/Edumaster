@@ -66,7 +66,7 @@ export default function ContactPage() {
 }
 
 const CONTACT_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1600&q=80";
+  "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2009_02_55%20AM.png";
 
 function ContactHero({ data, t }) {
   return (

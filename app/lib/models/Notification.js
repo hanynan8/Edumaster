@@ -31,6 +31,7 @@ const notificationSchema = new mongoose.Schema(
         "course_pending_review", // 🆕 مدرس نشر كورس وبينتظر مراجعة (لكل الأدمنز)
         "course_approved", // 🆕 الأدمن وافق على نشر الكورس (للمدرس صاحب الكورس)
         "course_rejected", // 🆕 الأدمن رفض الكورس وحذفه (للمدرس صاحب الكورس)
+        "meeting_scheduled", // 🆕 المدرس ضاف محاضرة لايف جديدة (لكل طالب مسجل في الكورس)
       ],
       required: true,
     },

@@ -22,3 +22,6 @@ export { getCertificateModel } from "./Certificate";
 export { getNotificationModel } from "./Notification";
 export { getAnnouncementModel } from "./Announcement";
 export { getCommentModel } from "./Comment";
+
+// 🆕 محاضرات لايف (روابط Teams يدوية) — شوف app/lib/models/Meeting.js
+export { getMeetingModel } from "./Meeting";

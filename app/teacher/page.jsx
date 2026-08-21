@@ -11,7 +11,7 @@
 // اتنقل هنا حرفيًا عشان صفحة المدرّس تبقى مطابقة لصفحة الطالب بالكامل.
 
 import { useEffect, useState, useRef } from "react";
-import { Plus, Loader, BookOpen, GraduationCap, BarChart3, Camera, Mail, Phone, User, X, Pencil, CheckCircle2 } from "lucide-react";
+import { Plus, Loader, BookOpen, GraduationCap, BarChart3, Camera, Mail, Phone, User, X, Pencil, CheckCircle2, Video } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
@@ -472,6 +472,12 @@ export default function TeacherCoursesPage() {
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
           >
             <BarChart3 size={16} /> الأداء والإحصائيات
+          </Link>
+          <Link
+            href="/meet"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+          >
+            <Video size={16} /> المحاضرات اللايف
           </Link>
           <button
             onClick={() => setModalCourse(null)}

@@ -15,7 +15,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap, Award, TrendingUp,
-  Camera, Mail, Phone, User, X, Pencil, CreditCard,
+  Camera, Mail, Phone, User, X, Pencil, CreditCard, Video,
 } from "lucide-react";
 
 const STRINGS = {
@@ -42,6 +42,7 @@ const STRINGS = {
     navGrades: "درجاتي",
     navCertificates: "شهاداتي",
     navPayments: "مدفوعاتي",
+    navMeetings: "المحاضرات اللايف",
     // Phase 7 — اليوم 57: ملخص شخصي (تقدمي/شهاداتي/كورساتي)
     summaryProgress: "متوسط تقدّمي",
     summaryActive: "كورسات جارية",
@@ -97,6 +98,7 @@ const STRINGS = {
     navGrades: "My Grades",
     navCertificates: "My Certificates",
     navPayments: "My Payments",
+    navMeetings: "Live Sessions",
     summaryProgress: "Average Progress",
     summaryActive: "Active Courses",
     summaryCompleted: "Completed Courses",
@@ -307,6 +309,7 @@ function StudentQuickNav({ t }) {
     { href: "/student/grades", label: t.navGrades, icon: GraduationCap },
     { href: "/student/certificates", label: t.navCertificates, icon: Award },
     { href: "/student/payments", label: t.navPayments, icon: CreditCard },
+    { href: "/meet", label: t.navMeetings, icon: Video },
   ];
 
   return (

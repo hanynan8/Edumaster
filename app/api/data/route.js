@@ -116,9 +116,25 @@ function isSafeKey(key) {
   return !DANGEROUS_KEY_PATTERN.test(key);
 }
 
+// 🐛 BUGFIX (كان بيسبب "خطأ في الحفظ: HTTP 400" على أي حفظ تقريبًا):
+// المحتوى الحقيقي للموقع متداخل بعمق طبيعي بسبب هيكل i18n (ثلاث لغات) —
+// مثلًا لصفحة countries: root → i18n(1) → en(2) → countries(3) → spain(4)
+// → educationSystem(5) → points(6) [مصفوفة نصوص]. القيمة القديمة لحد
+// الالتفاف (5) كانت بترفض أي حاجة — حتى لو كانت مجرد نص بسيط جوه مصفوفة —
+// بمجرد ما توصل لعمق 6، لأن فحص العمق كان بيحصل *قبل* فحص هل القيمة أصلًا
+// primitive (نص/رقم) ولا لأ. ده كان بيخلي حفظ صفحات زي countries وblogs
+// وservices وabout وsuccess-stories يفشل بـ 400 "Object nesting too deep"
+// جوه safeSanitize() تقريبًا في كل مرة، لأن هيكلها الطبيعي بيعدي عمق 5-7
+// بسهولة. الحل: (1) نتأكد إن القيمة primitive الأول (مالهاش مفاتيح
+// أصلًا، فمفيش خطر منها بغض النظر عن عمقها) قبل ما نطبّق أي حد للعمق،
+// و(2) نرفع الحد الأقصى لعمق الـ objects/arrays الفعلية لحد يغطي أعمق بنية
+// محتوى حقيقية موجودة في الموقع بهامش أمان كويس، مع فضل حماية حقيقية ضد
+// أي payload خبيث بعمق متطرف (JSON bomb).
+const MAX_NESTING_DEPTH = 20;
+
 function sanitizeObject(obj, depth = 0) {
-  if (depth > 5) throw new Error("Object nesting too deep");
   if (obj === null || typeof obj !== "object") return obj;
+  if (depth > MAX_NESTING_DEPTH) throw new Error("Object nesting too deep");
 
   if (Array.isArray(obj)) {
     return obj.map((item) => sanitizeObject(item, depth + 1));

@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { ArrowRight, Settings, BookOpen } from "lucide-react";
 import ProfileSettingsCard from "@/app/components/ProfileSettingsCard";
+import MicrosoftTeamsConnectCard from "@/app/components/MicrosoftTeamsConnectCard";
 
 export default function TeacherSettingsPage() {
   return (
@@ -32,6 +33,8 @@ export default function TeacherSettingsPage() {
           <ArrowRight size={16} />
         </Link>
       </div>
+
+      <MicrosoftTeamsConnectCard locale="ar" isRTL />
 
       <ProfileSettingsCard locale="ar" isRTL />
     </div>

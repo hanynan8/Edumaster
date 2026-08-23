@@ -110,11 +110,15 @@ export async function middleware(request) {
   // هيدر Referer عند الضغط على لينك خارجي
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  // يمنع الموقع من طلب صلاحيات كاميرا/مايك/موقع جغرافي حتى لو حصل XSS
-  // بطريقة ما — الموقع مش محتاج أي صلاحية من دول أصلًا
+  // 🆕 كان مقفول بالكامل (camera=(), microphone=()) وقت ما الموقع مكنش
+  // فيه أي فيديو لايف. دلوقتي المحاضرات اللايف (Daily.co) محتاجة كاميرا/
+  // مايك — بنسمح بيهم لأصل الموقع نفسه ("self") ولإطارات Daily المضمّنة
+  // (شوف app/components/DailyMeetingModal.jsx) بس، مش لأي حد تاني.
+  // geolocation لسه مقفولة بالكامل لأن الموقع فعليًا مش محتاجها في أي
+  // ميزة موجودة.
   response.headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
+    "camera=(self \"https://*.daily.co\"), microphone=(self \"https://*.daily.co\"), geolocation=()"
   );
 
   // HSTS: يجبر المتصفح يستخدم HTTPS بس مع الدومين ده لمدة سنة. Vercel أصلاً
@@ -159,8 +163,8 @@ export async function middleware(request) {
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://res.cloudinary.com https://raw.githubusercontent.com",
     "media-src 'self' https://*.b-cdn.net",
-    "frame-src 'self' https://iframe.mediadelivery.net https://accept.paymob.com",
-    "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://accept.paymob.com",
+    "frame-src 'self' https://iframe.mediadelivery.net https://accept.paymob.com https://*.daily.co",
+    "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://accept.paymob.com https://*.daily.co wss://*.daily.co",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

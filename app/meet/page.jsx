@@ -399,6 +399,15 @@ export default function MeetPage() {
   const [busyId, setBusyId] = useState(null);
   // 🆕 الاجتماع اللي المستخدم داخل عليه دلوقتي (مضمّن جوه الموقع) — null = مفيش.
   const [joinedMeeting, setJoinedMeeting] = useState(null);
+  // 🆕 tick بسيط كل 30 ثانية عشان شارة "شغالة دلوقتي/لسه هتبدأ/خلصت" تتحدث
+  // لوحدها وهي الصفحة مفتوحة (getPhase بيحسب من Date.now() وقت الـ render،
+  // فمن غيره الشارة كانت بتفضل واقفة على أول حالة لحد ما اليوزر يعمل أي
+  // حاجة تسبب re-render).
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceTick((t) => t + 1), 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadMeetings = useCallback(() => {
     setError("");
@@ -566,7 +575,7 @@ export default function MeetPage() {
 
       {joinedMeeting && (
         <DailyMeetingModal
-          url={joinedMeeting.link}
+          meetingId={joinedMeeting.id}
           title={joinedMeeting.title}
           onClose={() => setJoinedMeeting(null)}
         />

@@ -53,7 +53,13 @@ export async function createDailyRoom({ startDate, endDate }) {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({
-      privacy: "public",
+      // 🔒 SECURITY: "private" بدل "public" — الدخول للغرفة بقى محتاج meeting
+      // token صالح (شوف createMeetingToken تحت) بدل ما يكفي مجرد معرفة
+      // الرابط. قبل كده أي حد يجيله الرابط (حتى لو مش مسجل دخول أصلًا،
+      // أو مش طالب في الكورس) كان يقدر يدخل الاجتماع مباشرة — الفحص بتاعنا
+      // كان بيمنع الرابط يظهر في الواجهة بس، مش بيمنع الدخول الفعلي لو
+      // الرابط اتسرّب أو اتبعت في جروب واتساب مثلاً.
+      privacy: "private",
       properties: {
         nbf,
         exp,
@@ -61,8 +67,18 @@ export async function createDailyRoom({ startDate, endDate }) {
         enable_chat: true,
         enable_screenshare: true,
         enable_knocking: false,
-        start_video_off: false,
-        start_audio_off: false,
+        // 🎓 مظبوطة على سيناريو "فصل دراسي" (مدرس + عدد متوسط/كبير من
+        // الطلاب، مش مكالمة 1:1) — كل مشارك بيدخل بكاميرا/مايك مقفولين
+        // افتراضيًا ويفتحهم بنفسه لو حابب. ده اللي بيخلي المحاضرة تفضل
+        // سلسة مع 20-100+ طالب: مفيش استهلاك باندويدث/CPU لعرض عشرات
+        // الكاميرات الشغالة من غير داعي، ومفيش فوضى صوتية وقت الدخول.
+        // المدرس بيفتح كاميرته/مايكه بضغطة واحدة من شريط الأدوات وقت ما يدخل.
+        start_video_off: true,
+        start_audio_off: true,
+        // مفيش prejoin screen زيادة — التحقق من صلاحية الدخول بيحصل عندنا
+        // (route التوكن) قبل ما نوصل للغرفة أصلًا، فمش محتاجين شاشة انتظار
+        // إضافية من Daily نفسها.
+        enable_prejoin_ui: false,
       },
     }),
   });
@@ -99,6 +115,57 @@ export async function updateDailyRoom(roomName, { startDate, endDate }) {
     throw new Error(`daily_update_room_error: ${reason}`);
   }
   return { joinUrl: data.url, roomName: data.name };
+}
+
+/**
+ * بيولّد meeting token قصير العمر لشخص معيّن يدخل بيه غرفة private —
+ * لازم بعد ما privacy بقت "private" فوق، وإلا الدخول هيترفض (401) حتى لو
+ * الرابط صحيح. الفحص الحقيقي لصلاحية الدخول (enrollment/ownership) بيحصل
+ * *قبل* ما ننادي الدالة دي، جوه route التوكن نفسه (شوف
+ * app/api/meetings/[id]/token/route.js) — التوكن هنا مجرد "تذكرة دخول"
+ * بعد ما اتأكدنا إن صاحبه مسموحله فعلًا.
+ *
+ * - isOwner=true: صلاحيات المدرس في الـ Prebuilt UI (يقدر يكتم/يطرد
+ *   مشاركين، يبدأ تسجيل، ...). بتتحدد من isOwnerOrAdmin في السيرفر، مش من
+ *   أي حاجة الفرونت إند بيبعتها.
+ * - nbf/exp بيتحسبوا بنفس هامش الغرفة نفسها (ربع ساعة قبل/ساعتين بعد)
+ *   عشان التوكن ميرفضش الدخول قبل ما الغرفة نفسها تفتح.
+ * - enableRecording متاحة بس للمدرس/الأدمن، مش لأي طالب.
+ */
+export async function createMeetingToken({
+  roomName,
+  userId,
+  userName,
+  isOwner,
+  startDate,
+  endDate,
+}) {
+  const nbf = Math.floor(startDate.getTime() / 1000) - 15 * 60;
+  const exp = Math.floor(endDate.getTime() / 1000) + 2 * 60 * 60;
+
+  const res = await fetch(`${DAILY_BASE}/meeting-tokens`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      properties: {
+        room_name: roomName,
+        user_id: String(userId),
+        user_name: userName || (isOwner ? "المدرس" : "طالب"),
+        is_owner: Boolean(isOwner),
+        nbf,
+        exp,
+        start_video_off: true,
+        start_audio_off: true,
+        enable_recording: isOwner ? "local" : undefined,
+      },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.error || data?.info || `HTTP ${res.status}`;
+    throw new Error(`daily_create_token_error: ${reason}`);
+  }
+  return data.token;
 }
 
 /**

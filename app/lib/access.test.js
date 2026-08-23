@@ -106,6 +106,7 @@ describe('getCourseAccessForUser', () => {
       enrollment: null,
       hasMembershipAccess: false,
       hasAccess: false,
+      reason: 'not_enrolled',
     });
   });
 

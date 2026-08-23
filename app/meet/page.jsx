@@ -13,10 +13,11 @@
 // الحماية: middleware.js بيحمي المسار ده لأي مستخدم مسجل دخول (أي role)،
 // والفحص هنا طبقة UX إضافية بس (شاشة تحميل/رفض واضحة) زي باقي الصفحات.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DailyMeetingModal from "@/app/components/DailyMeetingModal";
+import { resolvePhase, isPresenceCheckCandidate } from "@/app/lib/meetingPhase";
 import {
   Video,
   Plus,
@@ -74,18 +75,8 @@ function toLocalInputValue(dateStr) {
 // محسوبة لحظيًا من scheduledAt + durationMinutes مقابل الوقت الحالي.
 // بيرجع "ended" افتراضيًا لو الوقت عدّى — بيتصحّح بعدين بـ presenceOverrides
 // (شوف usePresenceOverrides تحت) لو المدرس مدّ المحاضرة فعليًا.
-function getPhase(meeting) {
-  const start = new Date(meeting.scheduledAt).getTime();
-  const end = start + (meeting.durationMinutes || 60) * 60 * 1000;
-  const now = Date.now();
-  if (now < start) return "upcoming";
-  if (now <= end) return "live";
-  return "ended";
-}
-
-// نفس هامش غرفة Daily (شوف app/lib/daily.js: exp = end + ساعتين) — مفيش
-// داعي نتحقق من presence فعلي لمحاضرة خلصت من كتير، الغرفة أصلًا مقفولة.
-const PRESENCE_CHECK_WINDOW_MS = 2 * 60 * 60 * 1000;
+// 🔧 (نُقلت لـ app/lib/meetingPhase.js — قابلة للاختبار ولإعادة الاستخدام،
+// شوف getPhase/resolvePhase المستوردة فوق.)
 
 /**
  * 🆕 بيحل مشكلة "حساب حالة خلصت مش دقيق لو المحاضرة اتمدت" — للمحاضرات
@@ -98,13 +89,7 @@ function usePresenceOverrides(meetings) {
 
   useEffect(() => {
     if (!meetings || meetings.length === 0) return;
-    const now = Date.now();
-    const candidates = meetings.filter((m) => {
-      if (m.source !== "daily") return false;
-      const start = new Date(m.scheduledAt).getTime();
-      const end = start + (m.durationMinutes || 60) * 60 * 1000;
-      return now > end && now - end < PRESENCE_CHECK_WINDOW_MS;
-    });
+    const candidates = meetings.filter((m) => isPresenceCheckCandidate(m));
     if (candidates.length === 0) return;
 
     let cancelled = false;
@@ -135,11 +120,7 @@ function usePresenceOverrides(meetings) {
   return overrides;
 }
 
-function resolvePhase(meeting, presenceOverrides) {
-  const staticPhase = getPhase(meeting);
-  if (staticPhase === "ended" && presenceOverrides[meeting.id]) return "live";
-  return staticPhase;
-}
+// 🔧 (resolvePhase نُقلت لـ app/lib/meetingPhase.js — مستوردة فوق.)
 
 const PHASE_META = {
   live: { label: "شغالة دلوقتي", className: "bg-red-100 text-red-700" },
@@ -517,13 +498,18 @@ export default function MeetPage() {
 
   const loadMeetings = useCallback(() => {
     setError("");
-    fetch("/api/meetings")
+    // 🆕 نفس مبدأ timeout بتاع DailyMeetingModal — بيمنع الصفحة من الوقوف
+    // على "جاري التحميل" للأبد لو السيرفر بطيء جدًا أو الشبكة معلّقة جزئيًا.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    fetch("/api/meetings", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
       })
       .then((data) => setMeetings(Array.isArray(data?.meetings) ? data.meetings : []))
-      .catch(() => setError("حصل خطأ في تحميل المحاضرات، حاول تاني"));
+      .catch(() => setError("حصل خطأ في تحميل المحاضرات، حاول تاني"))
+      .finally(() => clearTimeout(timeoutId));
   }, []);
 
   useEffect(() => {
@@ -562,6 +548,30 @@ export default function MeetPage() {
     loadMeetings();
   }
 
+  // 🔧 FIX (Rules of Hooks): لازم ننادي usePresenceOverrides في كل render
+  // بنفس الترتيب، حتى لو الصفحة لسه "loading" أو المستخدم مش مسجّل دخول.
+  // قبل كده كان النداء ده تحت الـ early returns (status === "loading" /
+  // "unauthenticated")، فأول render (لما status="loading") الهوك ده مكنش
+  // بينادى خالص، وبعدين لما status يبقى "authenticated" فجأة بينادى —
+  // فعدد الـ Hooks بيتغيّر بين الرندرين وده اللي بيكسر React ("Rendered
+  // more hooks than during the previous render"). الحل: ننقل النداء لفوق
+  // قبل أي return، عشان يتنادي دايمًا بغض النظر عن status.
+  const presenceOverrides = usePresenceOverrides(meetings);
+  const getMeetingPhase = (m) => resolvePhase(m, presenceOverrides);
+
+  // 🆕 PERFORMANCE: نفس مبدأ الفيكس فوق — useMemo لازم يتنادي دايمًا قبل أي
+  // early return (Rules of Hooks)، ومكسبها هنا حقيقي: forceTick بيعمل
+  // re-render كل 30 ثانية عشان الشارات تتحدث، وكان ده بيسبب إعادة فلترة +
+  // ترتيب قائمة الاجتماعات بالكامل (grouped) في كل مرة حتى لو الاجتماعات
+  // نفسها متغيّرتش خالص. useMemo بيحسبها بس لما meetings أو presenceOverrides
+  // يتغيّروا فعليًا، مش على كل tick.
+  const grouped = useMemo(() => {
+    const g = { live: [], upcoming: [], ended: [] };
+    (meetings || []).forEach((m) => g[resolvePhase(m, presenceOverrides)].push(m));
+    g.ended.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
+    return g;
+  }, [meetings, presenceOverrides]);
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -577,14 +587,6 @@ export default function MeetPage() {
   // أدمن يقدر يدير أي اجتماع (isOwnerOrAdmin في الـ API)، مدرس بس اجتماعاته هو.
   const canManage = (meeting) => role === "admin" || (role === "teacher" && meeting.teacher === userId);
 
-  // 🆕 presence check (issue #6) — بيصحح "خلصت" الغلط لو المدرس مدّ
-  // المحاضرة فعليًا. شوف usePresenceOverrides فوق.
-  const presenceOverrides = usePresenceOverrides(meetings);
-  const getMeetingPhase = (m) => resolvePhase(m, presenceOverrides);
-
-  const grouped = { live: [], upcoming: [], ended: [] };
-  (meetings || []).forEach((m) => grouped[getMeetingPhase(m)].push(m));
-  grouped.ended.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
 
   return (
     <div className="min-h-screen bg-gray-50">

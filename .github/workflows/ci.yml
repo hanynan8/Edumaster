@@ -1,0 +1,54 @@
+# .github/workflows/ci.yml
+#
+# 🆕 CI أساسي — الحاجة اللي كانت ناقصة أصلًا عشان المشروع يبقى "احترافي":
+# قبل كده أي باج (زي باج dependency array اللي سبب "جاري التحقق من
+# الصلاحية..." المعلّقة) كان ممكن يوصل للمستخدمين مباشرة لأن مفيش حد بيفحص
+# الكود تلقائيًا قبل الدمج. دلوقتي كل push/Pull Request بيتفحص تلقائيًا:
+#   1) lint  — أخطاء أسلوب وقواعد React (زي react-hooks/exhaustive-deps).
+#   2) test  — اختبارات jest (access.test.js وأي اختبار جديد).
+#   3) build — يتأكد إن المشروع فعليًا بيتبني من غير أخطاء (أقوى فحص، لأن
+#      أخطاء كتير (زي type errors أو imports غلط) بتظهر بس وقت البناء).
+#
+# لو أي خطوة فشلت، الـ PR بيتعلّم بعلامة X حمرا على GitHub، فمفيش حد يقدر
+# يدمج كود كاسر من غير ما يشوفها.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test -- --ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # 🆕 قيم وهمية بس كافية عشان الـ build يعدي (next build بيحتاج
+          # env vars معرّفة حتى لو قيمتها وهمية وقت الـ build نفسه — القيم
+          # الحقيقية بتتحط في GitHub Secrets وقت الديبلوي الفعلي على Vercel،
+          # مش هنا). ضيف أي env var تانية المشروع محتاجها وقت build لو ظهر
+          # خطأ "X is not defined" في خطوة الـ build.
+          NEXTAUTH_SECRET: ci-placeholder-secret
+          MONGODB_URI: mongodb://localhost:27017/ci-placeholder

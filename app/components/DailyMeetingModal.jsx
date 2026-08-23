@@ -82,6 +82,15 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   const [teacherPresent, setTeacherPresent] = useState(isTeacher);
   // 🆕 حالة فحص الجهاز: "checking" | "granted" | "denied" | "skipped"
   const [deviceCheck, setDeviceCheck] = useState({ status: "checking", hasCamera: true, hasMic: true });
+  // 🔧 FIX: بديل عن الاعتماد على status==="precheck" جوه الـ useEffect بتاع
+  // connect() تحت. status بيتغيّر (precheck→loading) بس هو نفسه مش موجود في
+  // dependency array بتاعة الـ effect ده، فـ React مكنش بيعيد تشغيله لما
+  // proceedPastDeviceCheck() تنادي setStatus("loading") — يعني connect()
+  // مكنتش بتتنادى خالص والحالة كانت بتفضل واقفة على "loading" للأبد (شاشة
+  // "جاري التحقق من الصلاحية..." معلّقة). الحل: state مستقلة بتتغيّر مرة
+  // واحدة بعد الـ precheck ومضافة في dependency array فعليًا، فالـ effect
+  // بيتشغّل تلقائيًا لحظة ما تتغيّر.
+  const [readyToConnect, setReadyToConnect] = useState(false);
 
   const destroyCallFrame = useCallback(() => {
     if (callFrameRef.current) {
@@ -137,10 +146,11 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   function proceedPastDeviceCheck() {
     stopPreviewStream();
     setStatus("loading");
+    setReadyToConnect(true);
   }
 
   useEffect(() => {
-    if (status === "precheck") return; // لسه في مرحلة فحص الجهاز، منتصلش لسه.
+    if (!readyToConnect) return; // لسه في مرحلة فحص الجهاز، منتصلش لسه.
     if (!meetingId) {
       setStatus("error");
       setError("الاجتماع غير متاح");
@@ -155,9 +165,16 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
 
       // 1) توكن دخول آمن — الفحص الحقيقي (enrollment/ownership) بيحصل هنا
       // على السيرفر، مش في الفرونت إند.
+      // 🆕 PERFORMANCE + RELIABILITY: AbortController بحد أقصى 15 ثانية —
+      // من غيره، لو السيرفر بطيء جدًا أو في مشكلة شبكة جزئية (مش قطع كامل
+      // يرجّع خطأ فورًا)، الـ fetch كان ممكن يفضل معلّق بلا نهاية وتفضل
+      // الشاشة واقفة على "جاري التحقق من الصلاحية..." — بالظبط نفس أعراض
+      // باج dependency array اللي اتصلح قبل كده، بس بسبب مختلف (شبكة مش React).
       let tokenData;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15_000);
       try {
-        const res = await fetch(`/api/meetings/${meetingId}/token`);
+        const res = await fetch(`/api/meetings/${meetingId}/token`, { signal: controller.signal });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           const err = new Error(data?.error || "token_failed");
@@ -168,7 +185,9 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
       } catch (err) {
         if (!cancelled) {
           setStatus("error");
-          if (err.message === "forbidden") {
+          if (err.name === "AbortError") {
+            setError("استغرق التحقق وقت طويل جدًا — تحقق من اتصال الإنترنت وحاول تاني");
+          } else if (err.message === "forbidden") {
             // 🆕 رسالة دقيقة حسب سبب الرفض الحقيقي (access.reason)، مش
             // "مفيش صلاحية" عامة — شوف FORBIDDEN_REASONS فوق.
             const reason = err.reason && FORBIDDEN_REASONS[err.reason] ? err.reason : "not_enrolled";
@@ -179,6 +198,8 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
           }
         }
         return;
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       if (cancelled) return;
@@ -252,7 +273,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
       destroyCallFrame();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingId, retryTick, destroyCallFrame]);
+  }, [meetingId, retryTick, destroyCallFrame, readyToConnect]);
 
   function handleRetry() {
     destroyCallFrame();

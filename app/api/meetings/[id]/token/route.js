@@ -20,6 +20,7 @@ import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createMeetingToken } from "@/app/lib/daily";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -45,6 +46,21 @@ export async function GET(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
+
+    // 🔒 SECURITY: كل نداء هنا بيولّد meeting token حقيقي عن طريق نداء
+    // Daily.co API فعلي (تكلفة + استهلاك). من غير الحد ده، أي مستخدم مسجّل
+    // دخول (حتى لو معاه صلاحية شرعية) يقدر يقصف الـ endpoint ده آلاف المرات
+    // في الدقيقة (سكريبت، تاب مفتوح بيعمل retry تلقائي...) — مفتاح الحد هنا
+    // بالـ user id (مش IP بس) عشان يمنع نفس المستخدم من تجاوز الحد بتغيير
+    // شبكته/IP، والحد نفسه (30 كل دقيقة) سخي كفاية لأي استخدام طبيعي (فتح
+    // المودال، إعادة محاولة يدوية بعد خطأ شبكة، ...).
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "meetings:token",
+      limit: 30,
+      windowSeconds: 60,
+      extraKey: session.user.id,
+    });
+    if (rl) return rl;
 
     const isManager = isOwnerOrAdmin(session, meeting.teacher);
     if (!isManager) {

@@ -1,6 +1,6 @@
 // app/api/courses/[id]/meetings/route.js
 //
-// 🆕 محاضرات لايف (Teams) لكورس معيّن. نفس فلسفة app/api/courses/[id]/announcements
+// 🆕 محاضرات لايف (Daily) لكورس معيّن. نفس فلسفة app/api/courses/[id]/announcements
 // بالظبط في فحص الصلاحيات:
 //
 // GET  /api/courses/[id]/meetings → اجتماعات الكورس، الأقرب زمنيًا أولًا.
@@ -12,11 +12,12 @@
 //   durationMinutes?, link? } → صاحب الكورس/أدمن بس. بعد الإنشاء بيبعت إشعار
 //   "meeting_scheduled" لكل طالب مسجّل فعليًا في الكورس (insertMany، مش loop).
 //
-// 🔄 التحديث (Microsoft Graph): لو المدرس رابط حساب Microsoft بتاعه (شوف
-//   app/api/integrations/microsoft/*)، الرابط بقى اختياري في الـ body —
-//   بنستخدم getValidAccessTokenForTeacher + createOnlineMeeting عشان ننشئ
-//   اجتماع Teams فعلي ونجيب رابطه تلقائيًا (source: "graph"). لو مش رابط
-//   حسابه، بنرجع للسلوك القديم: لازم يبعت `link` يدوي (source: "manual").
+// 🔄 التحديث (Daily.co): الرابط بقى اختياري في الـ body — بنستخدم
+//   isDailyConfigured + createDailyRoom عشان ننشئ غرفة اجتماع Daily فعلية
+//   ونجيب رابطها تلقائيًا (source: "daily")، من غير أي ربط حساب من ناحية
+//   المدرس (مفتاح API واحد بتاع المنصة كلها). لو DAILY_API_KEY مش متظبط
+//   على السيرفر، أو فشل إنشاء الغرفة، بنرجع للسلوك القديم: لازم يبعت
+//   `link` يدوي (source: "manual").
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
@@ -25,7 +26,7 @@ import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
-import { getValidAccessTokenForTeacher, createOnlineMeeting } from "@/app/lib/microsoftGraph";
+import { isDailyConfigured, createDailyRoom } from "@/app/lib/daily";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -131,35 +132,29 @@ export async function POST(request, { params }) {
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) durationMinutes = 60;
     durationMinutes = Math.min(480, Math.max(5, Math.round(durationMinutes)));
 
-    // 🔄 المسار الاحترافي أولًا: لو المدرس (صاحب الاجتماع الفعلي — نفس
-    // session.user.id اللي هيتخزن في Meeting.teacher) رابط حساب Microsoft
-    // بتاعه، بننشئ اجتماع Teams فعلي ونجيب رابطه تلقائيًا. لو مش رابط
-    // حسابه، لازم يكون بعت `link` يدوي زي السلوك القديم بالظبط.
+    // 🔄 المسار الاحترافي أولًا: لو Daily متظبط على السيرفر (DAILY_API_KEY)،
+    // بننشئ غرفة اجتماع فعلية ونجيب رابطها تلقائيًا — من غير أي ربط حساب
+    // من ناحية المدرس. لو مش متظبط، لازم يكون بعت `link` يدوي زي السلوك
+    // القديم بالظبط.
     let link;
     let source;
-    let graphMeetingId = null;
+    let dailyRoomName = null;
 
-    const accessToken = await getValidAccessTokenForTeacher(session.user.id);
-    if (accessToken) {
+    if (isDailyConfigured()) {
       try {
-        const endDateTime = new Date(scheduledAt.getTime() + durationMinutes * 60_000);
-        const graphMeeting = await createOnlineMeeting({
-          accessToken,
-          subject: title.slice(0, 200),
-          startDateTime: scheduledAt.toISOString(),
-          endDateTime: endDateTime.toISOString(),
-        });
-        link = graphMeeting.joinUrl;
-        graphMeetingId = graphMeeting.graphMeetingId;
-        source = "graph";
+        const endDate = new Date(scheduledAt.getTime() + durationMinutes * 60_000);
+        const dailyRoom = await createDailyRoom({ startDate: scheduledAt, endDate });
+        link = dailyRoom.joinUrl;
+        dailyRoomName = dailyRoom.roomName;
+        source = "daily";
       } catch (err) {
-        // فشل الإنشاء التلقائي (توكن اتلغى من ناحية Microsoft، مشكلة شبكة...)
-        // — بنرجع للـ fallback اليدوي بدل ما نمنع المدرس من إنشاء المحاضرة
-        // خالص. لو مبعتش link يدوي في الحالة دي، بنرجع خطأ واضح للواجهة.
-        console.error("[/api/courses/[id]/meetings] Graph auto-create failed, falling back:", err);
+        // فشل الإنشاء التلقائي (مشكلة شبكة، مفتاح API غير صالح...) — بنرجع
+        // للـ fallback اليدوي بدل ما نمنع المدرس من إنشاء المحاضرة خالص.
+        // لو مبعتش link يدوي في الحالة دي، بنرجع خطأ واضح للواجهة.
+        console.error("[/api/courses/[id]/meetings] Daily auto-create failed, falling back:", err);
         if (!manualLink || !isValidHttpUrl(manualLink)) {
           return jsonResponse(
-            { error: "graph_meeting_failed", message: "فشل إنشاء الاجتماع تلقائيًا عبر Microsoft — ابعت رابط يدوي كبديل." },
+            { error: "daily_meeting_failed", message: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل." },
             502
           );
         }
@@ -180,7 +175,7 @@ export async function POST(request, { params }) {
       description: description.slice(0, 2000),
       link,
       source,
-      graphMeetingId,
+      dailyRoomName,
       scheduledAt,
       durationMinutes,
     });

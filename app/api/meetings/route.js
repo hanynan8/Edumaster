@@ -39,6 +39,7 @@ function serializeMeeting(m) {
     title: m.title,
     description: m.description || "",
     link: m.link,
+    source: m.source || "manual",
     scheduledAt: m.scheduledAt,
     durationMinutes: m.durationMinutes,
     createdAt: m.createdAt,

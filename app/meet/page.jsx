@@ -2,8 +2,9 @@
 
 // app/meet/page.jsx
 //
-// 🆕 صفحة "المحاضرات اللايف" — بتعرض روابط اجتماعات Teams (يدوية، شوف
-// تعليق app/lib/models/Meeting.js) لكل الأدوار الثلاثة بنفس الصفحة:
+// 🆕 صفحة "المحاضرات اللايف" — بتعرض روابط اجتماعات Daily (متولّدة تلقائيًا
+// أو يدوية، شوف تعليق app/lib/models/Meeting.js) لكل الأدوار الثلاثة بنفس
+// الصفحة:
 //   - مدرس: بيشوف اجتماعات كورساته، يقدر يضيف/يعدّل/يحذف.
 //   - طالب: بيشوف اجتماعات الكورسات المسجّل فيها بس، بزرار "دخول" للينك.
 //   - أدمن: بيشوف كل الاجتماعات (رقابة عامة)، وعنده صلاحية حذف/تعديل أي
@@ -15,6 +16,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import DailyMeetingModal from "@/app/components/DailyMeetingModal";
 import {
   Video,
   Plus,
@@ -23,6 +25,7 @@ import {
   Calendar,
   Clock,
   ExternalLink,
+  PlayCircle,
   Pencil,
   Trash2,
   X,
@@ -88,6 +91,7 @@ const SAVE_ERROR_MESSAGES = {
   missing_title: "عنوان المحاضرة مطلوب",
   invalid_scheduled_at: "معاد المحاضرة مش صالح",
   forbidden: "مفيش صلاحية تعدّل/تضيف على الكورس ده",
+  daily_meeting_failed: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل.",
 };
 
 function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
@@ -112,7 +116,9 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
     setError("");
 
     if (!form.title.trim()) return setError("عنوان المحاضرة مطلوب");
-    if (!form.link.trim()) return setError("رابط اجتماع Teams مطلوب");
+    // 🆕 اللينك بقى اختياري هنا — لو Daily مفعّل على السيرفر، الرابط
+    // هيتولد تلقائيًا. لو مش مفعّل والباك إند رفض الطلب، هيوصلنا خطأ
+    // invalid_link واضح (شوف SAVE_ERROR_MESSAGES).
     if (!form.scheduledAt) return setError("معاد المحاضرة مطلوب");
     if (!isEdit && !form.course) return setError("اختر الكورس");
 
@@ -209,17 +215,16 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">رابط اجتماع Teams *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">رابط الاجتماع (اختياري)</label>
             <input
               type="url"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dir-ltr text-left"
               value={form.link}
               onChange={(e) => update("link", e.target.value)}
-              placeholder="https://teams.microsoft.com/l/meetup-join/..."
-              required
+              placeholder="https://your-team.daily.co/room-name"
             />
             <p className="text-xs text-gray-400 mt-1.5">
-              اعمل اجتماع Teams من حسابك (Calendar → New meeting) وانسخ لينك الانضمام هنا.
+              سيبه فاضي عشان يتولّد رابط اجتماع فيديو عن طريق Daily تلقائيًا، أو الزق رابط اجتماع جاهز بنفسك.
             </p>
           </div>
 
@@ -270,9 +275,10 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
   );
 }
 
-function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, busy }) {
+function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busy }) {
   const phase = getPhase(meeting);
   const meta = PHASE_META[phase];
+  const isDaily = meeting.source === "daily";
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
@@ -304,14 +310,28 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, busy }
       </div>
 
       <div className="flex items-center gap-2">
-        <a
-          href={meeting.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
-        >
-          <ExternalLink size={15} /> الدخول على Teams
-        </a>
+        {isDaily ? (
+          // 🆕 اجتماع Daily — بيتشغّل مضمّن جوه الموقع (شوف DailyMeetingModal)
+          // بدل ما يفتح تاب خارجي.
+          <button
+            type="button"
+            onClick={() => onJoinEmbedded(meeting)}
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
+          >
+            <PlayCircle size={15} /> انضم للاجتماع
+          </button>
+        ) : (
+          // 🆕 لينك يدوي (منصة تانية غير Daily) — مفيش SDK نضمّنه بيه، فبيفتح
+          // في تاب جديد عادي.
+          <a
+            href={meeting.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
+          >
+            <ExternalLink size={15} /> الدخول على الاجتماع
+          </a>
+        )}
         {canManage && (
           <>
             <button
@@ -336,7 +356,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, busy }
   );
 }
 
-function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, busyId, emptyText }) {
+function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busyId, emptyText }) {
   return (
     <div className="mb-8">
       <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">
@@ -356,6 +376,7 @@ function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDel
               showTeacher={showTeacher}
               onEdit={onEdit}
               onDelete={onDelete}
+              onJoinEmbedded={onJoinEmbedded}
               busy={busyId === m.id}
             />
           ))}
@@ -376,6 +397,8 @@ export default function MeetPage() {
   // undefined = مقفول | null = فورم إضافة | object = فورم تعديل
   const [modalMeeting, setModalMeeting] = useState(undefined);
   const [busyId, setBusyId] = useState(null);
+  // 🆕 الاجتماع اللي المستخدم داخل عليه دلوقتي (مضمّن جوه الموقع) — null = مفيش.
+  const [joinedMeeting, setJoinedMeeting] = useState(null);
 
   const loadMeetings = useCallback(() => {
     setError("");
@@ -460,7 +483,7 @@ export default function MeetPage() {
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-gray-800">المحاضرات اللايف</h1>
-              <p className="text-sm text-gray-400">اجتماعات Teams الخاصة بالكورسات</p>
+              <p className="text-sm text-gray-400">اجتماعات فيديو الكورسات (Daily)</p>
             </div>
           </div>
 
@@ -500,6 +523,7 @@ export default function MeetPage() {
               showTeacher={role === "admin"}
               onEdit={setModalMeeting}
               onDelete={handleDelete}
+              onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText="مفيش محاضرة شغالة دلوقتي."
             />
@@ -510,6 +534,7 @@ export default function MeetPage() {
               showTeacher={role === "admin"}
               onEdit={setModalMeeting}
               onDelete={handleDelete}
+              onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText="مفيش محاضرات قادمة مجدولة."
             />
@@ -521,6 +546,7 @@ export default function MeetPage() {
                 showTeacher={role === "admin"}
                 onEdit={setModalMeeting}
                 onDelete={handleDelete}
+                onJoinEmbedded={setJoinedMeeting}
                 busyId={busyId}
                 emptyText=""
               />
@@ -535,6 +561,14 @@ export default function MeetPage() {
           courses={courses}
           onClose={() => setModalMeeting(undefined)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {joinedMeeting && (
+        <DailyMeetingModal
+          url={joinedMeeting.link}
+          title={joinedMeeting.title}
+          onClose={() => setJoinedMeeting(null)}
         />
       )}
     </div>

@@ -41,7 +41,7 @@ const PAGE_ROLE_RULES = [
   // دخول (أي role) يقدر يوصلها، المهم بس إنه يكون عامل login أصلًا. غير
   // مسجل دخول → بيترحّل لـ "/" زي باقي الحالات (مفيش redirectByRole هنا).
   { prefix: "/onboarding", roles: ["student", "teacher", "admin"] },
-  // 🆕 /meet: صفحة المحاضرات اللايف (روابط Teams). زي /onboarding بالظبط —
+  // 🆕 /meet: صفحة المحاضرات اللايف (روابط Daily). زي /onboarding بالظبط —
   // أي role مسجل دخول يقدر يوصلها (الفحص الفعلي لـ"مين شايف اجتماع مين"
   // بيتم داخل GET /api/meetings حسب الـ role، مش هنا).
   { prefix: "/meet", roles: ["student", "teacher", "admin"] },

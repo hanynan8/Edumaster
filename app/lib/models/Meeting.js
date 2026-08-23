@@ -3,15 +3,15 @@
 // 🆕 محاضرات لايف (Meetings) لكورس معيّن، مع معاد وتاريخ. الطلاب المسجلين
 // في الكورس بيشوفوها في صفحة /meet ويقدروا يدخلوا عليها وقت المحاضرة.
 //
-// 🔄 التحديث: بقى فيه مصدرين لرابط الاجتماع (شوف حقل `source` تحت):
-//   - "graph": الرابط اتولّد تلقائيًا عن طريق Microsoft Graph API (Online
-//     Meetings) بعد ما المدرس ربط حساب Microsoft بتاعه مرة واحدة — شوف
-//     app/lib/microsoftGraph.js و app/api/integrations/microsoft/*.
-//     دي الطريقة الافتراضية/الاحترافية لمين عنده حساب مربوط.
-//   - "manual": fallback للمدرسين اللي لسه ما ربطوش حسابهم (أو مش عايزين) —
-//     بيعملوا اجتماع Teams (أو Zoom أو أي منصة) بنفسهم وينسخوا اللينك هنا،
-//     بالظبط زي السلوك القديم. بنسيب المسار ده متاح عشان الميزة متتقفلش
-//     على مين عنده تكامل Microsoft بس.
+// 🔄 مصدرين لرابط الاجتماع (شوف حقل `source` تحت):
+//   - "daily": الرابط اتولّد تلقائيًا عن طريق Daily.co API (Rooms) —
+//     شوف app/lib/daily.js. دي الطريقة الافتراضية/الاحترافية، شغالة لأي
+//     مدرس بمجرد ما DAILY_API_KEY يبقى مضبوط على السيرفر، من غير أي
+//     ربط حساب أو OAuth من ناحية المدرس نفسه.
+//   - "manual": fallback لو Daily مش متظبط على السيرفر، أو لو إنشاء
+//     الغرفة فشل مؤقتًا — المدرس يلزق رابط اجتماع (Daily أو أي منصة
+//     تانية) بنفسه. بنسيب المسار ده متاح عشان الميزة متتقفلش لو حصلت
+//     مشكلة في التكامل التلقائي.
 
 import mongoose from "mongoose";
 import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
@@ -28,20 +28,20 @@ const meetingSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, default: "", maxlength: 2000 },
 
-    // رابط الانضمام للاجتماع — إما متولّد تلقائيًا (source: "graph") أو
+    // رابط الانضمام للاجتماع — إما متولّد تلقائيًا (source: "daily") أو
     // ملزوق يدويًا من المدرس (source: "manual"). بنتحقق إنه رابط http(s)
-    // صالح بس — مش بنجبر دومين teams.microsoft.com تحديدًا، عشان بعض
-    // الروابط المؤسسية بتتوزع عن طريق نطاقات مختصرة (aka.ms, custom domain
-    // redirect...) ومش عايزين نرفض روابط شغالة فعليًا بسبب فحص صارم زيادة.
+    // صالح بس — مش بنجبر دومين daily.co تحديدًا، عشان بعض المدرسين ممكن
+    // يستخدموا منصة تانية في المسار اليدوي ومش عايزين نرفض روابط شغالة
+    // فعليًا بسبب فحص صارم زيادة.
     link: { type: String, required: true, trim: true },
 
     // 🆕 مصدر الرابط — بيتحدد في الـ API route وقت الإنشاء، مش المدرس بيختاره.
-    source: { type: String, enum: ["graph", "manual"], default: "manual" },
+    source: { type: String, enum: ["daily", "manual"], default: "manual" },
 
-    // 🆕 معرّف الاجتماع في Microsoft Graph — موجود بس لو source === "graph".
-    // مفيد لو حبينا لاحقًا نلغي/نعدّل الاجتماع الأصلي في Teams (PATCH/DELETE
-    // على /me/onlineMeetings/{id}) مش بس نمسحه من عندنا.
-    graphMeetingId: { type: String, default: null },
+    // 🆕 اسم الغرفة في Daily.co — موجود بس لو source === "daily". مفيد
+    // عشان نقدر نمسح/نلغي الغرفة الأصلية في Daily (DELETE /rooms/{name})
+    // مش بس نمسحها من عندنا (شوف deleteDailyRoom في app/lib/daily.js).
+    dailyRoomName: { type: String, default: null },
 
     scheduledAt: { type: Date, required: true },
 

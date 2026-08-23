@@ -23,10 +23,7 @@ export { getNotificationModel } from "./Notification";
 export { getAnnouncementModel } from "./Announcement";
 export { getCommentModel } from "./Comment";
 
-// 🆕 محاضرات لايف (Teams — تلقائي عبر Microsoft Graph، مع fallback يدوي
-// لو المدرس مش رابط حسابه) — شوف app/lib/models/Meeting.js
+// 🆕 محاضرات لايف (تلقائي عبر Daily.co، مع fallback يدوي لو Daily مش
+// متظبط على السيرفر أو فشل إنشاء الغرفة) — شوف app/lib/models/Meeting.js
+// و app/lib/daily.js
 export { getMeetingModel } from "./Meeting";
-
-// 🆕 حساب Microsoft المربوط بكل مدرس (OAuth) — شوف
-// app/lib/models/MicrosoftAccount.js و app/lib/microsoftGraph.js
-export { getMicrosoftAccountModel } from "./MicrosoftAccount";

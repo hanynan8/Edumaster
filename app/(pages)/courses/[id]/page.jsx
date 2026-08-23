@@ -29,6 +29,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
+import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
@@ -670,6 +671,14 @@ function RealCourseDetail({ id }) {
 
       {/* Body */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        {/* 🆕 بانر "محاضرة النهاردة" — بيظهر بس لصاحب الكورس أو طالب مسجّل
+            فعليًا (نفس شرط GET /api/courses/[id]/meetings)، وبيتخفي تلقائيًا
+            لو مفيش محاضرة شغالة/قريبة (شوف CourseMeetingBanner). */}
+        {(isOwner || isEnrolled) && (
+          <div className="mb-6">
+            <CourseMeetingBanner courseId={id} />
+          </div>
+        )}
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {course.description && (

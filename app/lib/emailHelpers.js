@@ -119,3 +119,50 @@ export async function sendMembershipExpiringEmail({ toEmail, name, planName, exp
     bodyHtml,
   });
 }
+/**
+ * 🆕 إيميل "محاضرة لايف جديدة" — بيتبعت لكل طالب مسجّل في الكورس وقت ما
+ * المدرس يضيف محاضرة (شوف app/api/courses/[id]/meetings/route.js POST).
+ * الهدف: طالب مش فاتح الموقع وقت الإضافة ميفوّتش المحاضرة تمامًا (الإشعار
+ * الداخلي في NotificationBell محتاج الموقع يكون مفتوح أو يتفتح لاحقًا).
+ */
+export async function sendMeetingScheduledEmail({ toEmail, name, courseTitle, meetingTitle, scheduledAt }) {
+  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const bodyHtml = `
+    <p style="font-size:14px;color:#64748b;margin:0 0 20px 0;">
+      Hi ${escapeHtml(name)}, a new live lecture was just scheduled for <strong>${escapeHtml(courseTitle)}</strong>.
+    </p>
+    <div style="background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+      <p style="font-size:13px;color:#475569;margin:0 0 6px 0;">${escapeHtml(meetingTitle)}</p>
+      <p style="font-size:13px;color:#475569;margin:0;">When: <strong>${when}</strong></p>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin:0;">Join from the Live Lectures page in your EduMaster account when it starts.</p>
+  `;
+  return sendTemplatedEmail({
+    to: toEmail,
+    subject: `New live lecture: ${meetingTitle}`,
+    heading: "New Live Lecture Scheduled",
+    bodyHtml,
+  });
+}
+
+/**
+ * 🆕 إيميل "تذكير قريب من الميعاد" (~10 دقايق قبل البداية) — بيُستخدم من
+ * app/api/cron/meeting-reminders/route.js. مكمّل للإشعار الداخلي، مش بديل
+ * عنه — طالب مش فاتح تاب الموقع أصلًا مش هيشوف جرس الإشعارات.
+ */
+export async function sendMeetingReminderEmail({ toEmail, name, courseTitle, meetingTitle, scheduledAt, minutesLeft }) {
+  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const bodyHtml = `
+    <p style="font-size:14px;color:#64748b;margin:0 0 20px 0;">
+      Hi ${escapeHtml(name)}, your live lecture <strong>${escapeHtml(meetingTitle)}</strong>
+      (${escapeHtml(courseTitle)}) starts in about ${minutesLeft} minutes.
+    </p>
+    <p style="font-size:13px;color:#475569;margin:0;">Scheduled for: <strong>${when}</strong></p>
+  `;
+  return sendTemplatedEmail({
+    to: toEmail,
+    subject: `Starting soon: ${meetingTitle}`,
+    heading: "Your Live Lecture Starts Soon",
+    bodyHtml,
+  });
+}

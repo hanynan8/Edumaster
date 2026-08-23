@@ -33,6 +33,7 @@ import {
   User,
   ArrowRight,
   Radio,
+  Film,
 } from "lucide-react";
 
 function Blocked() {
@@ -71,6 +72,8 @@ function toLocalInputValue(dateStr) {
 
 // 🆕 مفيش status مخزّن في الداتابيز عن قصد (شوف تعليق Meeting.js) — الحالة
 // محسوبة لحظيًا من scheduledAt + durationMinutes مقابل الوقت الحالي.
+// بيرجع "ended" افتراضيًا لو الوقت عدّى — بيتصحّح بعدين بـ presenceOverrides
+// (شوف usePresenceOverrides تحت) لو المدرس مدّ المحاضرة فعليًا.
 function getPhase(meeting) {
   const start = new Date(meeting.scheduledAt).getTime();
   const end = start + (meeting.durationMinutes || 60) * 60 * 1000;
@@ -78,6 +81,64 @@ function getPhase(meeting) {
   if (now < start) return "upcoming";
   if (now <= end) return "live";
   return "ended";
+}
+
+// نفس هامش غرفة Daily (شوف app/lib/daily.js: exp = end + ساعتين) — مفيش
+// داعي نتحقق من presence فعلي لمحاضرة خلصت من كتير، الغرفة أصلًا مقفولة.
+const PRESENCE_CHECK_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * 🆕 بيحل مشكلة "حساب حالة خلصت مش دقيق لو المحاضرة اتمدت" — للمحاضرات
+ * اللي حسابها الوقتي طلع "ended" حديثًا (خلال آخر ساعتين) ومصدرها Daily،
+ * بنسأل السيرفر (GET /api/meetings/[id]/presence) هل فيه حد داخل الغرفة
+ * فعليًا دلوقتي. لو آه، بنعاملها كـ"live" برضه رغم إن الوقت المكتوب عدّى.
+ */
+function usePresenceOverrides(meetings) {
+  const [overrides, setOverrides] = useState({}); // { [meetingId]: boolean }
+
+  useEffect(() => {
+    if (!meetings || meetings.length === 0) return;
+    const now = Date.now();
+    const candidates = meetings.filter((m) => {
+      if (m.source !== "daily") return false;
+      const start = new Date(m.scheduledAt).getTime();
+      const end = start + (m.durationMinutes || 60) * 60 * 1000;
+      return now > end && now - end < PRESENCE_CHECK_WINDOW_MS;
+    });
+    if (candidates.length === 0) return;
+
+    let cancelled = false;
+    Promise.all(
+      candidates.map((m) =>
+        fetch(`/api/meetings/${m.id}/presence`)
+          .then((r) => (r.ok ? r.json() : { active: false }))
+          .then((data) => [m.id, Boolean(data?.active)])
+          .catch(() => [m.id, false])
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      setOverrides((prev) => {
+        const next = { ...prev };
+        for (const [id, active] of results) next[id] = active;
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // بنعيد الفحص كل ما قائمة الاجتماعات تتغيّر (تحميل جديد أو الـ tick
+    // الدوري بتاع الصفحة) — مش بحاجة تانية.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meetings]);
+
+  return overrides;
+}
+
+function resolvePhase(meeting, presenceOverrides) {
+  const staticPhase = getPhase(meeting);
+  if (staticPhase === "ended" && presenceOverrides[meeting.id]) return "live";
+  return staticPhase;
 }
 
 const PHASE_META = {
@@ -275,10 +336,27 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
   );
 }
 
-function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busy }) {
-  const phase = getPhase(meeting);
+function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busy, phase, isTeacherView }) {
   const meta = PHASE_META[phase];
   const isDaily = meeting.source === "daily";
+  const hasRecordings = Array.isArray(meeting.recordings) && meeting.recordings.length > 0;
+  const [openingRecordingId, setOpeningRecordingId] = useState(null);
+  const [recordingError, setRecordingError] = useState("");
+
+  async function handleWatchRecording(recordingId) {
+    setRecordingError("");
+    setOpeningRecordingId(recordingId);
+    try {
+      const res = await fetch(`/api/meetings/${meeting.id}/recordings/${recordingId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) throw new Error();
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch {
+      setRecordingError("التسجيل مش متاح دلوقتي، جرّب تاني بعد شوية");
+    } finally {
+      setOpeningRecordingId(null);
+    }
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
@@ -310,7 +388,33 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
       </div>
 
       <div className="flex items-center gap-2">
-        {isDaily ? (
+        {phase === "ended" ? (
+          hasRecordings ? (
+            <div className="flex-1 flex flex-col gap-1.5">
+              {meeting.recordings.map((rec) => (
+                <button
+                  key={rec.id}
+                  type="button"
+                  disabled={openingRecordingId === rec.id}
+                  onClick={() => handleWatchRecording(rec.id)}
+                  className="flex items-center justify-center gap-2 bg-gray-800 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-900 disabled:opacity-60"
+                >
+                  {openingRecordingId === rec.id ? (
+                    <Loader size={15} className="animate-spin" />
+                  ) : (
+                    <Film size={15} />
+                  )}
+                  شاهد التسجيل
+                </button>
+              ))}
+              {recordingError && <p className="text-[11px] text-red-500 text-center">{recordingError}</p>}
+            </div>
+          ) : (
+            <div className="flex-1 text-center text-xs text-gray-400 py-2.5">
+              {isDaily ? "مفيش تسجيل متاح لمحاضرة النهاردة دي" : "المحاضرة خلصت"}
+            </div>
+          )
+        ) : isDaily ? (
           // 🆕 اجتماع Daily — بيتشغّل مضمّن جوه الموقع (شوف DailyMeetingModal)
           // بدل ما يفتح تاب خارجي.
           <button
@@ -356,7 +460,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
   );
 }
 
-function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busyId, emptyText }) {
+function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busyId, emptyText, getMeetingPhase, isTeacherView }) {
   return (
     <div className="mb-8">
       <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">
@@ -378,6 +482,8 @@ function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDel
               onDelete={onDelete}
               onJoinEmbedded={onJoinEmbedded}
               busy={busyId === m.id}
+              phase={getMeetingPhase(m)}
+              isTeacherView={isTeacherView}
             />
           ))}
         </div>
@@ -471,8 +577,13 @@ export default function MeetPage() {
   // أدمن يقدر يدير أي اجتماع (isOwnerOrAdmin في الـ API)، مدرس بس اجتماعاته هو.
   const canManage = (meeting) => role === "admin" || (role === "teacher" && meeting.teacher === userId);
 
+  // 🆕 presence check (issue #6) — بيصحح "خلصت" الغلط لو المدرس مدّ
+  // المحاضرة فعليًا. شوف usePresenceOverrides فوق.
+  const presenceOverrides = usePresenceOverrides(meetings);
+  const getMeetingPhase = (m) => resolvePhase(m, presenceOverrides);
+
   const grouped = { live: [], upcoming: [], ended: [] };
-  (meetings || []).forEach((m) => grouped[getPhase(m)].push(m));
+  (meetings || []).forEach((m) => grouped[getMeetingPhase(m)].push(m));
   grouped.ended.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
 
   return (
@@ -535,6 +646,8 @@ export default function MeetPage() {
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText="مفيش محاضرة شغالة دلوقتي."
+              getMeetingPhase={getMeetingPhase}
+              isTeacherView={role === "teacher" || role === "admin"}
             />
             <MeetingSection
               title="قادمة"
@@ -546,6 +659,8 @@ export default function MeetPage() {
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText="مفيش محاضرات قادمة مجدولة."
+              getMeetingPhase={getMeetingPhase}
+              isTeacherView={role === "teacher" || role === "admin"}
             />
             {grouped.ended.length > 0 && (
               <MeetingSection
@@ -558,6 +673,8 @@ export default function MeetPage() {
                 onJoinEmbedded={setJoinedMeeting}
                 busyId={busyId}
                 emptyText=""
+                getMeetingPhase={getMeetingPhase}
+                isTeacherView={role === "teacher" || role === "admin"}
               />
             )}
           </>
@@ -578,6 +695,7 @@ export default function MeetPage() {
           meetingId={joinedMeeting.id}
           title={joinedMeeting.title}
           onClose={() => setJoinedMeeting(null)}
+          isTeacher={role === "teacher" || role === "admin"}
         />
       )}
     </div>

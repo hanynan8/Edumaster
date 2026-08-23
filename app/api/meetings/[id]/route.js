@@ -28,6 +28,11 @@ function serializeMeeting(m) {
     source: m.source || "manual",
     scheduledAt: m.scheduledAt,
     durationMinutes: m.durationMinutes,
+    recordings: (m.recordings || []).map((r) => ({
+      id: r.dailyRecordingId,
+      durationSeconds: r.durationSeconds,
+      createdAt: r.createdAt,
+    })),
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
   };

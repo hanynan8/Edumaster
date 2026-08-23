@@ -13,6 +13,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import DashboardMeetingsWidget from "@/app/components/DashboardMeetingsWidget";
 import {
   BookOpen, Loader, CheckCircle2, Clock, Crown, AlertTriangle, ArrowRight, ArrowLeft, GraduationCap, Award, TrendingUp,
   Camera, Mail, Phone, User, X, Pencil, CreditCard, Video,
@@ -662,6 +663,10 @@ export default function StudentMyCoursesPage() {
         </div>
 
         <StudentQuickNav t={t} />
+
+        {/* 🆕 issue #1 — إشارة واضحة في الداشبورد لو فيه محاضرة لايف شغالة
+            أو قريبة على أي كورس من كورسات الطالب (شوف DashboardMeetingsWidget). */}
+        <DashboardMeetingsWidget />
 
         {profileUser && (
           <ProfileSummaryCard user={profileUser} t={t} onEdit={() => setShowProfileModal(true)} />

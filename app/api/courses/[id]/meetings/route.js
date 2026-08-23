@@ -27,6 +27,8 @@ import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { isDailyConfigured, createDailyRoom } from "@/app/lib/daily";
+import { getAuthModel } from "@/app/lib/mongodb";
+import { sendMeetingScheduledEmail } from "@/app/lib/emailHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -46,6 +48,11 @@ function serializeMeeting(m) {
     source: m.source || "manual",
     scheduledAt: m.scheduledAt,
     durationMinutes: m.durationMinutes,
+    recordings: (m.recordings || []).map((r) => ({
+      id: r.dailyRecordingId,
+      durationSeconds: r.durationSeconds,
+      createdAt: r.createdAt,
+    })),
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
   };
@@ -80,7 +87,9 @@ export async function GET(request, { params }) {
     const canManage = isOwnerOrAdmin(session, course.teacher);
     if (!canManage) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: id });
-      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
+      // 🆕 بنرجّع سبب الرفض التفصيلي (access.reason) بدل "enrollment_required"
+      // ثابتة — شوف app/lib/access.js getCourseAccessDenialReason.
+      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: access.reason }, 403);
     }
 
     const Meeting = getMeetingModel();
@@ -191,6 +200,23 @@ export async function POST(request, { params }) {
         link: "/meet",
         course: id,
       });
+
+      // 🆕 إيميل كمان، مش بس إشعار داخل الموقع — عشان طالب مش فاتح الموقع
+      // وقت الإضافة ميفوّتش المحاضرة تمامًا لحد ما يفتحه بنفسه بالصدفة
+      // (شوف app/lib/emailHelpers.js sendMeetingScheduledEmail). best-effort
+      // بالكامل ومش بيوقف استجابة الـ API لو فشل.
+      const AuthModel = getAuthModel();
+      const users = await AuthModel.find({ _id: { $in: enrolledUserIds } }, "name email").lean();
+      for (const user of users) {
+        if (!user.email) continue;
+        sendMeetingScheduledEmail({
+          toEmail: user.email,
+          name: user.name || "Student",
+          courseTitle: course.title,
+          meetingTitle: title,
+          scheduledAt,
+        }).catch((err) => console.error("[/api/courses/[id]/meetings] sendMeetingScheduledEmail failed:", err));
+      }
     }
 
     return jsonResponse(serializeMeeting(created), 201);

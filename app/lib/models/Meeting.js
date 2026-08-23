@@ -49,6 +49,26 @@ const meetingSchema = new mongoose.Schema(
     // خلص" في الواجهة (شوف app/meet/page.jsx)، مش بترسل تذكير أو أي حاجة
     // زمنية فعلية.
     durationMinutes: { type: Number, default: 60, min: 5, max: 480 },
+
+    // 🆕 تسجيلات المحاضرة — بتتملى تلقائيًا عن طريق webhook بتاع Daily
+    // (recording.ready-to-download، شوف app/api/webhooks/daily/route.js)
+    // لما المدرس يبدأ تسجيل سحابي (enable_recording: "cloud" في توكن
+    // المدرس، شوف app/lib/daily.js) وينتهي. رابط الوصول (accessLink) مؤقت
+    // ومعمول له تجديد عند الطلب (شوف getDailyRecordingAccessLink) بدل ما
+    // نخزّن رابط بيموت بعد ساعة.
+    recordings: [
+      {
+        dailyRecordingId: { type: String, required: true },
+        durationSeconds: { type: Number, default: null },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    // 🆕 آخر مرة اتبعت فيها تذكير "المحاضرة قربت تبدأ" (~10 دقايق قبل
+    // scheduledAt) — شوف app/api/cron/meeting-reminders/route.js. null يعني
+    // لسه ماتبعتش. حقل بسيط بدل موديل منفصل لتتبع الإرسال، كافي هنا لأن كل
+    // اجتماع بيحتاج تذكير واحد بس.
+    reminderSentAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

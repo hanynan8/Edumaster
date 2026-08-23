@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/membership-expiry",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/meeting-reminders",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

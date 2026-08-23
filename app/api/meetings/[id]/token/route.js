@@ -54,7 +54,9 @@ export async function GET(request, { params }) {
       if (!course) return jsonResponse({ error: "not_found" }, 404);
 
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: meeting.course });
-      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
+      // 🆕 access.reason بيدي سبب دقيق (اشتراك منتهي، enrollment اتلغى...)
+      // بدل رسالة عامة — شوف app/lib/access.js وapp/components/DailyMeetingModal.jsx.
+      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: access.reason }, 403);
     }
 
     // 🕐 نفس هامش الغرفة (ربع ساعة قبل / ساعتين بعد) — لو المستخدم بيحاول

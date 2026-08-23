@@ -20,6 +20,7 @@
 //      "إعادة المحاولة" بدل ما يقفل المودال ويفتحه تاني يدويًا.
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Loader,
   AlertCircle,
@@ -29,19 +30,58 @@ import {
   Maximize,
   Minimize,
   RefreshCw,
+  Video,
+  Mic,
+  VideoOff,
+  MicOff,
+  Hourglass,
 } from "lucide-react";
 
-// "loading" (بيجيب توكن) → "connecting" (بيعمل join) → "joined" → "reconnecting" → "error"
-export default function DailyMeetingModal({ meetingId, title, onClose }) {
+// 🆕 رسائل رفض دخول دقيقة (مطابقة لـ access.reason في app/lib/access.js) —
+// بدل رسالة عامة "مفيش صلاحية" واحدة لكل الحالات. كل سبب له رسالة ومسار حل
+// واضح (مثلاً "جدّد اشتراكك" بدل ما الطالب يفضل مش فاهم ليه اتمنع.
+const FORBIDDEN_REASONS = {
+  enrollment_cancelled: {
+    message: "تسجيلك في الكورس ده اتلغى، فمش تقدر تدخل المحاضرة.",
+    actionLabel: "تواصل مع الدعم",
+    actionHref: "/contact",
+  },
+  membership_expired: {
+    message: "اشتراكك انتهى — جدّد اشتراكك عشان ترجع تقدر تدخل المحاضرات.",
+    actionLabel: "تجديد الاشتراك",
+    actionHref: "/membership",
+  },
+  membership_plan_excludes_course: {
+    message: "خطة اشتراكك الحالية متغطيش الكورس ده — ترقّى لخطة أشمل.",
+    actionLabel: "خطط الاشتراك",
+    actionHref: "/membership",
+  },
+  not_enrolled: {
+    message: "لازم تكون مسجّل في الكورس ده الأول عشان تقدر تدخل المحاضرة.",
+    actionLabel: null,
+    actionHref: null,
+  },
+};
+
+// "precheck" (فحص كاميرا/مايك) → "loading" (بيجيب توكن) → "connecting"
+// (بيعمل join) → "joined" → "reconnecting" → "error"
+export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher = false }) {
   const containerRef = useRef(null);
   const modalRef = useRef(null);
   const callFrameRef = useRef(null);
+  const previewStreamRef = useRef(null);
 
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState("precheck");
   const [error, setError] = useState("");
+  const [forbiddenReason, setForbiddenReason] = useState(null);
   const [participantCount, setParticipantCount] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
+  // 🆕 هل فيه صاحب غرفة (المدرس) داخل الاجتماع دلوقتي؟ — بيتحدث من
+  // refreshParticipantCount تحت عن طريق فحص participant.owner من Daily.
+  const [teacherPresent, setTeacherPresent] = useState(isTeacher);
+  // 🆕 حالة فحص الجهاز: "checking" | "granted" | "denied" | "skipped"
+  const [deviceCheck, setDeviceCheck] = useState({ status: "checking", hasCamera: true, hasMic: true });
 
   const destroyCallFrame = useCallback(() => {
     if (callFrameRef.current) {
@@ -50,7 +90,57 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
     }
   }, []);
 
+  const stopPreviewStream = useCallback(() => {
+    if (previewStreamRef.current) {
+      previewStreamRef.current.getTracks().forEach((t) => t.stop());
+      previewStreamRef.current = null;
+    }
+  }, []);
+
+  // 🆕 فحص كاميرا/مايك (Device Check) — بيحصل قبل أي محاولة اتصال فعلية
+  // بالاجتماع. من غيره، لو المتصفح رفض إذن الكاميرا/المايك (أو اليوزر رفضه
+  // بالغلط)، كان اليوزر بيلاقي نفسه داخل المودال أصلًا من غير صورة/صوت من
+  // غير أي تفسير — دلوقتي بنطلب الإذن بنفسنا الأول ونوري نتيجة واضحة
+  // (preview لو نجح، أو رسالة + خيارات لو اترفض) قبل ما نكمل للاتصال.
+  const runDeviceCheck = useCallback(async () => {
+    setDeviceCheck({ status: "checking", hasCamera: true, hasMic: true });
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      // متصفح مش داعم getUserMedia أصلًا (نادر) — منسمحش نمنع الدخول
+      // بالكامل، بس بنوضح إن معاينة الجهاز مش متاحة.
+      setDeviceCheck({ status: "unsupported", hasCamera: false, hasMic: false });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      previewStreamRef.current = stream;
+      setDeviceCheck({ status: "granted", hasCamera: true, hasMic: true });
+    } catch (err) {
+      // NotAllowedError = المستخدم أو المتصفح رفض الإذن. NotFoundError =
+      // مفيش كاميرا/مايك فعليًا على الجهاز. أي سبب تاني بنعامله زي الرفض
+      // العام — المهم إننا منكملش اتصال بدون توضيح للسبب.
+      setDeviceCheck({
+        status: "denied",
+        hasCamera: false,
+        hasMic: false,
+        reason: err?.name === "NotFoundError" ? "no_device" : "permission_denied",
+      });
+    }
+  }, []);
+
   useEffect(() => {
+    if (status === "precheck") runDeviceCheck();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status === "precheck"]);
+
+  useEffect(() => stopPreviewStream, [stopPreviewStream]);
+
+  function proceedPastDeviceCheck() {
+    stopPreviewStream();
+    setStatus("loading");
+  }
+
+  useEffect(() => {
+    if (status === "precheck") return; // لسه في مرحلة فحص الجهاز، منتصلش لسه.
     if (!meetingId) {
       setStatus("error");
       setError("الاجتماع غير متاح");
@@ -69,16 +159,24 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
       try {
         const res = await fetch(`/api/meetings/${meetingId}/token`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || "token_failed");
+        if (!res.ok) {
+          const err = new Error(data?.error || "token_failed");
+          err.reason = data?.reason;
+          throw err;
+        }
         tokenData = data;
       } catch (err) {
         if (!cancelled) {
           setStatus("error");
-          setError(
-            err.message === "forbidden"
-              ? "مفيش صلاحية للدخول على الاجتماع ده"
-              : "تعذّر التحقق من صلاحية الدخول، حاول تاني"
-          );
+          if (err.message === "forbidden") {
+            // 🆕 رسالة دقيقة حسب سبب الرفض الحقيقي (access.reason)، مش
+            // "مفيش صلاحية" عامة — شوف FORBIDDEN_REASONS فوق.
+            const reason = err.reason && FORBIDDEN_REASONS[err.reason] ? err.reason : "not_enrolled";
+            setForbiddenReason(reason);
+            setError(FORBIDDEN_REASONS[reason].message);
+          } else {
+            setError("تعذّر التحقق من صلاحية الدخول، حاول تاني");
+          }
         }
         return;
       }
@@ -101,7 +199,13 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
         function refreshParticipantCount() {
           if (cancelled) return;
           const list = callFrame.participants?.();
-          if (list) setParticipantCount(Object.keys(list).length);
+          if (!list) return;
+          const values = Object.values(list);
+          setParticipantCount(values.length);
+          // 🆕 "مؤشر المدرس لسه مادخلش" — بنفحص participant.owner (بيتحدد من
+          // is_owner في meeting token، شوف app/lib/daily.js createMeetingToken)
+          // بدل نعتمد على عدد المشاركين بس (ممكن يكونوا طلاب تانيين بدري).
+          setTeacherPresent(values.some((p) => p.owner));
         }
 
         callFrame
@@ -210,6 +314,91 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
         </div>
 
         <div className="relative flex-1 bg-gray-900">
+          {status === "precheck" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white px-6 text-center z-10">
+              {deviceCheck.status === "checking" && (
+                <>
+                  <Loader size={28} className="animate-spin" />
+                  <span className="text-sm">جاري التحقق من الكاميرا والمايك...</span>
+                </>
+              )}
+
+              {deviceCheck.status === "granted" && (
+                <>
+                  <div className="w-full max-w-sm aspect-video bg-black rounded-xl overflow-hidden border border-white/10">
+                    <video
+                      autoPlay
+                      muted
+                      playsInline
+                      ref={(el) => {
+                        if (el && previewStreamRef.current && el.srcObject !== previewStreamRef.current) {
+                          el.srcObject = previewStreamRef.current;
+                        }
+                      }}
+                      className="w-full h-full object-cover -scale-x-100"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-emerald-400">
+                    <span className="flex items-center gap-1">
+                      <Video size={13} /> الكاميرا شغالة
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Mic size={13} /> المايك شغال
+                    </span>
+                  </div>
+                  <button
+                    onClick={proceedPastDeviceCheck}
+                    className="mt-1 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
+                  >
+                    الدخول للاجتماع
+                  </button>
+                </>
+              )}
+
+              {deviceCheck.status === "denied" && (
+                <>
+                  <div className="flex items-center gap-3 text-red-400">
+                    <VideoOff size={22} />
+                    <MicOff size={22} />
+                  </div>
+                  <span className="text-sm max-w-sm">
+                    {deviceCheck.reason === "no_device"
+                      ? "مش لاقيين كاميرا أو مايك على الجهاز ده. تقدر تدخل بالصوت/الصورة مقفولين، أو تجرّب من جهاز فيه كاميرا/مايك."
+                      : "المتصفح مش دّيك إذن الكاميرا/المايك — افتح إعدادات الموقع في المتصفح وسمح بالوصول، أو كمّل من غيرهم."}
+                  </span>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={runDeviceCheck}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
+                    >
+                      <RefreshCw size={14} /> إعادة المحاولة
+                    </button>
+                    <button
+                      onClick={proceedPastDeviceCheck}
+                      className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
+                    >
+                      الدخول من غيرهم
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {deviceCheck.status === "unsupported" && (
+                <>
+                  <span className="text-sm max-w-sm">
+                    المتصفح ده مش بيدعم معاينة الكاميرا/المايك قبل الدخول — هتقدر تتحكم فيهم من داخل الاجتماع نفسه.
+                  </span>
+                  <button
+                    onClick={proceedPastDeviceCheck}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
+                  >
+                    الدخول للاجتماع
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {isBusy && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white z-10">
               <Loader size={28} className="animate-spin" />
@@ -224,12 +413,21 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
               <AlertCircle size={28} className="text-red-400" />
               <span className="text-sm">{error}</span>
               <div className="flex gap-2 mt-2">
-                <button
-                  onClick={handleRetry}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
-                >
-                  <RefreshCw size={14} /> إعادة المحاولة
-                </button>
+                {forbiddenReason && FORBIDDEN_REASONS[forbiddenReason]?.actionHref ? (
+                  <Link
+                    href={FORBIDDEN_REASONS[forbiddenReason].actionHref}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
+                  >
+                    {FORBIDDEN_REASONS[forbiddenReason].actionLabel}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleRetry}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
+                  >
+                    <RefreshCw size={14} /> إعادة المحاولة
+                  </button>
+                )}
                 <button
                   onClick={handleClose}
                   className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
@@ -237,6 +435,16 @@ export default function DailyMeetingModal({ meetingId, title, onClose }) {
                   إغلاق
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* 🆕 "المدرس لسه مادخلش" — بيظهر لطالب بس (isTeacher=false)، لما
+              الاجتماع joined فعليًا بس مفيش participant.owner=true جوه
+              (شوف refreshParticipantCount). كده الطالب اللي بيدخل بدري
+              بيفهم إنه مستني، مش إن حاجة غلط. */}
+          {status === "joined" && !isTeacher && !teacherPresent && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur text-white text-xs font-semibold px-4 py-2 rounded-full">
+              <Hourglass size={13} className="animate-pulse" /> استنى المدرس يبدأ المحاضرة...
             </div>
           )}
 

@@ -51,13 +51,56 @@ export async function hasActiveMembershipAccessToCourse(userId, courseId) {
 }
 
 /**
+ * 🆕 بيحدد *سبب* رفض الوصول بالتفصيل (لما hasAccess=false) — مستخدمة عشان
+ * نوري للطالب رسالة دقيقة بدل "مفيش صلاحية" عامة (شوف مثلاً app/meet/page.jsx
+ * و DailyMeetingModal). القيم:
+ *   - "enrollment_cancelled": كان مسجّل فعلاً لكن الـ enrollment اتلغى.
+ *   - "membership_expired": عنده/كان عنده membership لكنها منتهية دلوقتي.
+ *   - "membership_plan_excludes_course": membership نشطة لكن خطتها متغطيش
+ *     الكورس ده تحديدًا (allowedCourses محدودة).
+ *   - "not_enrolled": مفيش أي علاقة بالكورس أصلًا (الحالة الافتراضية).
+ * best-effort: أي خطأ هنا بيرجع "not_enrolled" (أعم رسالة) بدل ما يكسر
+ * الصفحة اللي طالبة السبب.
+ */
+export async function getCourseAccessDenialReason({ userId, courseId }) {
+  if (!userId || !courseId) return "not_enrolled";
+  try {
+    const Enrollment = getEnrollmentModel();
+    const cancelledEnrollment = await Enrollment.findOne(
+      { user: userId, course: courseId, status: "cancelled" },
+      "_id"
+    ).lean();
+    if (cancelledEnrollment) return "enrollment_cancelled";
+
+    const AuthModel = getAuthModel();
+    const user = await AuthModel.findById(userId, "membership").lean();
+    if (user?.membership?.plan) {
+      const isActive = isMembershipCurrentlyActive(user.membership);
+      if (!isActive) return "membership_expired";
+
+      const MembershipPlan = getMembershipPlanModel();
+      const plan = await MembershipPlan.findById(user.membership.plan).lean();
+      if (plan?.isActive && plan.allowedCourses?.length > 0) {
+        const covered = plan.allowedCourses.some((c) => c.toString() === courseId.toString());
+        if (!covered) return "membership_plan_excludes_course";
+      }
+    }
+
+    return "not_enrolled";
+  } catch (err) {
+    console.error("[getCourseAccessDenialReason] error:", err);
+    return "not_enrolled";
+  }
+}
+
+/**
  * الفحص الكامل: enrollment فعلي أو membership فعالة. مفيدة لـ routes محتوى
  * الكورس (sections/lessons) عشان تقرر تسرّب videoUrl/fileUrl ولا لأ.
- * @returns {Promise<{isEnrolled: boolean, enrollment: object|null, hasMembershipAccess: boolean, hasAccess: boolean}>}
+ * @returns {Promise<{isEnrolled: boolean, enrollment: object|null, hasMembershipAccess: boolean, hasAccess: boolean, reason: string|null}>}
  */
 export async function getCourseAccessForUser({ userId, courseId }) {
   if (!userId || !courseId) {
-    return { isEnrolled: false, enrollment: null, hasMembershipAccess: false, hasAccess: false };
+    return { isEnrolled: false, enrollment: null, hasMembershipAccess: false, hasAccess: false, reason: "not_enrolled" };
   }
 
   const Enrollment = getEnrollmentModel();
@@ -71,10 +114,14 @@ export async function getCourseAccessForUser({ userId, courseId }) {
   ]);
 
   const isEnrolled = Boolean(enrollment);
+  const hasAccess = isEnrolled || hasMembershipAccess;
   return {
     isEnrolled,
     enrollment: enrollment || null,
     hasMembershipAccess,
-    hasAccess: isEnrolled || hasMembershipAccess,
+    hasAccess,
+    // 🆕 بنحسب السبب بس لو الوصول فعلًا مرفوض — تفادي استعلامات زيادة لأي
+    // حد أصلًا عنده وصول (الحالة الأغلب).
+    reason: hasAccess ? null : await getCourseAccessDenialReason({ userId, courseId }),
   };
 }

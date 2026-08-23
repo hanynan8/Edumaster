@@ -156,7 +156,12 @@ export async function createMeetingToken({
         exp,
         start_video_off: true,
         start_audio_off: true,
-        enable_recording: isOwner ? "local" : undefined,
+        // 🆕 كانت "local" — التسجيل بيتحفظ على جهاز المدرس بس ومحدش تاني
+        // يقدر يوصله (مفيش API يرجّعه). "cloud" بيخلّي Daily تسجّل وترفع
+        // الفيديو على سيرفرها هي، وتبعتلنا webhook (recording.ready-to-
+        // download) لما يخلص عشان نربطه بالمحاضرة ونعرضه للطلاب بعدين
+        // (شوف app/api/webhooks/daily/route.js + Meeting.recordings).
+        enable_recording: isOwner ? "cloud" : undefined,
       },
     }),
   });
@@ -166,6 +171,46 @@ export async function createMeetingToken({
     throw new Error(`daily_create_token_error: ${reason}`);
   }
   return data.token;
+}
+
+/**
+ * 🆕 عدد الحاضرين الفعليين دلوقتي في غرفة معيّنة، عن طريق presence API
+ * بتاعة Daily — بيستخدم لتصحيح حالة "خلصت" في واجهة الطالب لو المدرس مدّ
+ * المحاضرة فعليًا أكتر من durationMinutes المكتوبة (شوف
+ * app/api/meetings/[id]/presence/route.js). best-effort: أي خطأ (مشكلة
+ * شبكة، الغرفة اتمسحت...) بيرجع 0 بدل ما يكسر الصفحة.
+ */
+export async function getDailyRoomPresence(roomName) {
+  if (!roomName) return { count: 0 };
+  try {
+    const res = await fetch(`${DAILY_BASE}/rooms/${encodeURIComponent(roomName)}/presence`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) return { count: 0 };
+    const data = await res.json().catch(() => ({}));
+    return { count: Number(data?.total_count) || 0 };
+  } catch (err) {
+    console.error(`[daily] getDailyRoomPresence(${roomName}) failed:`, err);
+    return { count: 0 };
+  }
+}
+
+/**
+ * 🆕 بيولّد رابط تحميل/تشغيل مؤقت (access-link) لتسجيل معيّن عن طريق الـ
+ * recording ID المخزّن في Meeting.recordings — الرابط ده بينتهي بعد فترة
+ * قصيرة من Daily نفسها، فبنولّده وقت الطلب (لما الطالب يدوس "شاهد
+ * التسجيل") بدل ما نخزّنه جاهز في الداتابيز.
+ */
+export async function getDailyRecordingAccessLink(recordingId) {
+  const res = await fetch(`${DAILY_BASE}/recordings/${encodeURIComponent(recordingId)}/access-link`, {
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.error || data?.info || `HTTP ${res.status}`;
+    throw new Error(`daily_recording_link_error: ${reason}`);
+  }
+  return data.download_link;
 }
 
 /**

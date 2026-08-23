@@ -166,6 +166,19 @@ function computeHmac(values, secret) {
   return crypto.createHmac("sha512", secret).update(concatenated).digest("hex");
 }
 
+// 🔒 SECURITY: مقارنة "ثابتة الزمن" (constant-time) بدل === العادية —
+// المقارنة النصية العادية بتوقف عند أول حرف مختلف، وده نظريًا بيسرّب معلومة
+// (كام حرف صح) عن طريق فروق التوقيت الدقيقة (timing attack). المخاطرة هنا
+// عمليًا ضئيلة جدًا (المهاجم لازم يقيس فروق مايكروثانية عبر الإنترنت آلاف
+// المرات)، لكن crypto.timingSafeEqual بديل آمن ومجاني (نفس الأداء تقريبًا)،
+// فمفيش سبب نسيب المقارنة العادية.
+function safeCompareHex(a, b) {
+  const bufA = Buffer.from(String(a).toLowerCase(), "hex");
+  const bufB = Buffer.from(String(b).toLowerCase(), "hex");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 /**
  * بيتحقق من الـ HMAC بتاع "Transaction Processed Callback" (الـ webhook
  * الحقيقي، POST من سيرفر Paymob لسيرفرنا، body: { type: "TRANSACTION", obj: {...} }).
@@ -183,7 +196,7 @@ export function verifyPaymobWebhookHmac({ transactionObj, hmacFromQuery }) {
   });
 
   const expected = computeHmac(values, secret);
-  return expected.toLowerCase() === String(hmacFromQuery).toLowerCase();
+  return safeCompareHex(expected, hmacFromQuery);
 }
 
 /**
@@ -198,5 +211,5 @@ export function verifyPaymobCallbackHmac(searchParams) {
 
   const values = HMAC_FIELDS_ORDER.map((field) => searchParams.get(field));
   const expected = computeHmac(values, secret);
-  return expected.toLowerCase() === String(hmacFromQuery).toLowerCase();
+  return safeCompareHex(expected, hmacFromQuery);
 }

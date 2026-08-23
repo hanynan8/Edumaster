@@ -14,9 +14,16 @@
 // 🔒 مقصودًا مش بنرجّع أي بيانات حساسة (إيميل الطالب، الـ Mongo _id بتاع
 // اليوزر/الكورس، إلخ) — بس المعلومات اللي أصلاً مطبوعة وظاهرة على وش
 // الشهادة نفسها، عشان صفحة التحقق العامة متسربش حاجة زيادة عن كده.
+//
+// 🔒 SECURITY: rate limit خفيف على مستوى IP — الـ certId عشوائي 48-بت
+// (crypto.randomBytes، شوف Certificate.js) فصعب التخمين عمليًا، لكن من
+// غير أي حد على عدد المحاولات، سكريبت يقدر يجرّب آلاف القيم في endpoint
+// عام بدون auth أصلاً (enumeration/DoS خفيف) — الحد هنا سخي جدًا لاستخدام
+// حقيقي (جهة توظيف بتتحقق من شهادة أو اتنين) لكنه بيوقف أي محاولة آلية.
 
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCertificateModel, getCourseModel } from "@/app/lib/models";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -27,6 +34,13 @@ function jsonResponse(data, status = 200) {
 
 export async function GET(request, { params }) {
   try {
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "certificates:verify",
+      limit: 30,
+      windowSeconds: 60,
+    });
+    if (rl) return rl;
+
     const { certId } = await params;
     if (!certId) return jsonResponse({ valid: false });
 

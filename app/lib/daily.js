@@ -67,6 +67,32 @@ export async function createDailyRoom({ startDate, endDate }) {
         enable_chat: true,
         enable_screenshare: true,
         enable_knocking: false,
+        // 🆕 ميزات تفاعلية إضافية من Daily Prebuilt — كلها بتظهر زرارات
+        // جاهزة في شريط الأدوات جوه الاجتماع (من غير أي كود إضافي من
+        // عندنا، لأن الواجهة كلها Daily Prebuilt أصلًا):
+        //   - enable_hand_raising: رفع الأيدي (زرار "رفع اليد" لكل مشارك)
+        //   - enable_emoji_reactions: تفاعلات/إيموجيز طايرة أثناء الاجتماع
+        //   - enable_video_processing_ui: خيار تمويه الخلفية/استبدالها
+        //     بصورة (background blur/replacement) من داخل كل مشارك بنفسه
+        //   - enable_live_captions_ui: زرار "ترجمة فورية بالنص" لايف
+        //     تحت الفيديو (Live captions) — يعتمد على تفعيل الـ billing في
+        //     حساب Daily.co نفسه (Dashboard)، وإلا الزرار هيظهر بس هيفشل
+        //     وقت التشغيل الفعلي
+        //   - enable_network_ui: مؤشر جودة الشبكة/الاتصال لكل مشارك
+        //   - enable_people_ui: تاب "المشاركين" الجانبي — قائمة بكل
+        //     الحاضرين وحالة المايك بتاعهم، وإمكانية عمل pin لمشارك معيّن
+        //   - enable_noise_cancellation_ui: زرار إلغاء ضوضاء الخلفية من
+        //     المايك بالذكاء الاصطناعي (مفيد جدًا لطلاب بيدخلوا من البيت)
+        //   - enable_breakout_rooms: يسمح للمدرس (owner) يقسّم الطلاب
+        //     لمجموعات فرعية صغيرة أثناء المحاضرة (تمارين/مناقشات جماعية)
+        enable_hand_raising: true,
+        enable_emoji_reactions: true,
+        enable_video_processing_ui: true,
+        enable_live_captions_ui: true,
+        enable_network_ui: true,
+        enable_people_ui: true,
+        enable_noise_cancellation_ui: true,
+        enable_breakout_rooms: true,
         // 🎓 مظبوطة على سيناريو "فصل دراسي" (مدرس + عدد متوسط/كبير من
         // الطلاب، مش مكالمة 1:1) — كل مشارك بيدخل بكاميرا/مايك مقفولين
         // افتراضيًا ويفتحهم بنفسه لو حابب. ده اللي بيخلي المحاضرة تفضل

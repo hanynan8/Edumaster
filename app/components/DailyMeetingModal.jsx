@@ -94,8 +94,24 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
 
   const destroyCallFrame = useCallback(() => {
     if (callFrameRef.current) {
-      callFrameRef.current.destroy();
+      const frame = callFrameRef.current;
+      // 🔧 FIX: بنصفّر الـ ref قبل ما ننادي destroy()، عشان لو حصل استدعاء
+      // تاني لـ destroyCallFrame() في نفس اللحظة (مثلاً من "left-meeting"
+      // ومن الـ cleanup effect مع بعض) منحاولش نـ destroy نفس الـ frame
+      // مرتين.
       callFrameRef.current = null;
+      try {
+        frame.destroy();
+      } catch (err) {
+        // 🆕 Daily نفسها ممكن تكون سبق ونضّفت/شالت الـ iframe من جوه (مثلاً
+        // بعد ما اليوزر غادر من زرار "مغادرة" بتاع Daily نفسه جوه الاجتماع)
+        // — نداء destroy() في الحالة دي بيرمي
+        // "Cannot read properties of null (reading 'postMessage')" لأنه
+        // بيحاول يبعت رسالة لـ iframe مبقاش موجود أصلًا. بنمسك الخطأ ده
+        // ونتجاهله بأمان بدل ما يكسر الصفحة، لأن الهدف (تنظيف الاجتماع)
+        // أصلاً محقّق.
+        console.warn("[daily] destroy() failed (safe to ignore if already left):", err);
+      }
     }
   }, []);
 
@@ -238,6 +254,14 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
           .on("participant-joined", refreshParticipantCount)
           .on("participant-left", refreshParticipantCount)
           .on("left-meeting", () => {
+            // 🔧 FIX: Daily نفسها بتكون نضّفت/شالت الـ iframe الداخلي لما
+            // "left-meeting" بيحصل (مثلاً اليوزر دوس زرار "مغادرة" بتاع
+            // Daily نفسها جوه الاجتماع). لو سبنا callFrameRef زي ما هو،
+            // الـ cleanup effect تحت هيحاول ينادي destroy() على frame
+            // مبقاش شغال ويرمي "Cannot read properties of null (reading
+            // 'postMessage')". بنصفّر الـ ref هنا عشان destroyCallFrame ما
+            // يحاولش يـ destroy حاجة اتشالت أصلًا.
+            callFrameRef.current = null;
             if (!cancelled) onClose?.();
           })
           // 🔄 انقطاع شبكة مؤقت — Daily بتحاول تعيد الاتصال تلقائيًا، إحنا
@@ -257,7 +281,16 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             console.warn("[daily] nonfatal-error:", e);
           });
 
-        await callFrame.join({ url: tokenData.url, token: tokenData.token });
+        // 🆕 الكاميرا والمايك بيدخلوا "مقفولين" افتراضيًا لما ينضم للاجتماع
+        // (startVideoOff / startAudioOff) — حتى لو الجهاز فيه كاميرا/مايك
+        // شغالين فعليًا واتوافق عليهم في فحص precheck فوق. المستخدم يقدر
+        // يشغّلهم بنفسه في أي وقت من أدوات التحكم جوه الاجتماع نفسه.
+        await callFrame.join({
+          url: tokenData.url,
+          token: tokenData.token,
+          startVideoOff: true,
+          startAudioOff: true,
+        });
       } catch (err) {
         if (!cancelled) {
           setStatus("error");
@@ -280,7 +313,16 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
     setRetryTick((t) => t + 1);
   }
 
+  // 🆕 لما يدوس على X اللي فوق وهو داخل الاجتماع فعليًا (joined أو حتى بيحاول
+  // يعيد الاتصال)، بنتأكد منه الأول قبل ما نقفل ونخرجه فعليًا — عشان منخسرش
+  // حد بالغلط بدوسة واحدة على زرار قريب من زرارات تانية. لو لسه في مرحلة
+  // فحص الجهاز/التحميل/في خطأ، مفيش حاجة نخسرها فعليًا فبنقفل على طول.
   function handleClose() {
+    const isActuallyInMeeting = status === "joined" || status === "reconnecting";
+    if (isActuallyInMeeting) {
+      const confirmed = window.confirm("متأكد إنك عايز تسيب الاجتماع؟");
+      if (!confirmed) return;
+    }
     destroyCallFrame();
     onClose?.();
   }
@@ -367,6 +409,12 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
                       <Mic size={13} /> المايك شغال
                     </span>
                   </div>
+                  {/* 🆕 توضيح إن الدخول هيكون بالكاميرا/المايك مقفولين افتراضيًا
+                      (حتى لو الفحص فوق نجح) — المستخدم يقدر يشغّلهم بنفسه
+                      من جوه الاجتماع وقت ما يحب. */}
+                  <span className="text-[11px] text-gray-300 max-w-sm -mt-2">
+                    هتدخل الاجتماع والكاميرا والمايك مقفولين افتراضيًا، وتقدر تشغّلهم من جوه الاجتماع وقت ما تحب.
+                  </span>
                   <button
                     onClick={proceedPastDeviceCheck}
                     className="mt-1 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold"

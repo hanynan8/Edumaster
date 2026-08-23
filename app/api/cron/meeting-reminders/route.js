@@ -22,6 +22,38 @@ import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { sendMeetingReminderEmail } from "@/app/lib/emailHelpers";
 
+// 🆕 PERFORMANCE + RELIABILITY: كان الإيميل بيتبعت واحد واحد بالتتابع
+// (for...of + await) — كورس فيه 50-100 طالب يعني 50-100 نداء شبكة متتالي
+// لـ Resend API، وده ممكن ياخد 15-30+ ثانية لكورس واحد بس. Vercel بيوقف
+// أي function تلقائيًا بعد حد أقصى للوقت (10 ثانية على خطة Hobby)، ومفيش
+// maxDuration متظبطة هنا أصلًا (شوف تحت). لو حصل timeout، الـ function
+// بتتقفل *قبل* ما نعلّم reminderSentAt، فالمحاضرة هتتعالج تاني في التشغيلة
+// الجاية بعد 5 دقايق — يعني طلاب اتبعتلهم إيميل هيتبعتلهم تاني (spam).
+// الحل: نبعت بالتوازي بحد أقصى (batch of 10 في نفس الوقت) بدل التتابع
+// الكامل — أسرع بشكل كبير من غير ما نقصف Resend API بمئات الطلبات مرة واحدة.
+const EMAIL_BATCH_SIZE = 10;
+
+async function sendEmailsInBatches(users, buildPayload) {
+  let emailed = 0;
+  for (let i = 0; i < users.length; i += EMAIL_BATCH_SIZE) {
+    const batch = users.slice(i, i + EMAIL_BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map((user) => sendMeetingReminderEmail(buildPayload(user)).catch(() => false))
+    );
+    emailed += results.filter(Boolean).length;
+  }
+  return emailed;
+}
+
+// 🆕 PERFORMANCE: بيرفع الحد الأقصى لوقت تنفيذ الـ function على Vercel (لو
+// الاستضافة مش Vercel، الإكسبورت ده بيتجاهل من غير أي تأثير). قيمة 60
+// ثانية سخية كفاية لمعالجة كورسات فيها مئات الطلاب حتى بعد تحسين الإرسال
+// بالـ batching فوق، ومتاحة على خطة Vercel Pro فما فوق (Hobby أقصاها 10s
+// برضه — لو الاستضافة Hobby ولسه بيحصل timeout مع كورسات كبيرة جدًا، الحل
+// الأمثل يبقى تحويل الإرسال لـ queue/background job بدل تنفيذه جوه الـ
+// cron request نفسه).
+export const maxDuration = 60;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 
 // من 8 لـ 13 دقيقة قدام دلوقتي — نطاق حوالين "10 دقايق قبل" يحتمل إن الـ
@@ -88,18 +120,15 @@ export async function GET(request) {
 
       // إيميل — best-effort، بيوصل حتى لو الطالب مش فاتح الموقع أصلًا.
       const users = await AuthModel.find({ _id: { $in: enrolledUserIds } }, "name email").lean();
-      for (const user of users) {
-        if (!user.email) continue;
-        const ok = await sendMeetingReminderEmail({
-          toEmail: user.email,
-          name: user.name || "Student",
-          courseTitle,
-          meetingTitle: meeting.title,
-          scheduledAt: meeting.scheduledAt,
-          minutesLeft,
-        });
-        if (ok) emailed += 1;
-      }
+      const usersWithEmail = users.filter((u) => u.email);
+      emailed += await sendEmailsInBatches(usersWithEmail, (user) => ({
+        toEmail: user.email,
+        name: user.name || "Student",
+        courseTitle,
+        meetingTitle: meeting.title,
+        scheduledAt: meeting.scheduledAt,
+        minutesLeft,
+      }));
 
       await Meeting.updateOne({ _id: meeting._id }, { reminderSentAt: new Date() });
     }

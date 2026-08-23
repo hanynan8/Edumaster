@@ -26,7 +26,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=900&q=80";
+  "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
 
 const LEVEL_COLORS = {
   beginner: "#10b981",

@@ -65,12 +65,31 @@ function jsonResponse(data, status = 200) {
 }
 
 // 🔒 SECURITY: حد أقصى لحجم الـ body (بالبايت) لمنع إرسال payloads ضخمة (DoS / abuse).
-const MAX_BODY_BYTES = 100 * 1024; // 100KB كافية جدًا لأي فورم أو محتوى صفحة
+//
+// 🐛 BUGFIX: كان في نسخة قديمة رقم واحد بس (100KB) شغّال على كل الكتابات —
+// PUT/POST من لوحة الأدمن (محتوى صفحات زي blogs/countries/successStories/
+// services/about) بمحتوى ثلاث لغات (en/ar/es) بسهولة بيتعدى الـ 100KB دي (مقال
+// واحد طويل بثلاث لغات ممكن لوحده يقرب من كده، فما بالك بمستند فيه 6 مقالات).
+// كان بيحصل: المستخدم يحاول يحفظ من الأدمن، الطلب يتقطع بصمت في parseBody
+// (raw.length > MAX_BODY_BYTES → يرجع null)، والراوت يرد بـ 400
+// "Invalid or missing JSON body" — يبان للمستخدم كـ "فشل" غامض من غير سبب واضح.
+//
+// الحل: حدّين منفصلين حسب نوع الكتابة:
+//   - PUBLIC (بس "form" — رسائل زوار الموقع، بدون تسجيل دخول): محدودة أصلاً
+//     بـ FORM_FIELD_MAX_LENGTHS (message لوحده حده 5000 حرف)، فـ 20KB سقف
+//     أمان كافي جدًا ومريح في نفس الوقت.
+//   - ADMIN (كل باقي الكولكشنز — محتوى الموقع، مقفول بـ isAdminRequest()
+//     فعليًا قبل ما نوصل لـ parseBody): المستخدم أصلاً أدمن موثّق، فمخاطر
+//     الـ DoS من payload كبير أقل بكتير من نداء عام مجهول الهوية. 5MB سقف
+//     مريح لأي محتوى صفحة متعدد اللغات (وبرضو أقل بكتير من حد MongoDB
+//     لحجم المستند الواحد أصلاً، 16MB).
+const MAX_BODY_BYTES_PUBLIC = 20 * 1024; // 20KB — كافية لأي فورم تواصل
+const MAX_BODY_BYTES_ADMIN = 5 * 1024 * 1024; // 5MB — محتوى صفحات الأدمن
 
-async function parseBody(request) {
+async function parseBody(request, maxBytes) {
   try {
     const raw = await request.text();
-    if (raw && raw.length > MAX_BODY_BYTES) {
+    if (raw && raw.length > maxBytes) {
       throw new Error("Payload too large");
     }
     if (!raw) return null;
@@ -620,7 +639,7 @@ export async function POST(request) {
       }
     }
 
-    const body = await parseBody(request);
+    const body = await parseBody(request, isPublicWrite ? MAX_BODY_BYTES_PUBLIC : MAX_BODY_BYTES_ADMIN);
     if (body === null) {
       return jsonResponse({ error: "Invalid or missing JSON body" }, 400);
     }
@@ -703,7 +722,7 @@ export async function PUT(request) {
 
     const Model = getModelForCollection(colName);
 
-    const body = await parseBody(request);
+    const body = await parseBody(request, MAX_BODY_BYTES_ADMIN);
     if (body === null) {
       return jsonResponse({ error: "Invalid or missing JSON body" }, 400);
     }

@@ -27,6 +27,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
+import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import LessonComments from "@/app/components/LessonComments";
 import {
@@ -50,7 +51,7 @@ const STRINGS = {
     enroll: "اشترك في الكورس",
     buyNow: "اشترِ الآن",
     enrolling: "جارِ التسجيل...",
-    redirecting: "جارِ التحويل لـ PayPal...",
+    redirecting: "جارِ التحويل لصفحة الدفع...",
     enrolled: "أنت مسجّل في هذا الكورس",
     includedInMembership: "متضمّن في اشتراكك الحالي",
     loginToEnroll: "سجّل دخولك للاشتراك في الكورس",
@@ -87,7 +88,7 @@ const STRINGS = {
     enroll: "Enroll in this course",
     buyNow: "Buy Now",
     enrolling: "Enrolling...",
-    redirecting: "Redirecting to PayPal...",
+    redirecting: "Redirecting to payment...",
     enrolled: "You're enrolled in this course",
     includedInMembership: "Included in your current membership",
     loginToEnroll: "Log in to enroll in this course",
@@ -357,6 +358,9 @@ function RealCourseDetail({ id }) {
   const [assignments, setAssignments] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  // 🆕 المستخدم ضغط "اشترِ الآن" لكورس مدفوع — بننتظر اختياره لبوابة الدفع
+  // (PayPal/Paymob) عن طريق PaymentGatewayModal قبل ما نبدأ checkout فعلي.
+  const [showGatewayModal, setShowGatewayModal] = useState(false);
   // تتبع تقدّم الطالب: أي درس (فيديو/PDF/نص) بيتحدد "مكتمل" لما الطالب
   // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الكورس
   // (progressPercent)، شوف app/lib/progressHelpers.js.
@@ -470,17 +474,24 @@ function RealCourseDetail({ id }) {
   // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
   // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش
   // احتمال يدفع لحاجة عنده وصول ليها بالفعل.
-  async function handleBuyWithPaypal() {
+  // 🆕 Phase 3 — اليوم 27-28 + إضافة Paymob: كورس مدفوع (مش متاح مجانًا
+  // وعضويتنا لو موجودة مش بتغطيه) → checkout عند البوابة اللي المستخدم
+  // اختارها (PaymentGatewayModal) بدل POST /api/enrollments مباشرة. لو
+  // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
+  // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش
+  // احتمال يدفع لحاجة عنده وصول ليها بالفعل.
+  async function handleBuyWithProvider(provider) {
+    setShowGatewayModal(false);
     setEnrollError("");
     setEnrolling(true);
     try {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "course", id }),
+        body: JSON.stringify({ type: "course", id, provider }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.approveUrl) {
+      if (!res.ok || !data.redirectUrl) {
         if (data.error === "cannot_enroll_own_course") setEnrollError(t.ownCourse);
         else if (data.error === "payment_gateway_not_configured") setEnrollError(t.paymentSoon);
         else setEnrollError(t.paymentGatewayError);
@@ -488,19 +499,24 @@ function RealCourseDetail({ id }) {
         return;
       }
       // بنسيب enrolling=true عشان الزرار يفضل معطّل لحد ما التحويل يحصل
-      window.location.href = data.approveUrl;
+      window.location.href = data.redirectUrl;
     } catch {
       setEnrollError(t.paymentGatewayError);
       setEnrolling(false);
     }
   }
 
+  function openGatewayModal() {
+    setEnrollError("");
+    setShowGatewayModal(true);
+  }
+
   async function handleEnroll() {
     // كورس مدفوع فعليًا (isFree=false) والمستخدم مالوش وصول عن طريق
-    // membership أصلاً → يودّي لـ PayPal بدل محاولة enroll مباشر هيرجع
-    // 402 أكيد.
+    // membership أصلاً → نفتح مودال اختيار بوابة الدفع بدل محاولة enroll
+    // مباشر هيرجع 402 أكيد.
     if (!course.isFree && course.price > 0) {
-      return handleBuyWithPaypal();
+      return openGatewayModal();
     }
 
     setEnrollError("");
@@ -515,8 +531,10 @@ function RealCourseDetail({ id }) {
       if (!res.ok) {
         if (data.error === "payment_required") {
           // fallback نادر: السيرفر شايف إنه محتاج دفع رغم كده (مثلاً السعر
-          // اتغيّر بعد ما الصفحة اتحملت) — نجرّب PayPal بدل ما نوقف هنا.
-          return handleBuyWithPaypal();
+          // اتغيّر بعد ما الصفحة اتحملت) — نفتح مودال اختيار بوابة الدفع
+          // بدل ما نوقف هنا.
+          setEnrolling(false);
+          return openGatewayModal();
         } else if (data.error === "cannot_enroll_own_course") {
           setEnrollError(t.ownCourse);
         } else {
@@ -798,6 +816,14 @@ function RealCourseDetail({ id }) {
           mode={authMode}
           onClose={() => setShowAuthModal(false)}
           onSwitch={(next) => setAuthMode(next)}
+        />
+      )}
+
+      {showGatewayModal && (
+        <PaymentGatewayModal
+          disabled={enrolling}
+          onClose={() => setShowGatewayModal(false)}
+          onSelect={handleBuyWithProvider}
         />
       )}
     </div>

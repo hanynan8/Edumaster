@@ -6,16 +6,20 @@
 // الاشتراك (Free/Basic/Standard/Pro) اللي الأدمن أنشأها من
 // app/api/membership-plans. أي زائر يقدر يشوفها؛ الاشتراك الفعلي:
 //   - خطة مجانية → POST /api/membership-plans/[id]/subscribe (فوري، بدون دفع)
-//   - خطة مدفوعة (شهري/سنوي) → POST /api/payments/checkout {type:"membership"}
-//     يفتح PayPal Order ويحوّل المستخدم لصفحة الموافقة؛ التفعيل الفعلي
-//     (user.membership) بيحصل بعد نجاح الدفع في app/api/payments/paypal/return
-//     أو app/api/payments/webhook — نفس بالظبط منطق شراء الكورس المفرد.
+//   - خطة مدفوعة (شهري/سنوي) → المستخدم بيختار بوابة الدفع (PayPal أو
+//     Paymob عن طريق PaymentGatewayModal) → POST /api/payments/checkout
+//     {type:"membership", provider} يفتح عملية دفع عند البوابة المختارة
+//     ويحوّل المستخدم لصفحتها؛ التفعيل الفعلي (user.membership) بيحصل بعد
+//     نجاح الدفع في app/api/payments/paypal/return أو
+//     app/api/payments/paymob/callback (أو webhook كل بوابة) — نفس بالظبط
+//     منطق شراء الكورس المفرد.
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
+import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
 import { Check, Crown, Loader, CheckCircle2 } from "lucide-react";
 
 const STRINGS = {
@@ -27,7 +31,7 @@ const STRINGS = {
     free: "مجانية",
     subscribe: "اشترك",
     subscribing: "جارِ التفعيل...",
-    redirecting: "جارِ التحويل لـ PayPal...",
+    redirecting: "جارِ التحويل لصفحة الدفع...",
     subscribed: "خطتك الحالية",
     login: "سجّل دخولك للاشتراك",
     paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتفعيل اليدوي",
@@ -46,7 +50,7 @@ const STRINGS = {
     free: "Free",
     subscribe: "Subscribe",
     subscribing: "Activating...",
-    redirecting: "Redirecting to PayPal...",
+    redirecting: "Redirecting to payment...",
     subscribed: "Your current plan",
     login: "Log in to subscribe",
     paymentSoon: "Online payment isn't available right now — contact us to activate manually",
@@ -71,6 +75,8 @@ export default function MembershipPage() {
   const [subscribeError, setSubscribeError] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  // 🆕 خطة مدفوعة مختارة بانتظار المستخدم يحدد بوابة الدفع (PayPal/Paymob)
+  const [pendingPlan, setPendingPlan] = useState(null);
 
   useEffect(() => {
     fetch("/api/membership-plans")
@@ -88,28 +94,31 @@ export default function MembershipPage() {
       .catch(() => {});
   }, [sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 29: خطة مدفوعة → PayPal checkout بدل التفعيل الفوري.
-  // بعد الموافقة على PayPal، المستخدم بيرجع لـ app/api/payments/paypal/return
-  // اللي بيعمل capture ويفعّل user.membership فعليًا (grantMembershipAccess
-  // في app/lib/paymentHelpers.js) — مش هنا.
-  async function handleSubscribeWithPaypal(plan) {
+  // 🆕 Phase 3 — اليوم 29 + إضافة Paymob: خطة مدفوعة → checkout عند
+  // البوابة اللي المستخدم اختارها (PaymentGatewayModal) بدل التفعيل
+  // الفوري. بعد الموافقة على الدفع، المستخدم بيرجع لـ
+  // app/api/payments/paypal/return أو app/api/payments/paymob/callback
+  // اللي بيفعّل user.membership فعليًا (grantMembershipAccess في
+  // app/lib/paymentHelpers.js) — مش هنا.
+  async function handleSubscribeWithProvider(plan, provider) {
+    setPendingPlan(null);
     setSubscribeError("");
     setSubscribingId(plan.id);
     try {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "membership", id: plan.id }),
+        body: JSON.stringify({ type: "membership", id: plan.id, provider }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.approveUrl) {
+      if (!res.ok || !data.redirectUrl) {
         setSubscribeError(
           data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
         );
         setSubscribingId(null);
         return;
       }
-      window.location.href = data.approveUrl;
+      window.location.href = data.redirectUrl;
     } catch {
       setSubscribeError(t.paymentGatewayError);
       setSubscribingId(null);
@@ -125,7 +134,10 @@ export default function MembershipPage() {
 
     const isFree = plan.billingCycle === "free" || plan.price === 0;
     if (!isFree) {
-      return handleSubscribeWithPaypal(plan);
+      // 🆕 نفتح مودال اختيار بوابة الدفع بدل ما نروح على PayPal مباشرة
+      setSubscribeError("");
+      setPendingPlan(plan);
+      return;
     }
 
     setSubscribeError("");
@@ -134,8 +146,11 @@ export default function MembershipPage() {
       const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // fallback نادر: السيرفر شايف إنها مدفوعة رغم كده → نجرّب PayPal
-        if (data.error === "payment_required") return handleSubscribeWithPaypal(plan);
+        // fallback نادر: السيرفر شايف إنها مدفوعة رغم كده → نفتح مودال اختيار بوابة الدفع
+        if (data.error === "payment_required") {
+          setPendingPlan(plan);
+          return;
+        }
         setSubscribeError(t.error);
         return;
       }
@@ -241,6 +256,13 @@ export default function MembershipPage() {
 
       {showAuthModal && (
         <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitch={(next) => setAuthMode(next)} />
+      )}
+
+      {pendingPlan && (
+        <PaymentGatewayModal
+          onClose={() => setPendingPlan(null)}
+          onSelect={(provider) => handleSubscribeWithProvider(pendingPlan, provider)}
+        />
       )}
     </div>
   );

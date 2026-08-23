@@ -10,6 +10,9 @@
     "test": "jest",
     "test:watch": "jest --watch"
   },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "dependencies": {
     "@daily-co/daily-js": "^0.92.2",
     "@pdf-lib/fontkit": "^1.1.1",
@@ -30,7 +33,7 @@
     "react-dom": "19.1.0",
     "tailwindcss": "^4.3.3",
     "tus-js-client": "^4.3.1",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

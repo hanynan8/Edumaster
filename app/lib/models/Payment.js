@@ -48,7 +48,7 @@ const paymentSchema = new mongoose.Schema(
     // الـ webhook (منع تزوير "نجاح دفع" وهمي من الـ client) ولمنع معالجة
     // نفس الحدث مرتين (idempotency). unique + sparse عشان السجلات القديمة
     // اللي لسه pending ومفيش لها providerPaymentId متتعارضش مع بعض.
-    providerPaymentId: { type: String, default: null },
+    providerPaymentId: { type: String, default: undefined },
 
     invoiceNumber: { type: String, default: null },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },

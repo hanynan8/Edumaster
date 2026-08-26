@@ -49,11 +49,21 @@ function formatDuration(seconds, language) {
 export default function CourseCard({ course, onEdit, onDelete }) {
   const { language } = useLanguage();
   const t = T[language] || T.en;
+
+  // 🩹 FIX: الكارت كان بيعرض course.title / course.shortDescription
+  // مباشرة (النسخة الأساسية بس)، فمهما اخترت لغة من الناف بار كان
+  // بيفضل ثابت زي ما اتحفظ أول مرة. دلوقتي بياخد النسخة المترجمة من
+  // course.i18n[language] لو موجودة، وإلا يرجع لـ en، وإلا للحقول
+  // الأساسية — نفس منطق app/(pages)/courses/page.jsx و [id]/page.jsx.
+  const i18nEntry = course.i18n?.[language] || course.i18n?.en || null;
+  const title = i18nEntry?.title || course.title;
+  const shortDescription = i18nEntry?.shortDescription || course.shortDescription;
+
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative h-36 bg-gray-100">
         {course.thumbnail ? (
-          <Image src={course.thumbnail} alt={course.title} fill className="object-cover" unoptimized />
+          <Image src={course.thumbnail} alt={title} fill className="object-cover" unoptimized />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-300">
             <BookOpen size={40} />
@@ -67,8 +77,8 @@ export default function CourseCard({ course, onEdit, onDelete }) {
       </div>
 
       <div className="p-4">
-        <h3 className="font-semibold text-gray-800 line-clamp-1 mb-1">{course.title}</h3>
-        <p className="text-xs text-gray-500 line-clamp-2 mb-3 min-h-[32px]">{course.shortDescription || "—"}</p>
+        <h3 className="font-semibold text-gray-800 line-clamp-1 mb-1">{title}</h3>
+        <p className="text-xs text-gray-500 line-clamp-2 mb-3 min-h-[32px]">{shortDescription || "—"}</p>
 
         <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">
           <span className="flex items-center gap-1">

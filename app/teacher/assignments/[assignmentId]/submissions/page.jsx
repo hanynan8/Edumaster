@@ -58,7 +58,7 @@ function GradeForm({ submission, maxScore, onGraded }) {
     setError("");
     const numScore = Number(score);
     if (!Number.isFinite(numScore) || numScore < 0 || numScore > maxScore) {
-      return setError(`الدرجة لازم تكون بين 0 و ${maxScore}`);
+      return setError(t.scoreRange(maxScore));
     }
     setSaving(true);
     try {

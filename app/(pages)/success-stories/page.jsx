@@ -87,7 +87,7 @@ export default function SuccessStoriesPage() {
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <StatsStrip data={data} t={t} />
-        <VideoShowcase t={t} />
+        <VideoShowcase t={t} language={language} />
         <Testimonials data={data} t={t} />
         <Journeys data={data} t={t} />
         <Approvals data={data} t={t} />
@@ -141,19 +141,31 @@ function StatsStrip({ data, t }) {
 // 🆕 سكشن فيديو قصص النجاح: فيديو Bunny Stream واحد ثابت، بيتحط جوه بطاقة
 // بحواف دائرية وظل خفيف، ومظبوط بنسبة aspect-video عشان يفضل متجاوب على
 // كل المقاسات من غير ما ياخد مساحة زيادة على الموبايل.
-function VideoShowcase({ t }) {
+// 🩹 FIX: العنوان الافتراضي للسكشن كان نص عربي ثابت (`ts.title || "شاهد
+// قصص طلابنا"`) — السكشن ده مش جزء من successStories document اللي جاي من
+// الأدمن (شوف التعليق فوق)، فـ t.video مبيوصلش أبدًا فيه قيمة، يعني
+// الافتراضي العربي ده كان بيظهر دايمًا مهما كانت لغة الموقع. دلوقتي بياخد
+// نص افتراضي لكل لغة حسب language بدل نص عربي واحد ثابت.
+const VIDEO_DEFAULTS = {
+  ar: { title: "شاهد قصص طلابنا", desc: "" },
+  en: { title: "Watch our students' stories", desc: "" },
+  es: { title: "Mira las historias de nuestros estudiantes", desc: "" },
+};
+
+function VideoShowcase({ t, language }) {
   const [ref, visible] = useReveal();
   const videoUrl = useSuccessVideoUrl();
+  const defaults = VIDEO_DEFAULTS[language] || VIDEO_DEFAULTS.en;
   const ts = t.video || {};
   return (
     <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-white">
       <div className="max-w-5xl mx-auto">
         <div className={`text-center mb-8 sm:mb-10 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">
-            {ts.title || "شاهد قصص طلابنا"}
+            {ts.title || defaults.title}
           </h2>
-          {ts.desc && (
-            <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-[15px] leading-relaxed">{ts.desc}</p>
+          {(ts.desc || defaults.desc) && (
+            <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-[15px] leading-relaxed">{ts.desc || defaults.desc}</p>
           )}
         </div>
         <div

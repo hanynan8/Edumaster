@@ -639,7 +639,7 @@ function RealCourseDetail({ id }) {
             <div className="bg-white text-[#0a0a0a] rounded-2xl overflow-hidden shadow-2xl">
               <div className="relative h-44 bg-gray-100">
                 {course.thumbnail ? (
-                  <Image src={course.thumbnail} alt={course.title} fill unoptimized className="object-cover" />
+                  <Image src={course.thumbnail} alt={loc.title} fill unoptimized className="object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-300"><BookOpen size={40} /></div>
                 )}
@@ -695,9 +695,9 @@ function RealCourseDetail({ id }) {
         )}
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {course.description && (
+            {loc.description && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
-                <p className="text-sm sm:text-[15px] text-gray-600 leading-relaxed whitespace-pre-line">{course.description}</p>
+                <p className="text-sm sm:text-[15px] text-gray-600 leading-relaxed whitespace-pre-line">{loc.description}</p>
               </div>
             )}
 
@@ -808,11 +808,11 @@ function RealCourseDetail({ id }) {
               </div>
             )}
 
-            {course.outcomes?.length > 0 && (
+            {loc.outcomes?.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.outcomes}</h3>
                 <ul className="space-y-2">
-                  {course.outcomes.map((o, i) => (
+                  {loc.outcomes.map((o, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                       <CheckCircle2 size={15} className="text-[#1D6FD8] shrink-0 mt-0.5" /> {o}
                     </li>
@@ -820,11 +820,11 @@ function RealCourseDetail({ id }) {
                 </ul>
               </div>
             )}
-            {course.requirements?.length > 0 && (
+            {loc.requirements?.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">{t.requirements}</h3>
                 <ul className="space-y-2 list-disc ps-5">
-                  {course.requirements.map((r, i) => (
+                  {loc.requirements.map((r, i) => (
                     <li key={i} className="text-sm text-gray-600">{r}</li>
                   ))}
                 </ul>

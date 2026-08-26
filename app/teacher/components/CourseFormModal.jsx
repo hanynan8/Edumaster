@@ -5,14 +5,30 @@
 // فورم إنشاء/تعديل كورس. بيستخدم POST /api/courses للإنشاء و
 // PUT /api/courses/[id] للتعديل. الغلاف (thumbnail) بيترفع بـ MediaUploader
 // (كـ "image") عن طريق /api/upload/file لـ Bunny Storage.
+//
+// 🩹 FIX: كل نصوص الفورم كانت متبوعة لـ object ترجمة (T) بس الـ JSX كان
+// لسه بيستخدم نص عربي ثابت جوه الأكواد مباشرة (مش t.xxx) — يعني تغيير
+// اللغة من الناف بار مكانش بيغيّر حاجة في الفورم دي بالذات. اتصلحت هنا:
+// كل نص في الـ JSX بقى بياخد من t.* اللي بيتبع useLanguage().
+//
+// 🆕 كمان الفورم دلوقتي بتاخد محتوى الكورس (العنوان/الوصف/المتطلبات/
+// هيتعلم إيه/الشهادة) بالتلات لغات المدعومة (ar/en/es) بدل نسخة واحدة —
+// عن طريق تابات لغة جوه الفورم — وبتبعتها في body.i18n لـ API اللي أصلاً
+// بيدعم الحفظ ده (شوف app/lib/models/Course.js و app/lib/courseHelpers.js
+// sanitizeCourseI18n). النسخة العربية بتتخزن كمان في الحقول الأساسية
+// (title/shortDescription/description/requirements/outcomes) كـ "نسخة
+// افتراضية" للتوافق مع أي كود قديم لسه بيقرا course.title مباشرة وللبحث
+// النصي ($text index). الكورس بيتعرض للطالب حسب لغة الموقع تلقائيًا (شوف
+// app/(pages)/courses/page.jsx و app/(pages)/courses/[id]/page.jsx —
+// بيختاروا course.i18n[language] مع fallback لـ en وبعدين للحقول الأساسية).
 
 import { useEffect, useState } from "react";
-import { X, Loader } from "lucide-react";
+import { X, Loader, Check } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// 🆕 كل نصوص الفورم كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من
-// الناف بار (en/ar/es).
+const LANGS = ["ar", "en", "es"];
+
 const T = {
   en: {
     levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
@@ -23,6 +39,7 @@ const T = {
       archived: "Archived",
     },
     titleRequired: "Title is required",
+    titleRequiredAllLangs: "Please add a course title in all 3 languages (Arabic, English, Spanish)",
     chooseCategory: "Choose a category",
     submittedForReview: "The course was sent to the admin for review. It will appear to students once approved.",
     savedAsDraft:
@@ -31,6 +48,8 @@ const T = {
     genericError: "Something went wrong, try again",
     editCourse: "Edit course",
     newCourse: "New course",
+    multilingualHint: "This content is shown to students based on the site's current language. Fill in all three languages so the course displays correctly everywhere.",
+    langTabs: { ar: "Arabic", en: "English", es: "Spanish" },
     courseTitle: "Course title *",
     shortDesc: "Short description (shown on the card)",
     fullDesc: "Full description",
@@ -45,6 +64,8 @@ const T = {
     eur: "EUR (Euro)",
     requirements: "Prerequisites (one per line)",
     outcomes: "What students will learn (one per line)",
+    certName: "Certificate name (optional)",
+    certDesc: "Certificate description (optional)",
     tags: "Tags (comma-separated)",
     status: "Status",
     saveChanges: "Save changes",
@@ -60,6 +81,7 @@ const T = {
       archived: "مؤرشف",
     },
     titleRequired: "العنوان مطلوب",
+    titleRequiredAllLangs: "من فضلك اكتب عنوان الكورس بالتلات لغات (عربي، إنجليزي، إسباني)",
     chooseCategory: "اختر تصنيف",
     submittedForReview: "تم إرسال الكورس للأدمن للمراجعة. هيظهر للطلاب بعد ما يوافق عليه.",
     savedAsDraft:
@@ -68,6 +90,8 @@ const T = {
     genericError: "حصل خطأ، حاول تاني",
     editCourse: "تعديل الكورس",
     newCourse: "كورس جديد",
+    multilingualHint: "المحتوى ده بيتعرض للطالب حسب لغة الموقع الحالية. املا الثلاث لغات عشان الكورس يظهر صح لأي طالب أيًا كانت لغته.",
+    langTabs: { ar: "عربي", en: "إنجليزي", es: "إسباني" },
     courseTitle: "عنوان الكورس *",
     shortDesc: "وصف قصير (يظهر في الكارت)",
     fullDesc: "الوصف الكامل",
@@ -82,6 +106,8 @@ const T = {
     eur: "يورو (EUR)",
     requirements: "المتطلبات المسبقة (سطر لكل عنصر)",
     outcomes: "هيتعلم إيه (سطر لكل عنصر)",
+    certName: "اسم الشهادة (اختياري)",
+    certDesc: "وصف الشهادة (اختياري)",
     tags: "Tags (مفصولة بفاصلة)",
     status: "الحالة",
     saveChanges: "حفظ التعديلات",
@@ -97,6 +123,7 @@ const T = {
       archived: "Archivado",
     },
     titleRequired: "El título es obligatorio",
+    titleRequiredAllLangs: "Agrega un título del curso en los 3 idiomas (árabe, inglés, español)",
     chooseCategory: "Elige una categoría",
     submittedForReview: "El curso se envió al administrador para su revisión. Aparecerá para los estudiantes una vez aprobado.",
     savedAsDraft:
@@ -105,6 +132,8 @@ const T = {
     genericError: "Ocurrió un error, inténtalo de nuevo",
     editCourse: "Editar curso",
     newCourse: "Nuevo curso",
+    multilingualHint: "Este contenido se muestra a los estudiantes según el idioma actual del sitio. Completa los tres idiomas para que el curso se muestre correctamente en todos lados.",
+    langTabs: { ar: "Árabe", en: "Inglés", es: "Español" },
     courseTitle: "Título del curso *",
     shortDesc: "Descripción breve (se muestra en la tarjeta)",
     fullDesc: "Descripción completa",
@@ -119,6 +148,8 @@ const T = {
     eur: "EUR (Euro)",
     requirements: "Requisitos previos (uno por línea)",
     outcomes: "Qué aprenderán (uno por línea)",
+    certName: "Nombre del certificado (opcional)",
+    certDesc: "Descripción del certificado (opcional)",
     tags: "Etiquetas (separadas por coma)",
     status: "Estado",
     saveChanges: "Guardar cambios",
@@ -126,6 +157,21 @@ const T = {
     cancel: "Cancelar",
   },
 };
+
+// بيبني محتوى لغة واحدة (تاب واحد) من i18n المخزن، مع fallback للحقول
+// الأساسية القديمة (title/shortDescription/description/requirements/outcomes)
+// لو مفيش نسخة i18n لسه للغة دي (كورس قديم اتعمل قبل الفيتشر ده مثلاً).
+function langContentFrom(i18nLang, fallback) {
+  return {
+    title: i18nLang?.title ?? fallback?.title ?? "",
+    shortDescription: i18nLang?.shortDescription ?? fallback?.shortDescription ?? "",
+    description: i18nLang?.description ?? fallback?.description ?? "",
+    requirements: (i18nLang?.requirements?.length ? i18nLang.requirements : fallback?.requirements || []).join("\n"),
+    outcomes: (i18nLang?.outcomes?.length ? i18nLang.outcomes : fallback?.outcomes || []).join("\n"),
+    certName: i18nLang?.certification?.name ?? fallback?.certName ?? "",
+    certDesc: i18nLang?.certification?.desc ?? fallback?.certDesc ?? "",
+  };
+}
 
 export default function CourseFormModal({ course, onClose, onSaved }) {
   const { language } = useLanguage();
@@ -145,11 +191,22 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("ar");
+
+  // 🆕 محتوى منفصل لكل لغة (عنوان/وصف قصير/وصف كامل/متطلبات/هيتعلم إيه/شهادة)
+  const [langContent, setLangContent] = useState(() => ({
+    ar: langContentFrom(course?.i18n?.ar, {
+      title: course?.title,
+      shortDescription: course?.shortDescription,
+      description: course?.description,
+      requirements: course?.requirements,
+      outcomes: course?.outcomes,
+    }),
+    en: langContentFrom(course?.i18n?.en, null),
+    es: langContentFrom(course?.i18n?.es, null),
+  }));
 
   const [form, setForm] = useState({
-    title: course?.title || "",
-    shortDescription: course?.shortDescription || "",
-    description: course?.description || "",
     thumbnail: course?.thumbnail || "",
     category: course?.category || "",
     level: course?.level || "beginner",
@@ -161,8 +218,6 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     },
     isFree: course?.isFree ?? false,
     status: course?.status || "draft",
-    requirements: (course?.requirements || []).join("\n"),
-    outcomes: (course?.outcomes || []).join("\n"),
     tags: (course?.tags || []).join(", "),
   });
 
@@ -181,23 +236,49 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     setForm((f) => ({ ...f, prices: { ...f.prices, [currency]: value } }));
   }
 
+  function updateLang(lang, field, value) {
+    setLangContent((c) => ({ ...c, [lang]: { ...c[lang], [field]: value } }));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    if (!form.title.trim()) return setError(t.titleRequired);
+    const missingLang = LANGS.find((lang) => !langContent[lang].title.trim());
+    if (missingLang) {
+      setActiveTab(missingLang);
+      return setError(t.titleRequiredAllLangs);
+    }
     if (!form.category) return setError(t.chooseCategory);
 
     setSaving(true);
     try {
+      const i18n = {};
+      for (const lang of LANGS) {
+        const c = langContent[lang];
+        i18n[lang] = {
+          title: c.title.trim(),
+          shortDescription: c.shortDescription,
+          description: c.description,
+          requirements: c.requirements.split("\n").map((s) => s.trim()).filter(Boolean),
+          outcomes: c.outcomes.split("\n").map((s) => s.trim()).filter(Boolean),
+          certification: { name: c.certName || "", desc: c.certDesc || "" },
+        };
+      }
+      // النسخة العربية هي "النسخة الافتراضية" برّه i18n (زي ما هو موضح في
+      // تعليق app/lib/models/Course.js) — دايمًا موجودة لأننا بنتأكد إن
+      // عنوان كل لغة (بما فيها العربي) مطلوب فوق.
+      const base = i18n.ar;
+
       const payload = {
-        title: form.title.trim(),
-        shortDescription: form.shortDescription,
-        description: form.description,
+        title: base.title,
+        shortDescription: base.shortDescription,
+        description: base.description,
         thumbnail: form.thumbnail || null,
         category: form.category,
         level: form.level,
         language: form.language,
+        i18n,
         prices: {
           EGP: Number(form.prices.EGP) || 0,
           USD: Number(form.prices.USD) || 0,
@@ -205,8 +286,8 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         },
         isFree: form.isFree,
         status: form.status,
-        requirements: form.requirements.split("\n").map((s) => s.trim()).filter(Boolean),
-        outcomes: form.outcomes.split("\n").map((s) => s.trim()).filter(Boolean),
+        requirements: base.requirements,
+        outcomes: base.outcomes,
         tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
       };
 
@@ -244,14 +325,18 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     }
   }
 
+  const tab = langContent[activeTab];
+  const isRTL = language === "ar";
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        dir={isRTL ? "rtl" : "ltr"}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
-          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? "تعديل الكورس" : "كورس جديد"}</h3>
+          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? t.editCourse : t.newCourse}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
           </button>
@@ -260,53 +345,119 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
 
+          <div className="bg-blue-50 text-blue-700 text-xs px-4 py-2.5 rounded-lg">{t.multilingualHint}</div>
+
+          {/* 🆕 تابات اللغة — كل تاب بيعبّي محتوى الكورس (عنوان/وصف/متطلبات/
+              هيتعلم إيه/شهادة) للغة دي بالتحديد، بغض النظر عن لغة الناف بار
+              الحالية (لغة الناف بار بتتحكم بس في نصوص الفورم نفسها). */}
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            {LANGS.map((lang) => {
+              const filled = Boolean(langContent[lang].title.trim());
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setActiveTab(lang)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition ${
+                    activeTab === lang ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {filled && <Check size={14} className="text-green-500" />}
+                  {t.langTabs[lang]}
+                </button>
+              );
+            })}
+          </div>
+
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">عنوان الكورس *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.courseTitle}</label>
             <input
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
-              value={form.title}
-              onChange={(e) => update("title", e.target.value)}
+              value={tab.title}
+              onChange={(e) => updateLang(activeTab, "title", e.target.value)}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">وصف قصير (يظهر في الكارت)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.shortDesc}</label>
             <input
               maxLength={300}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
-              value={form.shortDescription}
-              onChange={(e) => update("shortDescription", e.target.value)}
+              value={tab.shortDescription}
+              onChange={(e) => updateLang(activeTab, "shortDescription", e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">الوصف الكامل</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.fullDesc}</label>
             <textarea
               rows={4}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
-              value={form.description}
-              onChange={(e) => update("description", e.target.value)}
+              value={tab.description}
+              onChange={(e) => updateLang(activeTab, "description", e.target.value)}
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.requirements}</label>
+            <textarea
+              rows={2}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              value={tab.requirements}
+              onChange={(e) => updateLang(activeTab, "requirements", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.outcomes}</label>
+            <textarea
+              rows={2}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              value={tab.outcomes}
+              onChange={(e) => updateLang(activeTab, "outcomes", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.certName}</label>
+              <input
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                value={tab.certName}
+                onChange={(e) => updateLang(activeTab, "certName", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.certDesc}</label>
+              <input
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                value={tab.certDesc}
+                onChange={(e) => updateLang(activeTab, "certDesc", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <hr className="border-gray-200" />
+
+          {/* بيانات مش لغوية (نفس القيمة لكل اللغات): الغلاف/التصنيف/المستوى/
+              السعر/الحالة/الـ tags */}
           <MediaUploader
             kind="image"
-            label="صورة الغلاف"
+            label={t.coverImage}
             currentUrl={form.thumbnail}
             onUploaded={(f) => update("thumbnail", f.url)}
           />
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">التصنيف *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.category}</label>
               <select
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
                 required
               >
-                <option value="">اختر...</option>
+                <option value="">{t.choose}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -315,7 +466,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">المستوى</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.level}</label>
               <select
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.level}
@@ -332,10 +483,10 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-semibold text-gray-700">السعر (لكل عملة)</label>
+              <label className="block text-sm font-semibold text-gray-700">{t.priceLabel}</label>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                 <input type="checkbox" checked={form.isFree} onChange={(e) => update("isFree", e.target.checked)} />
-                مجاني
+                {t.free}
               </label>
             </div>
             {/* 🆕 سعر منفصل يدوي لكل عملة (بدل تحويل تلقائي بسعر صرف) — العملة
@@ -344,7 +495,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 عشان الكورس يبقى قابل للشراء بأي لغة. */}
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">جنيه (EGP)</label>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">{t.egp}</label>
                 <input
                   type="number"
                   min={0}
@@ -355,7 +506,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">دولار (USD)</label>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">{t.usd}</label>
                 <input
                   type="number"
                   min={0}
@@ -366,7 +517,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">يورو (EUR)</label>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">{t.eur}</label>
                 <input
                   type="number"
                   min={0}
@@ -380,25 +531,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">المتطلبات المسبقة (سطر لكل عنصر)</label>
-            <textarea
-              rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
-              value={form.requirements}
-              onChange={(e) => update("requirements", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">هيتعلم إيه (سطر لكل عنصر)</label>
-            <textarea
-              rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
-              value={form.outcomes}
-              onChange={(e) => update("outcomes", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tags (مفصولة بفاصلة)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.tags}</label>
             <input
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
               value={form.tags}
@@ -407,7 +540,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">الحالة</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>
             <select
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
               value={form.status}
@@ -428,14 +561,14 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
-              {isEdit ? "حفظ التعديلات" : "إنشاء الكورس"}
+              {isEdit ? t.saveChanges : t.createCourse}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50"
             >
-              إلغاء
+              {t.cancel}
             </button>
           </div>
         </form>

@@ -13,16 +13,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { XCircle, ArrowRight, ArrowLeft } from "lucide-react";
 
 const REASON_KEYS = {
-  invalid_signature: { ar: "تعذّر التحقق من عملية الدفع", en: "Couldn't verify the payment" },
-  missing_reference: { ar: "بيانات الدفع ناقصة", en: "Missing payment data" },
-  not_found: { ar: "عملية الدفع غير موجودة", en: "Payment not found" },
-  not_completed: { ar: "الدفع لم يكتمل", en: "The payment wasn't completed" },
-  internal_error: { ar: "حصل خطأ غير متوقع", en: "An unexpected error occurred" },
+  invalid_signature: { ar: "تعذّر التحقق من عملية الدفع", en: "Couldn't verify the payment", es: "No se pudo verificar el pago" },
+  missing_reference: { ar: "بيانات الدفع ناقصة", en: "Missing payment data", es: "Faltan datos del pago" },
+  not_found: { ar: "عملية الدفع غير موجودة", en: "Payment not found", es: "Pago no encontrado" },
+  not_completed: { ar: "الدفع لم يكتمل", en: "The payment wasn't completed", es: "El pago no se completó" },
+  internal_error: { ar: "حصل خطأ غير متوقع", en: "An unexpected error occurred", es: "Ocurrió un error inesperado" },
 };
 
 const STRINGS = {
   ar: { title: "لم تكتمل عملية الدفع", browse: "تصفّح الكورسات", membership: "خطط الاشتراك" },
   en: { title: "Payment didn't go through", browse: "Browse Courses", membership: "Membership Plans" },
+  es: { title: "El pago no se realizó", browse: "Explorar cursos", membership: "Planes de membresía" },
 };
 
 export default function PaymentFailedPage({ searchParams }) {

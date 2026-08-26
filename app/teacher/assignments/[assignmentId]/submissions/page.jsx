@@ -7,12 +7,44 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText, Loader, CheckCircle2, Clock } from "lucide-react";
+import { ArrowRight, ArrowLeft, FileText, Loader, CheckCircle2, Clock } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_LABELS = {
-  submitted: { label: "مُسلَّم", cls: "bg-blue-50 text-blue-600" },
-  late: { label: "متأخر", cls: "bg-amber-50 text-amber-600" },
-  graded: { label: "مُصحَّح", cls: "bg-green-50 text-green-600" },
+const STRINGS = {
+  ar: {
+    statusSubmitted: "مُسلَّم",
+    statusLate: "متأخر",
+    statusGraded: "مُصحَّح",
+    scoreRange: (max) => `الدرجة لازم تكون بين 0 و ${max}`,
+    loadError: "تعذّر تحميل التسليمات",
+    gradeSaveError: "حصل خطأ أثناء حفظ الدرجة",
+    backToCourses: "رجوع لكورساتي",
+    submissionsFor: "تسليمات",
+    fullScore: "الدرجة الكاملة",
+    noSubmissionsYet: "لسه محدش سلّم الواجب ده",
+    submittedAt: "اتسلم في",
+    viewSubmittedFile: "عرض الملف المُسلَّم",
+    feedbackPlaceholder: "ملاحظات للطالب (اختياري)",
+    update: "تحديث",
+    grade: "تصحيح",
+  },
+  en: {
+    statusSubmitted: "Submitted",
+    statusLate: "Late",
+    statusGraded: "Graded",
+    scoreRange: (max) => `Score must be between 0 and ${max}`,
+    loadError: "Couldn't load submissions",
+    gradeSaveError: "Something went wrong while saving the grade",
+    backToCourses: "Back to my courses",
+    submissionsFor: "Submissions",
+    fullScore: "Full score",
+    noSubmissionsYet: "No one has submitted this assignment yet",
+    submittedAt: "Submitted on",
+    viewSubmittedFile: "View submitted file",
+    feedbackPlaceholder: "Feedback for the student (optional)",
+    update: "Update",
+    grade: "Grade",
+  },
 };
 
 function GradeForm({ submission, maxScore, onGraded }) {
@@ -41,6 +73,15 @@ function GradeForm({ submission, maxScore, onGraded }) {
 
 export default function AssignmentSubmissionsPage({ params }) {
   const { assignmentId } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
+  const STATUS_LABELS = {
+    submitted: { label: t.statusSubmitted, cls: "bg-blue-50 text-blue-600" },
+    late: { label: t.statusLate, cls: "bg-amber-50 text-amber-600" },
+    graded: { label: t.statusGraded, cls: "bg-green-50 text-green-600" },
+  };
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [drafts, setDrafts] = useState({}); // submissionId -> { score, feedback }
@@ -58,7 +99,7 @@ export default function AssignmentSubmissionsPage({ params }) {
         )
       );
     } catch {
-      setError("تعذّر تحميل التسليمات");
+      setError(t.loadError);
     }
   }
 
@@ -75,7 +116,7 @@ export default function AssignmentSubmissionsPage({ params }) {
     const draft = drafts[submissionId];
     const score = Number(draft.score);
     if (!Number.isFinite(score) || score < 0 || score > data.maxScore) {
-      alert(`الدرجة لازم تكون بين 0 و ${data.maxScore}`);
+      alert(t.scoreRange(data.maxScore));
       return;
     }
     setSavingId(submissionId);
@@ -94,7 +135,7 @@ export default function AssignmentSubmissionsPage({ params }) {
         ),
       }));
     } catch {
-      alert("حصل خطأ أثناء حفظ الدرجة");
+      alert(t.gradeSaveError);
     } finally {
       setSavingId(null);
     }
@@ -110,17 +151,17 @@ export default function AssignmentSubmissionsPage({ params }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <Link href="/teacher" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <ArrowRight size={15} /> رجوع لكورساتي
+        <BackArrow size={15} /> {t.backToCourses}
       </Link>
 
-      <h1 className="text-xl font-semibold text-gray-800 mb-1">تسليمات: {data.assignmentTitle}</h1>
-      <p className="text-sm text-gray-400 mb-8">{data.courseTitle} · الدرجة الكاملة {data.maxScore}</p>
+      <h1 className="text-xl font-semibold text-gray-800 mb-1">{t.submissionsFor}: {data.assignmentTitle}</h1>
+      <p className="text-sm text-gray-400 mb-8">{data.courseTitle} · {t.fullScore} {data.maxScore}</p>
 
       {data.submissions.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">
-          لسه محدش سلّم الواجب ده
+          {t.noSubmissionsYet}
         </div>
       ) : (
         <div className="space-y-4">
@@ -138,7 +179,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
-                  <Clock size={12} /> اتسلم في {new Date(s.submittedAt).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })}
+                  <Clock size={12} /> {t.submittedAt} {new Date(s.submittedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}
                 </div>
 
                 {s.fileUrl && (
@@ -148,7 +189,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:underline mb-3"
                   >
-                    <FileText size={15} /> عرض الملف المُسلَّم
+                    <FileText size={15} /> {t.viewSubmittedFile}
                   </a>
                 )}
                 {s.textAnswer && (
@@ -166,7 +207,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                     onChange={(e) => updateDraft(s.id, "score", e.target.value)}
                   />
                   <input
-                    placeholder="ملاحظات للطالب (اختياري)"
+                    placeholder={t.feedbackPlaceholder}
                     className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                     value={draft.feedback}
                     onChange={(e) => updateDraft(s.id, "feedback", e.target.value)}
@@ -177,7 +218,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                     className="flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
                   >
                     {savingId === s.id ? <Loader size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                    {s.status === "graded" ? "تحديث" : "تصحيح"}
+                    {s.status === "graded" ? t.update : t.grade}
                   </button>
                 </div>
               </div>

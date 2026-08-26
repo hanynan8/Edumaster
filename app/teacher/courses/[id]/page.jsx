@@ -6,15 +6,40 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, Pencil, Loader } from "lucide-react";
+import { ArrowRight, ArrowLeft, Pencil, Loader } from "lucide-react";
 import CourseFormModal from "@/app/teacher/components/CourseFormModal";
 import SectionFormModal from "@/app/teacher/components/SectionFormModal";
 import LessonFormModal from "@/app/teacher/components/LessonFormModal";
 import CourseTree from "@/app/teacher/components/CourseTree";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const STRINGS = {
+  ar: {
+    loadError: "تعذّر تحميل بيانات الكورس",
+    confirmDeleteSection: (title, count) => `حذف "${title}" هيمسح كل دروسه (${count}). متأكد؟`,
+    deleteError: "حصل خطأ أثناء الحذف",
+    confirmDeleteLesson: (title) => `حذف الدرس "${title}"؟`,
+    backToCourses: "رجوع لكورساتي",
+    editCourseData: "تعديل بيانات الكورس",
+    courseContent: "محتوى الكورس",
+  },
+  en: {
+    loadError: "Couldn't load course data",
+    confirmDeleteSection: (title, count) => `Delete "${title}"? This will remove all its lessons (${count}). Are you sure?`,
+    deleteError: "Something went wrong while deleting",
+    confirmDeleteLesson: (title) => `Delete lesson "${title}"?`,
+    backToCourses: "Back to my courses",
+    editCourseData: "Edit course details",
+    courseContent: "Course content",
+  },
+};
 
 export default function CourseEditorPage({ params }) {
   const { id } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   const [course, setCourse] = useState(null);
   const [sections, setSections] = useState(null);
@@ -36,7 +61,7 @@ export default function CourseEditorPage({ params }) {
       setCourse(courseData);
       setSections(sectionsData);
     } catch {
-      setError("تعذّر تحميل بيانات الكورس");
+      setError(t.loadError);
     }
   }
 
@@ -55,12 +80,12 @@ export default function CourseEditorPage({ params }) {
   }
 
   async function handleDeleteSection(section) {
-    if (!confirm(`حذف "${section.title}" هيمسح كل دروسه (${section.lessons.length}). متأكد؟`)) return;
+    if (!confirm(t.confirmDeleteSection(section.title, section.lessons.length))) return;
     const res = await fetch(`/api/sections/${section.id}`, { method: "DELETE" });
     if (res.ok) {
       setSections((prev) => prev.filter((s) => s.id !== section.id));
     } else {
-      alert("حصل خطأ أثناء الحذف");
+      alert(t.deleteError);
     }
   }
 
@@ -79,14 +104,14 @@ export default function CourseEditorPage({ params }) {
   }
 
   async function handleDeleteLesson(sectionId, lesson) {
-    if (!confirm(`حذف الدرس "${lesson.title}"؟`)) return;
+    if (!confirm(t.confirmDeleteLesson(lesson.title))) return;
     const res = await fetch(`/api/lessons/${lesson.id}`, { method: "DELETE" });
     if (res.ok) {
       setSections((prev) =>
         prev.map((s) => (s.id === sectionId ? { ...s, lessons: s.lessons.filter((l) => l.id !== lesson.id) } : s))
       );
     } else {
-      alert("حصل خطأ أثناء الحذف");
+      alert(t.deleteError);
     }
   }
 
@@ -103,9 +128,9 @@ export default function CourseEditorPage({ params }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <Link href="/teacher" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <ArrowRight size={15} /> رجوع لكورساتي
+        <BackArrow size={15} /> {t.backToCourses}
       </Link>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 flex items-start justify-between gap-4">
@@ -117,13 +142,13 @@ export default function CourseEditorPage({ params }) {
           onClick={() => setEditCourseOpen(true)}
           className="shrink-0 flex items-center gap-2 text-sm font-semibold border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-50"
         >
-          <Pencil size={14} /> تعديل بيانات الكورس
+          <Pencil size={14} /> {t.editCourseData}
         </button>
       </div>
 
       <CourseTabs courseId={id} active="content" />
 
-      <h2 className="text-lg font-semibold text-gray-700 mb-4">محتوى الكورس</h2>
+      <h2 className="text-lg font-semibold text-gray-700 mb-4">{t.courseContent}</h2>
       <CourseTree
         sections={sections}
         onAddSection={() => setSectionModal(null)}

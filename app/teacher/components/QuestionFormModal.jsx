@@ -8,17 +8,64 @@
 
 import { useState } from "react";
 import { X, Loader, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const TYPES = [
-  { value: "multiple_choice", label: "اختيار من متعدد" },
-  { value: "true_false", label: "صح / غلط" },
-];
+const STRINGS = {
+  ar: {
+    types: [
+      { value: "multiple_choice", label: "اختيار من متعدد" },
+      { value: "true_false", label: "صح / غلط" },
+    ],
+    trueLabel: "صح",
+    falseLabel: "غلط",
+    textRequired: "نص السؤال مطلوب",
+    optionsNeedText: "كل الخيارات لازم يكون ليها نص",
+    needCorrectAnswer: "لازم تحدد إجابة صحيحة واحدة على الأقل",
+    trueFalseTwoOptions: "صح/غلط لازم يكون بالظبط خيارين",
+    genericError: "حصل خطأ، حاول تاني",
+    editQuestion: "تعديل السؤال",
+    newQuestion: "سؤال جديد",
+    questionType: "نوع السؤال",
+    questionText: "نص السؤال *",
+    optionsLabel: "الخيارات — اضغط على الدائرة لتحديد الإجابة الصحيحة",
+    addOption: "خيار",
+    markCorrect: "حدد كإجابة صحيحة",
+    optionPlaceholder: (i) => `خيار ${i}`,
+    points: "الدرجة",
+    save: "حفظ",
+    cancel: "إلغاء",
+  },
+  en: {
+    types: [
+      { value: "multiple_choice", label: "Multiple choice" },
+      { value: "true_false", label: "True / False" },
+    ],
+    trueLabel: "True",
+    falseLabel: "False",
+    textRequired: "Question text is required",
+    optionsNeedText: "All options must have text",
+    needCorrectAnswer: "You must mark at least one correct answer",
+    trueFalseTwoOptions: "True/False must have exactly two options",
+    genericError: "Something went wrong, try again",
+    editQuestion: "Edit question",
+    newQuestion: "New question",
+    questionType: "Question type",
+    questionText: "Question text *",
+    optionsLabel: "Options — click the circle to mark the correct answer",
+    addOption: "Option",
+    markCorrect: "Mark as correct answer",
+    optionPlaceholder: (i) => `Option ${i}`,
+    points: "Points",
+    save: "Save",
+    cancel: "Cancel",
+  },
+};
 
-function defaultOptionsForType(type) {
+function defaultOptionsForType(type, t) {
   if (type === "true_false") {
     return [
-      { text: "صح", isCorrect: true },
-      { text: "غلط", isCorrect: false },
+      { text: t.trueLabel, isCorrect: true },
+      { text: t.falseLabel, isCorrect: false },
     ];
   }
   return [
@@ -28,12 +75,15 @@ function defaultOptionsForType(type) {
 }
 
 export default function QuestionFormModal({ quizId, question, onClose, onSaved }) {
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const TYPES = t.types;
   const isEdit = Boolean(question);
   const [type, setType] = useState(question?.type || "multiple_choice");
   const [text, setText] = useState(question?.text || "");
   const [points, setPoints] = useState(question?.points ?? 1);
   const [options, setOptions] = useState(
-    question?.options?.length ? question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : defaultOptionsForType(type)
+    question?.options?.length ? question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : defaultOptionsForType(type, t)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -42,9 +92,9 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
     setType(nextType);
     // لو رجّعنا لنوع true_false، نرجّع الخيارات الافتراضية بتاعته
     if (nextType === "true_false") {
-      setOptions(defaultOptionsForType("true_false"));
+      setOptions(defaultOptionsForType("true_false", t));
     } else if (options.length < 2 || options.some((o) => !o.text)) {
-      setOptions(defaultOptionsForType("multiple_choice"));
+      setOptions(defaultOptionsForType("multiple_choice", t));
     }
   }
 
@@ -77,10 +127,10 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
     e.preventDefault();
     setError("");
 
-    if (!text.trim()) return setError("نص السؤال مطلوب");
-    if (options.some((o) => !o.text.trim())) return setError("كل الخيارات لازم يكون ليها نص");
-    if (!options.some((o) => o.isCorrect)) return setError("لازم تحدد إجابة صحيحة واحدة على الأقل");
-    if (type === "true_false" && options.length !== 2) return setError("صح/غلط لازم يكون بالظبط خيارين");
+    if (!text.trim()) return setError(t.textRequired);
+    if (options.some((o) => !o.text.trim())) return setError(t.optionsNeedText);
+    if (!options.some((o) => o.isCorrect)) return setError(t.needCorrectAnswer);
+    if (type === "true_false" && options.length !== 2) return setError(t.trueFalseTwoOptions);
 
     setSaving(true);
     try {
@@ -102,7 +152,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
       if (!res.ok) throw new Error(data?.error);
       onSaved(data);
     } catch {
-      setError("حصل خطأ، حاول تاني");
+      setError(t.genericError);
     } finally {
       setSaving(false);
     }
@@ -111,11 +161,12 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        dir={isRTL ? "rtl" : "ltr"}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? "تعديل السؤال" : "سؤال جديد"}</h3>
+          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? t.editQuestion : t.newQuestion}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
           </button>
@@ -125,25 +176,25 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">نوع السؤال</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.questionType}</label>
             <div className="flex gap-2">
-              {TYPES.map((t) => (
+              {TYPES.map((tp) => (
                 <button
-                  key={t.value}
+                  key={tp.value}
                   type="button"
-                  onClick={() => handleTypeChange(t.value)}
+                  onClick={() => handleTypeChange(tp.value)}
                   className={`flex-1 py-2 rounded-xl text-sm font-semibold border ${
-                    type === t.value ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    type === tp.value ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {t.label}
+                  {tp.label}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">نص السؤال *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.questionText}</label>
             <textarea
               autoFocus
               rows={2}
@@ -155,10 +206,10 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-semibold text-gray-700">الخيارات — اضغط على الدائرة لتحديد الإجابة الصحيحة</label>
+              <label className="block text-sm font-semibold text-gray-700">{t.optionsLabel}</label>
               {type === "multiple_choice" && options.length < 6 && (
                 <button type="button" onClick={addOption} className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
-                  <Plus size={13} /> خيار
+                  <Plus size={13} /> {t.addOption}
                 </button>
               )}
             </div>
@@ -169,14 +220,14 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
                     type="button"
                     onClick={() => setCorrectOption(idx)}
                     className={o.isCorrect ? "text-green-600" : "text-gray-300 hover:text-gray-400"}
-                    title="حدد كإجابة صحيحة"
+                    title={t.markCorrect}
                   >
                     {o.isCorrect ? <CheckCircle2 size={20} /> : <Circle size={20} />}
                   </button>
                   <input
                     disabled={type === "true_false"}
                     className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
-                    placeholder={`خيار ${idx + 1}`}
+                    placeholder={t.optionPlaceholder(idx + 1)}
                     value={o.text}
                     onChange={(e) => updateOptionText(idx, e.target.value)}
                   />
@@ -191,7 +242,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">الدرجة</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.points}</label>
             <input
               type="number"
               min={0}
@@ -209,10 +260,10 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
-              حفظ
+              {t.save}
             </button>
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50">
-              إلغاء
+              {t.cancel}
             </button>
           </div>
         </form>

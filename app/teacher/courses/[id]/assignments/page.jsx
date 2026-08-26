@@ -6,17 +6,53 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus, Pencil, Trash2, Inbox, Loader, Calendar } from "lucide-react";
+import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, Inbox, Loader, Calendar } from "lucide-react";
 import AssignmentFormModal from "@/app/teacher/components/AssignmentFormModal";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function formatDate(d) {
-  if (!d) return "بدون موعد نهائي";
-  return new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
-}
+const STRINGS = {
+  ar: {
+    noDueDate: "بدون موعد نهائي",
+    loadError: "تعذّر تحميل الواجبات",
+    confirmDelete: (title) => `حذف واجب "${title}"؟ هيتمسح معاه كل تسليمات الطلاب. متأكد؟`,
+    deleteError: "حصل خطأ أثناء الحذف",
+    backToContent: "رجوع لمحتوى الكورس",
+    pageTitle: "الواجبات",
+    newAssignment: "واجب جديد",
+    empty: "لسه مفيش واجبات لهذا الكورس",
+    published: "منشور",
+    draft: "مسودة",
+    fullScore: "الدرجة الكاملة",
+    submissions: "التسليمات",
+  },
+  en: {
+    noDueDate: "No due date",
+    loadError: "Couldn't load assignments",
+    confirmDelete: (title) => `Delete assignment "${title}"? All student submissions will be deleted with it. Are you sure?`,
+    deleteError: "Something went wrong while deleting",
+    backToContent: "Back to course content",
+    pageTitle: "Assignments",
+    newAssignment: "New assignment",
+    empty: "No assignments for this course yet",
+    published: "Published",
+    draft: "Draft",
+    fullScore: "Full score",
+    submissions: "Submissions",
+  },
+};
 
 export default function CourseAssignmentsPage({ params }) {
   const { id } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
+
+  function formatDate(d) {
+    if (!d) return t.noDueDate;
+    return new Date(d).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  }
   const [assignments, setAssignments] = useState(null);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(undefined);
@@ -28,7 +64,7 @@ export default function CourseAssignmentsPage({ params }) {
       if (!res.ok) throw new Error(data?.error);
       setAssignments(data.assignments);
     } catch {
-      setError("تعذّر تحميل الواجبات");
+      setError(t.loadError);
     }
   }
 
@@ -47,30 +83,30 @@ export default function CourseAssignmentsPage({ params }) {
   }
 
   async function handleDelete(assignment) {
-    if (!confirm(`حذف واجب "${assignment.title}"؟ هيتمسح معاه كل تسليمات الطلاب. متأكد؟`)) return;
+    if (!confirm(t.confirmDelete(assignment.title))) return;
     const res = await fetch(`/api/assignments/${assignment.id}`, { method: "DELETE" });
     if (res.ok) {
       setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
     } else {
-      alert("حصل خطأ أثناء الحذف");
+      alert(t.deleteError);
     }
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <ArrowRight size={15} /> رجوع لمحتوى الكورس
+        <BackArrow size={15} /> {t.backToContent}
       </Link>
 
       <CourseTabs courseId={id} active="assignments" />
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-800">الواجبات</h1>
+        <h1 className="text-xl font-semibold text-gray-800">{t.pageTitle}</h1>
         <button
           onClick={() => setModal(null)}
           className="flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700"
         >
-          <Plus size={16} /> واجب جديد
+          <Plus size={16} /> {t.newAssignment}
         </button>
       </div>
 
@@ -82,7 +118,7 @@ export default function CourseAssignmentsPage({ params }) {
         </div>
       ) : assignments.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">
-          لسه مفيش واجبات لهذا الكورس
+          {t.empty}
         </div>
       ) : (
         <div className="space-y-3">
@@ -96,18 +132,18 @@ export default function CourseAssignmentsPage({ params }) {
                       a.isPublished ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
                     }`}
                   >
-                    {a.isPublished ? "منشور" : "مسودة"}
+                    {a.isPublished ? t.published : t.draft}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                  <Calendar size={12} /> {formatDate(a.dueDate)} · الدرجة الكاملة {a.maxScore}
+                  <Calendar size={12} /> {formatDate(a.dueDate)} · {t.fullScore} {a.maxScore}
                 </p>
               </div>
               <Link
                 href={`/teacher/assignments/${a.id}/submissions`}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 shrink-0"
               >
-                <Inbox size={14} /> التسليمات
+                <Inbox size={14} /> {t.submissions}
               </Link>
               <button onClick={() => setModal(a)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
                 <Pencil size={15} />

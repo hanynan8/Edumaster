@@ -14,10 +14,66 @@
 import { useEffect, useState, useRef, use as usePromise } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Loader, Clock, CheckCircle2, XCircle, AlertTriangle, RotateCcw,
+  ArrowRight, ArrowLeft, Loader, Clock, CheckCircle2, XCircle, AlertTriangle, RotateCcw,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const TYPE_LABELS = { multiple_choice: "اختيار من متعدد", true_false: "صح / غلط" };
+const STRINGS = {
+  ar: {
+    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / غلط" },
+    accessError: "لازم يكون عندك وصول لهذا الكورس عشان تحل الكويز ده",
+    loadError: "تعذّر تحميل الكويز",
+    maxAttempts: "خلّصت كل المحاولات المسموحة لهذا الكويز",
+    duplicateAttempt: "في تسليم شغال بالفعل، حاول تاني",
+    submitError: "حصل خطأ أثناء التسليم، حاول تاني",
+    backToCourse: "رجوع للكورس",
+    outOfPoints: (p) => `من ${p} درجة`,
+    passed: "ناجح 🎉",
+    failed: "راسب",
+    attemptsRemaining: (n) => `باقيلك ${n} محاولة تانية`,
+    reviewAnswers: "مراجعة إجاباتك",
+    youPicked: "← اخترته",
+    tryAgain: "حاول تاني",
+    questionsCount: (n) => `${n} سؤال`,
+    passingScore: (p) => `نسبة النجاح ${p}%`,
+    minutes: (m) => `${m} دقيقة`,
+    lastAttempt: (pct, status, used, max) =>
+      `آخر محاولة: ${pct}% (${status}) · استخدمت ${used} من ${max} محاولة`,
+    noQuestions: "الكويز ده لسه مفيهوش أسئلة",
+    newAttempt: "محاولة جديدة",
+    startQuiz: "ابدأ الكويز",
+    questionOf: (i, n) => `سؤال ${i} من ${n}`,
+    answered: (a, n) => `جاوبت ${a} من ${n}`,
+    submitQuiz: "تسليم الكويز",
+  },
+  en: {
+    typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False" },
+    accessError: "You need access to this course to take this quiz",
+    loadError: "Couldn't load the quiz",
+    maxAttempts: "You've used all allowed attempts for this quiz",
+    duplicateAttempt: "A submission is already in progress, try again",
+    submitError: "Something went wrong while submitting, try again",
+    backToCourse: "Back to course",
+    outOfPoints: (p) => `out of ${p} points`,
+    passed: "Passed 🎉",
+    failed: "Failed",
+    attemptsRemaining: (n) => `${n} attempt(s) remaining`,
+    reviewAnswers: "Review your answers",
+    youPicked: "← your pick",
+    tryAgain: "Try again",
+    questionsCount: (n) => `${n} question${n === 1 ? "" : "s"}`,
+    passingScore: (p) => `Passing score ${p}%`,
+    minutes: (m) => `${m} min`,
+    lastAttempt: (pct, status, used, max) =>
+      `Last attempt: ${pct}% (${status}) · used ${used} of ${max} attempts`,
+    noQuestions: "This quiz has no questions yet",
+    newAttempt: "New attempt",
+    startQuiz: "Start quiz",
+    questionOf: (i, n) => `Question ${i} of ${n}`,
+    answered: (a, n) => `Answered ${a} of ${n}`,
+    submitQuiz: "Submit quiz",
+  },
+};
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -27,6 +83,10 @@ function formatTime(totalSeconds) {
 
 export default function TakeQuizPage({ params }) {
   const { quizId } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const TYPE_LABELS = t.typeLabels;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const [quiz, setQuiz] = useState(null);
   const [error, setError] = useState("");
   const [started, setStarted] = useState(false);
@@ -44,7 +104,7 @@ export default function TakeQuizPage({ params }) {
       if (!res.ok) throw new Error(data?.error || "error");
       setQuiz(data);
     } catch (err) {
-      setError(err.message === "forbidden" ? "لازم يكون عندك وصول لهذا الكورس عشان تحل الكويز ده" : "تعذّر تحميل الكويز");
+      setError(err.message === "forbidden" ? t.accessError : t.loadError);
     }
   }
 
@@ -96,14 +156,14 @@ export default function TakeQuizPage({ params }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (data.error === "max_attempts_reached") setSubmitError("خلّصت كل المحاولات المسموحة لهذا الكويز");
-        else if (data.error === "duplicate_attempt") setSubmitError("في تسليم شغال بالفعل، حاول تاني");
-        else setSubmitError("حصل خطأ أثناء التسليم، حاول تاني");
+        if (data.error === "max_attempts_reached") setSubmitError(t.maxAttempts);
+        else if (data.error === "duplicate_attempt") setSubmitError(t.duplicateAttempt);
+        else setSubmitError(t.submitError);
         return;
       }
       setResult(data);
     } catch {
-      setSubmitError("حصل خطأ أثناء التسليم، حاول تاني");
+      setSubmitError(t.submitError);
     } finally {
       setSubmitting(false);
     }
@@ -131,9 +191,9 @@ export default function TakeQuizPage({ params }) {
   if (result) {
     const answerByQuestion = Object.fromEntries(result.answers.map((a) => [a.question, a]));
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+      <div dir={isRTL ? "rtl" : "ltr"} className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-          <ArrowRight size={15} /> رجوع للكورس
+          <BackArrow size={15} /> {t.backToCourse}
         </Link>
 
         <div
@@ -148,14 +208,14 @@ export default function TakeQuizPage({ params }) {
           )}
           <p className="text-2xl font-black text-gray-800 mb-1">{result.scorePercent}%</p>
           <p className="text-sm text-gray-600">
-            {result.earnedPoints} من {result.totalPoints} درجة · {result.passed ? "ناجح 🎉" : "راسب"}
+            {result.earnedPoints} {t.outOfPoints(result.totalPoints)} · {result.passed ? t.passed : t.failed}
           </p>
           {result.attemptsRemaining > 0 && (
-            <p className="text-xs text-gray-400 mt-2">باقيلك {result.attemptsRemaining} محاولة تانية</p>
+            <p className="text-xs text-gray-400 mt-2">{t.attemptsRemaining(result.attemptsRemaining)}</p>
           )}
         </div>
 
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">مراجعة إجاباتك</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">{t.reviewAnswers}</h2>
         <div className="space-y-3 mb-8">
           {quiz.questions.map((q, idx) => {
             const a = answerByQuestion[q.id];
@@ -185,7 +245,7 @@ export default function TakeQuizPage({ params }) {
                             : "bg-gray-50 text-gray-600"
                         }`}
                       >
-                        {o.text} {wasSelected && "← اخترته"}
+                        {o.text} {wasSelected && t.youPicked}
                       </div>
                     );
                   })}
@@ -204,7 +264,7 @@ export default function TakeQuizPage({ params }) {
             }}
             className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50"
           >
-            <RotateCcw size={16} /> حاول تاني
+            <RotateCcw size={16} /> {t.tryAgain}
           </button>
         )}
       </div>
@@ -214,9 +274,9 @@ export default function TakeQuizPage({ params }) {
   // ── شاشة "قبل البدء" (معلومات الكويز + نتيجة سابقة لو موجودة) ───────
   if (!started) {
     return (
-      <div className="max-w-lg mx-auto px-4 sm:px-6 py-16">
+      <div dir={isRTL ? "rtl" : "ltr"} className="max-w-lg mx-auto px-4 sm:px-6 py-16">
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-          <ArrowRight size={15} /> رجوع للكورس
+          <BackArrow size={15} /> {t.backToCourse}
         </Link>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
@@ -224,11 +284,11 @@ export default function TakeQuizPage({ params }) {
           {quiz.description && <p className="text-sm text-gray-500 mb-4">{quiz.description}</p>}
 
           <div className="flex items-center justify-center flex-wrap gap-4 text-xs text-gray-500 mb-6">
-            <span>{quiz.questions.length} سؤال</span>
-            <span>نسبة النجاح {quiz.passingScorePercent}%</span>
+            <span>{t.questionsCount(quiz.questions.length)}</span>
+            <span>{t.passingScore(quiz.passingScorePercent)}</span>
             {quiz.timeLimitMinutes && (
               <span className="flex items-center gap-1">
-                <Clock size={12} /> {quiz.timeLimitMinutes} دقيقة
+                <Clock size={12} /> {t.minutes(quiz.timeLimitMinutes)}
               </span>
             )}
           </div>
@@ -239,21 +299,25 @@ export default function TakeQuizPage({ params }) {
                 quiz.lastResult.passed ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
               }`}
             >
-              آخر محاولة: {quiz.lastResult.scorePercent}% ({quiz.lastResult.passed ? "ناجح" : "راسب"}) ·
-              استخدمت {quiz.attemptsUsed} من {quiz.maxAttempts} محاولة
+              {t.lastAttempt(
+                quiz.lastResult.scorePercent,
+                quiz.lastResult.passed ? t.passed : t.failed,
+                quiz.attemptsUsed,
+                quiz.maxAttempts
+              )}
             </div>
           )}
 
           {quiz.questions.length === 0 ? (
-            <p className="text-sm text-gray-400">الكويز ده لسه مفيهوش أسئلة</p>
+            <p className="text-sm text-gray-400">{t.noQuestions}</p>
           ) : !quiz.canAttempt ? (
-            <p className="text-sm text-red-500 font-semibold">خلّصت كل المحاولات المسموحة لهذا الكويز</p>
+            <p className="text-sm text-red-500 font-semibold">{t.maxAttempts}</p>
           ) : (
             <button
               onClick={handleStart}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90"
             >
-              {quiz.attemptsUsed > 0 ? "محاولة جديدة" : "ابدأ الكويز"}
+              {quiz.attemptsUsed > 0 ? t.newAttempt : t.startQuiz}
             </button>
           )}
         </div>
@@ -264,7 +328,7 @@ export default function TakeQuizPage({ params }) {
   // ── شاشة حل الأسئلة ───────────────────────────────────────────────
   const answeredCount = Object.keys(answers).length;
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 pb-28">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 pb-28">
       <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#f7f7f7] py-3 z-10">
         <h1 className="text-lg font-semibold text-gray-800 truncate">{quiz.title}</h1>
         {secondsLeft !== null && (
@@ -284,7 +348,7 @@ export default function TakeQuizPage({ params }) {
         {quiz.questions.map((q, idx) => (
           <div key={q.id} className="bg-white rounded-2xl border border-gray-200 p-4">
             <p className="text-xs font-bold text-gray-400 mb-1">
-              سؤال {idx + 1} من {quiz.questions.length} · {TYPE_LABELS[q.type]}
+              {t.questionOf(idx + 1, quiz.questions.length)} · {TYPE_LABELS[q.type]}
             </p>
             <p className="text-sm font-semibold text-gray-800 mb-3">{q.text}</p>
             <div className="grid sm:grid-cols-2 gap-2">
@@ -310,7 +374,7 @@ export default function TakeQuizPage({ params }) {
       <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
           <p className="text-xs text-gray-400 shrink-0">
-            جاوبت {answeredCount} من {quiz.questions.length}
+            {t.answered(answeredCount, quiz.questions.length)}
           </p>
           <button
             onClick={handleSubmit}
@@ -318,7 +382,7 @@ export default function TakeQuizPage({ params }) {
             className="flex-1 sm:flex-none sm:px-10 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
           >
             {submitting && <Loader size={16} className="animate-spin" />}
-            تسليم الكويز
+            {t.submitQuiz}
           </button>
         </div>
       </div>

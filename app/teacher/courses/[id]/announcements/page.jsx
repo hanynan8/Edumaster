@@ -12,20 +12,54 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, Trash2, Loader, Megaphone } from "lucide-react";
+import { ArrowRight, ArrowLeft, Trash2, Loader, Megaphone } from "lucide-react";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function formatDateTime(dateStr) {
-  return new Date(dateStr).toLocaleString("ar-EG", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const STRINGS = {
+  ar: {
+    loadError: "تعذّر تحميل الإعلانات",
+    publishError: "حصل خطأ أثناء نشر الإعلان",
+    confirmDelete: "حذف هذا الإعلان؟",
+    deleteError: "حصل خطأ أثناء الحذف",
+    backToContent: "رجوع لمحتوى الكورس",
+    pageTitle: "إعلانات الكورس",
+    pageSubtitle: "أي إعلان تنشره هنا هيوصل فورًا كإشعار داخلي لكل طالب مسجّل فعليًا في الكورس ده.",
+    titlePlaceholder: "عنوان الإعلان",
+    bodyPlaceholder: "نص الإعلان...",
+    publish: "نشر الإعلان",
+    empty: "لسه مفيش إعلانات لهذا الكورس",
+  },
+  en: {
+    loadError: "Couldn't load announcements",
+    publishError: "Something went wrong while publishing the announcement",
+    confirmDelete: "Delete this announcement?",
+    deleteError: "Something went wrong while deleting",
+    backToContent: "Back to course content",
+    pageTitle: "Course announcements",
+    pageSubtitle: "Any announcement you publish here reaches every enrolled student instantly as an in-app notification.",
+    titlePlaceholder: "Announcement title",
+    bodyPlaceholder: "Announcement text...",
+    publish: "Publish announcement",
+    empty: "No announcements for this course yet",
+  },
+};
 
 export default function CourseAnnouncementsPage({ params }) {
   const { id } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
+
+  function formatDateTime(dateStr) {
+    return new Date(dateStr).toLocaleString(locale, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
   const [announcements, setAnnouncements] = useState(null);
   const [error, setError] = useState("");
@@ -40,7 +74,7 @@ export default function CourseAnnouncementsPage({ params }) {
       if (!res.ok) throw new Error(data?.error);
       setAnnouncements(data.announcements);
     } catch {
-      setError("تعذّر تحميل الإعلانات");
+      setError(t.loadError);
     }
   }
 
@@ -66,50 +100,50 @@ export default function CourseAnnouncementsPage({ params }) {
       setTitle("");
       setBody("");
     } catch {
-      setError("حصل خطأ أثناء نشر الإعلان");
+      setError(t.publishError);
     } finally {
       setPosting(false);
     }
   }
 
   async function handleDelete(announcementId) {
-    if (!confirm("حذف هذا الإعلان؟")) return;
+    if (!confirm(t.confirmDelete)) return;
     const res = await fetch(`/api/announcements/${announcementId}`, { method: "DELETE" });
     if (res.ok) {
       setAnnouncements((prev) => prev.filter((a) => a.id !== announcementId));
     } else {
-      alert("حصل خطأ أثناء الحذف");
+      alert(t.deleteError);
     }
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <Link
         href={`/teacher/courses/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6"
       >
-        <ArrowRight size={15} /> رجوع لمحتوى الكورس
+        <BackArrow size={15} /> {t.backToContent}
       </Link>
 
       <CourseTabs courseId={id} active="announcements" />
 
-      <h1 className="text-xl font-semibold text-gray-800 mb-1">إعلانات الكورس</h1>
+      <h1 className="text-xl font-semibold text-gray-800 mb-1">{t.pageTitle}</h1>
       <p className="text-sm text-gray-400 mb-6">
-        أي إعلان تنشره هنا هيوصل فورًا كإشعار داخلي لكل طالب مسجّل فعليًا في الكورس ده.
+        {t.pageSubtitle}
       </p>
 
       <form onSubmit={handlePublish} className="bg-white rounded-2xl border border-gray-200 p-5 mb-8 space-y-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="عنوان الإعلان"
+          placeholder={t.titlePlaceholder}
           maxLength={200}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500"
         />
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="نص الإعلان..."
+          placeholder={t.bodyPlaceholder}
           maxLength={5000}
           rows={3}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 resize-none"
@@ -122,7 +156,7 @@ export default function CourseAnnouncementsPage({ params }) {
             className="ms-auto flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {posting ? <Loader size={15} className="animate-spin" /> : <Megaphone size={15} />}
-            نشر الإعلان
+            {t.publish}
           </button>
         </div>
       </form>
@@ -133,7 +167,7 @@ export default function CourseAnnouncementsPage({ params }) {
         </div>
       ) : announcements.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">
-          لسه مفيش إعلانات لهذا الكورس
+          {t.empty}
         </div>
       ) : (
         <div className="space-y-3">

@@ -9,12 +9,53 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus, Pencil, Trash2, ListChecks, BarChart3, Loader, Clock } from "lucide-react";
+import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, ListChecks, BarChart3, Loader, Clock } from "lucide-react";
 import QuizFormModal from "@/app/teacher/components/QuizFormModal";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const STRINGS = {
+  ar: {
+    loadError: "تعذّر تحميل الكويزات",
+    confirmDelete: (title) => `حذف كويز "${title}"؟ هيتمسح معاه كل الأسئلة ونتائج الطلاب. متأكد؟`,
+    deleteError: "حصل خطأ أثناء الحذف",
+    backToContent: "رجوع لمحتوى الكورس",
+    pageTitle: "الكويزات",
+    newQuiz: "كويز جديد",
+    empty: "لسه مفيش كويزات لهذا الكورس",
+    published: "منشور",
+    draft: "مسودة",
+    questionsCount: (n) => `${n} سؤال`,
+    passingScore: (p) => `نسبة النجاح ${p}%`,
+    maxAttempts: (n) => `أقصى محاولات ${n}`,
+    minutes: (m) => `${m} دقيقة`,
+    questions: "الأسئلة",
+    results: "النتائج",
+  },
+  en: {
+    loadError: "Couldn't load quizzes",
+    confirmDelete: (title) => `Delete quiz "${title}"? All questions and student results will be deleted with it. Are you sure?`,
+    deleteError: "Something went wrong while deleting",
+    backToContent: "Back to course content",
+    pageTitle: "Quizzes",
+    newQuiz: "New quiz",
+    empty: "No quizzes for this course yet",
+    published: "Published",
+    draft: "Draft",
+    questionsCount: (n) => `${n} question${n === 1 ? "" : "s"}`,
+    passingScore: (p) => `Passing score ${p}%`,
+    maxAttempts: (n) => `Max attempts ${n}`,
+    minutes: (m) => `${m} min`,
+    questions: "Questions",
+    results: "Results",
+  },
+};
 
 export default function CourseQuizzesPage({ params }) {
   const { id } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const [quizzes, setQuizzes] = useState(null);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(undefined);
@@ -26,7 +67,7 @@ export default function CourseQuizzesPage({ params }) {
       if (!res.ok) throw new Error(data?.error);
       setQuizzes(data.quizzes);
     } catch {
-      setError("تعذّر تحميل الكويزات");
+      setError(t.loadError);
     }
   }
 
@@ -45,30 +86,30 @@ export default function CourseQuizzesPage({ params }) {
   }
 
   async function handleDelete(quiz) {
-    if (!confirm(`حذف كويز "${quiz.title}"؟ هيتمسح معاه كل الأسئلة ونتائج الطلاب. متأكد؟`)) return;
+    if (!confirm(t.confirmDelete(quiz.title))) return;
     const res = await fetch(`/api/quizzes/${quiz.id}`, { method: "DELETE" });
     if (res.ok) {
       setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
     } else {
-      alert("حصل خطأ أثناء الحذف");
+      alert(t.deleteError);
     }
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <ArrowRight size={15} /> رجوع لمحتوى الكورس
+        <BackArrow size={15} /> {t.backToContent}
       </Link>
 
       <CourseTabs courseId={id} active="quizzes" />
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-800">الكويزات</h1>
+        <h1 className="text-xl font-semibold text-gray-800">{t.pageTitle}</h1>
         <button
           onClick={() => setModal(null)}
           className="flex items-center gap-2 text-sm font-semibold bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700"
         >
-          <Plus size={16} /> كويز جديد
+          <Plus size={16} /> {t.newQuiz}
         </button>
       </div>
 
@@ -80,7 +121,7 @@ export default function CourseQuizzesPage({ params }) {
         </div>
       ) : quizzes.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">
-          لسه مفيش كويزات لهذا الكورس
+          {t.empty}
         </div>
       ) : (
         <div className="space-y-3">
@@ -94,16 +135,16 @@ export default function CourseQuizzesPage({ params }) {
                       q.isPublished ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
                     }`}
                   >
-                    {q.isPublished ? "منشور" : "مسودة"}
+                    {q.isPublished ? t.published : t.draft}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
-                  <span>{q.questionsCount} سؤال</span>
-                  <span>· نسبة النجاح {q.passingScorePercent}%</span>
-                  <span>· أقصى محاولات {q.maxAttempts}</span>
+                  <span>{t.questionsCount(q.questionsCount)}</span>
+                  <span>· {t.passingScore(q.passingScorePercent)}</span>
+                  <span>· {t.maxAttempts(q.maxAttempts)}</span>
                   {q.timeLimitMinutes && (
                     <span className="flex items-center gap-1">
-                      <Clock size={11} /> {q.timeLimitMinutes} دقيقة
+                      <Clock size={11} /> {t.minutes(q.timeLimitMinutes)}
                     </span>
                   )}
                 </p>
@@ -112,13 +153,13 @@ export default function CourseQuizzesPage({ params }) {
                 href={`/teacher/quizzes/${q.id}`}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 shrink-0"
               >
-                <ListChecks size={14} /> الأسئلة
+                <ListChecks size={14} /> {t.questions}
               </Link>
               <Link
                 href={`/teacher/quizzes/${q.id}/results`}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-purple-50 text-purple-600 px-3 py-2 rounded-lg hover:bg-purple-100 shrink-0"
               >
-                <BarChart3 size={14} /> النتائج
+                <BarChart3 size={14} /> {t.results}
               </Link>
               <button onClick={() => setModal(q)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
                 <Pencil size={15} />

@@ -10,23 +10,80 @@
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Paperclip,
+  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Paperclip,
 } from "lucide-react";
 import MediaUploader from "@/app/teacher/components/MediaUploader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function formatDate(d) {
-  if (!d) return "بدون موعد نهائي";
-  return new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
-}
-
-const STATUS_LABELS = {
-  submitted: { label: "مُسلَّم — في انتظار التصحيح", cls: "bg-blue-50 text-blue-600" },
-  late: { label: "اتسلّم متأخر — في انتظار التصحيح", cls: "bg-amber-50 text-amber-600" },
-  graded: { label: "مُصحَّح", cls: "bg-green-50 text-green-600" },
+const STRINGS = {
+  ar: {
+    noDueDate: "بدون موعد نهائي",
+    statusSubmitted: "مُسلَّم — في انتظار التصحيح",
+    statusLate: "اتسلّم متأخر — في انتظار التصحيح",
+    statusGraded: "مُصحَّح",
+    accessError: "لازم يكون عندك وصول لهذا الكورس عشان تسلّم الواجب ده",
+    loadError: "تعذّر تحميل الواجب",
+    needFileOrText: "لازم ترفع ملف أو تكتب إجابة نصية قبل التسليم",
+    deadlinePassed: "فات ميعاد التسليم ومش مسموح بتسليم متأخر لهذا الواجب",
+    submitError: "حصل خطأ أثناء التسليم، حاول تاني",
+    backToCourse: "رجوع للكورس",
+    fullScore: "الدرجة الكاملة",
+    lateStillAllowed: "الميعاد فات — لسه ممكن تسلّم متأخر",
+    lateClosed: "الميعاد فات — التسليم مقفول",
+    downloadAttachment: "تحميل مرفق الواجب",
+    currentSubmission: "تسليمك الحالي",
+    submittedAt: "اتسلم في",
+    resubmit: "إعادة التسليم",
+    submitAssignment: "تسليم الواجب",
+    uploadLabel: "ارفع ملف تسليمك (PDF / Word / صورة / Zip)",
+    orWriteText: "أو اكتب إجابة نصية (اختياري)",
+    textPlaceholder: "اكتب إجابتك هنا لو مفيش ملف...",
+    updateSubmission: "تحديث التسليم",
+    noLateSubmission: "الميعاد فات ومش مسموح بتسليم متأخر لهذا الواجب",
+  },
+  en: {
+    noDueDate: "No due date",
+    statusSubmitted: "Submitted — awaiting grading",
+    statusLate: "Submitted late — awaiting grading",
+    statusGraded: "Graded",
+    accessError: "You need access to this course to submit this assignment",
+    loadError: "Couldn't load the assignment",
+    needFileOrText: "You must upload a file or write a text answer before submitting",
+    deadlinePassed: "The deadline has passed and late submission isn't allowed for this assignment",
+    submitError: "Something went wrong while submitting, try again",
+    backToCourse: "Back to course",
+    fullScore: "Full score",
+    lateStillAllowed: "Deadline passed — late submission still allowed",
+    lateClosed: "Deadline passed — submissions closed",
+    downloadAttachment: "Download assignment attachment",
+    currentSubmission: "Your current submission",
+    submittedAt: "Submitted on",
+    resubmit: "Resubmit",
+    submitAssignment: "Submit assignment",
+    uploadLabel: "Upload your submission file (PDF / Word / Image / Zip)",
+    orWriteText: "Or write a text answer (optional)",
+    textPlaceholder: "Write your answer here if you have no file...",
+    updateSubmission: "Update submission",
+    noLateSubmission: "The deadline has passed and late submission isn't allowed for this assignment",
+  },
 };
 
 export default function SubmitAssignmentPage({ params }) {
   const { assignmentId } = usePromise(params);
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
+  const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
+
+  function formatDate(d) {
+    if (!d) return t.noDueDate;
+    return new Date(d).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  }
+
+  const STATUS_LABELS = {
+    submitted: { label: t.statusSubmitted, cls: "bg-blue-50 text-blue-600" },
+    late: { label: t.statusLate, cls: "bg-amber-50 text-amber-600" },
+    graded: { label: t.statusGraded, cls: "bg-green-50 text-green-600" },
+  };
   const [assignment, setAssignment] = useState(null);
   const [error, setError] = useState("");
   const [fileUrl, setFileUrl] = useState("");
@@ -43,7 +100,7 @@ export default function SubmitAssignmentPage({ params }) {
       setFileUrl(data.mySubmission?.fileUrl || "");
       setTextAnswer(data.mySubmission?.textAnswer || "");
     } catch (err) {
-      setError(err.message === "forbidden" ? "لازم يكون عندك وصول لهذا الكورس عشان تسلّم الواجب ده" : "تعذّر تحميل الواجب");
+      setError(err.message === "forbidden" ? t.accessError : t.loadError);
     }
   }
 
@@ -59,7 +116,7 @@ export default function SubmitAssignmentPage({ params }) {
     e.preventDefault();
     setSubmitError("");
     if (!fileUrl && !textAnswer.trim()) {
-      setSubmitError("لازم ترفع ملف أو تكتب إجابة نصية قبل التسليم");
+      setSubmitError(t.needFileOrText);
       return;
     }
     setSubmitting(true);
@@ -71,13 +128,13 @@ export default function SubmitAssignmentPage({ params }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (data.error === "deadline_passed") setSubmitError("فات ميعاد التسليم ومش مسموح بتسليم متأخر لهذا الواجب");
-        else setSubmitError("حصل خطأ أثناء التسليم، حاول تاني");
+        if (data.error === "deadline_passed") setSubmitError(t.deadlinePassed);
+        else setSubmitError(t.submitError);
         return;
       }
       await load();
     } catch {
-      setSubmitError("حصل خطأ أثناء التسليم، حاول تاني");
+      setSubmitError(t.submitError);
     } finally {
       setSubmitting(false);
     }
@@ -103,9 +160,9 @@ export default function SubmitAssignmentPage({ params }) {
   const backHref = `/courses/${assignment.course}`;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <ArrowRight size={15} /> رجوع للكورس
+        {isRTL ? <ArrowRight size={15} /> : <ArrowLeft size={15} />} {t.backToCourse}
       </Link>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
@@ -117,10 +174,10 @@ export default function SubmitAssignmentPage({ params }) {
           <span className="flex items-center gap-1.5">
             <Calendar size={13} /> {formatDate(assignment.dueDate)}
           </span>
-          <span>الدرجة الكاملة {assignment.maxScore}</span>
+          <span>{t.fullScore} {assignment.maxScore}</span>
           {isPastDue && (
             <span className={`font-bold ${assignment.allowLateSubmission ? "text-amber-600" : "text-red-500"}`}>
-              {assignment.allowLateSubmission ? "الميعاد فات — لسه ممكن تسلّم متأخر" : "الميعاد فات — التسليم مقفول"}
+              {assignment.allowLateSubmission ? t.lateStillAllowed : t.lateClosed}
             </span>
           )}
         </div>
@@ -131,7 +188,7 @@ export default function SubmitAssignmentPage({ params }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:underline mt-4"
           >
-            <Paperclip size={15} /> تحميل مرفق الواجب
+            <Paperclip size={15} /> {t.downloadAttachment}
           </a>
         )}
       </div>
@@ -139,13 +196,13 @@ export default function SubmitAssignmentPage({ params }) {
       {mySubmission && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700">تسليمك الحالي</h2>
+            <h2 className="text-sm font-semibold text-gray-700">{t.currentSubmission}</h2>
             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_LABELS[mySubmission.status]?.cls}`}>
               {STATUS_LABELS[mySubmission.status]?.label}
             </span>
           </div>
           <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-3">
-            <Clock size={12} /> اتسلم في {formatDate(mySubmission.submittedAt)}
+            <Clock size={12} /> {t.submittedAt} {formatDate(mySubmission.submittedAt)}
           </p>
           {mySubmission.status === "graded" && (
             <div className="bg-green-50 rounded-xl p-4 mb-2">
@@ -160,20 +217,20 @@ export default function SubmitAssignmentPage({ params }) {
 
       {canSubmit ? (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-700">{mySubmission ? "إعادة التسليم" : "تسليم الواجب"}</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{mySubmission ? t.resubmit : t.submitAssignment}</h2>
 
           {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{submitError}</div>}
 
-          <MediaUploader kind="submission" label="ارفع ملف تسليمك (PDF / Word / صورة / Zip)" currentUrl={fileUrl} onUploaded={(r) => setFileUrl(r.url)} />
+          <MediaUploader kind="submission" label={t.uploadLabel} currentUrl={fileUrl} onUploaded={(r) => setFileUrl(r.url)} />
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">أو اكتب إجابة نصية (اختياري)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.orWriteText}</label>
             <textarea
               rows={4}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
               value={textAnswer}
               onChange={(e) => setTextAnswer(e.target.value)}
-              placeholder="اكتب إجابتك هنا لو مفيش ملف..."
+              placeholder={t.textPlaceholder}
             />
           </div>
 
@@ -183,13 +240,13 @@ export default function SubmitAssignmentPage({ params }) {
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
           >
             {submitting ? <Loader size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            {mySubmission ? "تحديث التسليم" : "تسليم الواجب"}
+            {mySubmission ? t.updateSubmission : t.submitAssignment}
           </button>
         </form>
       ) : (
         !mySubmission && (
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center text-red-600 text-sm font-semibold flex items-center justify-center gap-2">
-            <FileText size={16} /> الميعاد فات ومش مسموح بتسليم متأخر لهذا الواجب
+            <FileText size={16} /> {t.noLateSubmission}
           </div>
         )
       )}

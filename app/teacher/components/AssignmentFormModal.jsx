@@ -8,6 +8,40 @@
 import { useState } from "react";
 import { X, Loader } from "lucide-react";
 import MediaUploader from "./MediaUploader";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const STRINGS = {
+  ar: {
+    titleRequired: "عنوان الواجب مطلوب",
+    genericError: "حصل خطأ، حاول تاني",
+    editAssignment: "تعديل الواجب",
+    newAssignment: "واجب جديد",
+    assignmentTitle: "عنوان الواجب *",
+    descriptionLabel: "الوصف / التعليمات",
+    attachmentLabel: "مرفق (اختياري) — ملف بدء، تعليمات إضافية...",
+    dueDateLabel: "الموعد النهائي (اختياري)",
+    maxScoreLabel: "الدرجة الكاملة",
+    allowLate: "السماح بالتسليم المتأخر بعد الموعد النهائي",
+    publish: "نشر الواجب (يظهر للطلاب فورًا)",
+    save: "حفظ",
+    cancel: "إلغاء",
+  },
+  en: {
+    titleRequired: "Assignment title is required",
+    genericError: "Something went wrong, try again",
+    editAssignment: "Edit assignment",
+    newAssignment: "New assignment",
+    assignmentTitle: "Assignment title *",
+    descriptionLabel: "Description / Instructions",
+    attachmentLabel: "Attachment (optional) — starter file, extra instructions...",
+    dueDateLabel: "Due date (optional)",
+    maxScoreLabel: "Full score",
+    allowLate: "Allow late submission after the due date",
+    publish: "Publish assignment (visible to students immediately)",
+    save: "Save",
+    cancel: "Cancel",
+  },
+};
 
 function toDateTimeLocalValue(iso) {
   if (!iso) return "";
@@ -17,6 +51,8 @@ function toDateTimeLocalValue(iso) {
 }
 
 export default function AssignmentFormModal({ courseId, assignment, onClose, onSaved }) {
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
   const isEdit = Boolean(assignment);
   const [form, setForm] = useState({
     title: assignment?.title || "",
@@ -37,7 +73,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!form.title.trim()) return setError("عنوان الواجب مطلوب");
+    if (!form.title.trim()) return setError(t.titleRequired);
 
     setSaving(true);
     try {
@@ -61,7 +97,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
       if (!res.ok) throw new Error(data?.error);
       onSaved(data);
     } catch {
-      setError("حصل خطأ، حاول تاني");
+      setError(t.genericError);
     } finally {
       setSaving(false);
     }
@@ -70,11 +106,12 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
+        dir={isRTL ? "rtl" : "ltr"}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? "تعديل الواجب" : "واجب جديد"}</h3>
+          <h3 className="text-lg font-semibold text-gray-800">{isEdit ? t.editAssignment : t.newAssignment}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
           </button>
@@ -84,7 +121,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">عنوان الواجب *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.assignmentTitle}</label>
             <input
               autoFocus
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
@@ -94,7 +131,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">الوصف / التعليمات</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.descriptionLabel}</label>
             <textarea
               rows={4}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
@@ -105,14 +142,14 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
 
           <MediaUploader
             kind="pdf"
-            label="مرفق (اختياري) — ملف بدء، تعليمات إضافية..."
+            label={t.attachmentLabel}
             currentUrl={form.attachmentUrl}
             onUploaded={(f) => update("attachmentUrl", f.url)}
           />
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">الموعد النهائي (اختياري)</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t.dueDateLabel}</label>
               <input
                 type="datetime-local"
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
@@ -121,7 +158,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">الدرجة الكاملة</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t.maxScoreLabel}</label>
               <input
                 type="number"
                 min={1}
@@ -138,12 +175,12 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
               checked={form.allowLateSubmission}
               onChange={(e) => update("allowLateSubmission", e.target.checked)}
             />
-            السماح بالتسليم المتأخر بعد الموعد النهائي
+            {t.allowLate}
           </label>
 
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input type="checkbox" checked={form.isPublished} onChange={(e) => update("isPublished", e.target.checked)} />
-            نشر الواجب (يظهر للطلاب فورًا)
+            {t.publish}
           </label>
 
           <div className="flex gap-3 pt-2">
@@ -153,10 +190,10 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
-              حفظ
+              {t.save}
             </button>
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50">
-              إلغاء
+              {t.cancel}
             </button>
           </div>
         </form>

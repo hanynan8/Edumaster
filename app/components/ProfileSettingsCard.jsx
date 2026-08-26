@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Camera, Mail, Phone, User, X, Pencil, CheckCircle2, Loader } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
@@ -74,6 +75,35 @@ const STRINGS = {
     uploadingPhoto: "Uploading photo...",
     avatarHint: "Maximum size: 1MB. Supported formats: JPG, GIF, or PNG",
     loading: "Loading...",
+  },
+  // 🆕 لغة إسبانية كانت ناقصة تمامًا رغم إن LanguageContext بيدعم "es" —
+  // فأي حد يختار إسباني من الناف بار كان بيشوف الكارت ده بالإنجليزي فجأة.
+  es: {
+    editProfile: "Editar perfil",
+    viewFullSize: "Ver en tamaño completo",
+    close: "Cerrar",
+    profileModalTitle: "Mi perfil",
+    profileModalSubtitle: "Actualiza tu información personal",
+    fieldEmail: "Correo electrónico actual",
+    emailLockedNote: "El correo no se puede cambiar desde aquí",
+    fieldName: "Nombre registrado",
+    fieldNamePlaceholder: "Escribe tu nombre completo",
+    fieldPhone: "Número de teléfono",
+    fieldPhonePlaceholder: "Agrega tu número de teléfono (opcional)",
+    changePhoto: "Cambiar foto",
+    save: "Guardar cambios",
+    saving: "Guardando...",
+    cancel: "Cancelar",
+    saveSuccess: "Tu perfil se actualizó correctamente",
+    errNameLen: "El nombre debe tener entre 2 y 60 caracteres",
+    errPhoneInvalid: "El formato del número de teléfono no es válido",
+    errAvatarType: "La imagen debe ser JPG, GIF o PNG",
+    errAvatarSize: "La imagen supera el límite de 1MB",
+    errAvatarBroken: "Ocurrió un problema al cargar la foto tras subirla, inténtalo de nuevo",
+    errGeneric: "Ocurrió un error, inténtalo de nuevo",
+    uploadingPhoto: "Subiendo foto...",
+    avatarHint: "Tamaño máximo: 1MB. Formatos admitidos: JPG, GIF o PNG",
+    loading: "Cargando...",
   },
 };
 
@@ -415,12 +445,19 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
 
 /**
  * @param {object} props
- * @param {"ar"|"en"} [props.locale="en"] - لغة النصوص المعروضة بس
+ * @param {"ar"|"en"|"es"} [props.locale] - تمرير locale صريح بيفرض لغة معيّنة
+ *   (مستخدم في app/admin/page.jsx عشان لوحة الأدمن تفضل إنجليزي دايمًا،
+ *   بقرار مقصود). لو متبعتش، الكارت بياخد اللغة من useLanguage() تلقائيًا
+ *   زي باقي المشروع — عشان كده شيلنا الـ default="en" اللي كان بيخلي أي
+ *   حد ينسى يبعت locale يشوف الكارت إنجليزي دايمًا حتى لو غيّر اللغة من
+ *   الناف بار.
  * @param {boolean} [props.isRTL] - افتراضيًا بيتحدد تلقائيًا من locale لو مش متبعت
  */
-export default function ProfileSettingsCard({ locale = "en", isRTL }) {
-  const t = STRINGS[locale] || STRINGS.en;
-  const rtl = isRTL ?? locale === "ar";
+export default function ProfileSettingsCard({ locale, isRTL }) {
+  const { language } = useLanguage();
+  const effectiveLocale = locale || language;
+  const t = STRINGS[effectiveLocale] || STRINGS.en;
+  const rtl = isRTL ?? effectiveLocale === "ar";
 
   const [profileUser, setProfileUser] = useState(null);
   const [showModal, setShowModal] = useState(false);

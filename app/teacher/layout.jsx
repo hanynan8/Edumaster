@@ -9,17 +9,38 @@
 import { useSession } from "next-auth/react";
 import { Loader, GraduationCap } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function Blocked() {
+// 🆕 "مفيش صلاحية وصول" وباقي نصوص الشاشة كانت عربي ثابت — دلوقتي بتتبع
+// اللغة المختارة من الناف بار.
+const T = {
+  en: {
+    noAccess: "Access denied",
+    teachersOnly: "This page is for the site's teachers only.",
+    backHome: "Back to home",
+  },
+  ar: {
+    noAccess: "مفيش صلاحية وصول",
+    teachersOnly: "الصفحة دي لمدرّسين الموقع بس.",
+    backHome: "الرجوع للرئيسية",
+  },
+  es: {
+    noAccess: "Acceso denegado",
+    teachersOnly: "Esta página es solo para los profesores del sitio.",
+    backHome: "Volver al inicio",
+  },
+};
+
+function Blocked({ t }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
       <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
         <GraduationCap className="text-red-400" size={30} />
       </div>
-      <h2 className="text-xl font-semibold text-gray-700 mb-2">مفيش صلاحية وصول</h2>
-      <p className="text-gray-400 mb-4">الصفحة دي لمدرّسين الموقع بس.</p>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">{t.noAccess}</h2>
+      <p className="text-gray-400 mb-4">{t.teachersOnly}</p>
       <Link href="/" className="text-blue-600 font-semibold hover:underline">
-        الرجوع للرئيسية
+        {t.backHome}
       </Link>
     </div>
   );
@@ -27,6 +48,8 @@ function Blocked() {
 
 export default function TeacherLayout({ children }) {
   const { data: session, status } = useSession();
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
 
   if (status === "loading") {
     return (
@@ -38,7 +61,7 @@ export default function TeacherLayout({ children }) {
 
   const role = session?.user?.role;
   if (status === "unauthenticated" || !["teacher", "admin"].includes(role)) {
-    return <Blocked />;
+    return <Blocked t={t} />;
   }
 
   return <div className="min-h-screen bg-gray-50">{children}</div>;

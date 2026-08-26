@@ -19,10 +19,19 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
 import { buildStreamThumbnailUrl } from "@/app/lib/bunnyClient";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-export default function LessonVideoPlayer({ playbackUrl, title = "فيديو الدرس" }) {
+// 🆕 العنوان الافتراضي وتسمية زرار التشغيل كانوا ثابتين بالعربي مهما كانت
+// اللغة المختارة من الناف بار. دلوقتي بيتبعوا useLanguage زي باقي المشروع.
+const DEFAULT_TITLE = { en: "Lesson video", ar: "فيديو الدرس", es: "Video de la lección" };
+const PLAY_LABEL = { en: "Play", ar: "تشغيل", es: "Reproducir" };
+
+export default function LessonVideoPlayer({ playbackUrl, title }) {
+  const { language } = useLanguage();
   const [started, setStarted] = useState(false);
   const thumbnailUrl = buildStreamThumbnailUrl(playbackUrl);
+  const resolvedTitle = title || DEFAULT_TITLE[language] || DEFAULT_TITLE.en;
+  const playLabel = PLAY_LABEL[language] || PLAY_LABEL.en;
 
   if (!playbackUrl) return null;
 
@@ -36,20 +45,20 @@ export default function LessonVideoPlayer({ playbackUrl, title = "فيديو ا�
           className="absolute inset-0 h-full w-full border-0"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
-          title={title}
+          title={resolvedTitle}
         />
       ) : (
         <button
           type="button"
           onClick={() => setStarted(true)}
           className="absolute inset-0 flex h-full w-full items-center justify-center group"
-          aria-label={`تشغيل ${title}`}
+          aria-label={`${playLabel} ${resolvedTitle}`}
         >
           {thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={thumbnailUrl}
-              alt={title}
+              alt={resolvedTitle}
               className="absolute inset-0 h-full w-full object-cover"
               loading="lazy"
             />

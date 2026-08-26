@@ -2,8 +2,35 @@
 
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Video, FileText, FileType2, ChevronDown, GripVertical } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileText, quiz: FileText };
+
+// 🆕 كل النصوص (عدد الدروس، "معاينة"، "مفيش دروس لسه"، "إضافة قسم جديد")
+// كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
+const T = {
+  en: {
+    lessonsCount: (n) => `${n} lessons`,
+    addLesson: "Lesson",
+    noLessonsYet: "No lessons yet",
+    preview: "Preview",
+    addSection: "Add new section",
+  },
+  ar: {
+    lessonsCount: (n) => `${n} درس`,
+    addLesson: "درس",
+    noLessonsYet: "مفيش دروس لسه",
+    preview: "معاينة",
+    addSection: "إضافة قسم جديد",
+  },
+  es: {
+    lessonsCount: (n) => `${n} lecciones`,
+    addLesson: "Lección",
+    noLessonsYet: "Todavía no hay lecciones",
+    preview: "Vista previa",
+    addSection: "Agregar nueva sección",
+  },
+};
 
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60);
@@ -12,6 +39,8 @@ function formatDuration(seconds) {
 }
 
 export default function CourseTree({ sections, onAddSection, onEditSection, onDeleteSection, onAddLesson, onEditLesson, onDeleteLesson }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const [openSections, setOpenSections] = useState(() => new Set(sections.map((s) => s.id)));
 
   function toggle(id) {
@@ -38,12 +67,12 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
                 <h4 className="font-bold text-gray-800 truncate">{section.title}</h4>
                 {section.description && <p className="text-xs text-gray-400 truncate">{section.description}</p>}
               </div>
-              <span className="text-xs text-gray-400">{section.lessons.length} درس</span>
+              <span className="text-xs text-gray-400">{t.lessonsCount(section.lessons.length)}</span>
               <button
                 onClick={() => onAddLesson(section.id)}
                 className="flex items-center gap-1 text-xs font-semibold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100"
               >
-                <Plus size={13} /> درس
+                <Plus size={13} /> {t.addLesson}
               </button>
               <button onClick={() => onEditSection(section)} className="text-gray-400 hover:text-gray-700 p-1.5">
                 <Pencil size={14} />
@@ -56,7 +85,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
             {isOpen && (
               <div className="divide-y divide-gray-100">
                 {section.lessons.length === 0 && (
-                  <div className="px-5 py-4 text-sm text-gray-400 text-center">مفيش دروس لسه</div>
+                  <div className="px-5 py-4 text-sm text-gray-400 text-center">{t.noLessonsYet}</div>
                 )}
                 {section.lessons.map((lesson) => {
                   const Icon = LESSON_ICONS[lesson.type] || FileText;
@@ -66,7 +95,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
                       <span className="flex-1 text-sm text-gray-700 truncate">{lesson.title}</span>
                       {lesson.isPreview && (
                         <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
-                          معاينة
+                          {t.preview}
                         </span>
                       )}
                       {lesson.type === "video" && lesson.durationSeconds > 0 && (
@@ -91,7 +120,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
         onClick={onAddSection}
         className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl py-4 text-gray-500 hover:text-blue-600 font-semibold transition-colors"
       >
-        <Plus size={18} /> إضافة قسم جديد
+        <Plus size={18} /> {t.addSection}
       </button>
     </div>
   );

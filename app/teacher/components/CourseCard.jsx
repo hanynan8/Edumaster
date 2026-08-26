@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Pencil, Trash2, BookOpen, Users, Clock } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
@@ -11,16 +12,43 @@ const STATUS_STYLES = {
   published: "bg-green-100 text-green-700",
   archived: "bg-amber-100 text-amber-700",
 };
-const STATUS_LABELS = { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" };
 
-function formatDuration(seconds) {
+// 🆕 كل النصوص كانت عربي ثابت (حالة الكورس، "درس"، "المحتوى"، "تعديل"،
+// "حذف"). دلوقتي بتتبع اللغة المختارة من الناف بار عن طريق useLanguage().
+const T = {
+  en: {
+    status: { draft: "Draft", pending: "Under review", published: "Published", archived: "Archived" },
+    lessons: (n) => `${n} lessons`,
+    content: "Content",
+    edit: "Edit",
+    delete: "Delete",
+  },
+  ar: {
+    status: { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" },
+    lessons: (n) => `${n} درس`,
+    content: "المحتوى",
+    edit: "تعديل",
+    delete: "حذف",
+  },
+  es: {
+    status: { draft: "Borrador", pending: "En revisión", published: "Publicado", archived: "Archivado" },
+    lessons: (n) => `${n} lecciones`,
+    content: "Contenido",
+    edit: "Editar",
+    delete: "Eliminar",
+  },
+};
+
+function formatDuration(seconds, language) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}س ${m}د`;
-  return `${m}د`;
+  if (language === "ar") return h > 0 ? `${h}س ${m}د` : `${m}د`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 export default function CourseCard({ course, onEdit, onDelete }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative h-36 bg-gray-100">
@@ -34,7 +62,7 @@ export default function CourseCard({ course, onEdit, onDelete }) {
         <span
           className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLES[course.status]}`}
         >
-          {STATUS_LABELS[course.status]}
+          {t.status[course.status]}
         </span>
       </div>
 
@@ -44,10 +72,10 @@ export default function CourseCard({ course, onEdit, onDelete }) {
 
         <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">
           <span className="flex items-center gap-1">
-            <BookOpen size={12} /> {course.totalLessonsCount} درس
+            <BookOpen size={12} /> {t.lessons(course.totalLessonsCount)}
           </span>
           <span className="flex items-center gap-1">
-            <Clock size={12} /> {formatDuration(course.totalDurationSeconds)}
+            <Clock size={12} /> {formatDuration(course.totalDurationSeconds, language)}
           </span>
           <span className="flex items-center gap-1">
             <Users size={12} /> {course.studentsCount}
@@ -59,19 +87,19 @@ export default function CourseCard({ course, onEdit, onDelete }) {
             href={`/teacher/courses/${course.id}`}
             className="flex-1 text-center text-sm font-semibold bg-[#1D6FD8]/10 text-[#1D6FD8] rounded-lg py-2 hover:bg-[#1D6FD8]/20"
           >
-            المحتوى
+            {t.content}
           </Link>
           <button
             onClick={() => onEdit(course)}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
-            title="تعديل"
+            title={t.edit}
           >
             <Pencil size={15} />
           </button>
           <button
             onClick={() => onDelete(course)}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
-            title="حذف"
+            title={t.delete}
           >
             <Trash2 size={15} />
           </button>

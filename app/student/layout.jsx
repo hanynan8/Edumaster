@@ -19,19 +19,40 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Loader, BookOpen } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+// 🆕 نصوص شاشة "مفيش صلاحية وصول" كانت عربي ثابت — دلوقتي بتتبع اللغة
+// المختارة من الناف بار.
+const T = {
+  en: {
+    noAccess: "Access denied",
+    mustLogin: "You need to log in first to see your courses.",
+    backHome: "Back to home",
+  },
+  ar: {
+    noAccess: "مفيش صلاحية وصول",
+    mustLogin: "لازم تسجّل دخولك الأول عشان تشوف كورساتك.",
+    backHome: "الرجوع للرئيسية",
+  },
+  es: {
+    noAccess: "Acceso denegado",
+    mustLogin: "Debes iniciar sesión primero para ver tus cursos.",
+    backHome: "Volver al inicio",
+  },
+};
 
 const REDIRECT_BY_ROLE = { admin: "/admin", teacher: "/teacher" };
 
-function Blocked() {
+function Blocked({ t }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
       <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
         <BookOpen className="text-red-400" size={30} />
       </div>
-      <h2 className="text-xl font-semibold text-gray-700 mb-2">مفيش صلاحية وصول</h2>
-      <p className="text-gray-400 mb-4">لازم تسجّل دخولك الأول عشان تشوف كورساتك.</p>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">{t.noAccess}</h2>
+      <p className="text-gray-400 mb-4">{t.mustLogin}</p>
       <Link href="/" className="text-blue-600 font-semibold hover:underline">
-        الرجوع للرئيسية
+        {t.backHome}
       </Link>
     </div>
   );
@@ -40,6 +61,8 @@ function Blocked() {
 export default function StudentLayout({ children }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const role = session?.user?.role;
 
   useEffect(() => {
@@ -67,7 +90,7 @@ export default function StudentLayout({ children }) {
   }
 
   if (status === "unauthenticated" || role !== "student") {
-    return <Blocked />;
+    return <Blocked t={t} />;
   }
 
   return <div className="min-h-screen bg-gray-50">{children}</div>;

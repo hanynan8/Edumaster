@@ -21,6 +21,33 @@
 import { useRef, useState } from "react";
 import { Upload as tus } from "tus-js-client";
 import { UploadCloud, CheckCircle2, XCircle, Loader } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+// 🆕 كل نصوص الحالة (جاري الرفع، تم الرفع، الرفع غير مفعّل...) كانت عربي
+// ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
+const T = {
+  en: {
+    notConfigured: "Upload isn't enabled right now (Bunny.net settings must be configured in .env.local)",
+    uploadFailed: "Upload failed, try again",
+    uploading: (p) => `Uploading... ${p}%`,
+    done: "Uploaded successfully — click to replace",
+    idle: "Click to choose a file",
+  },
+  ar: {
+    notConfigured: "الرفع غير مفعّل حاليًا (لازم تظبط إعدادات Bunny.net في .env.local)",
+    uploadFailed: "فشل الرفع، حاول تاني",
+    uploading: (p) => `جاري الرفع... ${p}%`,
+    done: "تم الرفع بنجاح — اضغط للاستبدال",
+    idle: "اضغط لاختيار الملف",
+  },
+  es: {
+    notConfigured: "La subida no está habilitada actualmente (hay que configurar Bunny.net en .env.local)",
+    uploadFailed: "Falló la subida, inténtalo de nuevo",
+    uploading: (p) => `Subiendo... ${p}%`,
+    done: "Subido correctamente — haz clic para reemplazar",
+    idle: "Haz clic para elegir un archivo",
+  },
+};
 
 const ACCEPT_BY_KIND = {
   video: "video/*",
@@ -54,6 +81,8 @@ function readVideoDuration(file) {
 }
 
 export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const inputRef = useRef(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState(currentUrl ? "done" : "idle"); // idle | uploading | done | error
@@ -150,7 +179,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
         console.error("upload error:", err);
       }
       setStatus("error");
-      setErrorMsg(err.message === "upload_not_configured" ? "الرفع غير مفعّل حاليًا (لازم تظبط إعدادات Bunny.net في .env.local)" : "فشل الرفع، حاول تاني");
+      setErrorMsg(err.message === "upload_not_configured" ? t.notConfigured : t.uploadFailed);
     }
   }
 
@@ -175,10 +204,10 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
         {status === "error" && <XCircle size={18} className="text-red-500" />}
         {status === "idle" && <UploadCloud size={18} />}
         <span>
-          {status === "uploading" && `جاري الرفع... ${progress}%`}
-          {status === "done" && "تم الرفع بنجاح — اضغط للاستبدال"}
+          {status === "uploading" && t.uploading(progress)}
+          {status === "done" && t.done}
           {status === "error" && errorMsg}
-          {status === "idle" && "اضغط لاختيار الملف"}
+          {status === "idle" && t.idle}
         </span>
       </button>
       {status === "uploading" && (

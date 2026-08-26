@@ -36,36 +36,136 @@ import {
   MicOff,
   Hourglass,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-// 🆕 رسائل رفض دخول دقيقة (مطابقة لـ access.reason في app/lib/access.js) —
-// بدل رسالة عامة "مفيش صلاحية" واحدة لكل الحالات. كل سبب له رسالة ومسار حل
-// واضح (مثلاً "جدّد اشتراكك" بدل ما الطالب يفضل مش فاهم ليه اتمنع.
+// 🆕 كل نصوص المودال كانت عربي ثابت بالكامل مهما كانت اللغة المختارة من
+// الناف بار. دلوقتي كل النصوص (رسائل الرفض، حالات الاتصال، أزرار التحكم)
+// بتتبع useLanguage() زي باقي المشروع.
 const FORBIDDEN_REASONS = {
   enrollment_cancelled: {
-    message: "تسجيلك في الكورس ده اتلغى، فمش تقدر تدخل المحاضرة.",
-    actionLabel: "تواصل مع الدعم",
+    message: {
+      en: "Your enrollment in this course was cancelled, so you can't join the meeting.",
+      ar: "تسجيلك في الكورس ده اتلغى، فمش تقدر تدخل المحاضرة.",
+      es: "Tu inscripción en este curso fue cancelada, por lo que no puedes unirte a la clase.",
+    },
+    actionLabel: { en: "Contact support", ar: "تواصل مع الدعم", es: "Contactar soporte" },
     actionHref: "/contact",
   },
   membership_expired: {
-    message: "اشتراكك انتهى — جدّد اشتراكك عشان ترجع تقدر تدخل المحاضرات.",
-    actionLabel: "تجديد الاشتراك",
+    message: {
+      en: "Your subscription has expired — renew it to join meetings again.",
+      ar: "اشتراكك انتهى — جدّد اشتراكك عشان ترجع تقدر تدخل المحاضرات.",
+      es: "Tu suscripción venció — renuévala para volver a unirte a las clases.",
+    },
+    actionLabel: { en: "Renew subscription", ar: "تجديد الاشتراك", es: "Renovar suscripción" },
     actionHref: "/membership",
   },
   membership_plan_excludes_course: {
-    message: "خطة اشتراكك الحالية متغطيش الكورس ده — ترقّى لخطة أشمل.",
-    actionLabel: "خطط الاشتراك",
+    message: {
+      en: "Your current plan doesn't cover this course — upgrade to a broader plan.",
+      ar: "خطة اشتراكك الحالية متغطيش الكورس ده — ترقّى لخطة أشمل.",
+      es: "Tu plan actual no incluye este curso — mejora a un plan más amplio.",
+    },
+    actionLabel: { en: "Subscription plans", ar: "خطط الاشتراك", es: "Planes de suscripción" },
     actionHref: "/membership",
   },
   not_enrolled: {
-    message: "لازم تكون مسجّل في الكورس ده الأول عشان تقدر تدخل المحاضرة.",
+    message: {
+      en: "You need to be enrolled in this course first to join the meeting.",
+      ar: "لازم تكون مسجّل في الكورس ده الأول عشان تقدر تدخل المحاضرة.",
+      es: "Debes estar inscrito en este curso primero para unirte a la clase.",
+    },
     actionLabel: null,
     actionHref: null,
+  },
+};
+
+const T = {
+  en: {
+    meetingUnavailable: "Meeting unavailable",
+    timeoutError: "The check took too long — check your internet connection and try again",
+    accessCheckFailed: "Couldn't verify meeting access, try again",
+    joinError: "An error occurred while joining the meeting",
+    loadError: "Couldn't load the meeting",
+    confirmLeave: "Are you sure you want to leave the meeting?",
+    defaultTitle: "Live meeting",
+    reconnecting: "Reconnecting...",
+    minimize: "Minimize",
+    fullscreen: "Fullscreen",
+    close: "Close",
+    checkingDevices: "Checking camera and microphone...",
+    cameraWorking: "Camera working",
+    micWorking: "Microphone working",
+    joinDefaultsInfo: "You'll join the meeting with camera and mic off by default, and can turn them on from inside the meeting whenever you like.",
+    enterMeeting: "Join meeting",
+    noDeviceMsg: "No camera or microphone found on this device. You can join with audio/video off, or try a device that has them.",
+    permissionDeniedMsg: "The browser hasn't granted camera/mic access — open your browser's site settings and allow access, or continue without them.",
+    retry: "Retry",
+    enterWithoutDevices: "Join without them",
+    unsupportedMsg: "This browser doesn't support previewing the camera/mic before joining — you'll be able to control them from inside the meeting.",
+    verifyingAccess: "Checking access...",
+    joiningMeeting: "Joining the meeting...",
+    waitingTeacher: "Waiting for the teacher to start the lecture...",
+  },
+  ar: {
+    meetingUnavailable: "الاجتماع غير متاح",
+    timeoutError: "استغرق التحقق وقت طويل جدًا — تحقق من اتصال الإنترنت وحاول تاني",
+    accessCheckFailed: "تعذّر التحقق من صلاحية الدخول، حاول تاني",
+    joinError: "حصل خطأ أثناء الانضمام للاجتماع",
+    loadError: "تعذّر تحميل الاجتماع",
+    confirmLeave: "متأكد إنك عايز تسيب الاجتماع؟",
+    defaultTitle: "الاجتماع المباشر",
+    reconnecting: "بيحاول يعيد الاتصال...",
+    minimize: "تصغير",
+    fullscreen: "ملء الشاشة",
+    close: "إغلاق",
+    checkingDevices: "جاري التحقق من الكاميرا والمايك...",
+    cameraWorking: "الكاميرا شغالة",
+    micWorking: "المايك شغال",
+    joinDefaultsInfo: "هتدخل الاجتماع والكاميرا والمايك مقفولين افتراضيًا، وتقدر تشغّلهم من جوه الاجتماع وقت ما تحب.",
+    enterMeeting: "الدخول للاجتماع",
+    noDeviceMsg: "مش لاقيين كاميرا أو مايك على الجهاز ده. تقدر تدخل بالصوت/الصورة مقفولين، أو تجرّب من جهاز فيه كاميرا/مايك.",
+    permissionDeniedMsg: "المتصفح مش دّيك إذن الكاميرا/المايك — افتح إعدادات الموقع في المتصفح وسمح بالوصول، أو كمّل من غيرهم.",
+    retry: "إعادة المحاولة",
+    enterWithoutDevices: "الدخول من غيرهم",
+    unsupportedMsg: "المتصفح ده مش بيدعم معاينة الكاميرا/المايك قبل الدخول — هتقدر تتحكم فيهم من داخل الاجتماع نفسه.",
+    verifyingAccess: "جاري التحقق من الصلاحية...",
+    joiningMeeting: "جاري الانضمام للاجتماع...",
+    waitingTeacher: "استنى المدرس يبدأ المحاضرة...",
+  },
+  es: {
+    meetingUnavailable: "Clase no disponible",
+    timeoutError: "La verificación tardó demasiado — revisa tu conexión a internet e inténtalo de nuevo",
+    accessCheckFailed: "No se pudo verificar el acceso, inténtalo de nuevo",
+    joinError: "Ocurrió un error al unirse a la clase",
+    loadError: "No se pudo cargar la clase",
+    confirmLeave: "¿Seguro que quieres salir de la clase?",
+    defaultTitle: "Clase en vivo",
+    reconnecting: "Reconectando...",
+    minimize: "Minimizar",
+    fullscreen: "Pantalla completa",
+    close: "Cerrar",
+    checkingDevices: "Comprobando cámara y micrófono...",
+    cameraWorking: "Cámara activa",
+    micWorking: "Micrófono activo",
+    joinDefaultsInfo: "Entrarás a la clase con la cámara y el micrófono apagados por defecto, y podrás activarlos desde dentro cuando quieras.",
+    enterMeeting: "Unirse a la clase",
+    noDeviceMsg: "No se encontró cámara ni micrófono en este dispositivo. Puedes unirte sin audio/video, o probar con un dispositivo que los tenga.",
+    permissionDeniedMsg: "El navegador no otorgó acceso a la cámara/micrófono — abre la configuración del sitio en el navegador y permite el acceso, o continúa sin ellos.",
+    retry: "Reintentar",
+    enterWithoutDevices: "Unirse sin ellos",
+    unsupportedMsg: "Este navegador no admite la vista previa de cámara/micrófono antes de unirte — podrás controlarlos desde dentro de la clase.",
+    verifyingAccess: "Verificando acceso...",
+    joiningMeeting: "Uniéndose a la clase...",
+    waitingTeacher: "Esperando a que el profesor inicie la clase...",
   },
 };
 
 // "precheck" (فحص كاميرا/مايك) → "loading" (بيجيب توكن) → "connecting"
 // (بيعمل join) → "joined" → "reconnecting" → "error"
 export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher = false }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const containerRef = useRef(null);
   const modalRef = useRef(null);
   const callFrameRef = useRef(null);
@@ -169,7 +269,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
     if (!readyToConnect) return; // لسه في مرحلة فحص الجهاز، منتصلش لسه.
     if (!meetingId) {
       setStatus("error");
-      setError("الاجتماع غير متاح");
+      setError(t.meetingUnavailable);
       return;
     }
 
@@ -202,15 +302,15 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
         if (!cancelled) {
           setStatus("error");
           if (err.name === "AbortError") {
-            setError("استغرق التحقق وقت طويل جدًا — تحقق من اتصال الإنترنت وحاول تاني");
+            setError(t.timeoutError);
           } else if (err.message === "forbidden") {
             // 🆕 رسالة دقيقة حسب سبب الرفض الحقيقي (access.reason)، مش
             // "مفيش صلاحية" عامة — شوف FORBIDDEN_REASONS فوق.
             const reason = err.reason && FORBIDDEN_REASONS[err.reason] ? err.reason : "not_enrolled";
             setForbiddenReason(reason);
-            setError(FORBIDDEN_REASONS[reason].message);
+            setError(FORBIDDEN_REASONS[reason].message[language] || FORBIDDEN_REASONS[reason].message.en);
           } else {
-            setError("تعذّر التحقق من صلاحية الدخول، حاول تاني");
+            setError(t.accessCheckFailed);
           }
         }
         return;
@@ -274,7 +374,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
           .on("error", (e) => {
             if (!cancelled) {
               setStatus("error");
-              setError(e?.errorMsg || "حصل خطأ أثناء الانضمام للاجتماع");
+              setError(e?.errorMsg || t.joinError);
             }
           })
           .on("nonfatal-error", (e) => {
@@ -294,7 +394,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
       } catch (err) {
         if (!cancelled) {
           setStatus("error");
-          setError(err?.message || "تعذّر تحميل الاجتماع");
+          setError(err?.message || t.loadError);
         }
       }
     }
@@ -320,7 +420,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   function handleClose() {
     const isActuallyInMeeting = status === "joined" || status === "reconnecting";
     if (isActuallyInMeeting) {
-      const confirmed = window.confirm("متأكد إنك عايز تسيب الاجتماع؟");
+      const confirmed = window.confirm(t.confirmLeave);
       if (!confirmed) return;
     }
     destroyCallFrame();
@@ -349,7 +449,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <h3 className="text-lg font-semibold text-gray-800 truncate">
-              {title || "الاجتماع المباشر"}
+              {title || t.defaultTitle}
             </h3>
             {status === "joined" && (
               <span className="flex items-center gap-1 text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full shrink-0">
@@ -358,7 +458,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             )}
             {status === "reconnecting" && (
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full shrink-0 animate-pulse">
-                <WifiOff size={12} /> بيحاول يعيد الاتصال...
+                <WifiOff size={12} /> {t.reconnecting}
               </span>
             )}
           </div>
@@ -366,11 +466,11 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             <button
               onClick={toggleFullscreen}
               className="text-gray-400 hover:text-gray-700 p-1.5"
-              title={isFullscreen ? "تصغير" : "ملء الشاشة"}
+              title={isFullscreen ? t.minimize : t.fullscreen}
             >
               {isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}
             </button>
-            <button onClick={handleClose} className="text-gray-400 hover:text-gray-700 p-1.5" title="إغلاق">
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-700 p-1.5" title={t.close}>
               <X size={22} />
             </button>
           </div>
@@ -382,7 +482,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
               {deviceCheck.status === "checking" && (
                 <>
                   <Loader size={28} className="animate-spin" />
-                  <span className="text-sm">جاري التحقق من الكاميرا والمايك...</span>
+                  <span className="text-sm">{t.checkingDevices}</span>
                 </>
               )}
 
@@ -403,23 +503,23 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
                   </div>
                   <div className="flex items-center gap-3 text-xs text-emerald-400">
                     <span className="flex items-center gap-1">
-                      <Video size={13} /> الكاميرا شغالة
+                      <Video size={13} /> {t.cameraWorking}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Mic size={13} /> المايك شغال
+                      <Mic size={13} /> {t.micWorking}
                     </span>
                   </div>
                   {/* 🆕 توضيح إن الدخول هيكون بالكاميرا/المايك مقفولين افتراضيًا
                       (حتى لو الفحص فوق نجح) — المستخدم يقدر يشغّلهم بنفسه
                       من جوه الاجتماع وقت ما يحب. */}
                   <span className="text-[11px] text-gray-300 max-w-sm -mt-2">
-                    هتدخل الاجتماع والكاميرا والمايك مقفولين افتراضيًا، وتقدر تشغّلهم من جوه الاجتماع وقت ما تحب.
+                    {t.joinDefaultsInfo}
                   </span>
                   <button
                     onClick={proceedPastDeviceCheck}
                     className="mt-1 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                   >
-                    الدخول للاجتماع
+                    {t.enterMeeting}
                   </button>
                 </>
               )}
@@ -431,22 +531,20 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
                     <MicOff size={22} />
                   </div>
                   <span className="text-sm max-w-sm">
-                    {deviceCheck.reason === "no_device"
-                      ? "مش لاقيين كاميرا أو مايك على الجهاز ده. تقدر تدخل بالصوت/الصورة مقفولين، أو تجرّب من جهاز فيه كاميرا/مايك."
-                      : "المتصفح مش دّيك إذن الكاميرا/المايك — افتح إعدادات الموقع في المتصفح وسمح بالوصول، أو كمّل من غيرهم."}
+                    {deviceCheck.reason === "no_device" ? t.noDeviceMsg : t.permissionDeniedMsg}
                   </span>
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={runDeviceCheck}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
                     >
-                      <RefreshCw size={14} /> إعادة المحاولة
+                      <RefreshCw size={14} /> {t.retry}
                     </button>
                     <button
                       onClick={proceedPastDeviceCheck}
                       className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                     >
-                      الدخول من غيرهم
+                      {t.enterWithoutDevices}
                     </button>
                   </div>
                 </>
@@ -455,13 +553,13 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
               {deviceCheck.status === "unsupported" && (
                 <>
                   <span className="text-sm max-w-sm">
-                    المتصفح ده مش بيدعم معاينة الكاميرا/المايك قبل الدخول — هتقدر تتحكم فيهم من داخل الاجتماع نفسه.
+                    {t.unsupportedMsg}
                   </span>
                   <button
                     onClick={proceedPastDeviceCheck}
                     className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                   >
-                    الدخول للاجتماع
+                    {t.enterMeeting}
                   </button>
                 </>
               )}
@@ -472,7 +570,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white z-10">
               <Loader size={28} className="animate-spin" />
               <span className="text-sm">
-                {status === "loading" ? "جاري التحقق من الصلاحية..." : "جاري الانضمام للاجتماع..."}
+                {status === "loading" ? t.verifyingAccess : t.joiningMeeting}
               </span>
             </div>
           )}
@@ -487,21 +585,21 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
                     href={FORBIDDEN_REASONS[forbiddenReason].actionHref}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                   >
-                    {FORBIDDEN_REASONS[forbiddenReason].actionLabel}
+                    {FORBIDDEN_REASONS[forbiddenReason].actionLabel[language] || FORBIDDEN_REASONS[forbiddenReason].actionLabel.en}
                   </Link>
                 ) : (
                   <button
                     onClick={handleRetry}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
                   >
-                    <RefreshCw size={14} /> إعادة المحاولة
+                    <RefreshCw size={14} /> {t.retry}
                   </button>
                 )}
                 <button
                   onClick={handleClose}
                   className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
                 >
-                  إغلاق
+                  {t.close}
                 </button>
               </div>
             </div>
@@ -513,7 +611,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
               بيفهم إنه مستني، مش إن حاجة غلط. */}
           {status === "joined" && !isTeacher && !teacherPresent && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur text-white text-xs font-semibold px-4 py-2 rounded-full">
-              <Hourglass size={13} className="animate-pulse" /> استنى المدرس يبدأ المحاضرة...
+              <Hourglass size={13} className="animate-pulse" /> {t.waitingTeacher}
             </div>
           )}
 

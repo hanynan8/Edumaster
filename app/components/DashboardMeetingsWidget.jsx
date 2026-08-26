@@ -10,10 +10,30 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Radio, Clock, ArrowLeft } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function formatDateTime(dateStr) {
+// 🆕 نفس مشكلة CourseMeetingBanner: النصوص كانت عربي ثابت وتنسيق التاريخ
+// مربوط بـ "ar-EG" دايمًا. دلوقتي كل حاجة بتتبع اللغة المختارة من الناف بار.
+const LOCALE_BY_LANG = { en: "en-US", ar: "ar-EG", es: "es-ES" };
+
+const T = {
+  en: {
+    liveNow: "Live lecture happening now",
+    upcoming: (when) => `Upcoming lecture — ${when}`,
+  },
+  ar: {
+    liveNow: "محاضرة لايف شغالة دلوقتي",
+    upcoming: (when) => `محاضرة قريبة — ${when}`,
+  },
+  es: {
+    liveNow: "Clase en vivo ahora mismo",
+    upcoming: (when) => `Próxima clase — ${when}`,
+  },
+};
+
+function formatDateTime(dateStr, language) {
   try {
-    return new Date(dateStr).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
+    return new Date(dateStr).toLocaleString(LOCALE_BY_LANG[language] || "en-US", { dateStyle: "medium", timeStyle: "short" });
   } catch {
     return dateStr;
   }
@@ -42,6 +62,8 @@ function pickHighlight(meetings) {
 }
 
 export default function DashboardMeetingsWidget() {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const [highlight, setHighlight] = useState(undefined);
 
   useEffect(() => {
@@ -83,7 +105,7 @@ export default function DashboardMeetingsWidget() {
       </div>
       <div className="min-w-0 flex-1">
         <p className={`text-sm font-bold ${isLive ? "text-red-700" : "text-blue-700"}`}>
-          {isLive ? "محاضرة لايف شغالة دلوقتي" : `محاضرة قريبة — ${formatDateTime(meeting.scheduledAt)}`}
+          {isLive ? t.liveNow : t.upcoming(formatDateTime(meeting.scheduledAt, language))}
         </p>
         <p className="text-sm text-gray-600 truncate">
           {meeting.title} {meeting.courseTitle ? `· ${meeting.courseTitle}` : ""}

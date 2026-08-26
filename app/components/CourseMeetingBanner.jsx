@@ -14,10 +14,42 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Video, Radio, Clock, ArrowLeft } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function formatDateTime(dateStr) {
+// 🆕 كل النصوص في البانر كانت عربي ثابت، وكمان تنسيق التاريخ كان مربوط
+// بـ locale "ar-EG" دايمًا. دلوقتي كل حاجة بتتبع اللغة المختارة من الناف بار.
+const LOCALE_BY_LANG = { en: "en-US", ar: "ar-EG", es: "es-ES" };
+
+const T = {
+  en: {
+    liveNow: "Live lecture happening now",
+    upcomingCompact: (when) => `Upcoming lecture: ${when}`,
+    liveToday: "Today's lecture is live now 🔴",
+    upcomingToday: (when) => `Today's lecture at ${when}`,
+    joinNow: "Join now",
+    viewDetails: "View details",
+  },
+  ar: {
+    liveNow: "محاضرة لايف شغالة دلوقتي",
+    upcomingCompact: (when) => `محاضرة قريبة: ${when}`,
+    liveToday: "محاضرة النهاردة شغالة دلوقتي 🔴",
+    upcomingToday: (when) => `محاضرة النهاردة الساعة ${when}`,
+    joinNow: "ادخل دلوقتي",
+    viewDetails: "شوف التفاصيل",
+  },
+  es: {
+    liveNow: "Clase en vivo ahora mismo",
+    upcomingCompact: (when) => `Próxima clase: ${when}`,
+    liveToday: "La clase de hoy está en vivo ahora 🔴",
+    upcomingToday: (when) => `Clase de hoy a las ${when}`,
+    joinNow: "Unirse ahora",
+    viewDetails: "Ver detalles",
+  },
+};
+
+function formatDateTime(dateStr, language) {
   try {
-    return new Date(dateStr).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
+    return new Date(dateStr).toLocaleString(LOCALE_BY_LANG[language] || "en-US", { dateStyle: "medium", timeStyle: "short" });
   } catch {
     return dateStr;
   }
@@ -54,6 +86,8 @@ function pickHighlightMeeting(meetings) {
  *   بدل البانر الكامل العريض (لصفحة الكورس نفسها).
  */
 export default function CourseMeetingBanner({ courseId, compact = false }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const [highlight, setHighlight] = useState(undefined); // undefined = بيحمّل، null = مفيش حاجة
 
   useEffect(() => {
@@ -106,7 +140,7 @@ export default function CourseMeetingBanner({ courseId, compact = false }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className={`text-xs font-bold truncate ${isLive ? "text-red-700" : "text-blue-700"}`}>
-            {isLive ? "محاضرة لايف شغالة دلوقتي" : `محاضرة قريبة: ${formatDateTime(meeting.scheduledAt)}`}
+            {isLive ? t.liveNow : t.upcomingCompact(formatDateTime(meeting.scheduledAt, language))}
           </p>
           <p className="text-xs text-gray-500 truncate">{meeting.title}</p>
         </div>
@@ -131,7 +165,7 @@ export default function CourseMeetingBanner({ courseId, compact = false }) {
         </div>
         <div className="min-w-0">
           <p className={`text-sm font-bold ${isLive ? "text-red-700" : "text-blue-700"}`}>
-            {isLive ? "محاضرة النهاردة شغالة دلوقتي 🔴" : `محاضرة النهاردة الساعة ${formatDateTime(meeting.scheduledAt)}`}
+            {isLive ? t.liveToday : t.upcomingToday(formatDateTime(meeting.scheduledAt, language))}
           </p>
           <p className="text-sm text-gray-600 truncate">{meeting.title}</p>
         </div>
@@ -142,7 +176,7 @@ export default function CourseMeetingBanner({ courseId, compact = false }) {
           isLive ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
         }`}
       >
-        {isLive ? "ادخل دلوقتي" : "شوف التفاصيل"}
+        {isLive ? t.joinNow : t.viewDetails}
       </Link>
     </div>
   );

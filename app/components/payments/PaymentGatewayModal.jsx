@@ -2,42 +2,45 @@
 
 // app/components/payments/PaymentGatewayModal.jsx
 //
-// 🆕 مودال بسيط بيخلي المستخدم يختار بوابة الدفع (PayPal أو Paymob) قبل ما
-// نبدأ POST /api/payments/checkout. مستخدم من صفحتين: شراء كورس مفرد
-// (app/(pages)/courses/[id]/page.jsx) واشتراك membership مدفوع
-// (app/(pages)/membership/page.jsx) — نفس الشكل بالظبط في الاتنين عشان
-// تجربة موحّدة.
+// 🆕 بعد إلغاء PayPal واعتماد Paymob كبوابة الدفع الوحيدة في المشروع،
+// مبقاش فيه داعي لمودال "اختيار بوابة دفع" (كان فيه اختيار بين PayPal
+// وPaymob قبل كده). المودال دلوقتي مجرد تأكيد بسيط قبل ما نفتح
+// POST /api/payments/checkout: بيعرض السعر النهائي (بالعملة المحسوبة من
+// لغة الموقع الحالية، شوف app/lib/currency.js) وزرار واحد "الدفع عبر
+// Paymob". الاسم اتساب زي ما هو (PaymentGatewayModal) عشان أي حد يقرا
+// كود المشروع يلاقي نفس المكوّن اللي كان بيستخدمه، بس دوره اتغيّر.
 //
 // الاستخدام:
 //   <PaymentGatewayModal
-//     onSelect={(provider) => ...}   // "paypal" | "paymob"
+//     amount={250}
+//     currency="EGP"
+//     onConfirm={() => ...}   // مفيش provider تاني، Paymob بس
 //     onClose={() => ...}
 //   />
 
 import { useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { X, CreditCard, Wallet } from "lucide-react";
+import { X, ShieldCheck } from "lucide-react";
+import { formatPrice } from "@/app/lib/currency";
 
 const STRINGS = {
   ar: {
-    title: "اختار طريقة الدفع",
-    subtitle: "هتتحول لصفحة الدفع الآمنة بعد الاختيار",
-    paypal: "PayPal",
-    paypalDesc: "بطاقات دولية وحساب PayPal",
-    paymob: "Paymob",
-    paymobDesc: "فيزا/ماستركارد ومحافظ إلكترونية محلية",
+    title: "تأكيد الدفع",
+    subtitle: "هتتحول لصفحة الدفع الآمنة بعد التأكيد",
+    total: "الإجمالي",
+    confirm: "الدفع عبر Paymob",
+    secure: "دفع آمن ببطاقتك أو محفظتك الإلكترونية",
   },
   en: {
-    title: "Choose a payment method",
+    title: "Confirm payment",
     subtitle: "You'll be redirected to a secure payment page",
-    paypal: "PayPal",
-    paypalDesc: "International cards & PayPal balance",
-    paymob: "Paymob",
-    paymobDesc: "Local cards & e-wallets",
+    total: "Total",
+    confirm: "Pay with Paymob",
+    secure: "Secure payment via card or e-wallet",
   },
 };
 
-export default function PaymentGatewayModal({ onSelect, onClose, disabled = false }) {
+export default function PaymentGatewayModal({ amount, currency, onConfirm, onClose, disabled = false }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const overlayRef = useRef(null);
@@ -53,11 +56,6 @@ export default function PaymentGatewayModal({ onSelect, onClose, disabled = fals
   function handleOverlayClick(e) {
     if (e.target === overlayRef.current) onClose();
   }
-
-  const options = [
-    { id: "paypal", label: t.paypal, desc: t.paypalDesc, Icon: CreditCard },
-    { id: "paymob", label: t.paymob, desc: t.paymobDesc, Icon: Wallet },
-  ];
 
   return (
     <div
@@ -79,24 +77,19 @@ export default function PaymentGatewayModal({ onSelect, onClose, disabled = fals
         <h2 className="text-lg font-bold text-gray-900 mb-1">{t.title}</h2>
         <p className="text-xs text-gray-400 mb-5">{t.subtitle}</p>
 
-        <div className="space-y-3">
-          {options.map(({ id, label, desc, Icon }) => (
-            <button
-              key={id}
-              disabled={disabled}
-              onClick={() => onSelect(id)}
-              className="w-full flex items-center gap-3 border border-gray-200 rounded-xl p-3.5 text-start hover:border-[#1D6FD8] hover:bg-blue-50/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="w-10 h-10 shrink-0 rounded-lg bg-gray-100 flex items-center justify-center">
-                <Icon size={18} className="text-[#1D6FD8]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-800">{label}</p>
-                <p className="text-[11px] text-gray-400 truncate">{desc}</p>
-              </div>
-            </button>
-          ))}
+        <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-5">
+          <span className="text-sm text-gray-500">{t.total}</span>
+          <span className="text-lg font-black text-gray-900">{formatPrice(amount, currency, language)}</span>
         </div>
+
+        <button
+          disabled={disabled}
+          onClick={onConfirm}
+          className="w-full flex items-center justify-center gap-2 bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <ShieldCheck size={17} /> {t.confirm}
+        </button>
+        <p className="text-[11px] text-gray-400 text-center mt-3">{t.secure}</p>
       </div>
     </div>
   );

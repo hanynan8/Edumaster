@@ -6,13 +6,13 @@
 // الاشتراك (Free/Basic/Standard/Pro) اللي الأدمن أنشأها من
 // app/api/membership-plans. أي زائر يقدر يشوفها؛ الاشتراك الفعلي:
 //   - خطة مجانية → POST /api/membership-plans/[id]/subscribe (فوري، بدون دفع)
-//   - خطة مدفوعة (شهري/سنوي) → المستخدم بيختار بوابة الدفع (PayPal أو
-//     Paymob عن طريق PaymentGatewayModal) → POST /api/payments/checkout
-//     {type:"membership", provider} يفتح عملية دفع عند البوابة المختارة
-//     ويحوّل المستخدم لصفحتها؛ التفعيل الفعلي (user.membership) بيحصل بعد
-//     نجاح الدفع في app/api/payments/paypal/return أو
-//     app/api/payments/paymob/callback (أو webhook كل بوابة) — نفس بالظبط
-//     منطق شراء الكورس المفرد.
+//   - خطة مدفوعة (شهري/سنوي) → المستخدم بيأكّد الدفع (PaymentGatewayModal)
+//     → POST /api/payments/checkout {type:"membership", language} يفتح
+//     عملية دفع عند Paymob ويحوّل المستخدم لصفحته؛ التفعيل الفعلي
+//     (user.membership) بيحصل بعد نجاح الدفع في
+//     app/api/payments/paymob/callback (أو webhook) — نفس بالظبط منطق
+//     شراء الكورس المفرد. العملة بتتحدد تلقائيًا حسب لغة الموقع الحالية
+//     (شوف app/lib/currency.js).
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -20,6 +20,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
+import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import { Check, Crown, Loader, CheckCircle2 } from "lucide-react";
 
 const STRINGS = {
@@ -75,7 +76,7 @@ export default function MembershipPage() {
   const [subscribeError, setSubscribeError] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
-  // 🆕 خطة مدفوعة مختارة بانتظار المستخدم يحدد بوابة الدفع (PayPal/Paymob)
+  // 🆕 خطة مدفوعة مختارة بانتظار تأكيد المستخدم قبل ما نبدأ checkout فعلي
   const [pendingPlan, setPendingPlan] = useState(null);
 
   useEffect(() => {
@@ -94,13 +95,12 @@ export default function MembershipPage() {
       .catch(() => {});
   }, [sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 29 + إضافة Paymob: خطة مدفوعة → checkout عند
-  // البوابة اللي المستخدم اختارها (PaymentGatewayModal) بدل التفعيل
-  // الفوري. بعد الموافقة على الدفع، المستخدم بيرجع لـ
-  // app/api/payments/paypal/return أو app/api/payments/paymob/callback
-  // اللي بيفعّل user.membership فعليًا (grantMembershipAccess في
+  // 🆕 Phase 3 — اليوم 29: خطة مدفوعة → checkout عند Paymob (بعد تأكيد
+  // المستخدم في PaymentGatewayModal) بدل التفعيل الفوري. بعد الموافقة على
+  // الدفع، المستخدم بيرجع لـ app/api/payments/paymob/callback اللي بيفعّل
+  // user.membership فعليًا (grantMembershipAccess في
   // app/lib/paymentHelpers.js) — مش هنا.
-  async function handleSubscribeWithProvider(plan, provider) {
+  async function handleSubscribeConfirm(plan) {
     setPendingPlan(null);
     setSubscribeError("");
     setSubscribingId(plan.id);
@@ -108,7 +108,7 @@ export default function MembershipPage() {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "membership", id: plan.id, provider }),
+        body: JSON.stringify({ type: "membership", id: plan.id, language }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.redirectUrl) {
@@ -132,9 +132,10 @@ export default function MembershipPage() {
       return;
     }
 
-    const isFree = plan.billingCycle === "free" || plan.price === 0;
+    const priceInfo = getPriceForCurrency(plan.prices, language);
+    const isFree = plan.billingCycle === "free" || priceInfo.amount === 0;
     if (!isFree) {
-      // 🆕 نفتح مودال اختيار بوابة الدفع بدل ما نروح على PayPal مباشرة
+      // 🆕 نفتح مودال تأكيد الدفع (Paymob) بدل ما نروح على checkout مباشرة
       setSubscribeError("");
       setPendingPlan(plan);
       return;
@@ -190,7 +191,8 @@ export default function MembershipPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {plans.map((plan) => {
               const isCurrent = currentPlanId === plan.id;
-              const isFree = plan.billingCycle === "free" || plan.price === 0;
+              const planPriceInfo = getPriceForCurrency(plan.prices, language);
+              const isFree = plan.billingCycle === "free" || planPriceInfo.amount === 0;
               return (
                 <div
                   key={plan.id}
@@ -210,7 +212,7 @@ export default function MembershipPage() {
                   {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
 
                   <p className="text-2xl font-black text-gray-900 mb-1">
-                    {isFree ? t.free : `${plan.price} ${plan.currency || "EGP"}`}
+                    {isFree ? t.free : formatPrice(planPriceInfo.amount, planPriceInfo.currency, language)}
                     {!isFree && (
                       <span className="text-sm font-medium text-gray-400">
                         {plan.billingCycle === "yearly" ? t.perYear : t.perMonth}
@@ -260,8 +262,11 @@ export default function MembershipPage() {
 
       {pendingPlan && (
         <PaymentGatewayModal
+          amount={getPriceForCurrency(pendingPlan.prices, language).amount}
+          currency={getPriceForCurrency(pendingPlan.prices, language).currency}
+          disabled={subscribingId === pendingPlan.id}
           onClose={() => setPendingPlan(null)}
-          onSelect={(provider) => handleSubscribeWithProvider(pendingPlan, provider)}
+          onConfirm={() => handleSubscribeConfirm(pendingPlan)}
         />
       )}
     </div>

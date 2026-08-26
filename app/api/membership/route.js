@@ -38,8 +38,7 @@ export async function GET() {
           id: planDoc._id.toString(),
           name: planDoc.name,
           slug: planDoc.slug,
-          price: planDoc.price,
-          currency: planDoc.currency,
+          prices: planDoc.prices || { EGP: 0, USD: 0, EUR: 0 },
           billingCycle: planDoc.billingCycle,
           allCoursesIncluded: !planDoc.allowedCourses || planDoc.allowedCourses.length === 0,
         };

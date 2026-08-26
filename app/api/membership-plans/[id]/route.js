@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMembershipPlanModel, getCourseModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
+import { sanitizePrices } from "@/app/lib/currency";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -36,8 +37,7 @@ function serializePlan(p) {
     name: p.name,
     slug: p.slug,
     description: p.description,
-    price: p.price,
-    currency: p.currency,
+    prices: p.prices || { EGP: 0, USD: 0, EUR: 0 },
     billingCycle: p.billingCycle,
     features: p.features || [],
     allowedCourses: (p.allowedCourses || []).map((c) => (c._id ? c._id.toString() : c.toString())),
@@ -52,8 +52,7 @@ const EDITABLE_FIELDS = [
   "name",
   "slug",
   "description",
-  "price",
-  "currency",
+  "prices",
   "billingCycle",
   "features",
   "allowedCourses",
@@ -118,11 +117,11 @@ export async function PATCH(request, { params }) {
     if (updates.billingCycle !== undefined && !["free", "monthly", "yearly"].includes(updates.billingCycle)) {
       return jsonResponse({ error: "invalid_billing_cycle" }, 400);
     }
-    if (updates.price !== undefined) {
-      updates.price = Math.max(0, Number(updates.price) || 0);
+    if (updates.prices !== undefined) {
+      updates.prices = sanitizePrices(updates.prices);
     }
     if ((updates.billingCycle || existing.billingCycle) === "free") {
-      updates.price = 0;
+      updates.prices = { EGP: 0, USD: 0, EUR: 0 };
     }
     if (updates.features !== undefined) {
       updates.features = Array.isArray(updates.features) ? updates.features.map(String) : [];

@@ -24,6 +24,7 @@ import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getPriceForCurrency } from "@/app/lib/currency";
 
 const FALLBACK_IMAGE =
   "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
@@ -141,8 +142,8 @@ function localizeCourse(c, language, t) {
     ratingAverage: c.ratingAverage || 0,
     ratingCount: c.ratingCount || 0,
     isFree: c.isFree,
-    price: c.price || 0,
-    currency: c.currency || "",
+    price: getPriceForCurrency(c.prices, language).amount,
+    currency: getPriceForCurrency(c.prices, language).currency,
     createdAt: c.createdAt ? new Date(c.createdAt).getTime() : 0,
     searchBlob: [c.title, c.shortDescription, c.teacherName, categoryI18nEntry?.name || c.categoryName, ...(c.tags || [])]
       .filter(Boolean)

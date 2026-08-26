@@ -114,7 +114,10 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
                     <span className="flex items-center gap-1"><User size={12} /> {course.teacherName || '—'}</span>
                     <span className="flex items-center gap-1"><Tag size={12} /> {course.categoryName || '—'}</span>
                     <span className="flex items-center gap-1">
-                      <DollarSign size={12} /> {course.isFree ? 'Free' : `${course.price} ${course.currency}`}
+                      <DollarSign size={12} />
+                      {course.isFree
+                        ? 'Free'
+                        : `EGP ${course.prices?.EGP || 0} · USD ${course.prices?.USD || 0} · EUR ${course.prices?.EUR || 0}`}
                     </span>
                     <span className="flex items-center gap-1"><Layers size={12} /> {course.level}</span>
                   </div>

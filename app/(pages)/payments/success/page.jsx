@@ -2,8 +2,8 @@
 
 // app/(pages)/payments/success/page.jsx
 //
-// Phase 3 — اليوم 30: صفحة هبوط لما الدفع ينجح — app/api/payments/paypal/return
-// بيحوّل هنا بـ ?payment=<paymentId> بعد ما markPaymentSucceededAndGrantAccess
+// Phase 3 — اليوم 30: صفحة هبوط لما الدفع ينجح — app/api/payments/paymob/callback
+// (أو الـ webhook المقابل) بيحوّل هنا بـ ?payment=<paymentId> بعد ما markPaymentSucceededAndGrantAccess
 // تخلص (Enrollment أو تفعيل membership اتعمل فعلاً في الداتابيز قبل ما
 // المستخدم يشوف الصفحة دي). بنجيب تفاصيل الدفعة من GET /api/payments/[id]
 // (بيسمح بالوصول لصاحب الدفعة أو الأدمن بس) عشان نعرض تأكيد واضح ورابط

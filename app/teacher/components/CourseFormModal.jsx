@@ -42,7 +42,11 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     category: course?.category || "",
     level: course?.level || "beginner",
     language: course?.language || "ar",
-    price: course?.price ?? 0,
+    prices: {
+      EGP: course?.prices?.EGP ?? 0,
+      USD: course?.prices?.USD ?? 0,
+      EUR: course?.prices?.EUR ?? 0,
+    },
     isFree: course?.isFree ?? false,
     status: course?.status || "draft",
     requirements: (course?.requirements || []).join("\n"),
@@ -59,6 +63,10 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function updatePrice(currency, value) {
+    setForm((f) => ({ ...f, prices: { ...f.prices, [currency]: value } }));
   }
 
   async function handleSubmit(e) {
@@ -78,7 +86,11 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         category: form.category,
         level: form.level,
         language: form.language,
-        price: Number(form.price) || 0,
+        prices: {
+          EGP: Number(form.prices.EGP) || 0,
+          USD: Number(form.prices.USD) || 0,
+          EUR: Number(form.prices.EUR) || 0,
+        },
         isFree: form.isFree,
         status: form.status,
         requirements: form.requirements.split("\n").map((s) => s.trim()).filter(Boolean),
@@ -208,22 +220,53 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 items-end">
-            <div className="col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">السعر (جنيه)</label>
-              <input
-                type="number"
-                min={0}
-                disabled={form.isFree}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
-                value={form.price}
-                onChange={(e) => update("price", e.target.value)}
-              />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-semibold text-gray-700">السعر (لكل عملة)</label>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input type="checkbox" checked={form.isFree} onChange={(e) => update("isFree", e.target.checked)} />
+                مجاني
+              </label>
             </div>
-            <label className="flex items-center gap-2 pb-2.5 text-sm font-medium text-gray-700">
-              <input type="checkbox" checked={form.isFree} onChange={(e) => update("isFree", e.target.checked)} />
-              مجاني
-            </label>
+            {/* 🆕 سعر منفصل يدوي لكل عملة (بدل تحويل تلقائي بسعر صرف) — العملة
+                اللي المستخدم بيدفع بيها بتتحدد حسب لغة الموقع وقت الشراء
+                (شوف app/lib/currency.js). لازم تتحط قيمة لكل العملات التلاتة
+                عشان الكورس يبقى قابل للشراء بأي لغة. */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">جنيه (EGP)</label>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={form.isFree}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  value={form.prices.EGP}
+                  onChange={(e) => updatePrice("EGP", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">دولار (USD)</label>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={form.isFree}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  value={form.prices.USD}
+                  onChange={(e) => updatePrice("USD", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">يورو (EUR)</label>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={form.isFree}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  value={form.prices.EUR}
+                  onChange={(e) => updatePrice("EUR", e.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
           <div>

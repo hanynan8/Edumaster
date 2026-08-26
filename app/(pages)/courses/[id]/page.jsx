@@ -28,6 +28,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
+import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
@@ -359,8 +360,8 @@ function RealCourseDetail({ id }) {
   const [assignments, setAssignments] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
-  // 🆕 المستخدم ضغط "اشترِ الآن" لكورس مدفوع — بننتظر اختياره لبوابة الدفع
-  // (PayPal/Paymob) عن طريق PaymentGatewayModal قبل ما نبدأ checkout فعلي.
+  // 🆕 المستخدم ضغط "اشترِ الآن" لكورس مدفوع — بننتظر تأكيده في
+  // PaymentGatewayModal قبل ما نبدأ checkout فعلي عند Paymob.
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   // تتبع تقدّم الطالب: أي درس (فيديو/PDF/نص) بيتحدد "مكتمل" لما الطالب
   // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الكورس
@@ -470,18 +471,13 @@ function RealCourseDetail({ id }) {
       .catch(() => setEnrollment({ enrolled: false, hasAccess: false }));
   }, [id, session, sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 27-28: كورس مدفوع (مش متاح مجانًا وعضويتنا لو موجودة
-  // مش بتغطيه) → PayPal checkout بدل POST /api/enrollments مباشرة. لو
+  // 🆕 Phase 3 — اليوم 27-28 + Paymob: كورس مدفوع (مش متاح مجانًا وعضويتنا
+  // لو موجودة مش بتغطيه) → checkout عند Paymob (بعد تأكيد المستخدم في
+  // PaymentGatewayModal) بدل POST /api/enrollments مباشرة. لو
   // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
   // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش
   // احتمال يدفع لحاجة عنده وصول ليها بالفعل.
-  // 🆕 Phase 3 — اليوم 27-28 + إضافة Paymob: كورس مدفوع (مش متاح مجانًا
-  // وعضويتنا لو موجودة مش بتغطيه) → checkout عند البوابة اللي المستخدم
-  // اختارها (PaymentGatewayModal) بدل POST /api/enrollments مباشرة. لو
-  // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
-  // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش
-  // احتمال يدفع لحاجة عنده وصول ليها بالفعل.
-  async function handleBuyWithProvider(provider) {
+  async function handleBuyConfirm() {
     setShowGatewayModal(false);
     setEnrollError("");
     setEnrolling(true);
@@ -489,7 +485,7 @@ function RealCourseDetail({ id }) {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "course", id, provider }),
+        body: JSON.stringify({ type: "course", id, language }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.redirectUrl) {
@@ -514,9 +510,10 @@ function RealCourseDetail({ id }) {
 
   async function handleEnroll() {
     // كورس مدفوع فعليًا (isFree=false) والمستخدم مالوش وصول عن طريق
-    // membership أصلاً → نفتح مودال اختيار بوابة الدفع بدل محاولة enroll
-    // مباشر هيرجع 402 أكيد.
-    if (!course.isFree && course.price > 0) {
+    // membership أصلاً → نفتح مودال تأكيد الدفع بدل محاولة enroll مباشر
+    // هيرجع 402 أكيد.
+    const coursePriceInfo = getPriceForCurrency(course.prices, language);
+    if (!course.isFree && coursePriceInfo.amount > 0) {
       return openGatewayModal();
     }
 
@@ -576,6 +573,7 @@ function RealCourseDetail({ id }) {
   }
 
   const isOwner = session?.user?.id && course.teacher === session.user.id;
+  const coursePriceInfo = getPriceForCurrency(course.prices, language);
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
@@ -632,7 +630,7 @@ function RealCourseDetail({ id }) {
               </div>
               <div className="p-5">
                 <p className="text-2xl font-black mb-4">
-                  {course.isFree ? t.free : `${course.price} ${course.currency || "EGP"}`}
+                  {course.isFree ? t.free : formatPrice(coursePriceInfo.amount, coursePriceInfo.currency, language)}
                 </p>
 
                 {isOwner ? (
@@ -658,8 +656,8 @@ function RealCourseDetail({ id }) {
                     className="w-full bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60"
                   >
                     {enrolling
-                      ? (!course.isFree && course.price > 0 ? t.redirecting : t.enrolling)
-                      : (!course.isFree && course.price > 0 ? t.buyNow : t.enroll)}
+                      ? (!course.isFree && coursePriceInfo.amount > 0 ? t.redirecting : t.enrolling)
+                      : (!course.isFree && coursePriceInfo.amount > 0 ? t.buyNow : t.enroll)}
                   </button>
                 )}
                 {enrollError && <p className="text-xs text-red-500 mt-3 text-center">{enrollError}</p>}
@@ -828,11 +826,13 @@ function RealCourseDetail({ id }) {
         />
       )}
 
-      {showGatewayModal && (
+      {showGatewayModal  && (
         <PaymentGatewayModal
+          amount={coursePriceInfo.amount}
+          currency={coursePriceInfo.currency}
           disabled={enrolling}
           onClose={() => setShowGatewayModal(false)}
-          onSelect={handleBuyWithProvider}
+          onConfirm={handleBuyConfirm}
         />
       )}
     </div>

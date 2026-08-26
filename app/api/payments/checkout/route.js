@@ -3,37 +3,37 @@
 // Phase 3 — اليوم 27-29: بداية أي عملية دفع (شراء كورس مفرد أو اشتراك
 // membership مدفوع، شهري أو سنوي). الراوت بيتحقق الأول إن المنتج
 // (كورس/خطة) فعلاً محتاج دفع ومتاح، يعمل سجل Payment بحالة "pending"،
-// بعدين يفتح عملية دفع عند بوابة الدفع المختارة ويرجّع للـ client رابط
-// التحويل (redirectUrl) عشان يوديه لصفحة الدفع يدفع فيها.
+// بعدين يفتح عملية دفع عند Paymob ويرجّع للـ client رابط التحويل
+// (redirectUrl) عشان يوديه لصفحة الدفع يدفع فيها.
 //
-// 🆕 بوابتين متاحين دلوقتي جنب بعض: PayPal (app/lib/paypal.js) و Paymob
-// (app/lib/paymob.js) — الـ client بيحدد أي واحد عايز يستخدم عن طريق
-// "provider" في الـ body؛ لو متبعتش، PayPal هي الافتراضية (backward
-// compatible مع أي client قديم لسه بيبعت من غير provider).
+// 🆕 اعتماد كلي على Paymob (PayPal اتشال نهائيًا من المشروع). العملة بقت
+// ديناميكية حسب لغة الموقع الحالية عند المستخدم وقت الدفع — مش حسب أي
+// إعداد ثابت في السيرفر. الـ client لازم يبعت "language" في الـ body
+// (شوف app/lib/currency.js لخريطة لغة→عملة الكاملة):
+//
+// POST body: { type: "course" | "membership", id: "<courseId أو planId>", language?: "ar" | "en" | "es" }
+//
+// لو الـ client مبعتش language (client قديم أو خطأ)، بنقع افتراضيًا على
+// "ar" → EGP، وهو نفس افتراض لغة الموقع في باقي المشروع.
 //
 // 🔒 التفعيل الفعلي (Enrollment أو تفعيل membership) بيحصل *بعد كده* في
-// app/api/payments/paypal/return أو app/api/payments/paymob/callback أو
-// أي من الـ webhook routes بتاعتهم — مش هنا، ومش قبل ما بوابة الدفع تأكد
-// الدفع فعليًا. ده بالظبط اللي تعليق Payment.js بيقصده بـ "مصدر الحقيقة
-// المالي".
-//
-// POST body: { type: "course" | "membership", id: "<courseId أو planId>", provider?: "paypal" | "paymob" }
+// app/api/payments/paymob/callback أو app/api/payments/paymob/webhook —
+// مش هنا، ومش قبل ما Paymob تأكد الدفع فعليًا. ده بالظبط اللي تعليق
+// Payment.js بيقصده بـ "مصدر الحقيقة المالي".
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getMembershipPlanModel, getPaymentModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createPaypalOrder, isPaypalConfigured } from "@/app/lib/paypal";
 import {
   createPaymobOrder,
   createPaymobPaymentKey,
   buildPaymobIframeUrl,
   isPaymobConfigured,
 } from "@/app/lib/paymob";
+import { getPriceForCurrency } from "@/app/lib/currency";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
-
-const PROVIDERS = ["paypal", "paymob"];
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -48,9 +48,9 @@ export async function POST(request) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    // 🔒 SECURITY (Day 59): كل نداء هنا بيفتح PayPal Order (نداء خارجي مكلف
-    // ماليًا وزمنيًا) — 10 محاولات/دقيقة لكل مستخدم كافية لأي استخدام حقيقي
-    // ومنع أي محاولة سبام تفتح مئات الـ orders الفاضية.
+    // 🔒 SECURITY (Day 59): كل نداء هنا بيفتح Paymob Order (نداءين خارجيين
+    // مكلفين ماليًا وزمنيًا) — 10 محاولات/دقيقة لكل مستخدم كافية لأي استخدام
+    // حقيقي ومنع أي محاولة سبام تفتح مئات الـ orders الفاضية.
     const rl = await enforceRateLimit(request, {
       keyPrefix: "payments:checkout",
       limit: 10,
@@ -59,21 +59,17 @@ export async function POST(request) {
     });
     if (rl) return rl;
 
+    if (!isPaymobConfigured()) {
+      return jsonResponse({ error: "payment_gateway_not_configured" }, 503);
+    }
+
     const body = await request.json().catch(() => null);
     const type = body?.type;
     const targetId = body?.id;
-    // 🆕 provider اختياري — PayPal افتراضيًا لو الـ client مبعتوش (توافق مع
-    // أي نداء قديم من قبل ما Paymob اتضاف).
-    const provider = PROVIDERS.includes(body?.provider) ? body.provider : "paypal";
+    // 🆕 لغة الموقع الحالية عند المستخدم — بتحدد العملة (شوف app/lib/currency.js)
+    const language = ["ar", "en", "es"].includes(body?.language) ? body.language : "ar";
     if (!["course", "membership"].includes(type) || !mongoose.Types.ObjectId.isValid(targetId)) {
       return jsonResponse({ error: "invalid_request" }, 400);
-    }
-
-    if (provider === "paypal" && !isPaypalConfigured()) {
-      return jsonResponse({ error: "payment_gateway_not_configured" }, 503);
-    }
-    if (provider === "paymob" && !isPaymobConfigured()) {
-      return jsonResponse({ error: "payment_gateway_not_configured" }, 503);
     }
 
     await connectToMongo();
@@ -90,7 +86,9 @@ export async function POST(request) {
       const Course = getCourseModel();
       const course = await Course.findById(targetId).lean();
       if (!course || course.status !== "published") return jsonResponse({ error: "not_found" }, 404);
-      if (course.isFree || !course.price || course.price <= 0) {
+
+      const priceInfo = getPriceForCurrency(course.prices, language);
+      if (course.isFree || priceInfo.amount <= 0) {
         return jsonResponse({ error: "course_is_free" }, 400);
       }
       // 🔒 نفس فحص app/api/enrollments: المدرس صاحب الكورس ميقدرش "يشتري" كورسه هو
@@ -101,20 +99,22 @@ export async function POST(request) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: targetId });
       if (access.hasAccess) return jsonResponse({ error: "already_have_access" }, 409);
 
-      amount = course.price;
-      currency = course.currency || "EGP";
+      amount = Math.round(priceInfo.amount * 100); // 🩹 FIX: course.prices مبالغ كاملة (جنيه/دولار/يورو) — لازم تتحول لقروش/سنت هنا (وحدة Payment.amount/Paymob amount_cents)، وإلا هيتحصّل 1% بس من السعر الفعلي.
+      currency = priceInfo.currency;
       description = `Course: ${course.title}`.slice(0, 120);
       courseRef = course._id;
     } else {
       const MembershipPlan = getMembershipPlanModel();
       const plan = await MembershipPlan.findById(targetId).lean();
       if (!plan || !plan.isActive) return jsonResponse({ error: "not_found" }, 404);
-      if (plan.billingCycle === "free" || !plan.price || plan.price <= 0) {
+
+      const priceInfo = getPriceForCurrency(plan.prices, language);
+      if (plan.billingCycle === "free" || priceInfo.amount <= 0) {
         return jsonResponse({ error: "plan_is_free" }, 400);
       }
 
-      amount = plan.price;
-      currency = plan.currency || "EGP";
+      amount = Math.round(priceInfo.amount * 100); // 🩹 FIX: نفس تحويل الكورس فوق — plan.prices مبالغ كاملة، لازم قروش/سنت هنا.
+      currency = priceInfo.currency;
       description = `Membership: ${plan.name}`.slice(0, 120);
       membershipPlanRef = plan._id;
       metadata.billingCycle = plan.billingCycle;
@@ -128,64 +128,26 @@ export async function POST(request) {
       amount,
       currency,
       status: "pending",
-      provider,
+      provider: "paymob",
       metadata,
     });
 
-    const origin = new URL(request.url).origin;
-
-    if (provider === "paypal") {
-      return await startPaypalCheckout({ payment, amount, currency, description, origin, metadata });
-    }
-    return await startPaymobCheckout({ payment, amount, session, metadata });
+    return await startPaymobCheckout({ payment, amount, currency, session, metadata });
   } catch (err) {
     console.error("[/api/payments/checkout] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
   }
 }
 
-async function startPaypalCheckout({ payment, amount, currency, description, origin, metadata }) {
-  let order;
-  try {
-    order = await createPaypalOrder({
-      amount,
-      currency,
-      referenceId: payment._id.toString(),
-      description,
-      returnUrl: `${origin}/api/payments/paypal/return`,
-      cancelUrl: `${origin}/api/payments/paypal/return?cancelled=1`,
-    });
-  } catch (err) {
-    console.error("[/api/payments/checkout] PayPal order creation failed:", err);
-    payment.status = "failed";
-    payment.metadata = { ...metadata, failureReason: "paypal_order_creation_failed" };
-    await payment.save();
-    return jsonResponse({ error: "paypal_error" }, 502);
-  }
-
-  payment.providerPaymentId = order.id;
-  await payment.save();
-
-  const approveLink = (order.links || []).find((l) => l.rel === "approve" || l.rel === "payer-action");
-  if (!approveLink) {
-    console.error("[/api/payments/checkout] PayPal order has no approve link:", order);
-    return jsonResponse({ error: "paypal_error" }, 502);
-  }
-
-  return jsonResponse(
-    { paymentId: payment._id.toString(), orderId: order.id, redirectUrl: approveLink.href },
-    201
-  );
-}
-
-// 🆕 تدفق Paymob: order registration بعدها payment key، وبعدين رابط الـ
+// تدفق Paymob: order registration بعدها payment key، وبعدين رابط الـ
 // iframe المستضافة عند Paymob هو الـ redirectUrl اللي بنرجّعه للـ client
-// (نفس شكل approveUrl بتاع PayPal، redirect كامل بـ window.location.href).
-async function startPaymobCheckout({ payment, amount, session, metadata }) {
+// (window.location.href كامل، مفيش iframe مضمّن في صفحتنا احنا).
+async function startPaymobCheckout({ payment, amount, currency, session, metadata }) {
   let paymobOrder;
   try {
     paymobOrder = await createPaymobOrder({
       amount,
+      currency,
       merchantOrderId: payment._id.toString(),
     });
   } catch (err) {
@@ -201,6 +163,7 @@ async function startPaymobCheckout({ payment, amount, session, metadata }) {
     const [firstName, ...rest] = (session.user.name || "NA NA").trim().split(" ");
     paymentKey = await createPaymobPaymentKey({
       amount,
+      currency,
       orderId: paymobOrder.id,
       billingData: {
         firstName: firstName || "NA",
@@ -217,9 +180,9 @@ async function startPaymobCheckout({ payment, amount, session, metadata }) {
     return jsonResponse({ error: "paymob_error" }, 502);
   }
 
-  // providerPaymentId بيتخزن هنا order id بتاع Paymob (رقم، مش الـ payment
-  // token) — بنستخدمه كـ fallback lookup في الـ webhook/callback زي orderId
-  // في PayPal؛ الاعتماد الأساسي بيبقى على merchant_order_id (= payment._id).
+  // providerPaymentId بيتخزن هنا order id بتاع Paymob (رقم) — بنستخدمه
+  // كـ fallback lookup في الـ webhook/callback؛ الاعتماد الأساسي بيبقى على
+  // merchant_order_id (= payment._id).
   payment.providerPaymentId = String(paymobOrder.id);
   await payment.save();
 

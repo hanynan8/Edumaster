@@ -13,6 +13,7 @@ import { getMembershipPlanModel, getCourseModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
+import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -36,8 +37,7 @@ function serializePlan(p) {
     name: p.name,
     slug: p.slug,
     description: p.description,
-    price: p.price,
-    currency: p.currency,
+    prices: p.prices || { EGP: 0, USD: 0, EUR: 0 },
     billingCycle: p.billingCycle,
     features: p.features || [],
     allowedCourses: (p.allowedCourses || []).map((c) => (c._id ? c._id.toString() : c.toString())),
@@ -62,7 +62,9 @@ export async function GET(request) {
       if (session?.user?.role === "admin") filter = {};
     }
 
-    const plans = await MembershipPlan.find(filter).sort({ order: 1, price: 1 }).lean();
+    // 🆕 مفيش حقل "price" واحد نرتّب بيه بعد التحويل لـ prices (خريطة لكل
+    // عملة) — order يدوي (اللي الأدمن بيحدده) كافي وأوضح.
+    const plans = await MembershipPlan.find(filter).sort({ order: 1 }).lean();
     return jsonResponse(plans.map(serializePlan));
   } catch (err) {
     console.error("[/api/membership-plans] GET error:", err);
@@ -110,8 +112,7 @@ export async function POST(request) {
       name,
       slug,
       description: String(body?.description || ""),
-      price: billingCycle === "free" ? 0 : Math.max(0, Number(body?.price) || 0),
-      currency: body?.currency || "EGP",
+      prices: billingCycle === "free" ? emptyPrices() : sanitizePrices(body?.prices),
       billingCycle,
       features: Array.isArray(body?.features) ? body.features.map(String) : [],
       allowedCourses,

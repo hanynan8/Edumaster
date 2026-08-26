@@ -2,8 +2,10 @@
 
 // app/(pages)/payments/failed/page.jsx
 //
-// Phase 3 — صفحة هبوط بسيطة لما الدفع يفشل أو المستخدم يلغي من صفحة
-// PayPal — app/api/payments/paypal/return بيحوّل هنا بـ ?reason=<...>.
+// Phase 3 — صفحة هبوط بسيطة لما الدفع يفشل أو يتلغي. المصدر الوحيد
+// اللي بيحوّل هنا دلوقتي هو app/api/payments/paymob/callback (بعد إلغاء
+// PayPal نهائيًا من المشروع) بـ ?reason=<...>. القيم في REASON_KEYS
+// مطابقة لكل الـ reason اللي بترجعها الراوت دي فعليًا.
 
 import { use as usePromise } from "react";
 import Link from "next/link";
@@ -11,11 +13,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { XCircle, ArrowRight, ArrowLeft } from "lucide-react";
 
 const REASON_KEYS = {
-  cancelled: { ar: "لقد ألغيت عملية الدفع", en: "You cancelled the payment" },
-  capture_failed: { ar: "تعذّر تأكيد الدفع مع PayPal", en: "Couldn't confirm the payment with PayPal" },
-  not_completed: { ar: "الدفع لم يكتمل من جانب PayPal", en: "The payment wasn't completed by PayPal" },
+  invalid_signature: { ar: "تعذّر التحقق من عملية الدفع", en: "Couldn't verify the payment" },
+  missing_reference: { ar: "بيانات الدفع ناقصة", en: "Missing payment data" },
   not_found: { ar: "عملية الدفع غير موجودة", en: "Payment not found" },
-  missing_token: { ar: "بيانات الدفع ناقصة", en: "Missing payment data" },
+  not_completed: { ar: "الدفع لم يكتمل", en: "The payment wasn't completed" },
   internal_error: { ar: "حصل خطأ غير متوقع", en: "An unexpected error occurred" },
 };
 

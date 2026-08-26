@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
+import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import { Check as CheckIcon, Crown, Loader, CheckCircle2 } from "lucide-react";
 
 function useServicesData() {
@@ -114,7 +115,7 @@ const MEMBERSHIP_STRINGS = {
     empty: "لسه مفيش خطط اشتراك متاحة",
     popular: "الأكتر طلبًا",
     subscribing: "جارِ التفعيل...",
-    redirecting: "جارِ التحويل لـ PayPal...",
+    redirecting: "جارِ التحويل لصفحة الدفع...",
     subscribed: "خطتك الحالية",
     login: "سجّل دخولك للاشتراك",
     paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتفعيل اليدوي",
@@ -136,7 +137,7 @@ const MEMBERSHIP_STRINGS = {
     empty: "No membership plans available yet",
     popular: "Most popular",
     subscribing: "Activating...",
-    redirecting: "Redirecting to PayPal...",
+    redirecting: "Redirecting to payment...",
     subscribed: "Your current plan",
     login: "Log in to subscribe",
     paymentSoon: "Online payment isn't available right now — contact us to activate manually",
@@ -151,7 +152,7 @@ function MembershipSection({ isRTL }) {
   const { plans, error } = useMembershipPlans();
   const [ref, visible] = useReveal(0.08);
 
-  // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع (مجاني أو PayPal)
+  // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع عبر Paymob
   const { data: session, status: sessionStatus } = useSession();
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [subscribingId, setSubscribingId] = useState(null);
@@ -167,24 +168,24 @@ function MembershipSection({ isRTL }) {
       .catch(() => {});
   }, [sessionStatus]);
 
-  async function handleSubscribeWithPaypal(plan) {
+  async function handleSubscribeCheckout(plan) {
     setSubscribeError("");
     setSubscribingId(plan.id);
     try {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "membership", id: plan.id }),
+        body: JSON.stringify({ type: "membership", id: plan.id, language }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.approveUrl) {
+      if (!res.ok || !data.redirectUrl) {
         setSubscribeError(
           data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
         );
         setSubscribingId(null);
         return;
       }
-      window.location.href = data.approveUrl;
+      window.location.href = data.redirectUrl;
     } catch {
       setSubscribeError(t.paymentGatewayError);
       setSubscribingId(null);
@@ -198,9 +199,9 @@ function MembershipSection({ isRTL }) {
       return;
     }
 
-    const isFree = plan.billingCycle === "free" || plan.price === 0;
+    const isFree = plan.billingCycle === "free" || getPriceForCurrency(plan.prices, language).amount === 0;
     if (!isFree) {
-      return handleSubscribeWithPaypal(plan);
+      return handleSubscribeCheckout(plan);
     }
 
     setSubscribeError("");
@@ -209,7 +210,7 @@ function MembershipSection({ isRTL }) {
       const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.error === "payment_required") return handleSubscribeWithPaypal(plan);
+        if (data.error === "payment_required") return handleSubscribeCheckout(plan);
         setSubscribeError(t.error);
         return;
       }
@@ -255,7 +256,8 @@ function MembershipSection({ isRTL }) {
             <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-7">
               {plans.map((plan, i) => {
                 const isCurrent = currentPlanId === plan.id;
-                const isFree = plan.billingCycle === "free" || plan.price === 0;
+                const planPriceInfo = getPriceForCurrency(plan.prices, language);
+                const isFree = plan.billingCycle === "free" || planPriceInfo.amount === 0;
                 const isFeatured = plans.length > 1 && i === featuredIndex;
                 return (
                   <div
@@ -287,7 +289,7 @@ function MembershipSection({ isRTL }) {
                     {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
 
                     <p className="text-2xl font-black text-gray-900 mb-1">
-                      {isFree ? t.free : `${plan.price} ${plan.currency || "EGP"}`}
+                      {isFree ? t.free : formatPrice(planPriceInfo.amount, planPriceInfo.currency, language)}
                       {!isFree && (
                         <span className="text-sm font-medium text-gray-400">
                           {plan.billingCycle === "yearly" ? t.perYear : t.perMonth}

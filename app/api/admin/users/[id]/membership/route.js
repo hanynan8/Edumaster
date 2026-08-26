@@ -147,8 +147,11 @@ export async function PATCH(request, { params }) {
           user: target._id,
           type: "membership",
           membershipPlan: next.plan,
-          amount: plan?.price ?? 0,
-          currency: plan?.currency || "EGP",
+          // 🆕 التفعيل هنا يدوي من الأدمن (مش عن طريق Paymob checkout فعلي)،
+          // فمفيش "لغة موقع" فعلية نستنتج منها العملة — بنسجل السعر الأساسي
+          // بالجنيه المصري (EGP) دايمًا كسجل مرجعي، بغض النظر عن لغة اليوزر.
+          amount: Math.round((plan?.prices?.EGP ?? 0) * 100), // 🩹 FIX: plan.prices مبالغ كاملة، Payment.amount بالقروش — نفس تحويل checkout/route.js.
+          currency: "EGP",
           status: "succeeded",
           provider: "manual",
           paidAt: new Date(),

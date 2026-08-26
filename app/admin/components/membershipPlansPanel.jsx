@@ -17,8 +17,7 @@ const EMPTY_FORM = {
   name: '',
   slug: '',
   description: '',
-  price: 0,
-  currency: 'EGP',
+  prices: { EGP: 0, USD: 0, EUR: 0 },
   billingCycle: 'monthly',
   features: '', // نص، سطر لكل feature — بيتحول لـ array وقت الحفظ
   allowedCourses: [],
@@ -27,9 +26,10 @@ const EMPTY_FORM = {
 };
 
 function formatPrice(plan) {
-  if (plan.billingCycle === 'free' || plan.price === 0) return 'Free';
+  const prices = plan.prices || { EGP: 0, USD: 0, EUR: 0 };
+  if (plan.billingCycle === 'free' || (!prices.EGP && !prices.USD && !prices.EUR)) return 'Free';
   const cycle = plan.billingCycle === 'yearly' ? '/yr' : '/mo';
-  return `${plan.price} ${plan.currency}${cycle}`;
+  return `EGP ${prices.EGP || 0} · USD ${prices.USD || 0} · EUR ${prices.EUR || 0}${cycle}`;
 }
 
 function MembershipPlansAdmin() {
@@ -84,8 +84,11 @@ function MembershipPlansAdmin() {
       name: plan.name,
       slug: plan.slug,
       description: plan.description || '',
-      price: plan.price,
-      currency: plan.currency,
+      prices: {
+        EGP: plan.prices?.EGP ?? 0,
+        USD: plan.prices?.USD ?? 0,
+        EUR: plan.prices?.EUR ?? 0,
+      },
       billingCycle: plan.billingCycle,
       features: (plan.features || []).join('\n'),
       allowedCourses: plan.allowedCourses || [],
@@ -94,6 +97,10 @@ function MembershipPlansAdmin() {
     });
     setActionError('');
     setShowForm(true);
+  };
+
+  const updatePlanPrice = (currency, value) => {
+    setForm((f) => ({ ...f, prices: { ...f.prices, [currency]: value } }));
   };
 
   const toggleCourse = (courseId) => {
@@ -118,8 +125,14 @@ function MembershipPlansAdmin() {
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
       description: form.description,
-      price: form.billingCycle === 'free' ? 0 : Number(form.price) || 0,
-      currency: form.currency,
+      prices:
+        form.billingCycle === 'free'
+          ? { EGP: 0, USD: 0, EUR: 0 }
+          : {
+              EGP: Number(form.prices.EGP) || 0,
+              USD: Number(form.prices.USD) || 0,
+              EUR: Number(form.prices.EUR) || 0,
+            },
       billingCycle: form.billingCycle,
       features: form.features.split('\n').map((s) => s.trim()).filter(Boolean),
       allowedCourses: form.allowedCourses,
@@ -342,38 +355,59 @@ function MembershipPlansAdmin() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Billing Cycle</label>
-                  <select
-                    value={form.billingCycle}
-                    onChange={(e) => setForm((f) => ({ ...f, billingCycle: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
-                  >
-                    <option value="free">Free</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Price</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.price}
-                    disabled={form.billingCycle === 'free'}
-                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 disabled:opacity-50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Currency</label>
-                  <input
-                    type="text"
-                    value={form.currency}
-                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
-                  />
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Billing Cycle</label>
+                <select
+                  value={form.billingCycle}
+                  onChange={(e) => setForm((f) => ({ ...f, billingCycle: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400"
+                >
+                  <option value="free">Free</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+
+              {/* 🆕 سعر منفصل يدوي لكل عملة (EGP/USD/EUR) — نفس منطق أسعار
+                  الكورسات، العملة بتتحدد حسب لغة الموقع وقت الاشتراك (شوف
+                  app/lib/currency.js). بيتم تجاهلها بالكامل لو billingCycle
+                  = free. */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Price (per currency)</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-gray-400 mb-1">EGP</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.prices.EGP}
+                      disabled={form.billingCycle === 'free'}
+                      onChange={(e) => updatePlanPrice('EGP', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-400 mb-1">USD</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.prices.USD}
+                      disabled={form.billingCycle === 'free'}
+                      onChange={(e) => updatePlanPrice('USD', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-400 mb-1">EUR</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.prices.EUR}
+                      disabled={form.billingCycle === 'free'}
+                      onChange={(e) => updatePlanPrice('EUR', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 disabled:opacity-50"
+                    />
+                  </div>
                 </div>
               </div>
 

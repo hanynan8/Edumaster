@@ -1,8 +1,8 @@
 // app/api/payments/paymob/callback/route.js
 //
 // 🆕 نقطة الرجوع من Paymob بعد ما المستخدم يدفع (أو يلغي) في صفحة الدفع
-// المستضافة عند Paymob — نظير app/api/payments/paypal/return بالظبط، بس
-// لبوابة Paymob. ده الـ "Transaction Response Callback" في إعدادات Paymob
+// المستضافة عند Paymob (بوابة الدفع الوحيدة في المشروع بعد إلغاء PayPal).
+// ده الـ "Transaction Response Callback" في إعدادات Paymob
 // (Dashboard → Payment Integrations → Integration المستخدمة → Transaction
 // response callback)، لازم يتظبط على:
 //   https://<domain>/api/payments/paymob/callback
@@ -10,7 +10,7 @@
 // Paymob بيرجّع هنا بـ GET query params flat (success, id, order,
 // merchant_order_id, hmac, ...) — مختلف عن شكل الـ webhook (POST JSON).
 //
-// 🔒 مهم: زي PayPal بالظبط، الرجوع هنا مش المصدر الوحيد للحقيقة —
+// 🔒 مهم: الرجوع هنا مش المصدر الوحيد للحقيقة —
 // app/api/payments/paymob/webhook (server-to-server) بيعمل نفس التأكيد لو
 // المستخدم قفل التبويب قبل ما يرجع لموقعنا. الاتنين بينادوا نفس الدالة
 // الآمنة markPaymentSucceededAndGrantAccess (app/lib/paymentHelpers.js).
@@ -63,6 +63,24 @@ export async function GET(request) {
 
     if (!success) {
       await markPaymentFailed(payment._id, "paymob_transaction_failed");
+      return redirectFailed(origin, "not_completed");
+    }
+
+    // 🔒 SECURITY (defense-in-depth): نفس فحص الـ webhook — نتأكد إن
+    // amount_cents/currency الراجعين في الـ query params مطابقين للمبلغ
+    // المسجل عندنا قبل ما نصدّق "الدفع نجح". حتى لو الـ HMAC اتحقق، ده حماية
+    // إضافية ضد أي اختلاف غريب (bug أو تلاعب) بدل ما نمنح الوصول بصمت.
+    const amountCents = searchParams.get("amount_cents");
+    const currency = searchParams.get("currency");
+    const amountMatches = amountCents !== null && Number(amountCents) === Number(payment.amount);
+    const currencyMatches = !currency || currency === payment.currency;
+    if (!amountMatches || !currencyMatches) {
+      console.error("[/api/payments/paymob/callback] amount/currency mismatch — refusing to grant access", {
+        paymentId: payment._id.toString(),
+        expected: { amount: payment.amount, currency: payment.currency },
+        received: { amount: amountCents, currency },
+      });
+      await markPaymentFailed(payment._id, "amount_mismatch");
       return redirectFailed(origin, "not_completed");
     }
 

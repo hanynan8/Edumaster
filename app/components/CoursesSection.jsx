@@ -27,6 +27,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { getPriceForCurrency } from "@/app/lib/currency";
 
 const LEVEL_COLORS = {
   beginner: "#10b981",
@@ -76,8 +77,8 @@ function localizeCourse(c, language, ui) {
     ratingAverage: c.ratingAverage || 0,
     ratingCount: c.ratingCount || 0,
     isFree: c.isFree,
-    price: c.price || 0,
-    currency: c.currency || "",
+    price: getPriceForCurrency(c.prices, language).amount,
+    currency: getPriceForCurrency(c.prices, language).currency,
     createdAt: c.createdAt ? new Date(c.createdAt).getTime() : 0,
     searchBlob: [title, c.teacherName, categoryName, ...(c.tags || [])]
       .filter(Boolean)

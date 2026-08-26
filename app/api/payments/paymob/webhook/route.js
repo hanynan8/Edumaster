@@ -1,10 +1,10 @@
 // app/api/payments/paymob/webhook/route.js
 //
-// 🆕 "Transaction Processed Callback" بتاع Paymob — نظير
-// app/api/payments/webhook (PayPal) بس لبوابة Paymob. ده المصدر الثاني
-// (والأضمن) لتأكيد الدفع غير app/api/payments/paymob/callback — لازم
-// يشتغل حتى لو المستخدم قفل التبويب بعد الدفع مباشرة وماوصلش لصفحة الرجوع
-// بتاعتنا. الاتنين مصدرين بينادوا نفس الدالة الآمنة
+// 🆕 "Transaction Processed Callback" بتاع Paymob (بوابة الدفع الوحيدة في
+// المشروع بعد إلغاء PayPal نهائيًا). ده المصدر الثاني (والأضمن) لتأكيد
+// الدفع غير app/api/payments/paymob/callback — لازم يشتغل حتى لو المستخدم
+// قفل التبويب بعد الدفع مباشرة وماوصلش لصفحة الرجوع بتاعتنا. الاتنين
+// مصدرين بينادوا نفس الدالة الآمنة
 // markPaymentSucceededAndGrantAccess (app/lib/paymentHelpers.js) فمفيش
 // تكرار في التفعيل مهما مين وصل الأول.
 //
@@ -75,7 +75,30 @@ export async function POST(request) {
 
     const payment = await findPaymentForTransaction(transactionObj);
     if (payment && payment.status === "pending") {
+      // 🔒 SECURITY (defense-in-depth): حتى لو الـ HMAC اتحقق، بنتأكد كمان إن
+      // amount_cents/currency الراجعين من Paymob في الـ transaction فعلاً
+      // مطابقين للمبلغ والعملة اللي اتسجلوا عندنا وقت فتح الـ checkout
+      // (payment.amount/payment.currency). المفروض ميحصلش اختلاف أبدًا في
+      // الحالة الطبيعية (المبلغ ده هو نفسه اللي بعتناه لـ Paymob وقت إنشاء
+      // الـ order/payment key)، فلو حصل اختلاف يبقى فيه حاجة غريبة (bug أو
+      // محاولة تلاعب) ولازم نوقف التفعيل ونحقق بدل ما نصدّق بصمت.
+      const amountMatches = Number(transactionObj.amount_cents) === Number(payment.amount);
+      const currencyMatches =
+        !transactionObj.currency || transactionObj.currency === payment.currency;
+
       if (transactionObj.success && !transactionObj.pending) {
+        if (!amountMatches || !currencyMatches) {
+          console.error(
+            "[/api/payments/paymob/webhook] amount/currency mismatch — refusing to grant access",
+            {
+              paymentId: payment._id.toString(),
+              expected: { amount: payment.amount, currency: payment.currency },
+              received: { amount: transactionObj.amount_cents, currency: transactionObj.currency },
+            }
+          );
+          await markPaymentFailed(payment._id, "amount_mismatch");
+          return jsonResponse({ received: true }, 200);
+        }
         await markPaymentSucceededAndGrantAccess(payment._id, {
           providerPaymentId: String(transactionObj.order?.id ?? payment.providerPaymentId),
           captureId: transactionObj.id ? String(transactionObj.id) : null,

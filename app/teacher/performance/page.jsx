@@ -17,6 +17,7 @@ import ExcelJS from "exceljs";
 import {
   Loader, BarChart3, Users, Award, Download, AlertCircle, ArrowRight, TrendingUp, BookOpen,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
@@ -28,11 +29,52 @@ const STATUS_STYLES = {
   archived: "bg-amber-100 text-amber-700",
 };
 
+const STRINGS = {
+  ar: {
+    myCourses: "كورساتي",
+    performance: "الأداء والإحصائيات",
+    loadError: "تعذّر تحميل بيانات الأداء",
+    exportToExcel: "تصدير إلى Excel",
+    coursePerformance: "أداء الكورسات",
+    subtitle: "الطلاب، نسبة الإتمام، ومتوسط الدرجات في كل كورساتك",
+    noCourses: "لسه معندكش أي كورسات",
+    completionRateByCourse: "نسبة الإتمام لكل كورس",
+    course: "الكورس",
+    status: "الحالة",
+    students: "الطلاب",
+    completionRate: "نسبة الإتمام",
+    avgQuiz: "متوسط الكويزات",
+    avgAssignment: "متوسط الواجبات",
+    overallAvg: "المتوسط العام",
+    viewDetails: "عرض التفاصيل",
+    statusLabels: { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" },
+  },
+  en: {
+    myCourses: "My Courses",
+    performance: "Performance",
+    loadError: "Couldn't load your courses performance",
+    exportToExcel: "Export to Excel",
+    coursePerformance: "Course Performance",
+    subtitle: "Students, completion rate, and average grades across all your courses",
+    noCourses: "You don't have any courses yet",
+    completionRateByCourse: "Completion Rate by Course",
+    course: "Course",
+    status: "Status",
+    students: "Students",
+    completionRate: "Completion Rate",
+    avgQuiz: "Avg Quiz",
+    avgAssignment: "Avg Assignment",
+    overallAvg: "Overall Avg",
+    viewDetails: "View details",
+    statusLabels: { draft: "Draft", pending: "Pending", published: "Published", archived: "Archived" },
+  },
+};
+
 /* ─── شريط تنقّل: كورساتي / الأداء — نفس تنسيق StudentQuickNav بالظبط ─── */
-function TeacherQuickNav() {
+function TeacherQuickNav({ t, isRTL }) {
   const items = [
-    { href: "/teacher", label: "كورساتي", icon: BookOpen },
-    { href: "/teacher/performance", label: "الأداء والإحصائيات", icon: BarChart3, active: true },
+    { href: "/teacher", label: t.myCourses, icon: BookOpen },
+    { href: "/teacher/performance", label: t.performance, icon: BarChart3, active: true },
   ];
 
   return (
@@ -62,6 +104,8 @@ function ScoreBadge({ value }) {
 }
 
 export default function TeacherPerformancePage() {
+  const { language, isRTL } = useLanguage();
+  const t = STRINGS[language] || STRINGS.en;
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -73,7 +117,8 @@ export default function TeacherPerformancePage() {
         if (!res.ok) throw new Error(data?.error);
         setCourses(data.courses || []);
       })
-      .catch(() => setError("Couldn't load your courses performance"));
+      .catch(() => setError(t.loadError));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function exportToExcel() {
@@ -144,14 +189,14 @@ export default function TeacherPerformancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f7f7]">
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
           <Link href="/teacher" className="hover:text-gray-700 flex items-center gap-1.5">
-            <ArrowRight size={14} className="rotate-180" /> My Courses
+            <ArrowRight size={14} className={isRTL ? "" : "rotate-180"} /> {t.myCourses}
           </Link>
           <span>/</span>
-          <span className="text-gray-700 font-semibold">Performance</span>
+          <span className="text-gray-700 font-semibold">{t.performance}</span>
         </div>
 
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
@@ -160,8 +205,8 @@ export default function TeacherPerformancePage() {
               <BarChart3 className="text-white" size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Course Performance</h1>
-              <p className="text-sm text-gray-400">Students, completion rate, and average grades across all your courses</p>
+              <h1 className="text-2xl font-semibold text-gray-800">{t.coursePerformance}</h1>
+              <p className="text-sm text-gray-400">{t.subtitle}</p>
             </div>
           </div>
           <button
@@ -170,11 +215,11 @@ export default function TeacherPerformancePage() {
             className="flex items-center gap-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             {exporting ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
-            Export to Excel
+            {t.exportToExcel}
           </button>
         </div>
 
-        <TeacherQuickNav />
+        <TeacherQuickNav t={t} isRTL={isRTL} />
 
         {error && (
           <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl flex items-center gap-2 mb-4">
@@ -191,7 +236,7 @@ export default function TeacherPerformancePage() {
         {courses && courses.length === 0 && (
           <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center">
             <BarChart3 className="mx-auto text-gray-300 mb-3" size={40} />
-            <p className="text-gray-400">You don't have any courses yet</p>
+            <p className="text-gray-400">{t.noCourses}</p>
           </div>
         )}
 
@@ -200,7 +245,7 @@ export default function TeacherPerformancePage() {
             {/* مقارنة بصرية سريعة بين الكورسات — Completion Rate */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-5 flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#1D6FD8]" /> Completion Rate by Course
+                <TrendingUp size={16} className="text-[#1D6FD8]" /> {t.completionRateByCourse}
               </h3>
               <div className="space-y-4">
                 {courses.map((c) => (
@@ -223,18 +268,18 @@ export default function TeacherPerformancePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">Course</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">
-                        <span className="inline-flex items-center gap-1"><Users size={13} /> Students</span>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">{t.course}</th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">{t.status}</th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">
+                        <span className="inline-flex items-center gap-1"><Users size={13} /> {t.students}</span>
                       </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">Completion Rate</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">Avg Quiz</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">Avg Assignment</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500">
-                        <span className="inline-flex items-center gap-1"><Award size={13} /> Overall Avg</span>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">{t.completionRate}</th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">{t.avgQuiz}</th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">{t.avgAssignment}</th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500">
+                        <span className="inline-flex items-center gap-1"><Award size={13} /> {t.overallAvg}</span>
                       </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-500"></th>
+                      <th className="text-start py-3 px-4 font-semibold text-gray-500"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -243,7 +288,7 @@ export default function TeacherPerformancePage() {
                         <td className="py-3 px-4 font-medium text-gray-800">{c.courseTitle}</td>
                         <td className="py-3 px-4">
                           <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${STATUS_STYLES[c.status]}`}>
-                            {c.status}
+                            {t.statusLabels[c.status] || c.status}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-gray-700">{c.studentsCount}</td>
@@ -256,7 +301,7 @@ export default function TeacherPerformancePage() {
                             href={`/teacher/courses/${c.courseId}/performance`}
                             className="text-xs font-semibold text-[#1D6FD8] hover:underline"
                           >
-                            View details
+                            {t.viewDetails}
                           </Link>
                         </td>
                       </tr>

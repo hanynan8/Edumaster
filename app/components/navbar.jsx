@@ -60,10 +60,61 @@ function XIcon({ size = 20 }) {
 }
 
 /* ─────────────────────────────────────────
+   SHARED UI STRINGS (auth buttons, user menu, roles)
+───────────────────────────────────────── */
+const UI_STRINGS = {
+  ar: {
+    login: "تسجيل الدخول",
+    signup: "اشتراك جديد",
+    signout: "تسجيل الخروج",
+    openUserMenu: "افتح قائمة المستخدم",
+    toggleMenu: "افتح/اقفل القائمة",
+    roleLinks: {
+      myCourses: "كورساتي",
+      myGrades: "درجاتي",
+      myCertificates: "شهاداتي",
+      myPayments: "مدفوعاتي",
+      teacherDashboard: "لوحة المدرس",
+      adminDashboard: "لوحة الأدمن",
+    },
+  },
+  en: {
+    login: "Log in",
+    signup: "Sign up",
+    signout: "Sign out",
+    openUserMenu: "Open user menu",
+    toggleMenu: "Toggle menu",
+    roleLinks: {
+      myCourses: "My Courses",
+      myGrades: "My Grades",
+      myCertificates: "My Certificates",
+      myPayments: "My Payments",
+      teacherDashboard: "Teacher Dashboard",
+      adminDashboard: "Admin Dashboard",
+    },
+  },
+  es: {
+    login: "Iniciar sesión",
+    signup: "Registrarse",
+    signout: "Cerrar sesión",
+    openUserMenu: "Abrir menú de usuario",
+    toggleMenu: "Alternar menú",
+    roleLinks: {
+      myCourses: "Mis cursos",
+      myGrades: "Mis calificaciones",
+      myCertificates: "Mis certificados",
+      myPayments: "Mis pagos",
+      teacherDashboard: "Panel del profesor",
+      adminDashboard: "Panel del administrador",
+    },
+  },
+};
+
+/* ─────────────────────────────────────────
    LANGUAGE DROPDOWN  (كان في NavUi.jsx)
 ───────────────────────────────────────── */
 function LangDropdown({ languages }) {
-  const { language, changeLanguage } = useLanguage();
+  const { language, changeLanguage, isRTL } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const current = languages.find((l) => l.code === language) || languages[0];
@@ -90,7 +141,7 @@ function LangDropdown({ languages }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-40 sm:w-44 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
+        <div className="absolute right-0 rtl:right-auto rtl:left-0 top-[calc(100%+8px)] w-40 sm:w-44 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
           {languages.map((lang) => (
             <button
               key={lang.code}
@@ -103,7 +154,7 @@ function LangDropdown({ languages }) {
             >
               <span>{lang.label}</span>
               {lang.code === language && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
+                <span className="ml-auto rtl:ml-0 rtl:mr-auto w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
               )}
             </button>
           ))}
@@ -139,6 +190,8 @@ function UserAvatar({ user, size = 28 }) {
 }
 
 function UserDropdown({ user }) {
+  const { language } = useLanguage();
+  const t = UI_STRINGS[language] || UI_STRINGS.en;
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -160,17 +213,17 @@ function UserDropdown({ user }) {
   const links =
     user?.role === "student"
       ? [
-          { href: "/student", label: "كورساتي" },
-          { href: "/student/grades", label: "درجاتي" },
-          { href: "/student/certificates", label: "شهاداتي" },
-          { href: "/student/payments", label: "مدفوعاتي" },
+          { href: "/student", label: t.roleLinks.myCourses },
+          { href: "/student/grades", label: t.roleLinks.myGrades },
+          { href: "/student/certificates", label: t.roleLinks.myCertificates },
+          { href: "/student/payments", label: t.roleLinks.myPayments },
         ]
       : [];
   if (user?.role === "teacher" || user?.role === "admin") {
-    links.push({ href: "/teacher", label: "لوحة المدرس" });
+    links.push({ href: "/teacher", label: t.roleLinks.teacherDashboard });
   }
   if (user?.role === "admin") {
-    links.push({ href: "/admin", label: "لوحة الأدمن" });
+    links.push({ href: "/admin", label: t.roleLinks.adminDashboard });
   }
 
   // 🆕 رابط "الملف الشخصي" في رأس القائمة (الصورة + الاسم) كان مربوط بشكل
@@ -190,7 +243,7 @@ function UserDropdown({ user }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label="Open user menu"
+        aria-label={t.openUserMenu}
         className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-2 py-1.5 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
       >
         <UserAvatar user={user} size={28} />
@@ -238,7 +291,7 @@ function UserDropdown({ user }) {
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
             </svg>
-            Sign out
+            {t.signout}
           </button>
         </div>
       )}
@@ -288,6 +341,7 @@ export default function Navbar() {
 
   const t = data.i18n[language] ?? data.i18n["en"];
   const isRTL = language === "ar";
+  const ui = UI_STRINGS[language] || UI_STRINGS.en;
 
   const openModal = (mode) => {
     setMenuOpen(false);
@@ -312,13 +366,13 @@ export default function Navbar() {
           onClick={() => openModal("login")}
           className="px-3 sm:px-4 py-2 text-sm font-bold text-[#0a0a0a] border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
         >
-          Log in
+          {ui.login}
         </button>
         <button
           onClick={() => openModal("register")}
           className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#C9A227] text-white text-sm font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg hover:bg-[#977a1d] active:scale-95 transition-all shadow-sm shadow-amber-900/20"
         >
-          Sign up
+          {ui.signup}
           <ArrowRight size={13} />
         </button>
       </div>
@@ -350,9 +404,9 @@ export default function Navbar() {
           </div>
           <button
             onClick={() => { signOut({ callbackUrl: "/" }); setMenuOpen(false); }}
-            className="w-full text-left py-3 px-2 text-base font-medium text-[#C9A227] hover:opacity-80 transition-opacity"
+            className="w-full text-start py-3 px-2 text-base font-medium text-[#C9A227] hover:opacity-80 transition-opacity"
           >
-            Sign out
+            {ui.signout}
           </button>
         </>
       );
@@ -363,13 +417,13 @@ export default function Navbar() {
           onClick={() => openModal("login")}
           className="flex-1 text-center py-3 text-sm font-bold border border-gray-200 rounded-lg text-[#0a0a0a] hover:bg-gray-50 transition-colors"
         >
-          Log in
+          {ui.login}
         </button>
         <button
           onClick={() => openModal("register")}
           className="flex-1 text-center py-3 text-sm font-bold bg-[#C9A227] text-white rounded-lg hover:bg-[#977a1d] transition-colors"
         >
-          Sign up
+          {ui.signup}
         </button>
       </div>
     );
@@ -435,7 +489,7 @@ export default function Navbar() {
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="p-2 text-gray-600 hover:text-black rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Toggle menu"
+              aria-label={ui.toggleMenu}
             >
               {menuOpen ? <XIcon /> : <MenuIcon />}
             </button>

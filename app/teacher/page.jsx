@@ -521,7 +521,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
 }
 
 export default function TeacherCoursesPage() {
-  const { language } = useLanguage();
+  const { language, isRTL } = useLanguage();
   const t = T[language] || T.en;
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
@@ -596,7 +596,7 @@ export default function TeacherCoursesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div dir={isRTL ? "rtl" : "ltr"} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">

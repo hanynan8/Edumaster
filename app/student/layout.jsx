@@ -43,9 +43,9 @@ const T = {
 
 const REDIRECT_BY_ROLE = { admin: "/admin", teacher: "/teacher" };
 
-function Blocked({ t }) {
+function Blocked({ t, isRTL }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
       <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
         <BookOpen className="text-red-400" size={30} />
       </div>
@@ -61,7 +61,7 @@ function Blocked({ t }) {
 export default function StudentLayout({ children }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { language } = useLanguage();
+  const { language, isRTL } = useLanguage();
   const t = T[language] || T.en;
   const role = session?.user?.role;
 
@@ -73,7 +73,7 @@ export default function StudentLayout({ children }) {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader className="animate-spin text-blue-500" size={40} />
       </div>
     );
@@ -83,15 +83,19 @@ export default function StudentLayout({ children }) {
   // الطالب ولا شاشة "Blocked" بالغلط.
   if (REDIRECT_BY_ROLE[role]) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader className="animate-spin text-blue-500" size={40} />
       </div>
     );
   }
 
   if (status === "unauthenticated" || role !== "student") {
-    return <Blocked t={t} />;
+    return <Blocked t={t} isRTL={isRTL} />;
   }
 
-  return <div className="min-h-screen bg-gray-50">{children}</div>;
+  return (
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
+      {children}
+    </div>
+  );
 }

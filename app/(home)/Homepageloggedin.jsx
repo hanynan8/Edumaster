@@ -175,10 +175,10 @@ export default function HomePageLoggedIn() {
 
   if (status === "loading" && !user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">Loading</span>
+          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{ui.coursesLoading}</span>
         </div>
       </div>
     );

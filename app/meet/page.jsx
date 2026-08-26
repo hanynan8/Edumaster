@@ -36,25 +36,204 @@ import {
   Radio,
   Film,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-function Blocked() {
+// 🆕 كل نصوص الصفحة كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من
+// الناف بار (en/ar/es)، بما فيها locale الخاص بـ formatDateTime.
+const LOCALE_MAP = { en: "en-US", ar: "ar-EG", es: "es-ES" };
+
+const T = {
+  en: {
+    noAccess: "No access",
+    mustLogin: "You need to log in first to see live lectures.",
+    backHome: "Back to home",
+    minutes: "min",
+    course: "Course",
+    savedError: "Something went wrong, try again",
+    loadError: "Failed to load lectures, try again",
+    deleteError: "Something went wrong while deleting, try again",
+    confirmDelete: (title) => `Are you sure you want to delete the lecture "${title}"?`,
+    editLecture: "Edit lecture",
+    newLecture: "New live lecture",
+    courseLabel: "Course *",
+    chooseCourse: "Choose a course...",
+    needCourseFirst: "You need at least one course first.",
+    titleLabel: "Lecture title *",
+    titlePlaceholder: "e.g. Chapter 3 review",
+    descLabel: "Short description (optional)",
+    linkLabel: "Meeting link (optional)",
+    linkPlaceholder: "https://your-team.daily.co/room-name",
+    linkHelper: "Leave empty to auto-generate a video meeting link via Daily, or paste your own link.",
+    scheduledLabel: "Date & time *",
+    durationLabel: "Duration (minutes)",
+    saveChanges: "Save changes",
+    addLecture: "Add lecture",
+    cancel: "Cancel",
+    titleRequired: "Lecture title is required",
+    scheduledRequired: "Lecture date & time is required",
+    chooseCourseRequired: "Choose a course",
+    phaseLive: "Live now",
+    phaseUpcoming: "Upcoming",
+    phaseEnded: "Ended",
+    errInvalidLink: "Meeting link is not valid — it must start with http:// or https://",
+    errMissingTitle: "Lecture title is required",
+    errInvalidScheduledAt: "Lecture date & time is not valid",
+    errForbidden: "You don't have permission to edit/add to this course",
+    errDailyFailed: "Failed to auto-create the meeting via Daily — send a manual link instead.",
+    watchRecording: "Watch recording",
+    noRecordingToday: "No recording available for today's lecture",
+    lectureEnded: "The lecture has ended",
+    joinMeeting: "Join meeting",
+    enterMeeting: "Enter meeting",
+    editTitle: "Edit",
+    deleteTitle: "Delete",
+    recordingNotAvailable: "Recording not available right now, try again shortly",
+    back: "Back",
+    pageTitle: "Live lectures",
+    pageSubtitle: "Course video meetings (Daily)",
+    newLectureBtn: "New lecture",
+    noLecturesStudent: "No live lectures scheduled for your courses right now.",
+    noLecturesYet: "No lectures added yet.",
+    liveNow: "Live now",
+    upcoming: "Upcoming",
+    ended: "Ended",
+    noLiveNow: "No lecture is live right now.",
+    noUpcoming: "No upcoming lectures scheduled.",
+  },
+  ar: {
+    noAccess: "مفيش صلاحية وصول",
+    mustLogin: "لازم تسجّل دخولك الأول عشان تشوف المحاضرات اللايف.",
+    backHome: "الرجوع للرئيسية",
+    minutes: "دقيقة",
+    course: "كورس",
+    savedError: "حصل خطأ، حاول تاني",
+    loadError: "حصل خطأ في تحميل المحاضرات، حاول تاني",
+    deleteError: "حصل خطأ أثناء الحذف، حاول تاني",
+    confirmDelete: (title) => `متأكد إنك عايز تحذف محاضرة "${title}"؟`,
+    editLecture: "تعديل المحاضرة",
+    newLecture: "محاضرة لايف جديدة",
+    courseLabel: "الكورس *",
+    chooseCourse: "اختر كورس...",
+    needCourseFirst: "لازم يكون عندك كورس واحد على الأقل الأول.",
+    titleLabel: "عنوان المحاضرة *",
+    titlePlaceholder: "مثلاً: مراجعة الفصل الثالث",
+    descLabel: "وصف مختصر (اختياري)",
+    linkLabel: "رابط الاجتماع (اختياري)",
+    linkPlaceholder: "https://your-team.daily.co/room-name",
+    linkHelper: "سيبه فاضي عشان يتولّد رابط اجتماع فيديو عن طريق Daily تلقائيًا، أو الزق رابط اجتماع جاهز بنفسك.",
+    scheduledLabel: "المعاد *",
+    durationLabel: "المدة (دقيقة)",
+    saveChanges: "حفظ التعديلات",
+    addLecture: "إضافة المحاضرة",
+    cancel: "إلغاء",
+    titleRequired: "عنوان المحاضرة مطلوب",
+    scheduledRequired: "معاد المحاضرة مطلوب",
+    chooseCourseRequired: "اختر الكورس",
+    phaseLive: "شغالة دلوقتي",
+    phaseUpcoming: "لسه هتبدأ",
+    phaseEnded: "خلصت",
+    errInvalidLink: "رابط الاجتماع مش صالح — لازم يبدأ بـ http:// أو https://",
+    errMissingTitle: "عنوان المحاضرة مطلوب",
+    errInvalidScheduledAt: "معاد المحاضرة مش صالح",
+    errForbidden: "مفيش صلاحية تعدّل/تضيف على الكورس ده",
+    errDailyFailed: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل.",
+    watchRecording: "شاهد التسجيل",
+    noRecordingToday: "مفيش تسجيل متاح لمحاضرة النهاردة دي",
+    lectureEnded: "المحاضرة خلصت",
+    joinMeeting: "انضم للاجتماع",
+    enterMeeting: "الدخول على الاجتماع",
+    editTitle: "تعديل",
+    deleteTitle: "حذف",
+    recordingNotAvailable: "التسجيل مش متاح دلوقتي، جرّب تاني بعد شوية",
+    back: "الرجوع",
+    pageTitle: "المحاضرات اللايف",
+    pageSubtitle: "اجتماعات فيديو الكورسات (Daily)",
+    newLectureBtn: "محاضرة جديدة",
+    noLecturesStudent: "مفيش محاضرات لايف مجدولة لكورساتك دلوقتي.",
+    noLecturesYet: "لسه مفيش محاضرات مضافة.",
+    liveNow: "شغالة دلوقتي",
+    upcoming: "قادمة",
+    ended: "خلصت",
+    noLiveNow: "مفيش محاضرة شغالة دلوقتي.",
+    noUpcoming: "مفيش محاضرات قادمة مجدولة.",
+  },
+  es: {
+    noAccess: "Sin acceso",
+    mustLogin: "Debes iniciar sesión primero para ver las clases en vivo.",
+    backHome: "Volver al inicio",
+    minutes: "min",
+    course: "Curso",
+    savedError: "Ocurrió un error, inténtalo de nuevo",
+    loadError: "Error al cargar las clases, inténtalo de nuevo",
+    deleteError: "Ocurrió un error al eliminar, inténtalo de nuevo",
+    confirmDelete: (title) => `¿Seguro que quieres eliminar la clase "${title}"?`,
+    editLecture: "Editar clase",
+    newLecture: "Nueva clase en vivo",
+    courseLabel: "Curso *",
+    chooseCourse: "Elige un curso...",
+    needCourseFirst: "Necesitas al menos un curso primero.",
+    titleLabel: "Título de la clase *",
+    titlePlaceholder: "ej.: Repaso del capítulo 3",
+    descLabel: "Descripción breve (opcional)",
+    linkLabel: "Enlace de la reunión (opcional)",
+    linkPlaceholder: "https://your-team.daily.co/room-name",
+    linkHelper: "Déjalo vacío para generar un enlace de video automáticamente con Daily, o pega tu propio enlace.",
+    scheduledLabel: "Fecha y hora *",
+    durationLabel: "Duración (minutos)",
+    saveChanges: "Guardar cambios",
+    addLecture: "Agregar clase",
+    cancel: "Cancelar",
+    titleRequired: "El título de la clase es obligatorio",
+    scheduledRequired: "La fecha y hora de la clase es obligatoria",
+    chooseCourseRequired: "Elige el curso",
+    phaseLive: "En vivo ahora",
+    phaseUpcoming: "Próxima",
+    phaseEnded: "Finalizada",
+    errInvalidLink: "El enlace no es válido — debe empezar con http:// o https://",
+    errMissingTitle: "El título de la clase es obligatorio",
+    errInvalidScheduledAt: "La fecha y hora no es válida",
+    errForbidden: "No tienes permiso para editar/agregar en este curso",
+    errDailyFailed: "Falló la creación automática de la reunión vía Daily — envía un enlace manual.",
+    watchRecording: "Ver grabación",
+    noRecordingToday: "No hay grabación disponible para la clase de hoy",
+    lectureEnded: "La clase ha finalizado",
+    joinMeeting: "Unirse a la reunión",
+    enterMeeting: "Entrar a la reunión",
+    editTitle: "Editar",
+    deleteTitle: "Eliminar",
+    recordingNotAvailable: "La grabación no está disponible ahora, inténtalo en un momento",
+    back: "Volver",
+    pageTitle: "Clases en vivo",
+    pageSubtitle: "Videollamadas de los cursos (Daily)",
+    newLectureBtn: "Nueva clase",
+    noLecturesStudent: "No hay clases en vivo programadas para tus cursos ahora.",
+    noLecturesYet: "Aún no se han agregado clases.",
+    liveNow: "En vivo ahora",
+    upcoming: "Próximas",
+    ended: "Finalizadas",
+    noLiveNow: "No hay ninguna clase en vivo ahora mismo.",
+    noUpcoming: "No hay próximas clases programadas.",
+  },
+};
+
+function Blocked({ t }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
       <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
         <Video className="text-red-400" size={30} />
       </div>
-      <h2 className="text-xl font-semibold text-gray-700 mb-2">مفيش صلاحية وصول</h2>
-      <p className="text-gray-400 mb-4">لازم تسجّل دخولك الأول عشان تشوف المحاضرات اللايف.</p>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">{t.noAccess}</h2>
+      <p className="text-gray-400 mb-4">{t.mustLogin}</p>
       <Link href="/" className="text-blue-600 font-semibold hover:underline">
-        الرجوع للرئيسية
+        {t.backHome}
       </Link>
     </div>
   );
 }
 
-function formatDateTime(dateStr) {
+function formatDateTime(dateStr, language) {
   try {
-    return new Date(dateStr).toLocaleString("ar-EG", {
+    return new Date(dateStr).toLocaleString(LOCALE_MAP[language] || "en-US", {
       dateStyle: "medium",
       timeStyle: "short",
     });
@@ -122,21 +301,26 @@ function usePresenceOverrides(meetings) {
 
 // 🔧 (resolvePhase نُقلت لـ app/lib/meetingPhase.js — مستوردة فوق.)
 
-const PHASE_META = {
-  live: { label: "شغالة دلوقتي", className: "bg-red-100 text-red-700" },
-  upcoming: { label: "لسه هتبدأ", className: "bg-blue-100 text-blue-700" },
-  ended: { label: "خلصت", className: "bg-gray-100 text-gray-500" },
-};
+function getPhaseMeta(t) {
+  return {
+    live: { label: t.phaseLive, className: "bg-red-100 text-red-700" },
+    upcoming: { label: t.phaseUpcoming, className: "bg-blue-100 text-blue-700" },
+    ended: { label: t.phaseEnded, className: "bg-gray-100 text-gray-500" },
+  };
+}
 
-const SAVE_ERROR_MESSAGES = {
-  invalid_link: "رابط الاجتماع مش صالح — لازم يبدأ بـ http:// أو https://",
-  missing_title: "عنوان المحاضرة مطلوب",
-  invalid_scheduled_at: "معاد المحاضرة مش صالح",
-  forbidden: "مفيش صلاحية تعدّل/تضيف على الكورس ده",
-  daily_meeting_failed: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل.",
-};
+function getSaveErrorMessages(t) {
+  return {
+    invalid_link: t.errInvalidLink,
+    missing_title: t.errMissingTitle,
+    invalid_scheduled_at: t.errInvalidScheduledAt,
+    forbidden: t.errForbidden,
+    daily_meeting_failed: t.errDailyFailed,
+  };
+}
 
-function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
+function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
+  const SAVE_ERROR_MESSAGES = getSaveErrorMessages(t);
   const isEdit = Boolean(meeting);
   const [form, setForm] = useState({
     course: meeting?.course || courses[0]?.id || "",
@@ -157,12 +341,12 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
     e.preventDefault();
     setError("");
 
-    if (!form.title.trim()) return setError("عنوان المحاضرة مطلوب");
+    if (!form.title.trim()) return setError(t.titleRequired);
     // 🆕 اللينك بقى اختياري هنا — لو Daily مفعّل على السيرفر، الرابط
     // هيتولد تلقائيًا. لو مش مفعّل والباك إند رفض الطلب، هيوصلنا خطأ
     // invalid_link واضح (شوف SAVE_ERROR_MESSAGES).
-    if (!form.scheduledAt) return setError("معاد المحاضرة مطلوب");
-    if (!isEdit && !form.course) return setError("اختر الكورس");
+    if (!form.scheduledAt) return setError(t.scheduledRequired);
+    if (!isEdit && !form.course) return setError(t.chooseCourseRequired);
 
     setSaving(true);
     try {
@@ -185,7 +369,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
 
       onSaved();
     } catch (err) {
-      setError(SAVE_ERROR_MESSAGES[err.message] || "حصل خطأ، حاول تاني");
+      setError(SAVE_ERROR_MESSAGES[err.message] || t.savedError);
     } finally {
       setSaving(false);
     }
@@ -199,7 +383,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
           <h3 className="text-lg font-semibold text-gray-800">
-            {isEdit ? "تعديل المحاضرة" : "محاضرة لايف جديدة"}
+            {isEdit ? t.editLecture : t.newLecture}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={22} />
@@ -215,14 +399,14 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
 
           {!isEdit && (
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">الكورس *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.courseLabel}</label>
               <select
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.course}
                 onChange={(e) => update("course", e.target.value)}
                 required
               >
-                <option value="">اختر كورس...</option>
+                <option value="">{t.chooseCourse}</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title}
@@ -230,24 +414,24 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
                 ))}
               </select>
               {courses.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1.5">لازم يكون عندك كورس واحد على الأقل الأول.</p>
+                <p className="text-xs text-amber-600 mt-1.5">{t.needCourseFirst}</p>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">عنوان المحاضرة *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.titleLabel}</label>
             <input
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
-              placeholder="مثلاً: مراجعة الفصل الثالث"
+              placeholder={t.titlePlaceholder}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">وصف مختصر (اختياري)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.descLabel}</label>
             <textarea
               rows={2}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
@@ -257,22 +441,22 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">رابط الاجتماع (اختياري)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.linkLabel}</label>
             <input
               type="url"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dir-ltr text-left"
               value={form.link}
               onChange={(e) => update("link", e.target.value)}
-              placeholder="https://your-team.daily.co/room-name"
+              placeholder={t.linkPlaceholder}
             />
             <p className="text-xs text-gray-400 mt-1.5">
-              سيبه فاضي عشان يتولّد رابط اجتماع فيديو عن طريق Daily تلقائيًا، أو الزق رابط اجتماع جاهز بنفسك.
+              {t.linkHelper}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">المعاد *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.scheduledLabel}</label>
               <input
                 type="datetime-local"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
@@ -282,7 +466,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">المدة (دقيقة)</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.durationLabel}</label>
               <input
                 type="number"
                 min={5}
@@ -301,14 +485,14 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
-              {isEdit ? "حفظ التعديلات" : "إضافة المحاضرة"}
+              {isEdit ? t.saveChanges : t.addLecture}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50"
             >
-              إلغاء
+              {t.cancel}
             </button>
           </div>
         </form>
@@ -317,8 +501,8 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved }) {
   );
 }
 
-function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busy, phase, isTeacherView }) {
-  const meta = PHASE_META[phase];
+function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busy, phase, isTeacherView, t, language }) {
+  const meta = getPhaseMeta(t)[phase];
   const isDaily = meeting.source === "daily";
   const hasRecordings = Array.isArray(meeting.recordings) && meeting.recordings.length > 0;
   const [openingRecordingId, setOpeningRecordingId] = useState(null);
@@ -333,7 +517,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
       if (!res.ok || !data?.url) throw new Error();
       window.open(data.url, "_blank", "noopener,noreferrer");
     } catch {
-      setRecordingError("التسجيل مش متاح دلوقتي، جرّب تاني بعد شوية");
+      setRecordingError(t.recordingNotAvailable);
     } finally {
       setOpeningRecordingId(null);
     }
@@ -343,7 +527,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
     <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
-          <BookOpen size={12} /> {meeting.courseTitle || "كورس"}
+          <BookOpen size={12} /> {meeting.courseTitle || t.course}
         </div>
         <span className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${meta.className}`}>
           {phase === "live" && <Radio size={11} className="animate-pulse" />}
@@ -356,10 +540,10 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-4">
         <span className="flex items-center gap-1">
-          <Calendar size={13} /> {formatDateTime(meeting.scheduledAt)}
+          <Calendar size={13} /> {formatDateTime(meeting.scheduledAt, language)}
         </span>
         <span className="flex items-center gap-1">
-          <Clock size={13} /> {meeting.durationMinutes} دقيقة
+          <Clock size={13} /> {meeting.durationMinutes} {t.minutes}
         </span>
         {showTeacher && meeting.teacherName && (
           <span className="flex items-center gap-1">
@@ -385,14 +569,14 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
                   ) : (
                     <Film size={15} />
                   )}
-                  شاهد التسجيل
+                  {t.watchRecording}
                 </button>
               ))}
               {recordingError && <p className="text-[11px] text-red-500 text-center">{recordingError}</p>}
             </div>
           ) : (
             <div className="flex-1 text-center text-xs text-gray-400 py-2.5">
-              {isDaily ? "مفيش تسجيل متاح لمحاضرة النهاردة دي" : "المحاضرة خلصت"}
+              {isDaily ? t.noRecordingToday : t.lectureEnded}
             </div>
           )
         ) : isDaily ? (
@@ -403,7 +587,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
             onClick={() => onJoinEmbedded(meeting)}
             className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
           >
-            <PlayCircle size={15} /> انضم للاجتماع
+            <PlayCircle size={15} /> {t.joinMeeting}
           </button>
         ) : (
           // 🆕 لينك يدوي (منصة تانية غير Daily) — مفيش SDK نضمّنه بيه، فبيفتح
@@ -414,14 +598,14 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
           >
-            <ExternalLink size={15} /> الدخول على الاجتماع
+            <ExternalLink size={15} /> {t.enterMeeting}
           </a>
         )}
         {canManage && (
           <>
             <button
               onClick={() => onEdit(meeting)}
-              title="تعديل"
+              title={t.editTitle}
               className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600"
             >
               <Pencil size={15} />
@@ -429,7 +613,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
             <button
               onClick={() => onDelete(meeting)}
               disabled={busy}
-              title="حذف"
+              title={t.deleteTitle}
               className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 disabled:opacity-60"
             >
               {busy ? <Loader size={15} className="animate-spin" /> : <Trash2 size={15} />}
@@ -441,7 +625,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
   );
 }
 
-function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busyId, emptyText, getMeetingPhase, isTeacherView }) {
+function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDelete, onJoinEmbedded, busyId, emptyText, getMeetingPhase, isTeacherView, t, language }) {
   return (
     <div className="mb-8">
       <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">
@@ -465,6 +649,8 @@ function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDel
               busy={busyId === m.id}
               phase={getMeetingPhase(m)}
               isTeacherView={isTeacherView}
+              t={t}
+              language={language}
             />
           ))}
         </div>
@@ -475,6 +661,8 @@ function MeetingSection({ title, meetings, canManage, showTeacher, onEdit, onDel
 
 export default function MeetPage() {
   const { data: session, status } = useSession();
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const role = session?.user?.role;
   const userId = session?.user?.id;
 
@@ -508,9 +696,10 @@ export default function MeetPage() {
         return r.json();
       })
       .then((data) => setMeetings(Array.isArray(data?.meetings) ? data.meetings : []))
-      .catch(() => setError("حصل خطأ في تحميل المحاضرات، حاول تاني"))
+      .catch(() => setError(t.loadError))
       .finally(() => clearTimeout(timeoutId));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -530,14 +719,14 @@ export default function MeetPage() {
   }, [status, role]);
 
   async function handleDelete(meeting) {
-    if (!confirm(`متأكد إنك عايز تحذف محاضرة "${meeting.title}"؟`)) return;
+    if (!confirm(t.confirmDelete(meeting.title))) return;
     setBusyId(meeting.id);
     try {
       const res = await fetch(`/api/meetings/${meeting.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       setMeetings((prev) => prev.filter((m) => m.id !== meeting.id));
     } catch {
-      alert("حصل خطأ أثناء الحذف، حاول تاني");
+      alert(t.deleteError);
     } finally {
       setBusyId(null);
     }
@@ -580,7 +769,7 @@ export default function MeetPage() {
     );
   }
 
-  if (status === "unauthenticated") return <Blocked />;
+  if (status === "unauthenticated") return <Blocked t={t} />;
 
   const dashboardHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
   const canCreate = role === "teacher" || role === "admin";
@@ -596,7 +785,7 @@ export default function MeetPage() {
             <Link
               href={dashboardHref}
               className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 bg-white"
-              title="الرجوع"
+              title={t.back}
             >
               <ArrowRight size={18} />
             </Link>
@@ -604,8 +793,8 @@ export default function MeetPage() {
               <Video className="text-white" size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-800">المحاضرات اللايف</h1>
-              <p className="text-sm text-gray-400">اجتماعات فيديو الكورسات (Daily)</p>
+              <h1 className="text-2xl font-semibold text-gray-800">{t.pageTitle}</h1>
+              <p className="text-sm text-gray-400">{t.pageSubtitle}</p>
             </div>
           </div>
 
@@ -614,7 +803,7 @@ export default function MeetPage() {
               onClick={() => setModalMeeting(null)}
               className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:opacity-90"
             >
-              <Plus size={18} /> محاضرة جديدة
+              <Plus size={18} /> {t.newLectureBtn}
             </button>
           )}
         </div>
@@ -633,13 +822,13 @@ export default function MeetPage() {
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 py-20 text-center">
             <Video className="mx-auto text-gray-300 mb-3" size={40} />
             <p className="text-gray-400">
-              {role === "student" ? "مفيش محاضرات لايف مجدولة لكورساتك دلوقتي." : "لسه مفيش محاضرات مضافة."}
+              {role === "student" ? t.noLecturesStudent : t.noLecturesYet}
             </p>
           </div>
         ) : (
           <>
             <MeetingSection
-              title="شغالة دلوقتي"
+              title={t.liveNow}
               meetings={grouped.live}
               canManage={canManage}
               showTeacher={role === "admin"}
@@ -647,12 +836,14 @@ export default function MeetPage() {
               onDelete={handleDelete}
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
-              emptyText="مفيش محاضرة شغالة دلوقتي."
+              emptyText={t.noLiveNow}
               getMeetingPhase={getMeetingPhase}
               isTeacherView={role === "teacher" || role === "admin"}
+              t={t}
+              language={language}
             />
             <MeetingSection
-              title="قادمة"
+              title={t.upcoming}
               meetings={grouped.upcoming}
               canManage={canManage}
               showTeacher={role === "admin"}
@@ -660,13 +851,15 @@ export default function MeetPage() {
               onDelete={handleDelete}
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
-              emptyText="مفيش محاضرات قادمة مجدولة."
+              emptyText={t.noUpcoming}
               getMeetingPhase={getMeetingPhase}
               isTeacherView={role === "teacher" || role === "admin"}
+              t={t}
+              language={language}
             />
             {grouped.ended.length > 0 && (
               <MeetingSection
-                title="خلصت"
+                title={t.ended}
                 meetings={grouped.ended}
                 canManage={canManage}
                 showTeacher={role === "admin"}
@@ -677,6 +870,8 @@ export default function MeetPage() {
                 emptyText=""
                 getMeetingPhase={getMeetingPhase}
                 isTeacherView={role === "teacher" || role === "admin"}
+                t={t}
+                language={language}
               />
             )}
           </>
@@ -689,6 +884,7 @@ export default function MeetPage() {
           courses={courses}
           onClose={() => setModalMeeting(undefined)}
           onSaved={handleSaved}
+          t={t}
         />
       )}
 

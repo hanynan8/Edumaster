@@ -16,6 +16,144 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
 import CourseFormModal from "./components/CourseFormModal";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+// 🆕 كل نصوص الصفحة كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من
+// الناف بار (en/ar/es).
+const T = {
+  en: {
+    zoomImage: "Zoom image",
+    close: "Close",
+    editProfile: "Edit profile",
+    avatarLoadError: "There was a problem loading the image after upload, try again",
+    imageTypeError: "Image must be JPG, GIF or PNG",
+    imageSizeError: "Image size exceeds the limit (1MB)",
+    genericError: "Something went wrong, try again",
+    genericErrorWithCode: (code) => `Something went wrong, try again (${code})`,
+    nameLengthError: "Name must be between 2 and 60 characters",
+    phoneFormatError: "Phone number format is invalid",
+    profileTitle: "Profile",
+    profileSubtitle: "Edit your personal details",
+    changeImage: "Change image",
+    maxSizeHint: "Max size: 1MB. Formats: JPG, GIF or PNG",
+    uploadingImage: "Uploading image...",
+    currentEmail: "Current email",
+    emailNotEditable: "Email cannot be edited from here",
+    registeredName: "Registered name",
+    namePlaceholder: "Enter your full name",
+    phoneLabel: "Phone number",
+    phonePlaceholder: "Add your phone number (optional)",
+    savedSuccess: "Your details were saved successfully",
+    saving: "Saving...",
+    saveChanges: "Save changes",
+    cancel: "Cancel",
+    loadCoursesError: "Failed to load courses",
+    courseHasStudents: (n) => `You can't delete this course — it has ${n} enrolled student(s). Archive it instead.`,
+    forbiddenDelete: "You don't have permission to delete this course (you're not the owner).",
+    notFound: "This course doesn't exist anymore (it may have already been deleted).",
+    unauthorized: "You need to log in again to delete.",
+    deleteFailed: "Delete failed on the server — try again, or contact support if it keeps happening.",
+    internalError: "A server error occurred while deleting. Try again shortly.",
+    confirmDelete: (title) => `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+    deleteErrorWithCode: (code) => `Something went wrong while deleting${code ? ` (${code})` : ""}`,
+    deleteErrorNetwork: "Something went wrong while deleting — check your internet connection and try again.",
+    myCourses: "My courses",
+    manageCourses: "Manage the courses you teach",
+    performance: "Performance & stats",
+    liveLectures: "Live lectures",
+    newCourse: "New course",
+    noCoursesYet: "You haven't created any course yet",
+    createFirstCourse: "Create your first course",
+  },
+  ar: {
+    zoomImage: "تكبير الصورة",
+    close: "إغلاق",
+    editProfile: "تعديل الملف الشخصي",
+    avatarLoadError: "حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني",
+    imageTypeError: "الصورة لازم تكون JPG أو GIF أو PNG",
+    imageSizeError: "حجم الصورة أكبر من المسموح (1MB)",
+    genericError: "حصل خطأ، حاول تاني",
+    genericErrorWithCode: (code) => `حصل خطأ، حاول تاني (${code})`,
+    nameLengthError: "الاسم لازم يكون بين 2 و60 حرف",
+    phoneFormatError: "رقم الهاتف مش بصيغة صحيحة",
+    profileTitle: "الملف الشخصي",
+    profileSubtitle: "عدّل بياناتك الشخصية",
+    changeImage: "تغيير الصورة",
+    maxSizeHint: "أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG",
+    uploadingImage: "جارِ رفع الصورة...",
+    currentEmail: "البريد الإلكتروني الحالي",
+    emailNotEditable: "الإيميل مش قابل للتعديل من هنا",
+    registeredName: "الاسم المسجّل به",
+    namePlaceholder: "اكتب اسمك بالكامل",
+    phoneLabel: "رقم الهاتف",
+    phonePlaceholder: "أضف رقم هاتفك (اختياري)",
+    savedSuccess: "تم حفظ بياناتك بنجاح",
+    saving: "جارِ الحفظ...",
+    saveChanges: "حفظ التعديلات",
+    cancel: "إلغاء",
+    loadCoursesError: "تعذّر تحميل الكورسات",
+    courseHasStudents: (n) => `مينفعش تحذف الكورس ده — فيه ${n} طالب مسجل. أرشفه بدل الحذف.`,
+    forbiddenDelete: "مش معاك صلاحية تحذف الكورس ده (مش صاحبه).",
+    notFound: "الكورس ده مش موجود أصلاً (يمكن اتحذف قبل كده).",
+    unauthorized: "لازم تسجّل دخول تاني عشان تقدر تحذف.",
+    deleteFailed: "الحذف فشل من السيرفر — جرّب تاني، ولو استمرت المشكلة كلّم الدعم الفني.",
+    internalError: "حصل خطأ في السيرفر أثناء الحذف. جرّب تاني بعد شوية.",
+    confirmDelete: (title) => `متأكد إنك عايز تحذف "${title}"؟ الإجراء ده مينفعش يترجع.`,
+    deleteErrorWithCode: (code) => `حصل خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
+    deleteErrorNetwork: "حصل خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول تاني.",
+    myCourses: "كورساتي",
+    manageCourses: "إدارة الكورسات اللي إنت بتدرّسها",
+    performance: "الأداء والإحصائيات",
+    liveLectures: "المحاضرات اللايف",
+    newCourse: "كورس جديد",
+    noCoursesYet: "لسه معملتش أي كورس",
+    createFirstCourse: "ابدأ بإنشاء أول كورس",
+  },
+  es: {
+    zoomImage: "Ampliar imagen",
+    close: "Cerrar",
+    editProfile: "Editar perfil",
+    avatarLoadError: "Hubo un problema al cargar la imagen tras subirla, inténtalo de nuevo",
+    imageTypeError: "La imagen debe ser JPG, GIF o PNG",
+    imageSizeError: "El tamaño de la imagen supera el límite (1MB)",
+    genericError: "Ocurrió un error, inténtalo de nuevo",
+    genericErrorWithCode: (code) => `Ocurrió un error, inténtalo de nuevo (${code})`,
+    nameLengthError: "El nombre debe tener entre 2 y 60 caracteres",
+    phoneFormatError: "El formato del número de teléfono no es válido",
+    profileTitle: "Perfil",
+    profileSubtitle: "Edita tus datos personales",
+    changeImage: "Cambiar imagen",
+    maxSizeHint: "Tamaño máx.: 1MB. Formatos: JPG, GIF o PNG",
+    uploadingImage: "Subiendo imagen...",
+    currentEmail: "Correo electrónico actual",
+    emailNotEditable: "El correo no se puede editar desde aquí",
+    registeredName: "Nombre registrado",
+    namePlaceholder: "Escribe tu nombre completo",
+    phoneLabel: "Número de teléfono",
+    phonePlaceholder: "Agrega tu número de teléfono (opcional)",
+    savedSuccess: "Tus datos se guardaron con éxito",
+    saving: "Guardando...",
+    saveChanges: "Guardar cambios",
+    cancel: "Cancelar",
+    loadCoursesError: "No se pudieron cargar los cursos",
+    courseHasStudents: (n) => `No puedes eliminar este curso — tiene ${n} estudiante(s) inscrito(s). Archívalo en su lugar.`,
+    forbiddenDelete: "No tienes permiso para eliminar este curso (no eres el propietario).",
+    notFound: "Este curso ya no existe (puede que ya haya sido eliminado).",
+    unauthorized: "Debes iniciar sesión de nuevo para poder eliminar.",
+    deleteFailed: "La eliminación falló en el servidor — inténtalo de nuevo, o contacta soporte si persiste.",
+    internalError: "Ocurrió un error del servidor al eliminar. Inténtalo en un momento.",
+    confirmDelete: (title) => `¿Seguro que quieres eliminar "${title}"? Esta acción no se puede deshacer.`,
+    deleteErrorWithCode: (code) => `Ocurrió un error al eliminar${code ? ` (${code})` : ""}`,
+    deleteErrorNetwork: "Ocurrió un error al eliminar — revisa tu conexión a internet e inténtalo de nuevo.",
+    myCourses: "Mis cursos",
+    manageCourses: "Administra los cursos que impartes",
+    performance: "Rendimiento y estadísticas",
+    liveLectures: "Clases en vivo",
+    newCourse: "Nuevo curso",
+    noCoursesYet: "Aún no has creado ningún curso",
+    createFirstCourse: "Crea tu primer curso",
+  },
+};
 
 const AVATAR_MAX_BYTES = 1 * 1024 * 1024; // 1MB
 const AVATAR_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif"];
@@ -32,7 +170,7 @@ function isValidPhoneClient(phone) {
 }
 
 /* ─── كارت مصغّر يظهر أعلى الصفحة: صورة + اسم + إيميل + زرار تعديل ─── */
-function ProfileSummaryCard({ user, onEdit }) {
+function ProfileSummaryCard({ user, onEdit, t }) {
   const [showFullscreen, setShowFullscreen] = useState(false);
 
   return (
@@ -43,7 +181,7 @@ function ProfileSummaryCard({ user, onEdit }) {
             type="button"
             onClick={() => setShowFullscreen(true)}
             className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
-            title="تكبير الصورة"
+            title={t.zoomImage}
           >
             <img
               src={user.avatar}
@@ -67,7 +205,7 @@ function ProfileSummaryCard({ user, onEdit }) {
         onClick={onEdit}
         className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
       >
-        <Pencil size={13} /> تعديل الملف الشخصي
+        <Pencil size={13} /> {t.editProfile}
       </button>
 
       {showFullscreen && user?.avatar && (
@@ -79,7 +217,7 @@ function ProfileSummaryCard({ user, onEdit }) {
             type="button"
             onClick={() => setShowFullscreen(false)}
             className="absolute top-4 end-4 sm:top-6 sm:end-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-            title="إغلاق"
+            title={t.close}
           >
             <X size={20} />
           </button>
@@ -95,7 +233,7 @@ function ProfileSummaryCard({ user, onEdit }) {
   );
 }
 
-function ProfileEditModal({ initialUser, onClose, onSaved }) {
+function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
   const { update } = useSession();
   const fileInputRef = useRef(null);
 
@@ -128,7 +266,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
       setTimeout(() => setAvatarLoadAttempt((n) => n + 1), AVATAR_LOAD_RETRY_DELAY_MS);
     } else {
       setAvatarBroken(true);
-      setAvatarError("حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني");
+      setAvatarError(t.avatarLoadError);
     }
   }
 
@@ -143,14 +281,14 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
 
     const normalizedType = normalizeImageMime(rawFile.type);
     if (!AVATAR_ALLOWED_TYPES.includes(normalizedType)) {
-      setAvatarError("الصورة لازم تكون JPG أو GIF أو PNG");
+      setAvatarError(t.imageTypeError);
       return;
     }
 
     // 🚫 مفيش ضغط تلقائي — لو الصورة أكبر من الحد المسموح بيترفض الرفع على
     // طول وبنوضح للمدرّس إنه لازم يختار صورة أصغر (مش نعدّل الملف بالنيابة عنه).
     if (rawFile.size > AVATAR_MAX_BYTES) {
-      setAvatarError("حجم الصورة أكبر من المسموح (1MB)");
+      setAvatarError(t.imageSizeError);
       return;
     }
 
@@ -181,11 +319,11 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
 
       if (!res.ok || !data?.url) {
         if (parseFailed || res.status === 413) {
-          setAvatarError("حجم الصورة أكبر من المسموح (1MB)");
+          setAvatarError(t.imageSizeError);
         } else if (res.status === 401) {
-          setAvatarError("حصل خطأ، حاول تاني"); // الجلسة انتهت — المدرّس هيحتاج يعمل login تاني
+          setAvatarError(t.genericError); // الجلسة انتهت — المدرّس هيحتاج يعمل login تاني
         } else {
-          setAvatarError(data?.error ? `حصل خطأ، حاول تاني (${data.error})` : "حصل خطأ، حاول تاني");
+          setAvatarError(data?.error ? t.genericErrorWithCode(data.error) : t.genericError);
         }
         setAvatarPreview(avatar);
         return;
@@ -194,7 +332,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
       setAvatarPreview(data.url);
     } catch (err) {
       // فشل الشبكة نفسه (مفيش نت، أو الطلب اتقطع)
-      setAvatarError("حصل خطأ، حاول تاني");
+      setAvatarError(t.genericError);
       setAvatarPreview(avatar);
       console.error("[avatar upload] network error:", err);
     } finally {
@@ -206,12 +344,12 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
     setError("");
     const trimmedName = name.trim();
     if (trimmedName.length < 2 || trimmedName.length > 60) {
-      setError("الاسم لازم يكون بين 2 و60 حرف");
+      setError(t.nameLengthError);
       return;
     }
     const trimmedPhone = phone.trim();
     if (trimmedPhone && !isValidPhoneClient(trimmedPhone)) {
-      setError("رقم الهاتف مش بصيغة صحيحة");
+      setError(t.phoneFormatError);
       return;
     }
 
@@ -225,9 +363,9 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(
-          data?.error === "invalid_name" ? "الاسم لازم يكون بين 2 و60 حرف" :
-          data?.error === "invalid_phone" ? "رقم الهاتف مش بصيغة صحيحة" :
-          "حصل خطأ، حاول تاني"
+          data?.error === "invalid_name" ? t.nameLengthError :
+          data?.error === "invalid_phone" ? t.phoneFormatError :
+          t.genericError
         );
         return;
       }
@@ -238,7 +376,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
       onSaved?.(data.user);
       setTimeout(onClose, 900);
     } catch {
-      setError("حصل خطأ، حاول تاني");
+      setError(t.genericError);
     } finally {
       setSaving(false);
     }
@@ -262,8 +400,8 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
           <X size={18} />
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">الملف الشخصي</h2>
-        <p className="text-xs text-gray-400 mb-5">عدّل بياناتك الشخصية</p>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">{t.profileTitle}</h2>
+        <p className="text-xs text-gray-400 mb-5">{t.profileSubtitle}</p>
 
         {/* الصورة */}
         <div className="flex flex-col items-center mb-6">
@@ -290,7 +428,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
               className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
-              aria-label="تغيير الصورة"
+              aria-label={t.changeImage}
             >
               {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
             </button>
@@ -304,10 +442,10 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
           </div>
           {!uploadingAvatar && !avatarError && (
             <p className="text-[11px] text-gray-400 mt-2 text-center max-w-[220px]">
-              أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG
+              {t.maxSizeHint}
             </p>
           )}
-          {uploadingAvatar && <p className="text-[11px] text-gray-400 mt-2">جارِ رفع الصورة...</p>}
+          {uploadingAvatar && <p className="text-[11px] text-gray-400 mt-2">{t.uploadingImage}</p>}
           {avatarError && !uploadingAvatar && (
             <p className="text-[11px] text-red-500 mt-2 text-center max-w-[220px]">{avatarError}</p>
           )}
@@ -316,24 +454,24 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
         {/* الإيميل — للعرض بس */}
         <div className="mb-4">
           <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
-            <Mail size={12} /> البريد الإلكتروني الحالي
+            <Mail size={12} /> {t.currentEmail}
           </label>
           <div className="w-full bg-gray-50 border border-gray-100 rounded-lg px-3.5 py-2.5 text-sm text-gray-500 flex items-center justify-between">
             <span className="truncate">{initialUser?.email}</span>
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">الإيميل مش قابل للتعديل من هنا</p>
+          <p className="text-[11px] text-gray-400 mt-1">{t.emailNotEditable}</p>
         </div>
 
         {/* الاسم */}
         <div className="mb-4">
           <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
-            <User size={12} /> الاسم المسجّل به
+            <User size={12} /> {t.registeredName}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="اكتب اسمك بالكامل"
+            placeholder={t.namePlaceholder}
             maxLength={60}
             className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
           />
@@ -342,13 +480,13 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
         {/* الهاتف */}
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
-            <Phone size={12} /> رقم الهاتف
+            <Phone size={12} /> {t.phoneLabel}
           </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="أضف رقم هاتفك (اختياري)"
+            placeholder={t.phonePlaceholder}
             maxLength={20}
             className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
           />
@@ -357,7 +495,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
         {error && <div className="bg-red-50 text-red-600 text-xs px-3.5 py-2.5 rounded-lg mb-4">{error}</div>}
         {success && (
           <div className="bg-green-50 text-green-600 text-xs px-3.5 py-2.5 rounded-lg mb-4 flex items-center gap-1.5">
-            <CheckCircle2 size={13} /> تم حفظ بياناتك بنجاح
+            <CheckCircle2 size={13} /> {t.savedSuccess}
           </div>
         )}
 
@@ -368,13 +506,13 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
             className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving && <Loader size={14} className="animate-spin" />}
-            {saving ? "جارِ الحفظ..." : "حفظ التعديلات"}
+            {saving ? t.saving : t.saveChanges}
           </button>
           <button
             onClick={onClose}
             className="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors"
           >
-            إلغاء
+            {t.cancel}
           </button>
         </div>
       </div>
@@ -383,6 +521,8 @@ function ProfileEditModal({ initialUser, onClose, onSaved }) {
 }
 
 export default function TeacherCoursesPage() {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
   const [modalCourse, setModalCourse] = useState(undefined); // undefined=closed, null=new, object=edit
@@ -396,7 +536,7 @@ export default function TeacherCoursesPage() {
       if (!res.ok) throw new Error(data?.error);
       setCourses(data.courses);
     } catch {
-      setError("تعذّر تحميل الكورسات");
+      setError(t.loadCoursesError);
     }
   }
 
@@ -413,7 +553,8 @@ export default function TeacherCoursesPage() {
   useEffect(() => {
     loadCourses();
     loadProfile();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   function handleSaved(saved) {
     setModalCourse(undefined);
@@ -430,27 +571,27 @@ export default function TeacherCoursesPage() {
   // كود خطأ ليه رسالة واضحة، ولو كود جديد ظهر بنعرضه زي ما هو بدل رسالة
   // مبهمة (أسهل في تشخيص أي مشكلة جديدة تحصل).
   const DELETE_ERROR_MESSAGES = {
-    course_has_students: (data) => `مينفعش تحذف الكورس ده — فيه ${data.studentsCount} طالب مسجل. أرشفه بدل الحذف.`,
-    forbidden: () => "مش معاك صلاحية تحذف الكورس ده (مش صاحبه).",
-    not_found: () => "الكورس ده مش موجود أصلاً (يمكن اتحذف قبل كده).",
-    unauthorized: () => "لازم تسجّل دخول تاني عشان تقدر تحذف.",
-    delete_failed: () => "الحذف فشل من السيرفر — جرّب تاني، ولو استمرت المشكلة كلّم الدعم الفني.",
-    internal_error: () => "حصل خطأ في السيرفر أثناء الحذف. جرّب تاني بعد شوية.",
+    course_has_students: (data) => t.courseHasStudents(data.studentsCount),
+    forbidden: () => t.forbiddenDelete,
+    not_found: () => t.notFound,
+    unauthorized: () => t.unauthorized,
+    delete_failed: () => t.deleteFailed,
+    internal_error: () => t.internalError,
   };
 
   async function handleDelete(course) {
-    if (!confirm(`متأكد إنك عايز تحذف "${course.title}"؟ الإجراء ده مينفعش يترجع.`)) return;
+    if (!confirm(t.confirmDelete(course.title))) return;
     try {
       const res = await fetch(`/api/courses/${course.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const buildMessage = DELETE_ERROR_MESSAGES[data?.error];
-        alert(buildMessage ? buildMessage(data) : `حصل خطأ أثناء الحذف${data?.error ? ` (${data.error})` : ""}`);
+        alert(buildMessage ? buildMessage(data) : t.deleteErrorWithCode(data?.error));
         return;
       }
       setCourses((prev) => prev.filter((c) => c.id !== course.id));
     } catch {
-      alert("حصل خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول تاني.");
+      alert(t.deleteErrorNetwork);
     }
   }
 
@@ -462,8 +603,8 @@ export default function TeacherCoursesPage() {
             <GraduationCap className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">كورساتي</h1>
-            <p className="text-sm text-gray-400">إدارة الكورسات اللي إنت بتدرّسها</p>
+            <h1 className="text-2xl font-semibold text-gray-800">{t.myCourses}</h1>
+            <p className="text-sm text-gray-400">{t.manageCourses}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -471,25 +612,25 @@ export default function TeacherCoursesPage() {
             href="/teacher/performance"
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
           >
-            <BarChart3 size={16} /> الأداء والإحصائيات
+            <BarChart3 size={16} /> {t.performance}
           </Link>
           <Link
             href="/meet"
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
           >
-            <Video size={16} /> المحاضرات اللايف
+            <Video size={16} /> {t.liveLectures}
           </Link>
           <button
             onClick={() => setModalCourse(null)}
             className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:opacity-90"
           >
-            <Plus size={18} /> كورس جديد
+            <Plus size={18} /> {t.newCourse}
           </button>
         </div>
       </div>
 
       {profileUser && (
-        <ProfileSummaryCard user={profileUser} onEdit={() => setShowProfileModal(true)} />
+        <ProfileSummaryCard user={profileUser} onEdit={() => setShowProfileModal(true)} t={t} />
       )}
 
       {showProfileModal && profileUser && (
@@ -497,6 +638,7 @@ export default function TeacherCoursesPage() {
           initialUser={profileUser}
           onClose={() => setShowProfileModal(false)}
           onSaved={(updatedUser) => setProfileUser((prev) => ({ ...prev, ...updatedUser }))}
+          t={t}
         />
       )}
 
@@ -511,12 +653,12 @@ export default function TeacherCoursesPage() {
       {courses?.length === 0 && (
         <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center">
           <BookOpen className="mx-auto text-gray-300 mb-3" size={40} />
-          <p className="text-gray-400 mb-4">لسه معملتش أي كورس</p>
+          <p className="text-gray-400 mb-4">{t.noCoursesYet}</p>
           <button
             onClick={() => setModalCourse(null)}
             className="text-blue-600 font-semibold hover:underline"
           >
-            ابدأ بإنشاء أول كورس
+            {t.createFirstCourse}
           </button>
         </div>
       )}

@@ -9,26 +9,138 @@
 import { useEffect, useState } from "react";
 import { X, Loader } from "lucide-react";
 import MediaUploader from "./MediaUploader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const LEVELS = [
-  { value: "beginner", label: "مبتدئ" },
-  { value: "intermediate", label: "متوسط" },
-  { value: "advanced", label: "متقدم" },
-];
-
-// 🔒 PRODUCT RULE: المدرس مش بيقدر ينشر كورس مباشرة — لما يختار "نشر"، الباك
-// إند (app/api/courses/[id]/route.js) بيحول الحالة لـ "قيد المراجعة" تلقائي
-// لحد ما الأدمن يوافق عليها من لوحته (شوف app/admin/components/coursesReviewPanel.jsx).
-// "قيد المراجعة" نفسها موجودة هنا كـ option بس عشان لو المدرس بيعدّل كورس
-// اتبعت بالفعل ومازال مستني، يشوف حالته الحقيقية في الفورم من غير لبس.
-const STATUSES = [
-  { value: "draft", label: "مسودة" },
-  { value: "published", label: "نشر (يحتاج موافقة الأدمن)" },
-  { value: "pending", label: "قيد المراجعة (بانتظار الأدمن)" },
-  { value: "archived", label: "مؤرشف" },
-];
+// 🆕 كل نصوص الفورم كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من
+// الناف بار (en/ar/es).
+const T = {
+  en: {
+    levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
+    statuses: {
+      draft: "Draft",
+      published: "Publish (needs admin approval)",
+      pending: "Pending review (waiting for admin)",
+      archived: "Archived",
+    },
+    titleRequired: "Title is required",
+    chooseCategory: "Choose a category",
+    submittedForReview: "The course was sent to the admin for review. It will appear to students once approved.",
+    savedAsDraft:
+      "The course was saved as a draft when created. To send it to the admin for review, open the course, add content (sections & lessons), then choose \"Publish\" again.",
+    slugTaken: "This title is already used, try a different one",
+    genericError: "Something went wrong, try again",
+    editCourse: "Edit course",
+    newCourse: "New course",
+    courseTitle: "Course title *",
+    shortDesc: "Short description (shown on the card)",
+    fullDesc: "Full description",
+    coverImage: "Cover image",
+    category: "Category *",
+    choose: "Choose...",
+    level: "Level",
+    priceLabel: "Price (per currency)",
+    free: "Free",
+    egp: "EGP",
+    usd: "USD (Dollar)",
+    eur: "EUR (Euro)",
+    requirements: "Prerequisites (one per line)",
+    outcomes: "What students will learn (one per line)",
+    tags: "Tags (comma-separated)",
+    status: "Status",
+    saveChanges: "Save changes",
+    createCourse: "Create course",
+    cancel: "Cancel",
+  },
+  ar: {
+    levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
+    statuses: {
+      draft: "مسودة",
+      published: "نشر (يحتاج موافقة الأدمن)",
+      pending: "قيد المراجعة (بانتظار الأدمن)",
+      archived: "مؤرشف",
+    },
+    titleRequired: "العنوان مطلوب",
+    chooseCategory: "اختر تصنيف",
+    submittedForReview: "تم إرسال الكورس للأدمن للمراجعة. هيظهر للطلاب بعد ما يوافق عليه.",
+    savedAsDraft:
+      "تم حفظ الكورس كمسودة أول ما بتتعمل. عشان تبعته للأدمن للمراجعة، افتح الكورس وضيف المحتوى (الأقسام والدروس)، وبعدين اختار «نشر» تاني.",
+    slugTaken: "العنوان مستخدم بالفعل، جرّب عنوان مختلف",
+    genericError: "حصل خطأ، حاول تاني",
+    editCourse: "تعديل الكورس",
+    newCourse: "كورس جديد",
+    courseTitle: "عنوان الكورس *",
+    shortDesc: "وصف قصير (يظهر في الكارت)",
+    fullDesc: "الوصف الكامل",
+    coverImage: "صورة الغلاف",
+    category: "التصنيف *",
+    choose: "اختر...",
+    level: "المستوى",
+    priceLabel: "السعر (لكل عملة)",
+    free: "مجاني",
+    egp: "جنيه (EGP)",
+    usd: "دولار (USD)",
+    eur: "يورو (EUR)",
+    requirements: "المتطلبات المسبقة (سطر لكل عنصر)",
+    outcomes: "هيتعلم إيه (سطر لكل عنصر)",
+    tags: "Tags (مفصولة بفاصلة)",
+    status: "الحالة",
+    saveChanges: "حفظ التعديلات",
+    createCourse: "إنشاء الكورس",
+    cancel: "إلغاء",
+  },
+  es: {
+    levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
+    statuses: {
+      draft: "Borrador",
+      published: "Publicar (requiere aprobación del admin)",
+      pending: "En revisión (esperando al admin)",
+      archived: "Archivado",
+    },
+    titleRequired: "El título es obligatorio",
+    chooseCategory: "Elige una categoría",
+    submittedForReview: "El curso se envió al administrador para su revisión. Aparecerá para los estudiantes una vez aprobado.",
+    savedAsDraft:
+      "El curso se guardó como borrador al crearse. Para enviarlo a revisión, abre el curso, agrega contenido (secciones y lecciones) y luego elige \"Publicar\" de nuevo.",
+    slugTaken: "Este título ya está en uso, prueba con otro diferente",
+    genericError: "Ocurrió un error, inténtalo de nuevo",
+    editCourse: "Editar curso",
+    newCourse: "Nuevo curso",
+    courseTitle: "Título del curso *",
+    shortDesc: "Descripción breve (se muestra en la tarjeta)",
+    fullDesc: "Descripción completa",
+    coverImage: "Imagen de portada",
+    category: "Categoría *",
+    choose: "Elige...",
+    level: "Nivel",
+    priceLabel: "Precio (por moneda)",
+    free: "Gratis",
+    egp: "EGP (Libra egipcia)",
+    usd: "USD (Dólar)",
+    eur: "EUR (Euro)",
+    requirements: "Requisitos previos (uno por línea)",
+    outcomes: "Qué aprenderán (uno por línea)",
+    tags: "Etiquetas (separadas por coma)",
+    status: "Estado",
+    saveChanges: "Guardar cambios",
+    createCourse: "Crear curso",
+    cancel: "Cancelar",
+  },
+};
 
 export default function CourseFormModal({ course, onClose, onSaved }) {
+  const { language } = useLanguage();
+  const t = T[language] || T.en;
+  const LEVELS = [
+    { value: "beginner", label: t.levels.beginner },
+    { value: "intermediate", label: t.levels.intermediate },
+    { value: "advanced", label: t.levels.advanced },
+  ];
+  const STATUSES = [
+    { value: "draft", label: t.statuses.draft },
+    { value: "published", label: t.statuses.published },
+    { value: "pending", label: t.statuses.pending },
+    { value: "archived", label: t.statuses.archived },
+  ];
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -73,8 +185,8 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     e.preventDefault();
     setError("");
 
-    if (!form.title.trim()) return setError("العنوان مطلوب");
-    if (!form.category) return setError("اختر تصنيف");
+    if (!form.title.trim()) return setError(t.titleRequired);
+    if (!form.category) return setError(t.chooseCategory);
 
     setSaving(true);
     try {
@@ -112,7 +224,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       // نعرض رسالة جوه المودال نفسه، فبنستخدم alert زي باقي رسائل الحالة
       // المشابهة في الصفحة (شوف teacher/page.jsx handleDelete).
       if (data?.submittedForReview) {
-        alert("تم إرسال الكورس للأدمن للمراجعة. هيظهر للطلاب بعد ما يوافق عليه.");
+        alert(t.submittedForReview);
       } else if (!isEdit && form.status === "published") {
         // 🩹 FIX: عند إنشاء كورس جديد (POST)، الباك إند بيحفظه دايمًا
         // status="draft" بغض النظر عن اختيار المدرس (شوف app/api/courses/route.js
@@ -121,14 +233,12 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         // غير أي تنبيه — المدرس يفضل فاكر إنه بعت الكورس للمراجعة وهو
         // لسه مسودة. بنوضّح هنا إن لازم يفتح الكورس تاني ويختار "نشر" من
         // جديد بعد ما يخلّص إضافة المحتوى (أقسام/دروس) عشان يترسل فعليًا.
-        alert(
-          "تم حفظ الكورس كمسودة أول ما بتتعمل. عشان تبعته للأدمن للمراجعة، افتح الكورس وضيف المحتوى (الأقسام والدروس)، وبعدين اختار «نشر» تاني."
-        );
+        alert(t.savedAsDraft);
       }
 
       onSaved(data);
     } catch (err) {
-      setError(err.message === "slug_taken" ? "العنوان مستخدم بالفعل، جرّب عنوان مختلف" : "حصل خطأ، حاول تاني");
+      setError(err.message === "slug_taken" ? t.slugTaken : t.genericError);
     } finally {
       setSaving(false);
     }

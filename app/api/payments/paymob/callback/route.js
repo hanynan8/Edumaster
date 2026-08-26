@@ -24,6 +24,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getPaymentModel } from "@/app/lib/models";
 import { verifyPaymobCallbackHmac } from "@/app/lib/paymob";
 import { markPaymentSucceededAndGrantAccess, markPaymentFailed } from "@/app/lib/paymentHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function redirectFailed(origin, reason) {
   return NextResponse.redirect(`${origin}/payments/failed?reason=${encodeURIComponent(reason)}`);
@@ -33,6 +34,19 @@ export async function GET(request) {
   const { origin, searchParams } = new URL(request.url);
 
   try {
+    // 🔒 SECURITY FIX (audit): نفس منطق webhook/route.js — الراوت ده بيوصله
+    // المستخدم عن طريق redirect من Paymob، لكن الرابط نفسه (والـ query
+    // params بتاعته) ممكن يتفتح/يتزور مباشرة من أي حد بمعدل غير محدود قبل
+    // كده. الـ HMAC بيمنع "نجاح دفع" وهمي، لكن مش بيمنع استهلاك موارد
+    // السيرفر (اتصال DB لكل محاولة) بمعدل عالي. حد سخي هنا برضو عشان
+    // مستخدم حقيقي بيرجع من صفحة الدفع عادي أبدًا ميتأثرش.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "payments:paymob:callback",
+      limit: 60,
+      windowSeconds: 60,
+    });
+    if (rl) return redirectFailed(origin, "too_many_requests");
+
     // 🔒 أول حاجة قبل أي منطق: التحقق من التوقيع. لو فشل، مفيش داعي نكمل
     // نقرا أي قيمة تانية من الرابط أصلاً.
     const verified = verifyPaymobCallbackHmac(searchParams);

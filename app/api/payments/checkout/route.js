@@ -31,6 +31,8 @@ import {
   createPaymobPaymentKey,
   buildPaymobIframeUrl,
   isPaymobConfigured,
+  isCurrencySupported,
+  getIntegrationIdForCurrency,
 } from "@/app/lib/paymob";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -120,6 +122,22 @@ export async function POST(request) {
       metadata.billingCycle = plan.billingCycle;
     }
 
+    // 🩹 BUG FIX (audit): قبل كده كنا بنكتشف إن العملة مش مدعومة بس لما
+    // Paymob ترفض الطلب بـ "Invalid currency sent" (بعد ما نكون عملنا
+    // Payment بحالة pending واتصلنا بـ Paymob مرتين). دلوقتي بنتأكد الأول
+    // إن فيه integration فعلي متظبط للعملة دي، وبنرجّع رسالة واضحة بدل
+    // خطأ عام لو مش متاحة — مفيش Payment وهمية بتتعمل ومفيش نداء API
+    // ضايع لـ Paymob لو أصلاً هيفشل.
+    if (!isCurrencySupported(currency)) {
+      console.error(
+        `[/api/payments/checkout] No Paymob integration configured for currency "${currency}"`
+      );
+      return jsonResponse(
+        { error: "currency_not_available", currency },
+        503
+      );
+    }
+
     const payment = await Payment.create({
       user: session.user.id,
       type,
@@ -165,6 +183,11 @@ async function startPaymobCheckout({ payment, amount, currency, session, metadat
       amount,
       currency,
       orderId: paymobOrder.id,
+      // 🩹 BUG FIX (audit): integration_id الصح لعملة الدفعة دي بالذات —
+      // ده كان بيتقرا قبل كده من متغير بيئة واحد ثابت جوه paymob.js نفسه
+      // (PAYMOB_INTEGRATION_ID)، فأي عملة غير اللي الـ integration ده
+      // متسجل بيها في Paymob كانت بترجع "Invalid currency sent".
+      integrationId: getIntegrationIdForCurrency(currency),
       billingData: {
         firstName: firstName || "NA",
         lastName: rest.join(" ") || "NA",

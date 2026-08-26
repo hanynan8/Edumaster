@@ -25,6 +25,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getPaymentModel } from "@/app/lib/models";
 import { verifyPaymobWebhookHmac } from "@/app/lib/paymob";
 import { markPaymentSucceededAndGrantAccess, markPaymentFailed } from "@/app/lib/paymentHelpers";
+import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -54,6 +55,20 @@ async function findPaymentForTransaction(obj) {
 
 export async function POST(request) {
   try {
+    // 🔒 SECURITY FIX (audit): الراوت ده مش محمي بأي جلسة (Paymob بينادي
+    // عليه server-to-server)، يعني أي حد على الإنترنت يقدر يبعت POST هنا
+    // بأي معدل بدون قيد. الـ HMAC بيمنع تزوير حدث دفع، لكن ده لسه بيسمح
+    // لمهاجم إنه يفتح اتصال DB (connectToMongo) ويستهلك موارد السيرفر بمعدل
+    // عالي (DoS رخيص). بنحط حد سخي جدًا (يفوق أي معدل حقيقي متوقع من Paymob
+    // نفسها بمراحل) عشان الحماية دي متأثرش على استقبال أحداث الدفع الحقيقية
+    // مهما زادت، وتوقف بس السبام الواضح.
+    const rl = await enforceRateLimit(request, {
+      keyPrefix: "payments:paymob:webhook",
+      limit: 60,
+      windowSeconds: 60,
+    });
+    if (rl) return rl;
+
     const { searchParams } = new URL(request.url);
     const hmacFromQuery = searchParams.get("hmac");
 

@@ -36,6 +36,36 @@ export function isPaymobConfigured() {
   );
 }
 
+// 🔒🩹 BUG FIX (audit): Paymob بيربط كل Integration بعملة واحدة محددة وقت
+// إنشاءها في لوحتهم — integration واحد مش بيقبل EGP و USD و EUR مع بعض.
+// الكود القديم كان بيستخدم PAYMOB_INTEGRATION_ID واحد ثابت لكل العملات
+// الثلاثة، فأي محاولة دفع بعملة غير اللي الـ integration ده متسجل بيها
+// كانت بترجع "Invalid currency sent" من Paymob مباشرة (400) — مش باج في
+// حساب المبلغ ولا في الكود اللي بيبعت الطلب، المشكلة كانت في استخدام
+// integration_id غلط للعملة المطلوبة.
+//
+// الحل: خريطة عملة → integration_id، كل عملة ليها متغير بيئة منفصل.
+// PAYMOB_INTEGRATION_ID (القديم) اتساب كـ fallback لـ EGP بس (توافق رجعي
+// مع أي إعداد قديم)، وبنضيف PAYMOB_INTEGRATION_ID_USD/_EUR للعملات
+// الجديدة. لازم تتعمل integrations منفصلة فعليًا من لوحة Paymob لكل عملة
+// (Payment Integrations → Create)، والقيم دي بترجع من هناك.
+const INTEGRATION_ID_BY_CURRENCY = {
+  EGP: process.env.PAYMOB_INTEGRATION_ID_EGP || process.env.PAYMOB_INTEGRATION_ID,
+  USD: process.env.PAYMOB_INTEGRATION_ID_USD,
+  EUR: process.env.PAYMOB_INTEGRATION_ID_EUR,
+};
+
+/** بيرجّع integration_id المناسب للعملة، أو null لو مفيش integration متظبط لها بعد. */
+export function getIntegrationIdForCurrency(currency) {
+  const raw = INTEGRATION_ID_BY_CURRENCY[currency];
+  return raw ? Number(raw) : null;
+}
+
+/** بيتأكد إن فيه integration فعلي متظبط للعملة دي قبل ما نحاول نفتح checkout بيها. */
+export function isCurrencySupported(currency) {
+  return Boolean(getIntegrationIdForCurrency(currency));
+}
+
 async function paymobFetch(path, body) {
   const res = await fetch(`${PAYMOB_API_BASE}${path}`, {
     method: "POST",
@@ -99,7 +129,7 @@ export async function createPaymobOrder({ amount, currency, merchantOrderId, ite
  * فبنملاها بقيم "NA" افتراضية زي الموصى بيه في توثيق Paymob نفسه لما
  * البيانات مش متاحة فعليًا — ده مقبول ومنتشر ومش بيأثر على نجاح العملية.
  */
-export async function createPaymobPaymentKey({ amount, currency, orderId, billingData }) {
+export async function createPaymobPaymentKey({ amount, currency, orderId, billingData, integrationId }) {
   const authToken = await getAuthToken();
   return paymobFetch("/acceptance/payment_keys", {
     auth_token: authToken,
@@ -109,7 +139,10 @@ export async function createPaymobPaymentKey({ amount, currency, orderId, billin
     // 🆕 نفس منطق createPaymobOrder فوق: currency ديناميكية، ولازم تتطابق مع
     // العملة اللي اتسجلت بيها الـ order نفسه فوق (Paymob بيتوقع تطابق).
     currency: currency || process.env.PAYMOB_CURRENCY || "EGP",
-    integration_id: Number(process.env.PAYMOB_INTEGRATION_ID),
+    // 🩹 BUG FIX (audit): integration_id بقى لازم يتبعت صراحة من الكاش
+    // (checkout route) بدل ما يتقرا هنا من متغير بيئة ثابت واحد — كل عملة
+    // ليها integration مختلف عند Paymob (شوف getIntegrationIdForCurrency).
+    integration_id: Number(integrationId),
     billing_data: {
       first_name: billingData?.firstName || "NA",
       last_name: billingData?.lastName || "NA",

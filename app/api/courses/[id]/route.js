@@ -10,6 +10,7 @@ import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
+import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,8 +36,7 @@ function serializeCourse(c) {
     teacherName: c.teacher?.name,
     level: c.level,
     language: c.language,
-    price: c.price,
-    currency: c.currency,
+    prices: c.prices || { EGP: 0, USD: 0, EUR: 0 },
     isFree: c.isFree,
     requirements: c.requirements,
     outcomes: c.outcomes,
@@ -64,8 +64,7 @@ const EDITABLE_FIELDS = [
   "category",
   "level",
   "language",
-  "price",
-  "currency",
+  "prices",
   "isFree",
   "requirements",
   "outcomes",
@@ -190,11 +189,11 @@ export async function PUT(request, { params }) {
       updates.status = "pending";
       submittedForReview = true;
     }
-    if (updates.price !== undefined) {
-      updates.price = Math.max(0, Number(updates.price) || 0);
+    if (updates.prices !== undefined) {
+      updates.prices = sanitizePrices(updates.prices);
     }
     if (updates.isFree) {
-      updates.price = 0;
+      updates.prices = emptyPrices();
     }
     if (updates.shortDescription !== undefined) {
       updates.shortDescription = String(updates.shortDescription).slice(0, 300);

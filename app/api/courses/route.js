@@ -21,6 +21,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
+import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -48,8 +49,7 @@ function serializeCourse(c) {
     teacherName: c.teacher?.name,
     level: c.level,
     language: c.language,
-    price: c.price,
-    currency: c.currency,
+    prices: c.prices || { EGP: 0, USD: 0, EUR: 0 },
     isFree: c.isFree,
     requirements: c.requirements,
     outcomes: c.outcomes,
@@ -200,8 +200,7 @@ export async function POST(request) {
       teacher: session.user.id, // 🔒 دايمًا صاحب الـ session، مش من الـ body
       level,
       language: body?.language || "ar",
-      price: isFree ? 0 : Math.max(0, Number(body?.price) || 0),
-      currency: body?.currency || "EGP",
+      prices: isFree ? emptyPrices() : sanitizePrices(body?.prices),
       isFree,
       requirements: Array.isArray(body?.requirements) ? body.requirements.map(String) : [],
       outcomes: Array.isArray(body?.outcomes) ? body.outcomes.map(String) : [],

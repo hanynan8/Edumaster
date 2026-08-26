@@ -14,10 +14,14 @@ const membershipPlanSchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     description: { type: String, default: "" },
 
-    // السعر بالقروش/السنت (integer) — نفس المنطق المتبع في Course.price.
-    // price = 0 يعني خطة مجانية (Free Membership).
-    price: { type: Number, default: 0, min: 0 },
-    currency: { type: String, default: "EGP" },
+    // 🆕 نفس منطق Course.prices بالظبط — سعر منفصل يدوي لكل عملة
+    // (EGP/USD/EUR)، الأدمن هو اللي بيحطهم وقت إنشاء/تعديل الخطة. خطة مجانية
+    // = billingCycle "free" (شوف تحت)، prices بتتجاهل في الحالة دي.
+    prices: {
+      EGP: { type: Number, default: 0, min: 0 },
+      USD: { type: Number, default: 0, min: 0 },
+      EUR: { type: Number, default: 0, min: 0 },
+    },
 
     billingCycle: {
       type: String,

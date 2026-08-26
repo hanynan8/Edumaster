@@ -1,10 +1,10 @@
 // app/lib/paymob.js
 //
-// 🆕 بوابة الدفع الثانية: Paymob (Accept API) — غلاف رفيع بنفس فلسفة
-// app/lib/paypal.js: fetch() مباشر من غير SDK إضافي. Paymob هو الاختيار
-// المنطقي كبوابة ثانية جنب PayPal لأنه (على عكس PayPal) بيدعم الجنيه
-// المصري (EGP) وبطاقات مصرية/محافظ محلية (Fawry, Vodafone Cash, إلخ حسب
-// الـ integration المفعّلة في حساب Paymob).
+// 🆕 بوابة الدفع الوحيدة في المشروع (اتشال PayPal نهائيًا) — غلاف رفيع:
+// fetch() مباشر من غير SDK إضافي. Paymob بيدعم الجنيه المصري (EGP) وبطاقات
+// مصرية/محافظ محلية (Fawry, Vodafone Cash, إلخ حسب الـ integration المفعّلة
+// في حساب Paymob)، وكمان دولار/يورو لو حساب Paymob متفعّل عليه multi-currency
+// (شوف app/lib/currency.js للتفاصيل والتحذير المهم عن ده).
 //
 // تدفق Paymob (Accept API v1) مختلف عن PayPal في 3 خطوات بدل واحدة:
 //   1) Authentication  → POST /api/auth/tokens            (api_key → auth_token, صالح ~1 ساعة)
@@ -78,13 +78,16 @@ async function getAuthToken() {
  * بتاعنا (زي referenceId في createPaypalOrder) — ده اللي بيربط الـ order
  * عند Paymob بالسجل المالي عندنا، وبنعتمد عليه في lookup وقت الـ webhook.
  */
-export async function createPaymobOrder({ amount, merchantOrderId, items = [] }) {
+export async function createPaymobOrder({ amount, currency, merchantOrderId, items = [] }) {
   const authToken = await getAuthToken();
   return paymobFetch("/ecommerce/orders", {
     auth_token: authToken,
     delivery_needed: false,
     amount_cents: Math.round(Number(amount)),
-    currency: process.env.PAYMOB_CURRENCY || "EGP",
+    // 🆕 currency بقت ديناميكية حسب لغة الموقع (شوف app/lib/currency.js) —
+    // EGP/USD/EUR بتوصل من checkout route؛ process.env.PAYMOB_CURRENCY
+    // اتسابت كـ fallback أخير بس (لو حصل نداء قديم من غير currency).
+    currency: currency || process.env.PAYMOB_CURRENCY || "EGP",
     merchant_order_id: merchantOrderId,
     items,
   });
@@ -96,14 +99,16 @@ export async function createPaymobOrder({ amount, merchantOrderId, items = [] })
  * فبنملاها بقيم "NA" افتراضية زي الموصى بيه في توثيق Paymob نفسه لما
  * البيانات مش متاحة فعليًا — ده مقبول ومنتشر ومش بيأثر على نجاح العملية.
  */
-export async function createPaymobPaymentKey({ amount, orderId, billingData }) {
+export async function createPaymobPaymentKey({ amount, currency, orderId, billingData }) {
   const authToken = await getAuthToken();
   return paymobFetch("/acceptance/payment_keys", {
     auth_token: authToken,
     amount_cents: Math.round(Number(amount)),
     expiration: 3600, // صلاحية payment_token: ساعة — كافية لأي جلسة دفع حقيقية
     order_id: orderId,
-    currency: process.env.PAYMOB_CURRENCY || "EGP",
+    // 🆕 نفس منطق createPaymobOrder فوق: currency ديناميكية، ولازم تتطابق مع
+    // العملة اللي اتسجلت بيها الـ order نفسه فوق (Paymob بيتوقع تطابق).
+    currency: currency || process.env.PAYMOB_CURRENCY || "EGP",
     integration_id: Number(process.env.PAYMOB_INTEGRATION_ID),
     billing_data: {
       first_name: billingData?.firstName || "NA",

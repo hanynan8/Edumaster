@@ -1,9 +1,9 @@
 // app/lib/paymentHelpers.js
 //
-// Phase 3 — منطق مشترك بعد نجاح/فشل/استرجاع أي عملية دفع، مستخدم من
-// app/api/payments/paypal/return و app/api/payments/webhook مع بعض —
-// المفروض الاتنين يودّوا لنفس النتيجة بالظبط مهما كان مين وصل الأول
-// (المستخدم لما يرجع لمتصفحه، أو الـ webhook من PayPal).
+// منطق مشترك بعد نجاح/فشل/استرجاع أي عملية دفع، مستخدم من
+// app/api/payments/paymob/callback و app/api/payments/paymob/webhook مع
+// بعض — المفروض الاتنين يودّوا لنفس النتيجة بالظبط مهما كان مين وصل الأول
+// (المستخدم لما يرجع لمتصفحه، أو الـ webhook من Paymob).
 //
 // 🔒 markPaymentSucceededAndGrantAccess هي القلب: بتعمل transition
 // pending → succeeded بشكل atomic (findOneAndUpdate بشرط status:"pending")

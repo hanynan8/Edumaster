@@ -82,10 +82,15 @@ const courseSchema = new mongoose.Schema(
 
     language: { type: String, default: "ar" },
 
-    // السعر بالقروش/السنت (integer) لتفادي مشاكل الفاصلة العشرية في الحسابات
-    // المالية. لو الكورس مجاني isFree=true وprice بيتجاهل.
-    price: { type: Number, default: 0, min: 0 },
-    currency: { type: String, default: "EGP" },
+    // 🆕 اعتماد كلي على Paymob + عملة الدفع بقت مربوطة بلغة الموقع (شوف
+    // app/lib/currency.js). التسعير يدوي بالكامل: المدرس بيحط سعر منفصل لكل
+    // عملة من التلاتة (مش تحويل تلقائي بسعر صرف). لو الكورس مجاني
+    // isFree=true وprices بيتجاهل بالكامل.
+    prices: {
+      EGP: { type: Number, default: 0, min: 0 },
+      USD: { type: Number, default: 0, min: 0 },
+      EUR: { type: Number, default: 0, min: 0 },
+    },
     isFree: { type: Boolean, default: false },
 
     requirements: { type: [String], default: [] }, // "المتطلبات المسبقة"

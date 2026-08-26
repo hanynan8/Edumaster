@@ -132,17 +132,17 @@ export async function middleware(request) {
   // حصل بطريقة ما رغم عدم وجود dangerouslySetInnerHTML/eval في الكود
   // الحالي). النطاقات هنا مبنية فعليًا من النطاقات المستخدمة في المشروع:
   // Bunny (CDN + Stream player iframe)، Unsplash/placehold (صور)،
-  // Google Fonts، و connect-src لـ PayPal API و Paymob Accept API (السيرفر
-  // بينادي الاتنين من الباك اند مش من المتصفح فعليًا — الدفع بيتم عن طريق
-  // redirect كامل بـ window.location.href لصفحة الدفع المستضافة عند
-  // البوابة، مش SDK/iframe مضمّن جوه صفحتنا، فمفيش داعي لإضافة نطاق
-  // paypal.com/paymob.com في script-src؛ frame-src مضاف لـ accept.paymob.com
-  // للاحتياط بس (لو حصل تغيير مستقبلي لتضمين iframe بدل redirect كامل).
+  // Google Fonts، و connect-src لـ Paymob Accept API (السيرفر بينادي Paymob
+  // من الباك اند مش من المتصفح فعليًا — الدفع بيتم عن طريق redirect كامل
+  // بـ window.location.href لصفحة الدفع المستضافة عند Paymob، مش SDK/iframe
+  // مضمّن جوه صفحتنا، فمفيش داعي لإضافة نطاق paymob.com في script-src؛
+  // frame-src مضاف لـ accept.paymob.com للاحتياط بس (لو حصل تغيير مستقبلي
+  // لتضمين iframe بدل redirect كامل).
   //
   // 🔒 SECURITY FIX (F5 — security audit): كانت شغّالة بوضع Report-Only —
   // بتبعت تقارير بس من غير ما تمنع حاجة فعليًا. الـ directives هنا مبنية
   // من النطاقات الحقيقية اللي المشروع بيستخدمها فعلًا (Bunny, Unsplash/
-  // placehold, Google Fonts, PayPal API), فمفيش سبب تفضل Report-Only —
+  // placehold, Google Fonts, Paymob Accept API), فمفيش سبب تفضل Report-Only —
   // اتحوّلت لوضع enforcing (اسم الهيدر بقى "Content-Security-Policy" بدل
   // "-Report-Only"). لو ظهرت مشاكل تحميل بعد الديبلوي (سكريبت/صورة/خط
   // اتمنع)، ضيف النطاق الناقص للـ directive المناسبة بدل الرجوع لـ
@@ -164,7 +164,7 @@ export async function middleware(request) {
     "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://res.cloudinary.com https://raw.githubusercontent.com",
     "media-src 'self' https://*.b-cdn.net",
     "frame-src 'self' https://iframe.mediadelivery.net https://accept.paymob.com https://*.daily.co",
-    "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://accept.paymob.com https://*.daily.co wss://*.daily.co",
+    "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://accept.paymob.com https://*.daily.co wss://*.daily.co",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

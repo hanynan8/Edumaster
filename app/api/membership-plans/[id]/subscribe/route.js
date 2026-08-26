@@ -44,7 +44,8 @@ export async function POST(request, { params }) {
 
     // 🔒 خطة مدفوعة: لسه معندناش دفع إلكتروني — بنرفض بدل ما نفعّل عضوية
     // من غير دفع فعلي.
-    if (plan.billingCycle !== "free" || plan.price > 0) {
+    const anyPricePositive = plan.prices && Object.values(plan.prices).some((v) => Number(v) > 0);
+    if (plan.billingCycle !== "free" || anyPricePositive) {
       return jsonResponse({ error: "payment_required" }, 402);
     }
 

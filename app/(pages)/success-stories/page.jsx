@@ -5,6 +5,26 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+// 🆕 فيديو قصص النجاح: مرفوع على Bunny Stream (videoId ثابت بمكتبتنا، مش
+// جاي من الداتابيز — الصفحة دي أصلاً بتاخد باقي المحتوى من successStories
+// document لكن الفيديو ده عنصر ثابت في التصميم مش بيتغير من لوحة الأدمن).
+//
+// 🔒 التصحيح: مكتبة الفيديو عندنا شغّالة بـ Token Authentication مفعّل من
+// لوحة Bunny (BUNNY_STREAM_TOKEN_AUTH_KEY في .env)، فأي رابط embed مش
+// موقّع بيترفض بـ 403 من Bunny مباشرة. التوقيع محتاج المفتاح السري ده،
+// ومينفعش يتحط في client component. فبدل ما نبني الرابط هنا، بنجيبه جاهز
+// وموقّع من /api/success-video (شوف الراوت ده لو محتاج تغيّر الـ videoId).
+function useSuccessVideoUrl() {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    fetch("/api/success-video")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUrl(data?.url || null))
+      .catch(() => setUrl(null));
+  }, []);
+  return url;
+}
+
 function useStoriesData() {
   const [data, setData] = useState(null);
   useEffect(() => {
@@ -67,6 +87,7 @@ export default function SuccessStoriesPage() {
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <StatsStrip data={data} t={t} />
+        <VideoShowcase t={t} />
         <Testimonials data={data} t={t} />
         <Journeys data={data} t={t} />
         <Approvals data={data} t={t} />
@@ -112,6 +133,45 @@ function StatsStrip({ data, t }) {
             <div className="w-4 sm:w-5 h-0.5 bg-[#1D6FD8] mt-1.5 sm:mt-2" />
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// 🆕 سكشن فيديو قصص النجاح: فيديو Bunny Stream واحد ثابت، بيتحط جوه بطاقة
+// بحواف دائرية وظل خفيف، ومظبوط بنسبة aspect-video عشان يفضل متجاوب على
+// كل المقاسات من غير ما ياخد مساحة زيادة على الموبايل.
+function VideoShowcase({ t }) {
+  const [ref, visible] = useReveal();
+  const videoUrl = useSuccessVideoUrl();
+  const ts = t.video || {};
+  return (
+    <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-white">
+      <div className="max-w-5xl mx-auto">
+        <div className={`text-center mb-8 sm:mb-10 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">
+            {ts.title || "شاهد قصص طلابنا"}
+          </h2>
+          {ts.desc && (
+            <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-[15px] leading-relaxed">{ts.desc}</p>
+          )}
+        </div>
+        <div
+          className={`relative w-full aspect-video rounded-2xl overflow-hidden shadow-xl border border-gray-100 bg-black transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+        >
+          {videoUrl ? (
+            <iframe
+              src={videoUrl}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; autoplay"
+              allowFullScreen
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

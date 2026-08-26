@@ -594,8 +594,23 @@ function RealCourseDetail({ id }) {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       {/* Hero */}
-      <section className="relative bg-[#0a0a0a] text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+      <section className="relative bg-[#0a0a0a] text-white overflow-hidden">
+        {/* 🆕 خلفية الهيرو بقت صورة الكورس نفسها (لو موجودة) مكبّرة ومضبّبة
+            شوية، مع طبقة تظليل غامقة فوقها عشان النص يفضل واضح ومقروء. لو
+            مفيش thumbnail أصلاً بيرجع لنفس الخلفية السودا القديمة. */}
+        {course.thumbnail && (
+          <div className="absolute inset-0" aria-hidden="true">
+            <Image
+              src={course.thumbnail}
+              alt=""
+              fill
+              unoptimized
+              className="object-cover scale-110 blur-md"
+            />
+            <div className="absolute inset-0 bg-black/50" />
+          </div>
+        )}
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
           <Link href="/courses" className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white mb-6">
             <BackArrow size={15} /> {t.back}
           </Link>
@@ -619,6 +634,7 @@ function RealCourseDetail({ id }) {
                 {course.teacherName && <span>{t.by} <b className="text-white">{course.teacherName}</b></span>}
               </div>
             </div>
+
 
             <div className="bg-white text-[#0a0a0a] rounded-2xl overflow-hidden shadow-2xl">
               <div className="relative h-44 bg-gray-100">

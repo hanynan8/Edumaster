@@ -180,7 +180,7 @@ function ProfileSummaryCard({ user, onEdit, t }) {
           <button
             type="button"
             onClick={() => setShowFullscreen(true)}
-            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0f2d57] focus:ring-offset-2"
             title={t.zoomImage}
           >
             <img
@@ -190,7 +190,7 @@ function ProfileSummaryCard({ user, onEdit, t }) {
             />
           </button>
         ) : (
-          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#0f2d57] text-white font-bold flex items-center justify-center text-4xl shrink-0">
             {user?.name?.charAt(0)?.toUpperCase() || "U"}
           </div>
         )}
@@ -203,7 +203,7 @@ function ProfileSummaryCard({ user, onEdit, t }) {
       </div>
       <button
         onClick={onEdit}
-        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
+        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#0f2d57] border border-[#0f2d57]/30 hover:bg-[#0f2d57]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
       >
         <Pencil size={13} /> {t.editProfile}
       </button>
@@ -420,14 +420,14 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
                 className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-[#C9A227] text-white text-2xl font-bold flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-[#0f2d57] text-white text-2xl font-bold flex items-center justify-center">
                 {name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
+              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#0f2d57] text-white flex items-center justify-center shadow-md hover:bg-[#0c2547] transition-colors disabled:opacity-60"
               aria-label={t.changeImage}
             >
               {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
@@ -473,7 +473,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
             onChange={(e) => setName(e.target.value)}
             placeholder={t.namePlaceholder}
             maxLength={60}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -488,7 +488,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
             onChange={(e) => setPhone(e.target.value)}
             placeholder={t.phonePlaceholder}
             maxLength={20}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -503,7 +503,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
           <button
             onClick={handleSave}
             disabled={saving || uploadingAvatar}
-            className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 bg-[#0f2d57] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#0c2547] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving && <Loader size={14} className="animate-spin" />}
             {saving ? t.saving : t.saveChanges}
@@ -599,9 +599,7 @@ export default function TeacherCoursesPage() {
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-            <GraduationCap className="text-white" size={22} />
-          </div>
+          <GraduationCap className="text-[#0f2d57]" size={30} />
           <div>
             <h1 className="text-2xl font-semibold text-gray-800">{t.myCourses}</h1>
             <p className="text-sm text-gray-400">{t.manageCourses}</p>
@@ -610,19 +608,19 @@ export default function TeacherCoursesPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href="/teacher/performance"
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#0f2d57]/50 hover:text-[#0f2d57] transition-colors"
           >
             <BarChart3 size={16} /> {t.performance}
           </Link>
           <Link
             href="/meet"
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#0f2d57]/50 hover:text-[#0f2d57] transition-colors"
           >
             <Video size={16} /> {t.liveLectures}
           </Link>
           <button
             onClick={() => setModalCourse(null)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:opacity-90"
+            className="flex items-center gap-2 bg-[#0f2d57] hover:bg-[#0c2547] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors"
           >
             <Plus size={18} /> {t.newCourse}
           </button>
@@ -644,7 +642,7 @@ export default function TeacherCoursesPage() {
 
       {courses === null && !error && (
         <div className="flex justify-center py-20">
-          <Loader className="animate-spin text-blue-500" size={36} />
+          <Loader className="animate-spin text-[#0f2d57]" size={36} />
         </div>
       )}
 
@@ -656,7 +654,7 @@ export default function TeacherCoursesPage() {
           <p className="text-gray-400 mb-4">{t.noCoursesYet}</p>
           <button
             onClick={() => setModalCourse(null)}
-            className="text-blue-600 font-semibold hover:underline"
+            className="text-[#0f2d57] font-semibold hover:underline"
           >
             {t.createFirstCourse}
           </button>

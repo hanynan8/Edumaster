@@ -85,7 +85,7 @@ export default function PaymentGatewayModal({ amount, currency, onConfirm, onClo
         <button
           disabled={disabled}
           onClick={onConfirm}
-          className="w-full flex items-center justify-center gap-2 bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 bg-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <ShieldCheck size={17} /> {t.confirm}
         </button>

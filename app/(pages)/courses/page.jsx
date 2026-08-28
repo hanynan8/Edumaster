@@ -25,6 +25,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
+import LoadingScreen from "@/app/components/LoadingScreen";
 
 const FALLBACK_IMAGE =
   "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
@@ -133,7 +134,7 @@ function localizeCourse(c, language, t) {
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: t.levels[c.level] || c.level,
-    levelColor: LEVEL_COLORS[c.level] || "#1D6FD8",
+    levelColor: LEVEL_COLORS[c.level] || "#0f2d57",
     durationLabel:
       c.durationLabel ||
       (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
@@ -261,7 +262,7 @@ function FilterSelect({ value, onChange, options }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -362,12 +363,7 @@ export default function CoursesPage() {
 
   if (localized === null) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{t.loading}</span>
-        </div>
-      </div>
+      <LoadingScreen />
     );
   }
 
@@ -457,7 +453,7 @@ function HeroSearchSection({ t, search, setSearch }) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t.searchPlaceholder}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57]"
                 />
               </div>
             </div>
@@ -506,7 +502,7 @@ function CourseCard({ course, t }) {
 
       <div className="flex flex-col gap-2 p-4 flex-1">
         {course.categoryName && (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#1D6FD8]">{course.categoryName}</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#0f2d57]">{course.categoryName}</span>
         )}
 
         <h3 className="text-sm sm:text-[15px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5em]">

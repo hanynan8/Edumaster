@@ -28,6 +28,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
+import LoadingScreen from "./LoadingScreen";
 
 const LEVEL_COLORS = {
   beginner: "#10b981",
@@ -71,7 +72,7 @@ function localizeCourse(c, language, ui) {
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: ui.levels[c.level] || c.level,
-    levelColor: LEVEL_COLORS[c.level] || "#1D6FD8",
+    levelColor: LEVEL_COLORS[c.level] || "#0f2d57",
     durationLabel: c.durationLabel || (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
     studentsCount: c.studentsCount || 0,
     ratingAverage: c.ratingAverage || 0,
@@ -236,10 +237,7 @@ export default function CoursesSection({
         )}
 
         {courses === null && (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <div className="w-7 h-7 border-2 border-black border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-bold tracking-[0.15em] uppercase text-gray-400">{ui.coursesLoading}</span>
-          </div>
+          <LoadingScreen compact />
         )}
 
         {courses?.length === 0 && (

@@ -45,13 +45,13 @@ const REDIRECT_BY_ROLE = { admin: "/admin", teacher: "/teacher" };
 
 function Blocked({ t, isRTL }) {
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-6">
-      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
-        <BookOpen className="text-red-400" size={30} />
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex flex-col items-center justify-center bg-[#f7f7f7] text-center px-6">
+      <div className="w-16 h-16 rounded-full bg-[#eceef2] border border-[#b2bcc9] flex items-center justify-center mb-4">
+        <BookOpen className="text-[#0f2d57]" size={30} />
       </div>
-      <h2 className="text-xl font-semibold text-gray-700 mb-2">{t.noAccess}</h2>
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">{t.noAccess}</h2>
       <p className="text-gray-400 mb-4">{t.mustLogin}</p>
-      <Link href="/" className="text-blue-600 font-semibold hover:underline">
+      <Link href="/" className="text-[#0f2d57] font-semibold hover:text-[#0c2547] hover:underline transition-colors">
         {t.backHome}
       </Link>
     </div>
@@ -73,8 +73,8 @@ export default function StudentLayout({ children }) {
 
   if (status === "loading") {
     return (
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader className="animate-spin text-blue-500" size={40} />
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
+        <Loader className="animate-spin text-[#0f2d57]" size={40} />
       </div>
     );
   }
@@ -83,8 +83,8 @@ export default function StudentLayout({ children }) {
   // الطالب ولا شاشة "Blocked" بالغلط.
   if (REDIRECT_BY_ROLE[role]) {
     return (
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader className="animate-spin text-blue-500" size={40} />
+      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
+        <Loader className="animate-spin text-[#0f2d57]" size={40} />
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function StudentLayout({ children }) {
   }
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       {children}
     </div>
   );

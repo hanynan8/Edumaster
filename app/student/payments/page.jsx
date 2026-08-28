@@ -85,7 +85,7 @@ export default function StudentPaymentsPage() {
         </div>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#0f2d57] flex items-center justify-center">
             <CreditCard className="text-white" size={22} />
           </div>
           <div>
@@ -96,7 +96,7 @@ export default function StudentPaymentsPage() {
 
         {!data && !error && (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#1D6FD8]" size={32} />
+            <Loader className="animate-spin text-[#0f2d57]" size={32} />
           </div>
         )}
 
@@ -106,7 +106,7 @@ export default function StudentPaymentsPage() {
           <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center">
             <Receipt className="mx-auto text-gray-300 mb-3" size={40} />
             <p className="text-gray-400 mb-4">{t.empty}</p>
-            <Link href="/courses" className="text-[#1D6FD8] font-semibold hover:underline">
+            <Link href="/courses" className="text-[#0f2d57] font-semibold hover:underline">
               {t.browse}
             </Link>
           </div>
@@ -141,7 +141,7 @@ export default function StudentPaymentsPage() {
                     {t.statusLabels[p.status] || p.status}
                   </span>
                   {p.status === "succeeded" && (
-                    <Link href={`/payments/receipt/${p.id}`} className="text-xs font-semibold text-[#1D6FD8] hover:underline whitespace-nowrap">
+                    <Link href={`/payments/receipt/${p.id}`} className="text-xs font-semibold text-[#0f2d57] hover:underline whitespace-nowrap">
                       {t.viewReceipt}
                     </Link>
                   )}

@@ -40,7 +40,7 @@ function ProgressBar({ percent }) {
     <div className="flex items-center gap-2 min-w-[110px]">
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${percent >= 100 ? "bg-green-500" : "bg-blue-500"}`}
+          className={`h-full rounded-full ${percent >= 100 ? "bg-green-500" : "bg-[#314a6f]"}`}
           style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>
@@ -98,7 +98,7 @@ export default function CoursePerformancePage({ params }) {
   if (!data) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-blue-500" size={36} />
+        <Loader className="animate-spin text-[#314a6f]" size={36} />
       </div>
     );
   }

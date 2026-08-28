@@ -78,7 +78,7 @@ export default function AssignmentSubmissionsPage({ params }) {
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
   const STATUS_LABELS = {
-    submitted: { label: t.statusSubmitted, cls: "bg-blue-50 text-blue-600" },
+    submitted: { label: t.statusSubmitted, cls: "bg-[#eceef2] text-[#0f2d57]" },
     late: { label: t.statusLate, cls: "bg-amber-50 text-amber-600" },
     graded: { label: t.statusGraded, cls: "bg-green-50 text-green-600" },
   };
@@ -145,7 +145,7 @@ export default function AssignmentSubmissionsPage({ params }) {
   if (!data) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-blue-500" size={36} />
+        <Loader className="animate-spin text-[#314a6f]" size={36} />
       </div>
     );
   }
@@ -187,7 +187,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                     href={s.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:underline mb-3"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f2d57] hover:underline mb-3"
                   >
                     <FileText size={15} /> {t.viewSubmittedFile}
                   </a>
@@ -202,20 +202,20 @@ export default function AssignmentSubmissionsPage({ params }) {
                     min={0}
                     max={data.maxScore}
                     placeholder={`0-${data.maxScore}`}
-                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
                     value={draft.score}
                     onChange={(e) => updateDraft(s.id, "score", e.target.value)}
                   />
                   <input
                     placeholder={t.feedbackPlaceholder}
-                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
                     value={draft.feedback}
                     onChange={(e) => updateDraft(s.id, "feedback", e.target.value)}
                   />
                   <button
                     onClick={() => handleGrade(s.id)}
                     disabled={savingId === s.id}
-                    className="flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
+                    className="flex items-center justify-center gap-1.5 bg-[#0f2d57] text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#0c2547] disabled:opacity-60"
                   >
                     {savingId === s.id ? <Loader size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     {s.status === "graded" ? t.update : t.grade}

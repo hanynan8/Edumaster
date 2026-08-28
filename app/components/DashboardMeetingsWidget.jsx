@@ -97,14 +97,14 @@ export default function DashboardMeetingsWidget() {
     <Link
       href="/meet"
       className={`mb-8 flex items-center gap-3 rounded-2xl px-5 py-4 border transition-colors ${
-        isLive ? "bg-red-50 border-red-200 hover:bg-red-100" : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+        isLive ? "bg-red-50 border-red-200 hover:bg-red-100" : "bg-[#eceef2] border-[#b2bcc9] hover:bg-[#d9dde4]"
       }`}
     >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isLive ? "bg-red-100" : "bg-blue-100"}`}>
-        {isLive ? <Radio size={18} className="text-red-600 animate-pulse" /> : <Clock size={18} className="text-blue-600" />}
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isLive ? "bg-red-100" : "bg-[#d9dde4]"}`}>
+        {isLive ? <Radio size={18} className="text-red-600 animate-pulse" /> : <Clock size={18} className="text-[#0f2d57]" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-bold ${isLive ? "text-red-700" : "text-blue-700"}`}>
+        <p className={`text-sm font-bold ${isLive ? "text-red-700" : "text-[#0c2547]"}`}>
           {isLive ? t.liveNow : t.upcoming(formatDateTime(meeting.scheduledAt, language))}
         </p>
         <p className="text-sm text-gray-600 truncate">

@@ -146,7 +146,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.lessonTitle}</label>
             <input
               autoFocus
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
             />
@@ -162,7 +162,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
                   onClick={() => update("type", typeValue)}
                   className={`flex-1 py-2 rounded-xl text-sm font-semibold border ${
                     form.type === typeValue
-                      ? "bg-blue-600 text-white border-blue-600"
+                      ? "bg-[#0f2d57] text-white border-[#0f2d57]"
                       : "border-gray-300 text-gray-600 hover:bg-gray-50"
                   }`}
                 >
@@ -198,7 +198,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.lessonContent}</label>
               <textarea
                 rows={6}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.textContent}
                 onChange={(e) => update("textContent", e.target.value)}
               />
@@ -213,7 +213,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
               <input
                 type="number"
                 min={0}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.durationSeconds}
                 onChange={(e) => update("durationSeconds", Number(e.target.value) || 0)}
               />
@@ -229,7 +229,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {t.save}

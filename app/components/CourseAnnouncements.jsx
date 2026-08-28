@@ -54,11 +54,11 @@ export default function CourseAnnouncements({ courseId }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
       <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-        <Megaphone size={15} className="text-[#1D6FD8]" /> {t.title}
+        <Megaphone size={15} className="text-[#0f2d57]" /> {t.title}
       </h3>
       <div className="space-y-4 max-h-80 overflow-y-auto">
         {announcements.map((a) => (
-          <div key={a.id} className="border-s-2 border-[#1D6FD8]/30 ps-3">
+          <div key={a.id} className="border-s-2 border-[#0f2d57]/30 ps-3">
             <p className="text-sm font-semibold text-gray-800">{a.title}</p>
             <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{a.body}</p>
             <p className="text-[10px] text-gray-400 mt-1">{formatDate(a.createdAt, language)}</p>

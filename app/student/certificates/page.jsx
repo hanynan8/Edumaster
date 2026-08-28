@@ -85,7 +85,7 @@ function CertificateCard({ cert, t, isRTL }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="relative h-32 bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
+      <div className="relative h-32 bg-gradient-to-br from-[#0a0a0a] to-[#0f2d57] flex items-center justify-center">
         {cert.courseThumbnail ? (
           <Image src={cert.courseThumbnail} alt={cert.courseTitle || ""} fill unoptimized className="object-cover opacity-30" />
         ) : null}
@@ -104,7 +104,7 @@ function CertificateCard({ cert, t, isRTL }) {
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold bg-[#1D6FD8] text-white px-3 py-2.5 rounded-xl hover:bg-[#1a5fc0] transition-colors disabled:opacity-60"
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold bg-[#0f2d57] text-white px-3 py-2.5 rounded-xl hover:bg-[#0c2547] transition-colors disabled:opacity-60"
           >
             {downloading ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
             {downloading ? t.downloading : t.download}
@@ -151,7 +151,7 @@ export default function StudentCertificatesPage() {
         </div>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#0f2d57] flex items-center justify-center">
             <Award className="text-white" size={22} />
           </div>
           <div>
@@ -162,7 +162,7 @@ export default function StudentCertificatesPage() {
 
         {certificates === null && !error && (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#1D6FD8]" size={32} />
+            <Loader className="animate-spin text-[#0f2d57]" size={32} />
           </div>
         )}
 
@@ -173,7 +173,7 @@ export default function StudentCertificatesPage() {
             <Award className="mx-auto text-gray-300 mb-3" size={40} />
             <p className="text-gray-500 mb-1">{t.empty}</p>
             <p className="text-gray-400 text-sm mb-4">{t.emptyHint}</p>
-            <Link href="/courses" className="inline-flex items-center gap-1.5 text-[#1D6FD8] font-semibold hover:underline">
+            <Link href="/courses" className="inline-flex items-center gap-1.5 text-[#0f2d57] font-semibold hover:underline">
               <BookOpen size={15} /> {t.browse}
             </Link>
           </div>

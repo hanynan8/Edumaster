@@ -31,6 +31,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
+import LoadingScreen from "../components/LoadingScreen";
 
 /* ─────────────────────────────────────────
    UI COPY (presentational only)
@@ -175,12 +176,7 @@ export default function HomePageLoggedIn() {
 
   if (status === "loading" && !user) {
     return (
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{ui.coursesLoading}</span>
-        </div>
-      </div>
+      <LoadingScreen dir={isRTL ? "rtl" : "ltr"} />
     );
   }
 

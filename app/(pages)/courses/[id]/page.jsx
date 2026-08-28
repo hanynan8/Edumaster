@@ -229,14 +229,14 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
             href={`/student/quizzes/${lesson.quiz}`}
             className="w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 text-start hover:bg-gray-50 transition-colors"
           >
-            <Icon size={17} className="text-[#1D6FD8] shrink-0" />
+            <Icon size={17} className="text-[#0f2d57] shrink-0" />
             <span className="flex-1 text-sm font-medium text-gray-700 truncate">{lesson.title}</span>
             {lesson.isPreview && (
               <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full shrink-0">
                 {t.preview}
               </span>
             )}
-            <span className="text-xs font-semibold text-[#1D6FD8] shrink-0">{t.takeQuiz}</span>
+            <span className="text-xs font-semibold text-[#0f2d57] shrink-0">{t.takeQuiz}</span>
           </Link>
         ) : (
           <div className="w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 opacity-70 cursor-not-allowed">
@@ -268,7 +268,7 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
           isCompleted ? (
             <CheckCircle2 size={17} className="text-green-500 shrink-0" />
           ) : (
-            <Icon size={17} className="text-[#1D6FD8] shrink-0" />
+            <Icon size={17} className="text-[#0f2d57] shrink-0" />
           )
         ) : (
           <Lock size={16} className="text-gray-400 shrink-0" />
@@ -304,7 +304,7 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
           )}
           {lesson.type === "pdf" && lesson.fileUrl && (
             <a href={lesson.fileUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#1D6FD8] hover:underline">
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f2d57] hover:underline">
               <FileType2 size={15} /> {lesson.title}
             </a>
           )}
@@ -554,7 +554,7 @@ function RealCourseDetail({ id }) {
       <div className="max-w-2xl mx-auto px-6 py-24 text-center">
         <h1 className="text-2xl font-semibold text-gray-700 mb-2">404</h1>
         <p className="text-gray-400 mb-6">{t.error}</p>
-        <Link href="/courses" className="text-[#1D6FD8] font-semibold hover:underline">{t.back}</Link>
+        <Link href="/courses" className="text-[#0f2d57] font-semibold hover:underline">{t.back}</Link>
       </div>
     );
   }
@@ -566,7 +566,7 @@ function RealCourseDetail({ id }) {
   if (!course || !sections) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-32">
-        <Loader className="animate-spin text-[#1D6FD8]" size={32} />
+        <Loader className="animate-spin text-[#0f2d57]" size={32} />
         <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{t.loading}</span>
       </div>
     );
@@ -618,7 +618,7 @@ function RealCourseDetail({ id }) {
           <div className="grid lg:grid-cols-3 gap-8 items-start">
             <div className="lg:col-span-2">
               {loc.categoryName && (
-                <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-[#1D6FD8] bg-white/10 px-3 py-1 rounded-full mb-4">
+                <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-[#0f2d57] bg-white/10 px-3 py-1 rounded-full mb-4">
                   {loc.categoryName}
                 </span>
               )}
@@ -661,7 +661,7 @@ function RealCourseDetail({ id }) {
                 ) : enrollment === false && sessionStatus !== "loading" ? (
                   <button
                     onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                    className="w-full bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
+                    className="w-full bg-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     {t.login}
                   </button>
@@ -669,7 +669,7 @@ function RealCourseDetail({ id }) {
                   <button
                     onClick={handleEnroll}
                     disabled={enrolling || enrollment === null}
-                    className="w-full bg-[#1D6FD8] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60"
+                    className="w-full bg-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60"
                   >
                     {enrolling
                       ? (!course.isFree && coursePriceInfo.amount > 0 ? t.redirecting : t.enrolling)
@@ -738,13 +738,13 @@ function RealCourseDetail({ id }) {
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-gray-800">{t.progressTitle}</h3>
-                  <span className="text-sm font-black text-[#1D6FD8]">
+                  <span className="text-sm font-black text-[#0f2d57]">
                     {enrollment?.enrollment?.progressPercent ?? 0}%
                   </span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#1D6FD8] rounded-full transition-all"
+                    className="h-full bg-[#0f2d57] rounded-full transition-all"
                     style={{ width: `${enrollment?.enrollment?.progressPercent ?? 0}%` }}
                   />
                 </div>
@@ -771,9 +771,9 @@ function RealCourseDetail({ id }) {
                         <li key={q.id}>
                           <Link
                             href={`/student/quizzes/${q.id}`}
-                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1D6FD8] transition-colors"
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0f2d57] transition-colors"
                           >
-                            <HelpCircle size={14} className="text-[#1D6FD8] shrink-0" />
+                            <HelpCircle size={14} className="text-[#0f2d57] shrink-0" />
                             <span className="truncate flex-1">{q.title}</span>
                           </Link>
                         </li>
@@ -789,9 +789,9 @@ function RealCourseDetail({ id }) {
                         <li key={a.id}>
                           <Link
                             href={`/student/assignments/${a.id}`}
-                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1D6FD8] transition-colors"
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0f2d57] transition-colors"
                           >
-                            <FileText size={14} className="text-[#1D6FD8] shrink-0" />
+                            <FileText size={14} className="text-[#0f2d57] shrink-0" />
                             <span className="truncate flex-1">{a.title}</span>
                           </Link>
                         </li>
@@ -801,7 +801,7 @@ function RealCourseDetail({ id }) {
                 )}
                 <Link
                   href="/student/grades"
-                  className="block text-center text-xs font-semibold text-[#1D6FD8] hover:underline mt-4 pt-4 border-t border-gray-100"
+                  className="block text-center text-xs font-semibold text-[#0f2d57] hover:underline mt-4 pt-4 border-t border-gray-100"
                 >
                   {t.myGradesLink}
                 </Link>
@@ -814,7 +814,7 @@ function RealCourseDetail({ id }) {
                 <ul className="space-y-2">
                   {loc.outcomes.map((o, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                      <CheckCircle2 size={15} className="text-[#1D6FD8] shrink-0 mt-0.5" /> {o}
+                      <CheckCircle2 size={15} className="text-[#0f2d57] shrink-0 mt-0.5" /> {o}
                     </li>
                   ))}
                 </ul>

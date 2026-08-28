@@ -142,7 +142,7 @@ function MembershipCard({ membership, t, isRTL }) {
           </div>
           <p className="text-sm text-gray-500">{t.noMembership}</p>
         </div>
-        <Link href="/membership" className="text-sm font-semibold text-[#1D6FD8] hover:underline">
+        <Link href="/membership" className="text-sm font-semibold text-[#0f2d57] hover:underline">
           {t.viewPlans}
         </Link>
       </div>
@@ -155,7 +155,7 @@ function MembershipCard({ membership, t, isRTL }) {
   return (
     <div
       className={`rounded-2xl border p-5 flex items-center justify-between flex-wrap gap-4 ${
-        isActive ? "bg-gradient-to-r from-[#0a0a0a] to-[#1D6FD8] text-white border-transparent" : "bg-white border-gray-100"
+        isActive ? "bg-gradient-to-r from-[#0a0a0a] to-[#0f2d57] text-white border-transparent" : "bg-white border-gray-100"
       }`}
     >
       <div className="flex items-center gap-3">
@@ -193,10 +193,10 @@ function SummaryStats({ enrollments, certificatesCount, t }) {
     total > 0 ? Math.round(enrollments.reduce((sum, e) => sum + (e.progressPercent || 0), 0) / total) : 0;
 
   const cards = [
-    { icon: TrendingUp, label: t.summaryProgress, value: `${avgProgress}%`, accent: "bg-blue-50 text-[#1D6FD8]" },
+    { icon: TrendingUp, label: t.summaryProgress, value: `${avgProgress}%`, accent: "bg-[#eceef2] text-[#0f2d57]" },
     { icon: Clock, label: t.summaryActive, value: active, accent: "bg-amber-50 text-amber-600" },
     { icon: CheckCircle2, label: t.summaryCompleted, value: completed, accent: "bg-green-50 text-green-600" },
-    { icon: Award, label: t.summaryCertificates, value: certificatesCount, accent: "bg-purple-50 text-purple-600", link: "/student/certificates" },
+    { icon: Award, label: t.summaryCertificates, value: certificatesCount, accent: "bg-[#eceef2] text-[#0f2d57]", link: "/student/certificates" },
   ];
 
   return (
@@ -250,7 +250,7 @@ function ProfileSummaryCard({ user, t, onEdit }) {
           <button
             type="button"
             onClick={() => setShowFullscreen(true)}
-            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0f2d57] focus:ring-offset-2"
             title={t.viewFullSize}
           >
             <img
@@ -260,7 +260,7 @@ function ProfileSummaryCard({ user, t, onEdit }) {
             />
           </button>
         ) : (
-          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#C9A227] text-white font-bold flex items-center justify-center text-4xl shrink-0">
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[#0f2d57] text-white font-bold flex items-center justify-center text-4xl shrink-0">
             {user?.name?.charAt(0)?.toUpperCase() || "U"}
           </div>
         )}
@@ -273,7 +273,7 @@ function ProfileSummaryCard({ user, t, onEdit }) {
       </div>
       <button
         onClick={onEdit}
-        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
+        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#0f2d57] border border-[#0f2d57]/30 hover:bg-[#0f2d57]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
       >
         <Pencil size={13} /> {t.editProfile}
       </button>
@@ -321,8 +321,8 @@ function StudentQuickNav({ t }) {
           href={item.href}
           className={`flex items-center gap-2 shrink-0 text-sm font-semibold px-4 py-2.5 rounded-xl border transition-colors ${
             item.active
-              ? "bg-[#1D6FD8] text-white border-[#1D6FD8]"
-              : "bg-white text-gray-700 border-gray-200 hover:border-[#1D6FD8] hover:text-[#1D6FD8]"
+              ? "bg-[#0f2d57] text-white border-[#0f2d57]"
+              : "bg-white text-gray-700 border-gray-200 hover:border-[#0f2d57] hover:text-[#0f2d57]"
           }`}
         >
           <item.icon size={16} />
@@ -520,14 +520,14 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
                 className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-100"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-[#C9A227] text-white text-2xl font-bold flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-[#0f2d57] text-white text-2xl font-bold flex items-center justify-center">
                 {name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
+              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#0f2d57] text-white flex items-center justify-center shadow-md hover:bg-[#0c2547] transition-colors disabled:opacity-60"
               aria-label={t.changePhoto}
             >
               {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
@@ -571,7 +571,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             onChange={(e) => setName(e.target.value)}
             placeholder={t.fieldNamePlaceholder}
             maxLength={60}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -586,7 +586,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             onChange={(e) => setPhone(e.target.value)}
             placeholder={t.fieldPhonePlaceholder}
             maxLength={20}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -601,7 +601,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
           <button
             onClick={handleSave}
             disabled={saving || uploadingAvatar}
-            className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 bg-[#0f2d57] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#0c2547] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving && <Loader size={14} className="animate-spin" />}
             {saving ? t.saving : t.save}
@@ -652,9 +652,7 @@ export default function StudentMyCoursesPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#1D6FD8] flex items-center justify-center">
-              <BookOpen className="text-white" size={22} />
-            </div>
+            <BookOpen className="text-[#0f2d57]" size={30} />
             <div>
               <h1 className="text-2xl font-semibold text-gray-800">{t.title}</h1>
               <p className="text-sm text-gray-400">{t.subtitle}</p>
@@ -692,7 +690,7 @@ export default function StudentMyCoursesPage() {
 
         {enrollments === null && !error && (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#1D6FD8]" size={32} />
+            <Loader className="animate-spin text-[#0f2d57]" size={32} />
           </div>
         )}
 
@@ -702,7 +700,7 @@ export default function StudentMyCoursesPage() {
           <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center">
             <BookOpen className="mx-auto text-gray-300 mb-3" size={40} />
             <p className="text-gray-400 mb-4">{t.empty}</p>
-            <Link href="/courses" className="text-[#1D6FD8] font-semibold hover:underline">
+            <Link href="/courses" className="text-[#0f2d57] font-semibold hover:underline">
               {t.browse}
             </Link>
           </div>
@@ -729,7 +727,7 @@ export default function StudentMyCoursesPage() {
                   </span>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2 group-hover:text-[#1D6FD8] transition-colors">
+                  <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2 group-hover:text-[#0f2d57] transition-colors">
                     {e.courseTitle || "—"}
                   </h3>
                   <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
@@ -737,7 +735,7 @@ export default function StudentMyCoursesPage() {
                   </div>
                   <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
                     <div
-                      className="h-full bg-[#1D6FD8] rounded-full transition-all"
+                      className="h-full bg-[#0f2d57] rounded-full transition-all"
                       style={{ width: `${Math.min(100, Math.max(0, e.progressPercent || 0))}%` }}
                     />
                   </div>
@@ -748,7 +746,7 @@ export default function StudentMyCoursesPage() {
                         <CheckCircle2 size={13} /> {t.completed}
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-[#1D6FD8] font-semibold">
+                      <span className="flex items-center gap-1 text-[#0f2d57] font-semibold">
                         {t.continueLabel} <BackArrow size={12} />
                       </span>
                     )}

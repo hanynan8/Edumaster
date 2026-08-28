@@ -1,24 +1,11 @@
 "use client";
 
-import React from 'react'
-import { useLanguage } from '@/contexts/LanguageContext'
+// app/loading.jsx — شاشة اللودينج التلقائية اللي Next.js بيعرضها بين
+// التنقل من صفحة لصفحة. بتستخدم نفس <LoadingScreen /> المستخدم في كل
+// صفحات الموقع، عشان يبقى في تصميم واحد بس للودينج بدل تكراره.
 
-// 🆕 النص كان إنجليزي ثابت مهما كانت اللغة المختارة من الناف بار —
-// دلوقتي بيتبع اللغة الحالية زي باقي صفحات الموقع.
-const T = {
-  en: { title: 'Loading...', subtitle: 'Please wait a moment :)' },
-  ar: { title: 'جاري التحميل...', subtitle: 'من فضلك انتظر لحظة :)' },
-  es: { title: 'Cargando...', subtitle: 'Por favor espera un momento :)' },
-};
+import LoadingScreen from "./components/LoadingScreen";
 
 export default function Loading() {
-  const { language } = useLanguage();
-  const t = T[language] || T.en;
-
-  return (
-    <main className='text-center'>
-      <h2 className='text-3xl'>{t.title}</h2>
-      <p>{t.subtitle}</p>
-    </main>
-  )
+  return <LoadingScreen />;
 }

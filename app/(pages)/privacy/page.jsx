@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import LoadingScreen from "@/app/components/LoadingScreen";
 
 /* ─────────────────────────────────────────
    FETCH HOOK
@@ -52,14 +53,7 @@ export default function PrivacyPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">
-            Loading
-          </span>
-        </div>
-      </div>
+      <LoadingScreen />
     );
   }
 

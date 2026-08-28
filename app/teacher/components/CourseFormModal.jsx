@@ -345,7 +345,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
 
-          <div className="bg-blue-50 text-blue-700 text-xs px-4 py-2.5 rounded-lg">{t.multilingualHint}</div>
+          <div className="bg-[#eceef2] text-[#0c2547] text-xs px-4 py-2.5 rounded-lg">{t.multilingualHint}</div>
 
           {/* 🆕 تابات اللغة — كل تاب بيعبّي محتوى الكورس (عنوان/وصف/متطلبات/
               هيتعلم إيه/شهادة) للغة دي بالتحديد، بغض النظر عن لغة الناف بار
@@ -359,7 +359,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                   type="button"
                   onClick={() => setActiveTab(lang)}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition ${
-                    activeTab === lang ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"
+                    activeTab === lang ? "bg-white shadow text-[#0f2d57]" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {filled && <Check size={14} className="text-green-500" />}
@@ -372,7 +372,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.courseTitle}</label>
             <input
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#5c708d] focus:border-[#5c708d] outline-none"
               value={tab.title}
               onChange={(e) => updateLang(activeTab, "title", e.target.value)}
               required
@@ -383,7 +383,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.shortDesc}</label>
             <input
               maxLength={300}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#5c708d] focus:border-[#5c708d] outline-none"
               value={tab.shortDescription}
               onChange={(e) => updateLang(activeTab, "shortDescription", e.target.value)}
             />
@@ -393,7 +393,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.fullDesc}</label>
             <textarea
               rows={4}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#5c708d] focus:border-[#5c708d] outline-none"
               value={tab.description}
               onChange={(e) => updateLang(activeTab, "description", e.target.value)}
             />
@@ -403,7 +403,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.requirements}</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={tab.requirements}
               onChange={(e) => updateLang(activeTab, "requirements", e.target.value)}
             />
@@ -412,7 +412,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.outcomes}</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={tab.outcomes}
               onChange={(e) => updateLang(activeTab, "outcomes", e.target.value)}
             />
@@ -422,7 +422,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.certName}</label>
               <input
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={tab.certName}
                 onChange={(e) => updateLang(activeTab, "certName", e.target.value)}
               />
@@ -430,7 +430,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.certDesc}</label>
               <input
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={tab.certDesc}
                 onChange={(e) => updateLang(activeTab, "certDesc", e.target.value)}
               />
@@ -452,7 +452,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.category}</label>
               <select
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
                 required
@@ -468,7 +468,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.level}</label>
               <select
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.level}
                 onChange={(e) => update("level", e.target.value)}
               >
@@ -500,7 +500,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                   type="number"
                   min={0}
                   disabled={form.isFree}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d] disabled:bg-gray-100"
                   value={form.prices.EGP}
                   onChange={(e) => updatePrice("EGP", e.target.value)}
                 />
@@ -511,7 +511,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                   type="number"
                   min={0}
                   disabled={form.isFree}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d] disabled:bg-gray-100"
                   value={form.prices.USD}
                   onChange={(e) => updatePrice("USD", e.target.value)}
                 />
@@ -522,7 +522,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                   type="number"
                   min={0}
                   disabled={form.isFree}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d] disabled:bg-gray-100"
                   value={form.prices.EUR}
                   onChange={(e) => updatePrice("EUR", e.target.value)}
                 />
@@ -533,7 +533,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.tags}</label>
             <input
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={form.tags}
               onChange={(e) => update("tags", e.target.value)}
             />
@@ -542,7 +542,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>
             <select
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={form.status}
               onChange={(e) => update("status", e.target.value)}
             >
@@ -558,7 +558,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {isEdit ? t.saveChanges : t.createCourse}

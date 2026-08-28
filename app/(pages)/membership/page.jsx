@@ -173,7 +173,7 @@ export default function MembershipPage() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
         {plans === null && !error && (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#1D6FD8]" size={32} />
+            <Loader className="animate-spin text-[#0f2d57]" size={32} />
           </div>
         )}
 
@@ -197,11 +197,11 @@ export default function MembershipPage() {
                 <div
                   key={plan.id}
                   className={`relative bg-white rounded-2xl border p-6 flex flex-col ${
-                    isCurrent ? "border-[#1D6FD8] ring-2 ring-[#1D6FD8]/20" : "border-gray-100"
+                    isCurrent ? "border-[#0f2d57] ring-2 ring-[#0f2d57]/20" : "border-gray-100"
                   }`}
                 >
                   {isCurrent && (
-                    <span className="absolute -top-3 start-6 text-[10px] font-bold bg-[#1D6FD8] text-white px-3 py-1 rounded-full">
+                    <span className="absolute -top-3 start-6 text-[10px] font-bold bg-[#0f2d57] text-white px-3 py-1 rounded-full">
                       {t.subscribed}
                     </span>
                   )}
@@ -228,7 +228,7 @@ export default function MembershipPage() {
                     <ul className="space-y-2 mb-6 flex-1">
                       {plan.features.map((f, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                          <Check size={15} className="text-[#1D6FD8] shrink-0 mt-0.5" /> {f}
+                          <Check size={15} className="text-[#0f2d57] shrink-0 mt-0.5" /> {f}
                         </li>
                       ))}
                     </ul>

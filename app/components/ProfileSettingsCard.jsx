@@ -128,7 +128,7 @@ function ProfileSummaryCard({ user, t, isRTL, onEdit }) {
         <button
           type="button"
           onClick={() => setShowFullscreen(true)}
-          className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D6FD8] focus:ring-offset-2"
+          className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0f2d57] focus:ring-offset-2"
           title={t.viewFullSize}
         >
           <img
@@ -150,7 +150,7 @@ function ProfileSummaryCard({ user, t, isRTL, onEdit }) {
       </div>
       <button
         onClick={onEdit}
-        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#1D6FD8] border border-[#1D6FD8]/30 hover:bg-[#1D6FD8]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
+        className="shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#0f2d57] border border-[#0f2d57]/30 hover:bg-[#0f2d57]/5 px-3 sm:px-4 py-2 rounded-lg transition-colors"
       >
         <Pencil size={13} /> {t.editProfile}
       </button>
@@ -355,7 +355,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#1D6FD8] text-white flex items-center justify-center shadow-md hover:bg-[#155bb5] transition-colors disabled:opacity-60"
+              className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#0f2d57] text-white flex items-center justify-center shadow-md hover:bg-[#0c2547] transition-colors disabled:opacity-60"
               aria-label={t.changePhoto}
             >
               {uploadingAvatar ? <Loader size={13} className="animate-spin" /> : <Camera size={13} />}
@@ -397,7 +397,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             onChange={(e) => setName(e.target.value)}
             placeholder={t.fieldNamePlaceholder}
             maxLength={60}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -411,7 +411,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
             onChange={(e) => setPhone(e.target.value)}
             placeholder={t.fieldPhonePlaceholder}
             maxLength={20}
-            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D6FD8]/20 focus:border-[#1D6FD8] transition-colors"
+            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
           />
         </div>
 
@@ -426,7 +426,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
           <button
             onClick={handleSave}
             disabled={saving || uploadingAvatar}
-            className="flex-1 bg-[#1D6FD8] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#155bb5] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 bg-[#0f2d57] text-white text-sm font-bold py-2.5 rounded-lg hover:bg-[#0c2547] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving && <Loader size={14} className="animate-spin" />}
             {saving ? t.saving : t.save}
@@ -474,7 +474,7 @@ export default function ProfileSettingsCard({ locale, isRTL }) {
   if (!profileUser) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-8 flex items-center justify-center mb-6">
-        <Loader className="animate-spin text-[#1D6FD8]" size={28} />
+        <Loader className="animate-spin text-[#0f2d57]" size={28} />
       </div>
     );
   }

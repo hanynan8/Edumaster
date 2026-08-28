@@ -41,7 +41,7 @@ export default function TeacherSettingsPage() {
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0f2d57] to-[#0f2d57] flex items-center justify-center">
             <Settings className="text-white" size={22} />
           </div>
           <div>
@@ -51,7 +51,7 @@ export default function TeacherSettingsPage() {
         </div>
         <Link
           href="/teacher"
-          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-colors"
+          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#5c708d] hover:text-[#0f2d57] transition-colors"
         >
           <BookOpen size={16} /> {t.myCourses}
           <ArrowRight size={16} />

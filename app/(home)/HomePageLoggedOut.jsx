@@ -37,6 +37,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
+import LoadingScreen from "../components/LoadingScreen";
 
 /* ─────────────────────────────────────────
    TEXT FOR THE NEW SECTION HEADERS
@@ -216,12 +217,7 @@ export default function HomePageLoggedOut() {
 
   if (!homeData) {
     return (
-      <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{ui.coursesLoading}</span>
-        </div>
-      </div>
+      <LoadingScreen dir={isRTL ? "rtl" : "ltr"} />
     );
   }
 
@@ -376,7 +372,7 @@ function ServicesSection({ data, lang, ui }) {
    COUNTRIES PREVIEW — same data as /countries, a few cards only
 ═══════════════════════════════════════ */
 const COUNTRY_SECTION_META = {
-  educationSystem: { icon: BookOpenIcon, color: "#1D6FD8" },
+  educationSystem: { icon: BookOpenIcon, color: "#0f2d57" },
   admissionRequirements: { icon: ClipboardIcon, color: "#a855f7" },
   costOfLiving: { icon: WalletIcon, color: "#10b981" },
   partTimeWork: { icon: BriefcaseIcon, color: "#f59e0b" },
@@ -445,7 +441,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {cards.map((card, i) => {
-            const meta = COUNTRY_SECTION_META[card.key] || { icon: BookOpenIcon, color: "#1D6FD8" };
+            const meta = COUNTRY_SECTION_META[card.key] || { icon: BookOpenIcon, color: "#0f2d57" };
             const Icon = meta.icon;
             return (
               <Link
@@ -505,7 +501,7 @@ function MissionVisionSection({ data, lang, ui }) {
   if (!t.vision || !t.mission) return null;
 
   const cards = [
-    { key: "vision", icon: <EyeIcon />, title: t.vision.title, body: t.vision.body, color: "#1a56a0" },
+    { key: "vision", icon: <EyeIcon />, title: t.vision.title, body: t.vision.body, color: "#0a1f3b" },
     { key: "mission", icon: <TargetIcon />, title: t.mission.title, body: t.mission.body, color: "#C9A227" },
   ];
 

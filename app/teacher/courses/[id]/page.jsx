@@ -122,7 +122,7 @@ export default function CourseEditorPage({ params }) {
   if (!course || !sections) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-blue-500" size={36} />
+        <Loader className="animate-spin text-[#314a6f]" size={36} />
       </div>
     );
   }

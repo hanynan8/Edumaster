@@ -90,7 +90,7 @@ export default function SectionFormModal({ courseId, section, onClose, onSaved }
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.sectionTitle}</label>
             <input
               autoFocus
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t.titlePlaceholder}
@@ -100,7 +100,7 @@ export default function SectionFormModal({ courseId, section, onClose, onSaved }
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.description}</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -109,7 +109,7 @@ export default function SectionFormModal({ courseId, section, onClose, onSaved }
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {t.save}

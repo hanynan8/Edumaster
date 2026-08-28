@@ -130,7 +130,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.quizTitle}</label>
             <input
               autoFocus
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
             />
@@ -140,7 +140,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.shortDesc}</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
             />
@@ -153,7 +153,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
                 type="number"
                 min={1}
                 placeholder={t.noLimit}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.timeLimitMinutes}
                 onChange={(e) => update("timeLimitMinutes", e.target.value)}
               />
@@ -164,7 +164,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
                 type="number"
                 min={0}
                 max={100}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.passingScorePercent}
                 onChange={(e) => update("passingScorePercent", e.target.value)}
               />
@@ -174,7 +174,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
               <input
                 type="number"
                 min={1}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
                 value={form.maxAttempts}
                 onChange={(e) => update("maxAttempts", e.target.value)}
               />
@@ -190,7 +190,7 @@ export default function QuizFormModal({ courseId, quiz, onClose, onSaved }) {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {t.save}

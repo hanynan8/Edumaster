@@ -224,7 +224,7 @@ export async function generateCertificatePdf({ studentName, courseTitle, certifi
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
   const NAVY = rgb(0.039, 0.039, 0.039); // #0a0a0a — same gradient as the site header
-  const BLUE = rgb(0.114, 0.435, 0.847); // #1D6FD8 — the site's primary brand color
+  const BLUE = rgb(0.114, 0.435, 0.847); // #0f2d57 — the site's primary brand color
   const GRAY = rgb(0.42, 0.45, 0.5);
   const LIGHT_GRAY = rgb(0.62, 0.65, 0.7);
   const WHITE = rgb(1, 1, 1);

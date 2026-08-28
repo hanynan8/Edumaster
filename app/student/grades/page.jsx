@@ -89,7 +89,7 @@ function ProgressBar({ percent }) {
     <div className="flex items-center gap-2 min-w-[90px]">
       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${percent >= 100 ? "bg-green-500" : "bg-blue-500"}`}
+          className={`h-full rounded-full ${percent >= 100 ? "bg-green-500" : "bg-[#314a6f]"}`}
           style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>
@@ -221,7 +221,7 @@ export default function StudentGradesPage() {
   }
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
           <Link href="/student" className="hover:text-gray-700 flex items-center gap-1.5">
@@ -233,8 +233,8 @@ export default function StudentGradesPage() {
 
         <div className="flex items-center justify-between gap-4 flex-wrap mb-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <GraduationCap size={20} className="text-blue-600" />
+            <div className="w-10 h-10 rounded-xl bg-[#eceef2] flex items-center justify-center">
+              <GraduationCap size={20} className="text-[#0f2d57]" />
             </div>
             <h1 className="text-2xl font-semibold text-gray-800">{t.title}</h1>
           </div>
@@ -253,13 +253,13 @@ export default function StudentGradesPage() {
 
         {!courses && !error ? (
           <div className="flex justify-center py-24">
-            <Loader className="animate-spin text-blue-500" size={36} />
+            <Loader className="animate-spin text-[#314a6f]" size={36} />
           </div>
         ) : courses && courses.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-16 text-center">
             <BookOpen className="mx-auto text-gray-300 mb-3" size={32} />
             <p className="text-gray-400 mb-4">{t.empty}</p>
-            <Link href="/courses" className="text-blue-600 font-semibold hover:underline">
+            <Link href="/courses" className="text-[#0f2d57] font-semibold hover:underline">
               {t.browse}
             </Link>
           </div>
@@ -268,7 +268,7 @@ export default function StudentGradesPage() {
             {courses?.map((c) => (
               <div key={c.courseId} className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                  <Link href={`/courses/${c.courseId}`} className="font-bold text-gray-800 hover:text-blue-600 transition-colors">
+                  <Link href={`/courses/${c.courseId}`} className="font-bold text-gray-800 hover:text-[#0f2d57] transition-colors">
                     {c.courseTitle}
                   </Link>
                   <div className="flex items-center gap-2">
@@ -305,7 +305,7 @@ export default function StudentGradesPage() {
                             )}
                             <Link
                               href={`/student/quizzes/${q.quizId}`}
-                              className="text-xs font-semibold text-blue-600 hover:underline"
+                              className="text-xs font-semibold text-[#0f2d57] hover:underline"
                             >
                               {q.bestScorePercent !== null ? t.review : t.solve}
                             </Link>
@@ -346,7 +346,7 @@ export default function StudentGradesPage() {
                             )}
                             <Link
                               href={`/student/assignments/${a.assignmentId}`}
-                              className="text-xs font-semibold text-blue-600 hover:underline"
+                              className="text-xs font-semibold text-[#0f2d57] hover:underline"
                             >
                               {a.submitted ? t.viewSubmission : t.submit}
                             </Link>

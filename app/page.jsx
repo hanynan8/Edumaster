@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import HomePageLoggedOut from "./(home)/HomePageLoggedOut";
 import HomePageLoggedIn from "./(home)/Homepageloggedin";
 import { useLanguage } from "@/contexts/LanguageContext";
+import LoadingScreen from "./components/LoadingScreen";
 
 // 🆕 كلمة "Loading" كانت إنجليزي ثابت — دلوقتي بتتبع اللغة المختارة
 // من الناف بار زي باقي الموقع.
@@ -21,14 +22,7 @@ export default function HomePage() {
   // ما نلخبط ونعرض نسخة غلط للحظة واحدة
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">
-            {T[language] || T.en}
-          </span>
-        </div>
-      </div>
+      <LoadingScreen />
     );
   }
 

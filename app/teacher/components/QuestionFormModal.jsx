@@ -184,7 +184,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
                   type="button"
                   onClick={() => handleTypeChange(tp.value)}
                   className={`flex-1 py-2 rounded-xl text-sm font-semibold border ${
-                    type === tp.value ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    type === tp.value ? "bg-[#0f2d57] text-white border-[#0f2d57]" : "border-gray-300 text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   {tp.label}
@@ -198,7 +198,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
             <textarea
               autoFocus
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
@@ -208,7 +208,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-semibold text-gray-700">{t.optionsLabel}</label>
               {type === "multiple_choice" && options.length < 6 && (
-                <button type="button" onClick={addOption} className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
+                <button type="button" onClick={addOption} className="flex items-center gap-1 text-xs font-semibold text-[#0f2d57] hover:underline">
                   <Plus size={13} /> {t.addOption}
                 </button>
               )}
@@ -226,7 +226,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
                   </button>
                   <input
                     disabled={type === "true_false"}
-                    className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
+                    className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5c708d] disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder={t.optionPlaceholder(idx + 1)}
                     value={o.text}
                     onChange={(e) => updateOptionText(idx, e.target.value)}
@@ -247,7 +247,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
               type="number"
               min={0}
               step={0.5}
-              className="w-32 border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-32 border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
               value={points}
               onChange={(e) => setPoints(e.target.value)}
             />
@@ -257,7 +257,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {t.save}

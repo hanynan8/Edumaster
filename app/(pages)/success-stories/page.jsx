@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import LoadingScreen from "@/app/components/LoadingScreen";
 
 // 🆕 فيديو قصص النجاح: مرفوع على Bunny Stream (videoId ثابت بمكتبتنا، مش
 // جاي من الداتابيز — الصفحة دي أصلاً بتاخد باقي المحتوى من successStories
@@ -70,12 +71,7 @@ export default function SuccessStoriesPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">Loading</span>
-        </div>
-      </div>
+      <LoadingScreen />
     );
   }
 
@@ -110,7 +106,7 @@ function HeroSection({ data, t }) {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight max-w-2xl mb-4 sm:mb-5 animate-fadein-up leading-[1.05]">
             {(() => {
               const words = t.hero.headline.split(" ");
-              return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#1D6FD8]">{words.slice(2).join(" ")}</span></>);
+              return (<><span className="text-[#0a0a0a]">{words.slice(0, 2).join(" ")}</span><br /><span className="text-[#0f2d57]">{words.slice(2).join(" ")}</span></>);
             })()}
           </h1>
           <p className="text-gray-500 text-base sm:text-lg max-w-lg leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
@@ -130,7 +126,7 @@ function StatsStrip({ data, t }) {
             style={{ transitionDelay: `${i * 80}ms` }}>
             <span className="text-3xl sm:text-4xl md:text-5xl font-black text-[#0a0a0a] tracking-tighter leading-none">{s.value}</span>
             <span className="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase tracking-widest mt-1">{t.stats.items[i]}</span>
-            <div className="w-4 sm:w-5 h-0.5 bg-[#1D6FD8] mt-1.5 sm:mt-2" />
+            <div className="w-4 sm:w-5 h-0.5 bg-[#0f2d57] mt-1.5 sm:mt-2" />
           </div>
         ))}
       </div>
@@ -202,13 +198,13 @@ function Testimonials({ data, t }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {merged.map((item, i) => (
             <div key={item.id}
-              className={`bg-[#f7f7f7] rounded-2xl p-5 sm:p-7 flex flex-col gap-4 sm:gap-5 border border-gray-100 hover:border-[#1D6FD8]/20 hover:shadow-lg transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+              className={`bg-[#f7f7f7] rounded-2xl p-5 sm:p-7 flex flex-col gap-4 sm:gap-5 border border-gray-100 hover:border-[#0f2d57]/20 hover:shadow-lg transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
               style={{ transitionDelay: `${i * 70}ms` }}>
-              <div className="text-[#1D6FD8]/15"><Quote size={28} /></div>
+              <div className="text-[#0f2d57]/15"><Quote size={28} /></div>
               <div className="flex gap-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={11} />)}</div>
               <p className="text-gray-700 text-xs sm:text-sm leading-relaxed flex-1 italic">"{item.quote}"</p>
               <span className="self-start text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full text-white"
-                style={{ background: TAG_COLORS[item.type] ?? "#1D6FD8" }}>{item.tag}</span>
+                style={{ background: TAG_COLORS[item.type] ?? "#0f2d57" }}>{item.tag}</span>
               <div className="flex items-center gap-3 pt-2 border-t border-gray-200">
                 <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden shrink-0">
                   <Image src={item.avatar} alt={item.name} fill className="object-cover" unoptimized />
@@ -310,13 +306,13 @@ function Approvals({ data, t }) {
   // const [ref, visible] = useReveal();
 //   return (
 //     <section ref={ref} className="relative py-16 sm:py-20 md:py-28 px-5 sm:px-8 md:px-6 overflow-hidden bg-[#0a0a0a]">
-//       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#1D6FD8]" />
+//       <div className="absolute top-0 inset-x-0 h-[3px] bg-[#0f2d57]" />
 //       <div className="relative z-10 max-w-3xl mx-auto text-center">
 //         <div className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
 //           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.cta.title}</h2>
 //           <p className="text-gray-400 text-sm sm:text-[15px] mb-8 sm:mb-10 leading-relaxed">{t.cta.desc}</p>
 //           <Link href="/contact"
-//             className="inline-flex items-center gap-2 bg-[#1D6FD8] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base hover:bg-[#a50d24] transition-colors shadow-lg">
+//             className="inline-flex items-center gap-2 bg-[#0f2d57] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base hover:bg-[#a50d24] transition-colors shadow-lg">
 //             {t.cta.button} <ArrowRight size={16} />
 //           </Link>
 //         </div>

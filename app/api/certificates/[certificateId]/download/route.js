@@ -5,6 +5,16 @@
 // رحلة الطالب الكاملة (تسجيل → اشتراك → دفع → دراسة → كويز → شهادة) كانت
 // عمليًا مكسورة. اتضاف هنا كجزء من مراجعة اليوم 59 + اختبار E2E اليوم 61.
 //
+// 🩹 Day 62 fix: كان بيبعت courseTitleSnapshot المجمّد لـ generateCertificatePdf
+// من غير أي populate على الكورس — يعني لو اسم الكورس اتغيّر بعد إصدار
+// الشهادة، صفحة "شهاداتي" وصفحة /verify كانوا بيعرضوا الاسم الجديد (لأنهم
+// بيعملوا .populate("course", "title") ويفضّلوا course.title على الـ
+// snapshot) لكن الـ PDF المُحمَّل نفسه كان لسه شايل الاسم القديم — نفس
+// النمط المستخدم في route.js بتاع /api/certificates و
+// /api/certificates/verify/[certId] اتطبّق هنا كمان عشان الاتساق.
+// courseTitleSnapshot لسه موجود في الداتابيز كـ fallback (لو الكورس
+// اتمسح) وكسجل تاريخي، بس مش هو المصدر اللي بيتعرض للمستخدم بعد كده.
+//
 // GET /api/certificates/[certificateId]/download
 //   بيقبل إما الـ Mongo _id بتاع الشهادة أو certificateId العام (EDU-XXXX-XXXX)
 //   عشان يشتغل مع أي رابط شكله الفرونت يستخدمه.
@@ -15,7 +25,7 @@
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getCertificateModel } from "@/app/lib/models";
+import { getCertificateModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { generateCertificatePdf, buildVerifyUrl } from "@/app/lib/certificateHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -48,11 +58,18 @@ export async function GET(request, { params }) {
 
     await connectToMongo();
     const Certificate = getCertificateModel();
+    // 🩹 Registers "Model_course" with mongoose before the .populate("course")
+    // call below — without this, populate throws MissingSchemaError. Same
+    // fix already applied in /api/certificates and
+    // /api/certificates/verify/[certId] for the same reason.
+    getCourseModel();
 
     const query = mongoose.Types.ObjectId.isValid(certificateId)
       ? { _id: certificateId }
       : { certificateId };
-    const certificate = await Certificate.findOne(query).lean();
+    const certificate = await Certificate.findOne(query)
+      .populate("course", "title")
+      .lean();
 
     if (!certificate) return jsonResponse({ error: "not_found" }, 404);
 
@@ -61,9 +78,13 @@ export async function GET(request, { params }) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
+    // اسم الكورس الحالي (لايف) دايمًا — courseTitleSnapshot بيتستخدم كـ
+    // fallback بس لو الكورس اتمسح لأي سبب.
+    const courseTitle = certificate.course?.title || certificate.courseTitleSnapshot;
+
     const pdfBytes = await generateCertificatePdf({
       studentName: certificate.studentNameSnapshot,
-      courseTitle: certificate.courseTitleSnapshot,
+      courseTitle,
       certificateId: certificate.certificateId,
       issuedAt: certificate.issuedAt,
       verifyUrl: buildVerifyUrl(request, certificate.certificateId),

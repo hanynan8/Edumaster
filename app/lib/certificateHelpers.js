@@ -3,10 +3,10 @@
 // Phase 5 — Days 43-44:
 //   - Day 43: "Design the Certificate template (dynamic PDF with student
 //     name + course + date)" — generateCertificatePdf() draws a full
-//     A4-landscape certificate (double border, EduMaster badge, student
-//     name, course name, issue date, certificate number, verification
-//     link) programmatically with pdf-lib, not from a static image
-//     template — every field is computed and drawn at request time
+//     A4-landscape certificate (navy/gold corner design, dotted gold seal,
+//     student name, course name, issue date, certificate number,
+//     verification link) programmatically with pdf-lib, not from a static
+//     image template — every field is computed and drawn at request time
 //     (100% dynamic).
 //   - Day 44: "Automatic certificate issuance when a course reaches 100%
 //     completion + unique verification number" — issueCertificateForCompletedEnrollment()
@@ -19,41 +19,97 @@
 //     (crypto.randomBytes, not Math.random).
 //
 // 🖋️ Language handling:
-//   Certificates are English-only. All text — fixed template labels
-//   ("Certificate of Achievement", "Issue Date", etc.) AND the dynamic
-//   fields (studentName, courseTitle) — is drawn with pdf-lib's built-in
-//   Helvetica standard fonts. No external font files, no Arabic shaping/
-//   bidi reordering, no fontkit registration needed: StandardFonts are
-//   embedded directly by pdf-lib with zero filesystem reads, so this
-//   never fails with ENOENT regardless of environment (local/staging/
-//   production/serverless).
+//   Fixed template labels ("Certificate of Completion", "Date", etc.) are
+//   plain English and drawn with the embedded Cairo font.
+//   The two DYNAMIC fields — studentName and courseTitle — come straight
+//   from the database and may be Arabic, English, or a mix of both.
+//
+//   ⚠️ Why Amiri (not Cairo) for the Arabic runs: pdf-lib draws literal
+//   Unicode codepoints from a font's cmap — it does NOT run an OpenType
+//   shaping engine (no GSUB "init/medi/fina/liga" substitution). The
+//   arabic-reshaper library works around this by converting each Arabic
+//   letter to its correct contextual form as an actual Unicode codepoint
+//   (Arabic Presentation Forms A/B, U+FB50–U+FEFF) that fonts can map
+//   directly. Amiri includes full glyph coverage for that block, so this
+//   renders correctly. Many modern multi-script fonts (Cairo included)
+//   only expose those shapes via GSUB features, not as directly-mapped
+//   presentation-form codepoints — with no shaping engine, pdf-lib can't
+//   find matching glyphs for them, so Arabic text comes out broken/
+//   disconnected. Cairo is used for the plain-English labels only, where
+//   this limitation doesn't apply.
+//
+//   🖋️ Student-name font: the student name is drawn in "Great Vibes" (a
+//   script/cursive font) for Latin runs, so English/mixed names get the
+//   handwritten-signature look. Great Vibes has no Arabic glyph coverage
+//   (it's a Latin-script display face), so Arabic runs inside the name
+//   still fall back to Amiri Bold — otherwise the glyphs would be missing
+//   entirely. This is the same run-splitting mechanism used for the rest
+//   of the mixed-script text below, just with a different "Latin" font
+//   supplied specifically for the name field.
+//
+//   The mixed-script renderer below:
+//     1) arabic-reshaper converts each Arabic letter to its correct
+//        contextual form (initial/medial/final/isolated) based on its
+//        neighbors.
+//     2) bidi-js applies the Unicode BiDi algorithm to compute the correct
+//        visual order (Arabic RTL text can be interleaved with Latin
+//        words/numbers like "EduMaster" on the same line).
+//   The result is split into runs (Arabic vs. Latin) and each run is drawn
+//   with the matching embedded font (Amiri for Arabic, Cairo/Great Vibes
+//   for Latin) in sequence. Arabic content is kept as-is (not translated).
+//
+//   🖼️ Company logo: a transparent-background PNG of the EduMaster seal is
+//   embedded as the bottom-right stamp (replaces the earlier hand-drawn
+//   dotted-ring placeholder). Must exist on disk at
+//   app/lib/certificate-assets/logo.png — without it generateCertificatePdf
+//   will throw ENOENT, same as the font files below.
+//
+//   🔗 verifyUrl: still accepted as a parameter (buildVerifyUrl() below is
+//   unchanged and still used by the public /verify page), but is no longer
+//   drawn on the certificate face itself per product decision — the
+//   certificate now shows Date + Certificate No. + the logo/seal only.
+//
+//   ⚠️ REQUIRES five font files to exist on disk at app/lib/fonts/:
+//     - Amiri-Regular.ttf / Amiri-Bold.ttf   (https://fonts.google.com/specimen/Amiri)
+//     - Cairo-Regular.ttf / Cairo-Bold.ttf   (https://fonts.google.com/specimen/Cairo)
+//     - GreatVibes-Regular.ttf               (https://fonts.google.com/specimen/Great+Vibes)
+//   All three families are SIL OFL 1.1 licensed — free to embed in
+//   generated documents like this certificate. Without these files
+//   present, generateCertificatePdf will throw ENOENT.
+//
+//   arabic-reshaper is GPL-3.0 licensed. Since it's used here as a
+//   server-side library inside a web app that isn't distributed as
+//   software/a binary to anyone (SaaS), there's no obligation to publish
+//   the whole project's code under GPL — this is a standard, common use of
+//   GPL libraries in web services.
 
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import fs from "fs";
+import path from "path";
+import { PDFDocument, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import arabicReshaper from "arabic-reshaper";
+import bidiFactory from "bidi-js";
 import { getCertificateModel, getCourseModel } from "@/app/lib/models";
 import { getAuthModel } from "@/app/lib/mongodb";
 import { createNotification } from "@/app/lib/notificationHelpers";
 
+const bidi = bidiFactory();
+
 /* ─────────────────────────────────────────────────────────────
-   1) Text-drawing helpers (Helvetica only)
+   1) Plain-English text helpers (fixed template labels, Cairo only)
 ───────────────────────────────────────────────────────────── */
 
-// Draws left-aligned text starting at x, returns its width — useful when
-// something else needs to be drawn right after it.
 function drawText(page, text, { x, y, size, font, color }) {
   page.drawText(text, { x, y, size, font, color });
   return font.widthOfTextAtSize(text, size);
 }
 
-// Same as above but centered around centerX (the most common usage on the
-// certificate).
 function drawTextCentered(page, text, { centerX, y, size, font, color }) {
   const width = font.widthOfTextAtSize(text, size);
   drawText(page, text, { x: centerX - width / 2, y, size, font, color });
   return width;
 }
 
-// Uppercase text with letter-spacing (tracking) — a classic touch in
-// formal certificate design ("CERTIFICATE OF COMPLETION").
 function drawTrackedUppercase(page, text, { centerX, y, size, font, color, tracking }) {
   let total = 0;
   for (const ch of text) total += font.widthOfTextAtSize(ch, size) + tracking;
@@ -65,21 +121,90 @@ function drawTrackedUppercase(page, text, { centerX, y, size, font, color, track
   }
 }
 
-// If the student name / course title is too long and would overflow the
-// certificate's bounds, shrink the font size step by step (down to a
-// minimum) instead of letting it get clipped at the edges.
-function fitFontSizeForWidth(text, maxWidth, startSize, minSize, font) {
+
+
+/* ─────────────────────────────────────────────────────────────
+   2) Mixed Arabic/Latin text (dynamic fields only: studentName,
+      courseTitle) — reshape + bidi reorder + run splitting.
+      Arabic runs → Amiri, Latin runs → whichever font is passed in
+      (Cairo for the course title, Great Vibes for the student name).
+───────────────────────────────────────────────────────────── */
+
+function isArabicChar(ch) {
+  const c = ch.codePointAt(0);
+  return (
+    (c >= 0x0600 && c <= 0x06ff) ||
+    (c >= 0x0750 && c <= 0x077f) ||
+    (c >= 0xfb50 && c <= 0xfdff) ||
+    (c >= 0xfe70 && c <= 0xfeff)
+  );
+}
+
+function toVisualOrder(text) {
+  const reshaped = arabicReshaper.convertArabic(text);
+  const levels = bidi.getEmbeddingLevels(reshaped);
+  return bidi.getReorderedString(reshaped, levels);
+}
+
+function splitRuns(visualText) {
+  const runs = [];
+  let current = "";
+  let currentIsArabic = null;
+  for (const ch of visualText) {
+    const isAr = isArabicChar(ch);
+    const bucket = ch === " " ? currentIsArabic : isAr;
+    if (currentIsArabic === null) currentIsArabic = bucket ?? isAr;
+    if (bucket === currentIsArabic || ch === " ") {
+      current += ch;
+    } else {
+      runs.push({ text: current, isArabic: currentIsArabic });
+      current = ch;
+      currentIsArabic = isAr;
+    }
+  }
+  if (current) runs.push({ text: current, isArabic: currentIsArabic });
+  return runs;
+}
+
+function measureMixed(text, size, arFont, latinFont) {
+  const runs = splitRuns(toVisualOrder(text));
+  const widths = runs.map((r) => (r.isArabic ? arFont : latinFont).widthOfTextAtSize(r.text, size));
+  return { runs, widths, total: widths.reduce((a, b) => a + b, 0) };
+}
+
+function drawMixed(page, text, { x, y, size, arFont, latinFont, color }) {
+  const { runs, widths } = measureMixed(text, size, arFont, latinFont);
+  let cursorX = x;
+  runs.forEach((r, i) => {
+    const font = r.isArabic ? arFont : latinFont;
+    page.drawText(r.text, { x: cursorX, y, size, font, color });
+    cursorX += widths[i];
+  });
+  return widths.reduce((a, b) => a + b, 0);
+}
+
+function drawMixedCentered(page, text, { centerX, y, size, arFont, latinFont, color }) {
+  const { total } = measureMixed(text, size, arFont, latinFont);
+  drawMixed(page, text, { x: centerX - total / 2, y, size, arFont, latinFont, color });
+  return total;
+}
+
+function fitFontSizeForWidth(text, maxWidth, startSize, minSize, arFont, latinFont) {
   let size = startSize;
   while (size > minSize) {
-    if (font.widthOfTextAtSize(text, size) <= maxWidth) return size;
+    const { total } = measureMixed(text, size, arFont, latinFont);
+    if (total <= maxWidth) return size;
     size -= 1;
   }
   return minSize;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   2) Certificate PDF generation (Day 43)
+   3) Certificate PDF generation (Day 43)
 ───────────────────────────────────────────────────────────── */
+
+const FONTS_DIR = path.join(process.cwd(), "app", "lib", "fonts");
+const ASSETS_DIR = path.join(process.cwd(), "app", "lib", "certificate-assets");
 
 function formatDate(date) {
   const d = new Date(date);
@@ -89,144 +214,132 @@ function formatDate(date) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-/**
- * Generates the certificate PDF bytes (Uint8Array) — a fully dynamic A4
- * landscape template: every piece of text is drawn at call time from the
- * passed-in data, with no static template image. Certificates are
- * English-only, so everything is drawn with pdf-lib's built-in Helvetica
- * standard fonts (no external font files needed).
- * @param {object} params
- * @param {string} params.studentName
- * @param {string} params.courseTitle
- * @param {string} params.certificateId
- * @param {Date|string} params.issuedAt
- * @param {string} params.verifyUrl - Public verification page URL (without https://)
- */
 export async function generateCertificatePdf({ studentName, courseTitle, certificateId, issuedAt, verifyUrl }) {
+  const arBoldBytes = fs.readFileSync(path.join(FONTS_DIR, "Amiri-Bold.ttf"));
+  const cairoBoldBytes = fs.readFileSync(path.join(FONTS_DIR, "Cairo-Bold.ttf"));
+  const cairoRegBytes = fs.readFileSync(path.join(FONTS_DIR, "Cairo-Regular.ttf"));
+  const scriptBytes = fs.readFileSync(path.join(FONTS_DIR, "GreatVibes-Regular.ttf"));
+  const logoBytes = fs.readFileSync(path.join(ASSETS_DIR, "logo.png"));
+
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
   pdfDoc.setTitle(`EduMaster Certificate — ${certificateId}`);
   pdfDoc.setSubject("Certificate of Completion");
   pdfDoc.setProducer("EduMaster");
 
-  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const arBold = await pdfDoc.embedFont(arBoldBytes, { subset: false });
+  const bold = await pdfDoc.embedFont(cairoBoldBytes, { subset: false });
+  const regular = await pdfDoc.embedFont(cairoRegBytes, { subset: false });
+  const script = await pdfDoc.embedFont(scriptBytes, { subset: false }); // Great Vibes — student name only
+  const logoImage = await pdfDoc.embedPng(logoBytes);
 
-  const NAVY = rgb(0.039, 0.039, 0.039); // #0a0a0a — same gradient as the site header
-  const BLUE = rgb(0.114, 0.435, 0.847); // #003A91 — the site's primary brand color
+  const NAVY = rgb(9 / 255, 20 / 255, 46 / 255);
+  const GOLD = rgb(199 / 255, 161 / 255, 92 / 255);
+  const GOLD_LIGHT = rgb(230 / 255, 200 / 255, 140 / 255);
   const GRAY = rgb(0.42, 0.45, 0.5);
-  const LIGHT_GRAY = rgb(0.62, 0.65, 0.7);
-  const WHITE = rgb(1, 1, 1);
+  const LIGHT_GRAY = rgb(0.65, 0.67, 0.72);
+  const CREAM = rgb(0.988, 0.98, 0.965);
 
-  const W = 842; // A4 landscape @ 72dpi (≈ 297×210mm)
+  const W = 842;
   const H = 595;
-  const CENTER_X = W / 2;
 
   const page = pdfDoc.addPage([W, H]);
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: WHITE });
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: CREAM });
 
-  // Double border (dark outer + brand-colored inner)
-  page.drawRectangle({ x: 18, y: 18, width: W - 36, height: H - 36, borderColor: NAVY, borderWidth: 2.5 });
-  page.drawRectangle({ x: 28, y: 28, width: W - 56, height: H - 56, borderColor: BLUE, borderWidth: 1 });
+  // ---- gold sliver + navy diagonal swoosh (top-right → bottom-right corner) ----
+  // NOTE: pdf-lib's drawSvgPath internally flips the Y axis (SVG is y-down),
+  // so every y coordinate below is negated to land at the intended page-space y.
+  const ny = (y) => -y;
 
-  // Diamond decorations in the four corners
-  for (const [cx, cy] of [
-    [40, 40],
-    [W - 40, 40],
-    [40, H - 40],
-    [W - 40, H - 40],
-  ]) {
-    page.drawRectangle({ x: cx - 5, y: cy - 5, width: 10, height: 10, color: BLUE, rotate: { type: "degrees", angle: 45 } });
-  }
+  const goldPath = `M ${W * 0.74} ${ny(H)}
+    C ${W * 0.93} ${ny(H)} ${W} ${ny(H * 0.9)} ${W} ${ny(H * 0.72)}
+    L ${W} ${ny(H)}
+    Z`;
+  page.drawSvgPath(goldPath, { x: 0, y: 0, color: GOLD_LIGHT });
 
-  // Circular checkmark badge at the top of the certificate
-  const badgeCx = CENTER_X;
-  const badgeCy = H - 78;
-  const badgeR = 24;
-  page.drawEllipse({ x: badgeCx, y: badgeCy, xScale: badgeR, yScale: badgeR, color: NAVY });
-  page.drawEllipse({ x: badgeCx, y: badgeCy, xScale: badgeR - 4, yScale: badgeR - 4, borderColor: WHITE, borderWidth: 1.2 });
-  page.drawLine({ start: { x: badgeCx - 10, y: badgeCy + 1 }, end: { x: badgeCx - 3, y: badgeCy - 7 }, thickness: 2.6, color: WHITE });
-  page.drawLine({ start: { x: badgeCx - 3, y: badgeCy - 7 }, end: { x: badgeCx + 12, y: badgeCy + 10 }, thickness: 2.6, color: WHITE });
+  const navyPath = `M ${W * 0.82} ${ny(H)}
+    C ${W * 0.97} ${ny(H)} ${W} ${ny(H * 0.9)} ${W} ${ny(H * 0.74)}
+    L ${W} ${ny(0)}
+    L ${W * 0.66} ${ny(0)}
+    C ${W * 0.7} ${ny(H * 0.3)} ${W * 0.68} ${ny(H * 0.66)} ${W * 0.82} ${ny(H)}
+    Z`;
+  page.drawSvgPath(navyPath, { x: 0, y: 0, color: NAVY });
 
-  drawTrackedUppercase(page, "CERTIFICATE OF COMPLETION", {
-    centerX: CENTER_X, y: H - 108, size: 11, font: bold, color: BLUE, tracking: 3.2,
+  // thin frame brackets (top-left and bottom-left open corners)
+  page.drawLine({ start: { x: 55, y: H - 55 }, end: { x: W * 0.6, y: H - 55 }, thickness: 1.2, color: NAVY });
+  page.drawLine({ start: { x: 55, y: H - 55 }, end: { x: 55, y: H * 0.42 }, thickness: 1.2, color: NAVY });
+  page.drawLine({ start: { x: 55, y: 55 }, end: { x: W * 0.46, y: 55 }, thickness: 1.2, color: NAVY });
+  page.drawLine({ start: { x: 55, y: 55 }, end: { x: 55, y: H * 0.3 }, thickness: 1.2, color: NAVY });
+
+  // ---- company logo seal, bottom-right ----
+  const sealCx = W - 108;
+  const sealCy = 100;
+  const logoSize = 118;
+  page.drawImage(logoImage, {
+    x: sealCx - logoSize / 2,
+    y: sealCy - logoSize / 2,
+    width: logoSize,
+    height: logoSize,
   });
 
-  drawTextCentered(page, "Certificate of Achievement", {
-    centerX: CENTER_X, y: H - 150, size: 36, font: bold, color: NAVY,
+  // ---- header ----
+  const bodyCenterX = W * 0.335;
+
+  drawTrackedUppercase(page, "EDUMASTER", { centerX: bodyCenterX, y: H - 96, size: 10.5, font: bold, color: GOLD, tracking: 4.2 });
+  drawTrackedUppercase(page, "CERTIFICATE", { centerX: bodyCenterX, y: H - 150, size: 38, font: bold, color: NAVY, tracking: 5 });
+  drawTrackedUppercase(page, "OF COMPLETION", { centerX: bodyCenterX, y: H - 178, size: 12.5, font: regular, color: GRAY, tracking: 5 });
+
+  // ---- body ----
+  const contentMaxWidth = W * 0.5;
+
+  drawTextCentered(page, "This certificate is proudly presented to", {
+    centerX: bodyCenterX, y: H - 230, size: 12, font: regular, color: GRAY,
   });
 
-  drawTextCentered(page, "The EduMaster learning platform hereby certifies that", {
-    centerX: CENTER_X, y: H - 195, size: 14, font: regular, color: GRAY,
-  });
-
-  const nameSize = fitFontSizeForWidth(studentName, W - 160, 30, 16, bold);
-  const nameWidth = drawTextCentered(page, studentName, {
-    centerX: CENTER_X, y: H - 245, size: nameSize, font: bold, color: BLUE,
+  // Student name: Great Vibes for Latin runs, Amiri Bold for any Arabic runs.
+  const nameSize = fitFontSizeForWidth(studentName, contentMaxWidth, 50, 24, arBold, script);
+  const nameWidth = drawMixedCentered(page, studentName, {
+    centerX: bodyCenterX, y: H - 298, size: nameSize, arFont: arBold, latinFont: script, color: NAVY,
   });
   page.drawLine({
-    start: { x: CENTER_X - nameWidth / 2 - 20, y: H - 258 },
-    end: { x: CENTER_X + nameWidth / 2 + 20, y: H - 258 },
-    thickness: 1, color: LIGHT_GRAY,
+    start: { x: bodyCenterX - nameWidth / 2 - 20, y: H - 314 },
+    end: { x: bodyCenterX + nameWidth / 2 + 20, y: H - 314 },
+    thickness: 0.8, color: GOLD,
   });
 
-  drawTextCentered(page, "has successfully completed all requirements of the course", {
-    centerX: CENTER_X, y: H - 290, size: 14, font: regular, color: GRAY,
+  drawTextCentered(page, "for successfully completing all requirements of the course", {
+    centerX: bodyCenterX, y: H - 342, size: 11, font: regular, color: GRAY,
   });
 
-  const courseSize = fitFontSizeForWidth(courseTitle, W - 140, 22, 13, bold);
-  drawTextCentered(page, courseTitle, {
-    centerX: CENTER_X, y: H - 330, size: courseSize, font: bold, color: NAVY,
+  const courseSize = fitFontSizeForWidth(courseTitle, contentMaxWidth, 18, 11, arBold, bold);
+  drawMixedCentered(page, courseTitle, {
+    centerX: bodyCenterX, y: H - 368, size: courseSize, arFont: arBold, latinFont: bold, color: NAVY,
   });
 
-  // Footer info row: issue date / certificate number / verification link
-  const footerY = 70;
-  drawText(page, `Issue Date: ${formatDate(issuedAt)}`, {
-    x: 50, y: footerY, size: 10, font: regular, color: GRAY,
-  });
+  // ---- footer: issue date (left) / certificate number (right) ----
+  const footerY = 76;
+  const col1X = 70;
+  const col2X = 300;
 
-  const idText = `Certificate No: ${certificateId}`;
-  const idWidth = regular.widthOfTextAtSize(idText, 10);
-  drawText(page, idText, {
-    x: W - 50 - idWidth, y: footerY, size: 10, font: regular, color: GRAY,
-  });
+  page.drawLine({ start: { x: col1X, y: footerY + 26 }, end: { x: col1X + 150, y: footerY + 26 }, thickness: 0.8, color: LIGHT_GRAY });
+  drawTrackedUppercase(page, "DATE", { centerX: col1X + 75, y: footerY + 8, size: 9, font: bold, color: NAVY, tracking: 2 });
+  drawTextCentered(page, formatDate(issuedAt), { centerX: col1X + 75, y: footerY - 8, size: 10, font: regular, color: GRAY });
 
-  if (verifyUrl) {
-    drawTextCentered(page, verifyUrl, {
-      centerX: CENTER_X, y: footerY, size: 9, font: regular, color: LIGHT_GRAY,
-    });
-  }
+  page.drawLine({ start: { x: col2X, y: footerY + 26 }, end: { x: col2X + 150, y: footerY + 26 }, thickness: 0.8, color: LIGHT_GRAY });
+  drawTrackedUppercase(page, "CERTIFICATE NO.", { centerX: col2X + 75, y: footerY + 8, size: 9, font: bold, color: NAVY, tracking: 1.6 });
+  drawTextCentered(page, certificateId, { centerX: col2X + 75, y: footerY - 8, size: 9, font: regular, color: GRAY });
 
   return pdfDoc.save();
 }
 
 /* ─────────────────────────────────────────────────────────────
-   3) Automatic issuance on course completion (Day 44)
+   4) Automatic issuance on course completion (Day 44)
 ───────────────────────────────────────────────────────────── */
 
-/**
- * Automatically issues a certificate for a student who completed a given
- * course, if they don't already have one.
- * 🔒 SECURITY / RACE CONDITION: relies on an upsert + the unique
- * {user,course} index on the Certificate model (see
- * app/lib/models/Certificate.js) — if this function is called twice at
- * the same moment (e.g. two concurrent attempts to complete the last
- * lesson), Mongo will reject one of them with a duplicate key error,
- * which we catch here and return the existing record instead of failing
- * the operation that called this function in the first place (completing
- * the lesson/quiz must still succeed even if certificate issuance races).
- *
- * Intentionally best-effort and never throws upward: a failure to issue
- * the certificate (e.g. a transient PDF generation issue) must not break
- * the lesson-completion flow itself.
- *
- * @returns {Promise<object|null>} the certificate record (jsonable), or
- *   null if there's no actually-completed enrollment or an error occurred.
- */
 export async function issueCertificateForCompletedEnrollment(userId, courseId) {
   try {
     const Certificate = getCertificateModel();
 
-    // If it already exists, do nothing (idempotent).
     const existing = await Certificate.findOne({ user: userId, course: courseId }).lean();
     if (existing) return existing;
 
@@ -250,10 +363,6 @@ export async function issueCertificateForCompletedEnrollment(userId, courseId) {
         issuedAt: new Date(),
       });
 
-      // 🔔 Phase 6 — Days 50-51: "new certificate" notification for the
-      // student — only after an actual creation (not when the certificate
-      // already existed, and not from the E11000 path below — so the
-      // notification is sent exactly once per certificate).
       await createNotification({
         user: userId,
         type: "certificate_issued",
@@ -265,9 +374,6 @@ export async function issueCertificateForCompletedEnrollment(userId, courseId) {
 
       return created.toObject();
     } catch (err) {
-      // 🔒 E11000 = duplicate key (raced with another call that created the
-      // certificate a fraction of a second before us) — not a real error,
-      // just return the record that was actually created.
       if (err?.code === 11000) {
         return await Certificate.findOne({ user: userId, course: courseId }).lean();
       }
@@ -279,12 +385,6 @@ export async function issueCertificateForCompletedEnrollment(userId, courseId) {
   }
 }
 
-/**
- * Builds the public verification link for a given certificate, from
- * request.url (same approach as app/api/payments/checkout/route.js) so it
- * works correctly in any environment (local/staging/production) without
- * needing an extra environment variable.
- */
 export function buildVerifyUrl(request, certificateId) {
   const origin = new URL(request.url).origin;
   return `${origin.replace(/^https?:\/\//, "")}/verify/${certificateId}`;

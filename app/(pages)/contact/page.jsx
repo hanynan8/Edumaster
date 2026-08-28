@@ -98,7 +98,7 @@ function ContactHero({ data, t }) {
 }
 
 function PhoneIcon() {
-  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#0f2d57" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.01 2.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z" /></svg>;
+  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.01 2.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z" /></svg>;
 }
 
 function ContactMain({ data, t }) {
@@ -131,21 +131,21 @@ function ContactMain({ data, t }) {
 function InfoCard({ icon, label, value, href, isExternal, accent, visible, delay }) {
   const base = "group flex items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 no-underline";
   const cls = accent
-    ? `${base} border-[#0f2d57]/20 bg-[#0f2d57]/4 hover:bg-[#0f2d57] hover:border-[#0f2d57]`
-    : `${base} border-gray-100 bg-white hover:border-[#0f2d57]/30 hover:shadow-lg`;
+    ? `${base} border-[#003A91]/20 bg-[#003A91]/4 hover:bg-[#003A91] hover:border-[#003A91]`
+    : `${base} border-gray-100 bg-white hover:border-[#003A91]/30 hover:shadow-lg`;
   return (
     <a href={href} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}
       className={`${cls} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"} transition-all duration-500`}
       style={{ transitionDelay: `${delay}ms` }}>
-      <span className={`shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-colors duration-300 ${accent ? "bg-[#0f2d57]/10 group-hover:bg-white/20" : "bg-gray-100 group-hover:bg-[#0f2d57]/10"}`}>
+      <span className={`shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-colors duration-300 ${accent ? "bg-[#003A91]/10 group-hover:bg-white/20" : "bg-gray-100 group-hover:bg-[#003A91]/10"}`}>
         {icon}
       </span>
       <div className="flex flex-col min-w-0">
-        <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-0.5 transition-colors duration-200 ${accent ? "text-[#0f2d57] group-hover:text-white/70" : "text-gray-400"}`}>{label}</span>
-        <span className={`font-black text-sm sm:text-base truncate transition-colors duration-200 ${accent ? "text-[#0f2d57] group-hover:text-white" : "text-[#0a0a0a] group-hover:text-[#0f2d57]"}`}>{value}</span>
+        <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-0.5 transition-colors duration-200 ${accent ? "text-[#003A91] group-hover:text-white/70" : "text-gray-400"}`}>{label}</span>
+        <span className={`font-black text-sm sm:text-base truncate transition-colors duration-200 ${accent ? "text-[#003A91] group-hover:text-white" : "text-[#0a0a0a] group-hover:text-[#003A91]"}`}>{value}</span>
       </div>
       <span className="ms-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <ArrowRight size={15} color={accent ? "white" : "#0f2d57"} />
+        <ArrowRight size={15} color={accent ? "white" : "#003A91"} />
       </span>
     </a>
   );
@@ -203,8 +203,8 @@ function ConsultationForm({ data, t, visible }) {
     <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
       <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-6 sm:mb-8">{t.form.title}</h2>
       {status === "sent" ? (
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#0f2d57]/5 border border-[#0f2d57]/20 flex flex-col items-center text-center gap-4">
-          <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0f2d57] flex items-center justify-center">
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#003A91]/5 border border-[#003A91]/20 flex flex-col items-center text-center gap-4">
+          <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#003A91] flex items-center justify-center">
             <Check size={22} color="white" />
           </span>
           <h3 className="font-semibold text-lg sm:text-xl">{t.form.successTitle}</h3>
@@ -225,7 +225,7 @@ function ConsultationForm({ data, t, visible }) {
               <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
             </div>
             <select name="service" value={form.service} onChange={handleChange}
-              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none focus:border-[#0f2d57] transition-colors">
+              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none focus:border-[#003A91] transition-colors">
               <option value="">{t.form.fields.servicePlaceholder}</option>
               {t.form.serviceOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
@@ -237,11 +237,11 @@ function ConsultationForm({ data, t, visible }) {
               <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
             </div>
             <textarea name="message" value={form.message} onChange={handleChange} rows={4} placeholder={t.form.fields.messagePlaceholder}
-              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#0f2d57] transition-colors resize-none" />
+              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#003A91] transition-colors resize-none" />
           </div>
 
           <button onClick={handleSubmit} disabled={status === "sending"}
-            className="inline-flex items-center justify-center gap-2 bg-[#0f2d57] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">
+            className="inline-flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">
             {status === "sending" ? (
               <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{t.form.sending}</>
             ) : (
@@ -267,7 +267,7 @@ function Field({ label, name, type, value, onChange, badge, error, errorMsg }) {
         )}
       </div>
       <input type={type} name={name} value={value} onChange={onChange}
-        className={`w-full bg-[#f7f7f7] border rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none transition-colors ${error ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#0f2d57]"}`} />
+        className={`w-full bg-[#f7f7f7] border rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none transition-colors ${error ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#003A91]"}`} />
       {/* ✅ رسالة الخطأ تحت الحقل */}
       {error && <span className="text-red-500 text-xs font-medium">{errorMsg}</span>}
     </div>
@@ -281,10 +281,10 @@ function Check({ size = 16, color = "currentColor" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
 }
 function EmailIcon() {
-  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#0f2d57" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M2 7l10 7 10-7" /></svg>;
+  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M2 7l10 7 10-7" /></svg>;
 }
 function WhatsAppIcon() {
-  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#0f2d57" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>;
+  return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>;
 }
 
 const STYLES = `

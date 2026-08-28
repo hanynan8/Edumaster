@@ -85,7 +85,7 @@ function BlogHero({ data, t }) {
               const words = t.hero.headline.split(" ");
               const black = words.slice(0, 2).join(" ");
               const blue  = words.slice(2).join(" ");
-              return (<><span className="text-[#0a0a0a]">{black}</span><br /><span className="text-[#0f2d57]">{blue}</span></>);
+              return (<><span className="text-[#0a0a0a]">{black}</span><br /><span className="text-[#003A91]">{blue}</span></>);
             })()}
           </h1>
           <p className="text-gray-500 text-sm sm:text-lg max-w-xl leading-relaxed animate-fadein-up2">{t.hero.subheadline}</p>
@@ -103,7 +103,7 @@ function CategoryFilter({ data, t, active, setActive }) {
           {data.categories.map((cat) => (
             <button key={cat.id} onClick={() => setActive(cat.id)}
               className={`shrink-0 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ${
-                active === cat.id ? "bg-[#0f2d57] text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                active === cat.id ? "bg-[#003A91] text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}>
               {t.categories[cat.id]}
             </button>
@@ -121,7 +121,7 @@ function FeaturedPost({ post, t, lang }) {
     <section ref={ref} className="py-10 sm:py-14 md:py-16 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <Link href={`/blog/${post.slug}`}
-          className={`group grid lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-gray-100 hover:border-[#0f2d57]/30 hover:shadow-2xl transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          className={`group grid lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-gray-100 hover:border-[#003A91]/30 hover:shadow-2xl transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <div className="relative h-56 sm:h-72 lg:h-auto overflow-hidden bg-gray-100">
             <Image src={post.image} alt={postT.title} fill className="object-cover group-hover:scale-105 transition-transform duration-700" unoptimized />
             <div className="absolute top-0 inset-x-0 h-[4px]" style={{ background: post.color }} />
@@ -137,11 +137,11 @@ function FeaturedPost({ post, t, lang }) {
               <span className="w-1 h-1 rounded-full bg-gray-300" />
               <span className="text-xs text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-4 sm:mb-5 group-hover:text-[#0f2d57] transition-colors duration-200">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-4 sm:mb-5 group-hover:text-[#003A91] transition-colors duration-200">
               {postT.title}
             </h2>
             <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-6 sm:mb-8">{postT.excerpt}</p>
-            <div className="flex items-center gap-2 text-sm font-bold text-[#0f2d57]">
+            <div className="flex items-center gap-2 text-sm font-bold text-[#003A91]">
               {t.readMore} <ArrowRight size={14} />
             </div>
           </div>
@@ -171,7 +171,7 @@ function PostCard({ post, t, lang, visible, delay }) {
   const postT = t.posts[post.id];
   return (
     <Link href={`/blog/${post.slug}`}
-      className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#0f2d57]/30 hover:shadow-xl transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#003A91]/30 hover:shadow-xl transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
       style={{ transitionDelay: `${delay}ms` }}>
       <div className="relative h-44 sm:h-52 overflow-hidden bg-gray-100">
         <Image src={post.image} alt={postT.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
@@ -188,9 +188,9 @@ function PostCard({ post, t, lang, visible, delay }) {
           <span className="w-0.5 h-0.5 rounded-full bg-gray-300" />
           <span className="text-[11px] text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
         </div>
-        <h3 className="font-semibold text-[#0a0a0a] text-sm sm:text-base leading-snug group-hover:text-[#0f2d57] transition-colors duration-150">{postT.title}</h3>
+        <h3 className="font-semibold text-[#0a0a0a] text-sm sm:text-base leading-snug group-hover:text-[#003A91] transition-colors duration-150">{postT.title}</h3>
         <p className="text-gray-500 text-xs sm:text-sm leading-relaxed flex-1 line-clamp-3">{postT.excerpt}</p>
-        <div className="flex items-center gap-1 text-xs font-bold text-[#0f2d57] mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200">
+        <div className="flex items-center gap-1 text-xs font-bold text-[#003A91] mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200">
           {t.readMore} <ArrowRight size={12} />
         </div>
       </div>
@@ -208,13 +208,13 @@ function Newsletter({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.newsletter.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#0f2d57] z-10" />
+      <div className="absolute top-0 inset-x-0 h-[3px] bg-[#003A91] z-10" />
       <div className={`relative z-10 max-w-2xl mx-auto text-center transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-3 sm:mb-4">{t.newsletter.title}</h2>
         <p className="text-gray-400 text-sm sm:text-base mb-8 sm:mb-10">{t.newsletter.subtitle}</p>
         {submitted ? (
-          <div className="flex items-center justify-center gap-3 text-[#0f2d57] font-bold text-lg">
-            <Check size={20} color="#0f2d57" /><span>Thank you!</span>
+          <div className="flex items-center justify-center gap-3 text-[#003A91] font-bold text-lg">
+            <Check size={20} color="#003A91" /><span>Thank you!</span>
           </div>
         ) : null}
       </div>

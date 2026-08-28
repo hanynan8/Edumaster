@@ -72,7 +72,7 @@ function localizeCourse(c, language, ui) {
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: ui.levels[c.level] || c.level,
-    levelColor: LEVEL_COLORS[c.level] || "#0f2d57",
+    levelColor: LEVEL_COLORS[c.level] || "#003A91",
     durationLabel: c.durationLabel || (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
     studentsCount: c.studentsCount || 0,
     ratingAverage: c.ratingAverage || 0,

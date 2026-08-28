@@ -64,7 +64,7 @@ export default function VerifyCertificatePage({ params }) {
   if (!checked) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-[#f7f7f7]">
-        <Loader className="animate-spin text-[#0f2d57]" size={28} />
+        <Loader className="animate-spin text-[#003A91]" size={28} />
         <p className="text-sm text-gray-400">{t.loading}</p>
       </div>
     );
@@ -80,7 +80,7 @@ export default function VerifyCertificatePage({ params }) {
     >
       <div className="max-w-lg mx-auto">
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <div className={`h-1.5 ${isValid ? "bg-gradient-to-r from-[#0a0a0a] to-[#0f2d57]" : "bg-red-400"}`} />
+          <div className={`h-1.5 ${isValid ? "bg-gradient-to-r from-[#0a0a0a] to-[#003A91]" : "bg-red-400"}`} />
 
           <div className="p-8 text-center">
             <div
@@ -105,21 +105,21 @@ export default function VerifyCertificatePage({ params }) {
             {isValid && cert && (
               <div className="text-start space-y-3 bg-gray-50 rounded-xl p-5 mb-6">
                 <div className="flex items-center gap-3">
-                  <Award size={16} className="text-[#0f2d57] shrink-0" />
+                  <Award size={16} className="text-[#003A91] shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[11px] text-gray-400">{t.studentName}</p>
                     <p className="text-sm font-bold text-gray-800 truncate">{cert.studentName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <BookOpen size={16} className="text-[#0f2d57] shrink-0" />
+                  <BookOpen size={16} className="text-[#003A91] shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[11px] text-gray-400">{t.courseTitle}</p>
                     <p className="text-sm font-bold text-gray-800 truncate">{cert.courseTitle}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Calendar size={16} className="text-[#0f2d57] shrink-0" />
+                  <Calendar size={16} className="text-[#003A91] shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[11px] text-gray-400">{t.issuedAt}</p>
                     <p className="text-sm font-bold text-gray-800">
@@ -128,7 +128,7 @@ export default function VerifyCertificatePage({ params }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Hash size={16} className="text-[#0f2d57] shrink-0" />
+                  <Hash size={16} className="text-[#003A91] shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[11px] text-gray-400">{t.certificateId}</p>
                     <p className="text-sm font-mono font-bold text-gray-800 truncate">{cert.certificateId}</p>
@@ -144,7 +144,7 @@ export default function VerifyCertificatePage({ params }) {
               {!isValid && (
                 <>
                   <span className="text-gray-300">·</span>
-                  <Link href="/courses" className="text-sm font-semibold text-[#0f2d57] hover:underline">
+                  <Link href="/courses" className="text-sm font-semibold text-[#003A91] hover:underline">
                     {t.browse}
                   </Link>
                 </>

@@ -80,7 +80,7 @@ export default function SubmitAssignmentPage({ params }) {
   }
 
   const STATUS_LABELS = {
-    submitted: { label: t.statusSubmitted, cls: "bg-[#eceef2] text-[#0f2d57]" },
+    submitted: { label: t.statusSubmitted, cls: "bg-[#EBEFF6] text-[#003A91]" },
     late: { label: t.statusLate, cls: "bg-amber-50 text-amber-600" },
     graded: { label: t.statusGraded, cls: "bg-green-50 text-green-600" },
   };
@@ -151,7 +151,7 @@ export default function SubmitAssignmentPage({ params }) {
   if (!assignment) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-[#314a6f]" size={36} />
+        <Loader className="animate-spin text-[#2456A1]" size={36} />
       </div>
     );
   }
@@ -186,7 +186,7 @@ export default function SubmitAssignmentPage({ params }) {
             href={assignment.attachmentUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f2d57] hover:underline mt-4"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003A91] hover:underline mt-4"
           >
             <Paperclip size={15} /> {t.downloadAttachment}
           </a>
@@ -227,7 +227,7 @@ export default function SubmitAssignmentPage({ params }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.orWriteText}</label>
             <textarea
               rows={4}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
               value={textAnswer}
               onChange={(e) => setTextAnswer(e.target.value)}
               placeholder={t.textPlaceholder}
@@ -237,7 +237,7 @@ export default function SubmitAssignmentPage({ params }) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
           >
             {submitting ? <Loader size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
             {mySubmission ? t.updateSubmission : t.submitAssignment}

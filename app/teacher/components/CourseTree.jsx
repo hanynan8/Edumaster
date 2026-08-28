@@ -70,7 +70,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
               <span className="text-xs text-gray-400">{t.lessonsCount(section.lessons.length)}</span>
               <button
                 onClick={() => onAddLesson(section.id)}
-                className="flex items-center gap-1 text-xs font-semibold bg-[#eceef2] text-[#0f2d57] px-3 py-1.5 rounded-lg hover:bg-[#d9dde4]"
+                className="flex items-center gap-1 text-xs font-semibold bg-[#EBEFF6] text-[#003A91] px-3 py-1.5 rounded-lg hover:bg-[#D7E0EE]"
               >
                 <Plus size={13} /> {t.addLesson}
               </button>
@@ -118,7 +118,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
 
       <button
         onClick={onAddSection}
-        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-[#5c708d] rounded-2xl py-4 text-gray-500 hover:text-[#0f2d57] font-semibold transition-colors"
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-[#5279B4] rounded-2xl py-4 text-gray-500 hover:text-[#003A91] font-semibold transition-colors"
       >
         <Plus size={18} /> {t.addSection}
       </button>

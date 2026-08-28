@@ -66,7 +66,7 @@ export default function BlogPostPage({ params }) {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-semibold mb-4">Post not found</h1>
-          <Link href="/blog" className="text-[#0f2d57] font-bold underline">{t.backToBlog}</Link>
+          <Link href="/blog" className="text-[#003A91] font-bold underline">{t.backToBlog}</Link>
         </div>
       </div>
     );
@@ -86,7 +86,7 @@ export default function BlogPostPage({ params }) {
             <button onClick={() => setTocOpen((v) => !v)}
               className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-[#0a0a0a]">
               <span className="flex items-center gap-2">
-                <div className="w-1 h-4 bg-[#0f2d57] rounded-full" />
+                <div className="w-1 h-4 bg-[#003A91] rounded-full" />
                 {t.tableOfContents}
               </span>
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
@@ -160,7 +160,7 @@ function PostHero({ postMeta, postContent, t, lang }) {
         </h1>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 animate-fadein-up2">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0f2d57] flex items-center justify-center">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#003A91] flex items-center justify-center">
               <span className="text-white text-xs font-black">E</span>
             </div>
             <span className="text-gray-400 text-xs sm:text-sm font-semibold">{t.by} {postContent.author}</span>
@@ -184,7 +184,7 @@ function Section({ section, postColor, onVisible }) {
     case "intro":
       return (
         <div ref={ref} className={`mb-8 sm:mb-10 ${baseAnim}`}>
-          <p className="text-base sm:text-xl text-gray-600 leading-relaxed font-medium border-s-4 border-[#0f2d57] ps-4 sm:ps-6">
+          <p className="text-base sm:text-xl text-gray-600 leading-relaxed font-medium border-s-4 border-[#003A91] ps-4 sm:ps-6">
             {section.text}
           </p>
         </div>
@@ -250,16 +250,16 @@ function TOC({ toc, t, activeSection }) {
   return (
     <div className="rounded-2xl border border-gray-100 overflow-hidden">
       <div className="bg-[#0a0a0a] px-5 py-4 flex items-center gap-2">
-        <div className="w-1 h-4 bg-[#0f2d57] rounded-full" />
+        <div className="w-1 h-4 bg-[#003A91] rounded-full" />
         <span className="text-white text-xs font-bold uppercase tracking-widest">{t.tableOfContents}</span>
       </div>
       <nav className="p-2">
         {toc.map((item) => (
           <a key={item.number} href={`#section-${item.number}`}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
-              activeSection === item.number ? "bg-[#0f2d57]/8 text-[#0f2d57]" : "text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a]"
+              activeSection === item.number ? "bg-[#003A91]/8 text-[#003A91]" : "text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a]"
             }`}>
-            <span className={`shrink-0 text-[10px] font-black ${activeSection === item.number ? "text-[#0f2d57]" : "text-gray-400"}`}>
+            <span className={`shrink-0 text-[10px] font-black ${activeSection === item.number ? "text-[#003A91]" : "text-gray-400"}`}>
               {item.number}
             </span>
             <span className="leading-snug line-clamp-2">{item.heading}</span>
@@ -272,12 +272,12 @@ function TOC({ toc, t, activeSection }) {
 
 function CTACard() {
   return (
-    <div className="rounded-2xl bg-[#0f2d57] p-5 sm:p-6 text-white">
+    <div className="rounded-2xl bg-[#003A91] p-5 sm:p-6 text-white">
       <div className="w-8 h-[3px] bg-white/40 mb-4" />
       <h3 className="font-semibold text-base sm:text-lg leading-tight mb-2">Need Help with Your Application?</h3>
       <p className="text-blue-100 text-xs sm:text-sm leading-relaxed mb-4 sm:mb-5">Our experts are ready to guide you through every step. Free 30-min consultation.</p>
       <Link href="/consultation"
-        className="flex items-center justify-center gap-2 bg-white text-[#0f2d57] font-bold text-sm py-2.5 sm:py-3 px-5 rounded-lg hover:bg-blue-50 transition-colors">
+        className="flex items-center justify-center gap-2 bg-white text-[#003A91] font-bold text-sm py-2.5 sm:py-3 px-5 rounded-lg hover:bg-blue-50 transition-colors">
         Book Free Consultation <ArrowRight size={14} />
       </Link>
     </div>
@@ -290,8 +290,8 @@ function RelatedPosts({ posts, t, lang, data }) {
     <section ref={ref} className="py-14 sm:py-16 md:py-20 px-5 sm:px-8 md:px-6 bg-[#f7f7f7]">
       <div className="max-w-7xl mx-auto">
         <div className={`flex items-center gap-3 mb-8 sm:mb-10 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <div className="w-4 sm:w-5 h-px bg-[#0f2d57]" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-[#0f2d57]">{t.relatedPosts}</span>
+          <div className="w-4 sm:w-5 h-px bg-[#003A91]" />
+          <span className="text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-[#003A91]">{t.relatedPosts}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {posts.map((post, i) => {
@@ -299,7 +299,7 @@ function RelatedPosts({ posts, t, lang, data }) {
             if (!postT) return null;
             return (
               <Link key={post.id} href={`/blog/${post.id}`}
-                className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#0f2d57]/30 hover:shadow-xl transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+                className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#003A91]/30 hover:shadow-xl transition-all duration-300 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
                 style={{ transitionDelay: `${i * 80}ms` }}>
                 <div className="relative h-40 sm:h-44 overflow-hidden bg-gray-100">
                   <Image src={post.image} alt={postT.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
@@ -311,8 +311,8 @@ function RelatedPosts({ posts, t, lang, data }) {
                     <span className="w-0.5 h-0.5 rounded-full bg-gray-300" />
                     <span className="text-[11px] text-gray-400 font-semibold">{post.readTime} {t.readTime}</span>
                   </div>
-                  <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#0f2d57] transition-colors">{postT.title}</h3>
-                  <div className="flex items-center gap-1 text-xs font-bold text-[#0f2d57] mt-auto pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#003A91] transition-colors">{postT.title}</h3>
+                  <div className="flex items-center gap-1 text-xs font-bold text-[#003A91] mt-auto pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {t.readMore} <ArrowRight size={11} />
                   </div>
                 </div>

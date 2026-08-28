@@ -91,7 +91,7 @@ export default function QuizQuestionsPage({ params }) {
   if (!quiz) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-[#314a6f]" size={36} />
+        <Loader className="animate-spin text-[#2456A1]" size={36} />
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function QuizQuestionsPage({ params }) {
         <h2 className="text-lg font-semibold text-gray-700">{t.questions(quiz.questions.length)}</h2>
         <button
           onClick={() => setModal(null)}
-          className="flex items-center gap-2 text-sm font-semibold bg-[#0f2d57] text-white px-4 py-2.5 rounded-xl hover:bg-[#0c2547]"
+          className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
         >
           <Plus size={16} /> {t.newQuestion}
         </button>

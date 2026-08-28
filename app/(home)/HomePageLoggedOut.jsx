@@ -37,6 +37,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
+import ServicesSection from "../components/ServicesSection";
 import LoadingScreen from "../components/LoadingScreen";
 
 /* ─────────────────────────────────────────
@@ -143,18 +144,6 @@ function useHomeData() {
   return data;
 }
 
-// same as /services page: collection=services
-function useServicesData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    fetch("/api/data?collection=services")
-      .then((r) => r.json())
-      .then((res) => setData(Array.isArray(res) ? res[0] : res))
-      .catch(console.error);
-  }, []);
-  return data;
-}
-
 // same as /countries page: collection=countries
 function useCountriesData() {
   const [data, setData] = useState(null);
@@ -207,7 +196,6 @@ function useReveal(threshold = 0.1) {
 ═══════════════════════════════════════ */
 export default function HomePageLoggedOut() {
   const homeData = useHomeData();
-  const servicesData = useServicesData();
   const countriesData = useCountriesData();
   const aboutData = useAboutData();
 
@@ -234,7 +222,7 @@ export default function HomePageLoggedOut() {
         <Hero data={homeData} t={tHome} />
 
         {/* 2) SERVICES — same source as /services, 4-per-row grid */}
-        {servicesData && <ServicesSection data={servicesData} lang={lang} ui={ui} />}
+        <ServicesSection lang={lang} ui={ui} />
 
         {/* 3) ALL COURSES — shared component, same source as /courses */}
         <CoursesSection
@@ -298,81 +286,11 @@ function Hero({ data, t }) {
   );
 }
 
-const SERVICE_ID_MAP = {
-  "Study in Spain": "study-spain",
-  "Visa Services": "visa",
-  "language Courses": "language",
-};
-
-function ServicesSection({ data, lang, ui }) {
-  const [ref, visible] = useReveal();
-  const t = data.i18n[lang] ?? data.i18n.en;
-
-  const merged = (data.services || []).map((svc) => {
-    const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
-    return { ...svc, ...(t.services?.[i18nKey] ?? {}) };
-  });
-
-  return (
-    <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
-      <div className="px-5 sm:px-10 md:px-16">
-        <div
-          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
-            visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-          }`}
-        >
-          <div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
-              {ui.servicesTitle}
-            </h2>
-          </div>
-          <Link
-            href="/services"
-            className="inline-flex items-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all shrink-0 self-start sm:self-auto w-fit"
-          >
-            {ui.servicesCta}
-            <ArrowRight size={13} />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {merged.map((s, i) => (
-            <Link
-              key={s.id}
-              href="/services"
-              className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#C9A227]/30 hover:shadow-xl hover:shadow-amber-900/5 transition-all duration-300 ${
-                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-              }`}
-              style={{ transitionDelay: `${i * 70}ms` }}
-            >
-              <div className="relative h-32 sm:h-40 overflow-hidden bg-gray-100">
-                {s.image && (
-                  <Image src={s.image} alt={s.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
-                )}
-                <div className="absolute top-0 inset-x-0 h-0.75" style={{ background: s.color }} />
-              </div>
-              <div className="p-4 flex flex-col gap-2 flex-1">
-                <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug group-hover:text-[#C9A227] transition-colors duration-150">
-                  {s.title}
-                </h3>
-                <p className="text-gray-500 text-xs leading-relaxed flex-1 line-clamp-3">{s.desc}</p>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-[#C9A227] mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200">
-                  <ArrowRight size={11} />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ═══════════════════════════════════════
    COUNTRIES PREVIEW — same data as /countries, a few cards only
 ═══════════════════════════════════════ */
 const COUNTRY_SECTION_META = {
-  educationSystem: { icon: BookOpenIcon, color: "#0f2d57" },
+  educationSystem: { icon: BookOpenIcon, color: "#003A91" },
   admissionRequirements: { icon: ClipboardIcon, color: "#a855f7" },
   costOfLiving: { icon: WalletIcon, color: "#10b981" },
   partTimeWork: { icon: BriefcaseIcon, color: "#f59e0b" },
@@ -441,7 +359,7 @@ function CountriesPreviewSection({ data, lang, ui }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {cards.map((card, i) => {
-            const meta = COUNTRY_SECTION_META[card.key] || { icon: BookOpenIcon, color: "#0f2d57" };
+            const meta = COUNTRY_SECTION_META[card.key] || { icon: BookOpenIcon, color: "#003A91" };
             const Icon = meta.icon;
             return (
               <Link
@@ -501,7 +419,7 @@ function MissionVisionSection({ data, lang, ui }) {
   if (!t.vision || !t.mission) return null;
 
   const cards = [
-    { key: "vision", icon: <EyeIcon />, title: t.vision.title, body: t.vision.body, color: "#0a1f3b" },
+    { key: "vision", icon: <EyeIcon />, title: t.vision.title, body: t.vision.body, color: "#002761" },
     { key: "mission", icon: <TargetIcon />, title: t.mission.title, body: t.mission.body, color: "#C9A227" },
   ];
 

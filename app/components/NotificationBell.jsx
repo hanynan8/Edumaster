@@ -145,7 +145,7 @@ export default function NotificationBell() {
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-[#0f2d57] mt-1.5 shrink-0" />}
+                    {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-[#003A91] mt-1.5 shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-gray-800 truncate">{n.title}</p>
                       {n.message && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>}

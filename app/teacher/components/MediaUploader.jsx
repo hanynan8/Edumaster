@@ -197,9 +197,9 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={status === "uploading"}
-        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-[#5c708d] rounded-xl px-4 py-4 text-sm font-medium text-gray-500 hover:text-[#0f2d57] transition-colors disabled:opacity-60"
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-[#5279B4] rounded-xl px-4 py-4 text-sm font-medium text-gray-500 hover:text-[#003A91] transition-colors disabled:opacity-60"
       >
-        {status === "uploading" && <Loader size={18} className="animate-spin text-[#314a6f]" />}
+        {status === "uploading" && <Loader size={18} className="animate-spin text-[#2456A1]" />}
         {status === "done" && <CheckCircle2 size={18} className="text-green-500" />}
         {status === "error" && <XCircle size={18} className="text-red-500" />}
         {status === "idle" && <UploadCloud size={18} />}
@@ -212,7 +212,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
       </button>
       {status === "uploading" && (
         <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-          <div className="h-full bg-[#314a6f] transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-[#2456A1] transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
     </div>

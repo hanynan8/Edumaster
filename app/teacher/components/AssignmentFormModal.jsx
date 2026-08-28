@@ -124,7 +124,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.assignmentTitle}</label>
             <input
               autoFocus
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
             />
@@ -134,7 +134,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.descriptionLabel}</label>
             <textarea
               rows={4}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5c708d]"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
             />
@@ -152,7 +152,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t.dueDateLabel}</label>
               <input
                 type="datetime-local"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5279B4]"
                 value={form.dueDate}
                 onChange={(e) => update("dueDate", e.target.value)}
               />
@@ -162,7 +162,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
               <input
                 type="number"
                 min={1}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5c708d]"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#5279B4]"
                 value={form.maxScore}
                 onChange={(e) => update("maxScore", e.target.value)}
               />
@@ -187,7 +187,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
               {t.save}

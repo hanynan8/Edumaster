@@ -8,7 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
   // 🆕 pending: الكورس اتبعت للأدمن وبينتظر مراجعة (لسه مش ظاهر للطلاب)
-  pending: "bg-[#d9dde4] text-[#0c2547]",
+  pending: "bg-[#D7E0EE] text-[#002E74]",
   published: "bg-green-100 text-green-700",
   archived: "bg-amber-100 text-amber-700",
 };
@@ -95,7 +95,7 @@ export default function CourseCard({ course, onEdit, onDelete }) {
         <div className="flex gap-2">
           <Link
             href={`/teacher/courses/${course.id}`}
-            className="flex-1 text-center text-sm font-semibold bg-[#0f2d57] text-white rounded-lg py-2 hover:bg-[#0c2547] transition-colors"
+            className="flex-1 text-center text-sm font-semibold bg-[#003A91] text-white rounded-lg py-2 hover:bg-[#002E74] transition-colors"
           >
             {t.content}
           </Link>

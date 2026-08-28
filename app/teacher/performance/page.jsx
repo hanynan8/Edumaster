@@ -24,7 +24,7 @@ const STATUS_STYLES = {
   // 🆕 pending: الكورس بعتوه المدرس للمراجعة وبينتظر موافقة/رفض الأدمن —
   // كان الكورس ده هيظهر من غير أي لون (className undefined) قبل الإضافة دي
   // لأن status الجديدة دي مكنتش موجودة في الماب أصلاً وقت ما كان فيه draft/published/archived بس.
-  pending: "bg-[#d9dde4] text-[#0c2547]",
+  pending: "bg-[#D7E0EE] text-[#002E74]",
   published: "bg-green-100 text-green-700",
   archived: "bg-amber-100 text-amber-700",
 };
@@ -85,8 +85,8 @@ function TeacherQuickNav({ t, isRTL }) {
           href={item.href}
           className={`flex items-center gap-2 shrink-0 text-sm font-semibold px-4 py-2.5 rounded-xl border transition-colors ${
             item.active
-              ? "bg-[#0f2d57] text-white border-[#0f2d57]"
-              : "bg-white text-gray-700 border-gray-200 hover:border-[#0f2d57] hover:text-[#0f2d57]"
+              ? "bg-[#003A91] text-white border-[#003A91]"
+              : "bg-white text-gray-700 border-gray-200 hover:border-[#003A91] hover:text-[#003A91]"
           }`}
         >
           <item.icon size={16} />
@@ -201,7 +201,7 @@ export default function TeacherPerformancePage() {
 
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#0f2d57] flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0a0a0a] to-[#003A91] flex items-center justify-center">
               <BarChart3 className="text-white" size={22} />
             </div>
             <div>
@@ -229,7 +229,7 @@ export default function TeacherPerformancePage() {
 
         {!courses && !error && (
           <div className="flex justify-center py-24">
-            <Loader className="animate-spin text-[#0f2d57]" size={36} />
+            <Loader className="animate-spin text-[#003A91]" size={36} />
           </div>
         )}
 
@@ -245,7 +245,7 @@ export default function TeacherPerformancePage() {
             {/* مقارنة بصرية سريعة بين الكورسات — Completion Rate */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-5 flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#0f2d57]" /> {t.completionRateByCourse}
+                <TrendingUp size={16} className="text-[#003A91]" /> {t.completionRateByCourse}
               </h3>
               <div className="space-y-4">
                 {courses.map((c) => (
@@ -253,7 +253,7 @@ export default function TeacherPerformancePage() {
                     <span className="text-xs text-gray-500 w-40 shrink-0 truncate">{c.courseTitle}</span>
                     <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#0f2d57] rounded-full transition-all"
+                        className="h-full bg-[#003A91] rounded-full transition-all"
                         style={{ width: `${c.completionRate}%` }}
                       />
                     </div>
@@ -299,7 +299,7 @@ export default function TeacherPerformancePage() {
                         <td className="py-3 px-4">
                           <Link
                             href={`/teacher/courses/${c.courseId}/performance`}
-                            className="text-xs font-semibold text-[#0f2d57] hover:underline"
+                            className="text-xs font-semibold text-[#003A91] hover:underline"
                           >
                             {t.viewDetails}
                           </Link>

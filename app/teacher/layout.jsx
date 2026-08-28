@@ -7,7 +7,7 @@
 // بس (يظهر شاشة تحميل/رفض واضحة بدل ما يستنى الـ redirect)، مش بديل عنها.
 //
 // 🎨 التصميم اتظبط عشان يتماشى مع هوية الموقع الرئيسي (navbar.jsx / footer.jsx):
-//    - الأزرق #0f2d57  → اللون الأساسي للوحة تحكم المدرّس والاجتماعات
+//    - الأزرق #003A91  → اللون الأساسي للوحة تحكم المدرّس والاجتماعات
 //    - الأسود #0a0a0a / الرمادي  → النصوص
 //    - خلفية #f7f7f7 (نفس خلفية الموقع)
 
@@ -39,12 +39,12 @@ const T = {
 function Blocked({ t, isRTL }) {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex flex-col items-center justify-center bg-[#f7f7f7] text-center px-6">
-      <div className="w-16 h-16 rounded-full bg-[#eceef2] border border-[#b2bcc9] flex items-center justify-center mb-4">
-        <GraduationCap className="text-[#0f2d57]" size={30} />
+      <div className="w-16 h-16 rounded-full bg-[#EBEFF6] border border-[#ADC0DC] flex items-center justify-center mb-4">
+        <GraduationCap className="text-[#003A91]" size={30} />
       </div>
       <h2 className="text-xl font-semibold text-gray-800 mb-2">{t.noAccess}</h2>
       <p className="text-gray-400 mb-4">{t.teachersOnly}</p>
-      <Link href="/" className="text-[#0f2d57] font-semibold hover:text-[#0c2547] hover:underline transition-colors">
+      <Link href="/" className="text-[#003A91] font-semibold hover:text-[#002E74] hover:underline transition-colors">
         {t.backHome}
       </Link>
     </div>
@@ -59,7 +59,7 @@ export default function TeacherLayout({ children }) {
   if (status === "loading") {
     return (
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
-        <Loader className="animate-spin text-[#0f2d57]" size={40} />
+        <Loader className="animate-spin text-[#003A91]" size={40} />
       </div>
     );
   }

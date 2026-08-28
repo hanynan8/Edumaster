@@ -66,7 +66,7 @@ export default function QuizResultsPage({ params }) {
   if (!data) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-[#314a6f]" size={36} />
+        <Loader className="animate-spin text-[#2456A1]" size={36} />
       </div>
     );
   }
@@ -82,8 +82,8 @@ export default function QuizResultsPage({ params }) {
 
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#eceef2] flex items-center justify-center shrink-0">
-            <Users size={20} className="text-[#0f2d57]" />
+          <div className="w-11 h-11 rounded-xl bg-[#EBEFF6] flex items-center justify-center shrink-0">
+            <Users size={20} className="text-[#003A91]" />
           </div>
           <div>
             <p className="text-xl font-black text-gray-800">{data.totalStudents}</p>

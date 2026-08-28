@@ -134,7 +134,7 @@ function localizeCourse(c, language, t) {
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: t.levels[c.level] || c.level,
-    levelColor: LEVEL_COLORS[c.level] || "#0f2d57",
+    levelColor: LEVEL_COLORS[c.level] || "#003A91",
     durationLabel:
       c.durationLabel ||
       (c.totalDurationSeconds > 0 ? formatSeconds(c.totalDurationSeconds) : ""),
@@ -262,7 +262,7 @@ function FilterSelect({ value, onChange, options }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57] transition-colors"
+        className="appearance-none cursor-pointer bg-white border border-gray-200 rounded-lg pl-3 pr-8 rtl:pl-8 rtl:pr-3 py-2 text-xs sm:text-[13px] font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#003A91]/20 focus:border-[#003A91] transition-colors"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -453,7 +453,7 @@ function HeroSearchSection({ t, search, setSearch }) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t.searchPlaceholder}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0f2d57]/20 focus:border-[#0f2d57]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#003A91]/20 focus:border-[#003A91]"
                 />
               </div>
             </div>
@@ -502,7 +502,7 @@ function CourseCard({ course, t }) {
 
       <div className="flex flex-col gap-2 p-4 flex-1">
         {course.categoryName && (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#0f2d57]">{course.categoryName}</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#003A91]">{course.categoryName}</span>
         )}
 
         <h3 className="text-sm sm:text-[15px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5em]">

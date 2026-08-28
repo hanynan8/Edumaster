@@ -11,7 +11,7 @@ module.exports = {
         primary: "#7856ff",
         // Brand palette pulled from the public site (navbar.jsx / footer.jsx):
         // gold  -> #C9A227 (main accent)
-        // blue  -> #0f2d57 (secondary accent / info)
+        // blue  -> #003A91 (secondary accent / info)
         // ink   -> #0a0a0a (site's near-black)
         gold: {
           50: "#fbf8ee",
@@ -27,17 +27,17 @@ module.exports = {
           950: "#4c3e0f",
         },
         brandblue: {
-          50: "#eceef2",
-          100: "#d9dde4",
-          200: "#b2bcc9",
-          300: "#8c9aae",
-          400: "#5c708d",
-          500: "#314a6f",
-          600: "#0f2d57",
-          700: "#0c2547",
-          800: "#0a1f3b",
-          900: "#08172d",
-          950: "#061121",
+          50: "#EBEFF6",
+          100: "#D7E0EE",
+          200: "#ADC0DC",
+          300: "#85A1CA",
+          400: "#5279B4",
+          500: "#2456A1",
+          600: "#003A91",
+          700: "#002E74",
+          800: "#002761",
+          900: "#001F4D",
+          950: "#00173A",
         },
         ink: {
           50: "#f7f7f7",

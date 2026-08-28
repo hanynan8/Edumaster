@@ -84,7 +84,7 @@ export default function PaymentSuccessPage({ searchParams }) {
 
         {!payment && !error && (
           <div className="flex justify-center py-6">
-            <Loader className="animate-spin text-[#0f2d57]" size={22} />
+            <Loader className="animate-spin text-[#003A91]" size={22} />
           </div>
         )}
 

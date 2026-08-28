@@ -29,7 +29,7 @@ export default function CourseTabs({ courseId, active }) {
           href={tab.href(courseId)}
           className={`px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${
             active === tab.key
-              ? "border-[#0f2d57] text-[#0f2d57]"
+              ? "border-[#003A91] text-[#003A91]"
               : "border-transparent text-gray-500 hover:text-gray-800"
           }`}
         >

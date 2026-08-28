@@ -138,7 +138,7 @@ export default function CourseAnnouncementsPage({ params }) {
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t.titlePlaceholder}
           maxLength={200}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#314a6f]"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2456A1]"
         />
         <textarea
           value={body}
@@ -146,14 +146,14 @@ export default function CourseAnnouncementsPage({ params }) {
           placeholder={t.bodyPlaceholder}
           maxLength={5000}
           rows={3}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#314a6f] resize-none"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2456A1] resize-none"
         />
         <div className="flex items-center justify-between gap-4">
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             type="submit"
             disabled={posting || !title.trim() || !body.trim()}
-            className="ms-auto flex items-center gap-2 text-sm font-semibold bg-[#0f2d57] text-white px-4 py-2.5 rounded-xl hover:bg-[#0c2547] disabled:opacity-50 transition-colors"
+            className="ms-auto flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74] disabled:opacity-50 transition-colors"
           >
             {posting ? <Loader size={15} className="animate-spin" /> : <Megaphone size={15} />}
             {t.publish}
@@ -163,7 +163,7 @@ export default function CourseAnnouncementsPage({ params }) {
 
       {!announcements ? (
         <div className="flex justify-center py-16">
-          <Loader className="animate-spin text-[#314a6f]" size={32} />
+          <Loader className="animate-spin text-[#2456A1]" size={32} />
         </div>
       ) : announcements.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">

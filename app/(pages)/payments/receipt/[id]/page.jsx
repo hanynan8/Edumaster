@@ -79,7 +79,7 @@ export default function ReceiptPage({ params }) {
   if (!payment && !error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-[#f7f7f7]">
-        <Loader className="animate-spin text-[#0f2d57]" size={28} />
+        <Loader className="animate-spin text-[#003A91]" size={28} />
         <p className="text-sm text-gray-400">{t.loading}</p>
       </div>
     );

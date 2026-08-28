@@ -58,14 +58,14 @@ function ArrowRight({ size = 14 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>;
 }
 function Check({ size = 11 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#0f2d57" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
 }
 
 function Label({ text, visible, dark = false }) {
   return (
     <div className={`flex items-center gap-2 mb-3 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
-      <div className="w-4 sm:w-5 h-px bg-[#0f2d57]" />
-      <span className={`text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase ${dark ? "text-gray-400" : "text-[#0f2d57]"}`}>{text}</span>
+      <div className="w-4 sm:w-5 h-px bg-[#003A91]" />
+      <span className={`text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase ${dark ? "text-gray-400" : "text-[#003A91]"}`}>{text}</span>
     </div>
   );
 }
@@ -232,7 +232,7 @@ function MembershipSection({ isRTL }) {
 
         {plans === null && (
           <div className="flex justify-center py-16">
-            <Loader className="animate-spin text-[#0f2d57]" size={28} />
+            <Loader className="animate-spin text-[#003A91]" size={28} />
           </div>
         )}
 
@@ -260,26 +260,26 @@ function MembershipSection({ isRTL }) {
                     key={plan.id}
                     className={`relative w-full sm:w-65 bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
                       isCurrent
-                        ? "border-[#0f2d57] ring-2 ring-[#0f2d57]/20"
+                        ? "border-[#003A91] ring-2 ring-[#003A91]/20"
                         : isFeatured
-                        ? "border-[#0f2d57] shadow-xl shadow-[#0f2d57]/10 sm:scale-110 z-10"
+                        ? "border-[#003A91] shadow-xl shadow-[#003A91]/10 sm:scale-110 z-10"
                         : "border-gray-100 sm:scale-95 opacity-100"
                     } ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
                     style={{ transitionDelay: `${i * 80}ms` }}
                   >
                     {isFeatured && !isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#0f2d57] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
                         {t.popular}
                       </span>
                     )}
                     {isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#0f2d57] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
                         {t.subscribed}
                       </span>
                     )}
 
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#0f2d57]/10" : "bg-amber-50"}`}>
-                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#0f2d57]" : "text-amber-500"} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#003A91]/10" : "bg-amber-50"}`}>
+                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#003A91]" : "text-amber-500"} />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
                     {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
@@ -301,7 +301,7 @@ function MembershipSection({ isRTL }) {
                       <ul className="space-y-2 mb-6 flex-1">
                         {plan.features.slice(0, 4).map((f, fi) => (
                           <li key={fi} className="flex items-start gap-2 text-sm text-gray-600">
-                            <CheckIcon size={15} className="text-[#0f2d57] shrink-0 mt-0.5" /> {f}
+                            <CheckIcon size={15} className="text-[#003A91] shrink-0 mt-0.5" /> {f}
                           </li>
                         ))}
                       </ul>
@@ -316,7 +316,7 @@ function MembershipSection({ isRTL }) {
                         onClick={() => handleSubscribe(plan)}
                         disabled={subscribingId === plan.id}
                         className={`mt-auto w-full inline-flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl transition-opacity text-sm text-center disabled:opacity-60 ${
-                          isFeatured ? "bg-[#0f2d57] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
+                          isFeatured ? "bg-[#003A91] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
                         }`}
                       >
                         {subscribingId === plan.id
@@ -333,7 +333,7 @@ function MembershipSection({ isRTL }) {
 
         {plans?.length > 0 && (
           <div className="flex justify-center mt-8 sm:mt-10">
-            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#0f2d57] hover:underline text-sm">
+            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#003A91] hover:underline text-sm">
               {t.viewAll} <ArrowRight size={13} />
             </Link>
           </div>
@@ -446,7 +446,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.stats.backgroundImage} alt="" aria-hidden="true" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#0f2d57] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#003A91] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
@@ -457,7 +457,7 @@ function StatsStrip({ data, t }) {
               style={{ transitionDelay: `${i * 100}ms` }}>
               <span className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tighter leading-none">{s.value}</span>
               <span className="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase tracking-widest mt-1 sm:mt-2">{t.stats.items[i]}</span>
-              <div className="w-5 sm:w-6 h-0.5 bg-[#0f2d57] mt-1 sm:mt-2" />
+              <div className="w-5 sm:w-6 h-0.5 bg-[#003A91] mt-1 sm:mt-2" />
             </div>
           ))}
         </div>

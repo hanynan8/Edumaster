@@ -194,7 +194,7 @@ export default function MembershipSection() {
 
         {plans === null && (
           <div className="flex justify-center py-16">
-            <Loader className="animate-spin text-[#0f2d57]" size={28} />
+            <Loader className="animate-spin text-[#003A91]" size={28} />
           </div>
         )}
 
@@ -222,26 +222,26 @@ export default function MembershipSection() {
                     key={plan.id}
                     className={`relative w-full sm:w-[260px] bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
                       isCurrent
-                        ? "border-[#0f2d57] ring-2 ring-[#0f2d57]/20"
+                        ? "border-[#003A91] ring-2 ring-[#003A91]/20"
                         : isFeatured
-                        ? "border-[#0f2d57] shadow-xl shadow-[#0f2d57]/10 sm:scale-110 z-10"
+                        ? "border-[#003A91] shadow-xl shadow-[#003A91]/10 sm:scale-110 z-10"
                         : "border-gray-100 sm:scale-95 opacity-100"
                     } ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
                     style={{ transitionDelay: `${i * 80}ms` }}
                   >
                     {isFeatured && !isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#0f2d57] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
                         {t.popular}
                       </span>
                     )}
                     {isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#0f2d57] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
                         {t.subscribed}
                       </span>
                     )}
 
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#0f2d57]/10" : "bg-amber-50"}`}>
-                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#0f2d57]" : "text-amber-500"} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#003A91]/10" : "bg-amber-50"}`}>
+                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#003A91]" : "text-amber-500"} />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
                     {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
@@ -263,7 +263,7 @@ export default function MembershipSection() {
                       <ul className="space-y-2 mb-6 flex-1">
                         {plan.features.slice(0, 4).map((f, fi) => (
                           <li key={fi} className="flex items-start gap-2 text-sm text-gray-600">
-                            <CheckIcon size={15} className="text-[#0f2d57] shrink-0 mt-0.5" /> {f}
+                            <CheckIcon size={15} className="text-[#003A91] shrink-0 mt-0.5" /> {f}
                           </li>
                         ))}
                       </ul>
@@ -278,7 +278,7 @@ export default function MembershipSection() {
                         onClick={() => handleSubscribe(plan)}
                         disabled={subscribingId === plan.id}
                         className={`mt-auto w-full inline-flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl transition-opacity text-sm text-center disabled:opacity-60 ${
-                          isFeatured ? "bg-[#0f2d57] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
+                          isFeatured ? "bg-[#003A91] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
                         }`}
                       >
                         {subscribingId === plan.id
@@ -295,7 +295,7 @@ export default function MembershipSection() {
 
         {plans?.length > 0 && (
           <div className="flex justify-center mt-8 sm:mt-10">
-            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#0f2d57] hover:underline text-sm">
+            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#003A91] hover:underline text-sm">
               {t.viewAll} <ArrowIcon size={13} />
             </Link>
           </div>

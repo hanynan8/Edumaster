@@ -180,7 +180,7 @@ export default function TakeQuizPage({ params }) {
   if (!quiz) {
     return (
       <div className="flex justify-center py-24">
-        <Loader className="animate-spin text-[#314a6f]" size={36} />
+        <Loader className="animate-spin text-[#2456A1]" size={36} />
       </div>
     );
   }
@@ -315,7 +315,7 @@ export default function TakeQuizPage({ params }) {
           ) : (
             <button
               onClick={handleStart}
-              className="w-full bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90"
+              className="w-full bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90"
             >
               {quiz.attemptsUsed > 0 ? t.newAttempt : t.startQuiz}
             </button>
@@ -334,7 +334,7 @@ export default function TakeQuizPage({ params }) {
         {secondsLeft !== null && (
           <span
             className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full shrink-0 ${
-              secondsLeft <= 30 ? "bg-red-50 text-red-600" : "bg-[#eceef2] text-[#0f2d57]"
+              secondsLeft <= 30 ? "bg-red-50 text-red-600" : "bg-[#EBEFF6] text-[#003A91]"
             }`}
           >
             <Clock size={14} /> {formatTime(secondsLeft)}
@@ -359,7 +359,7 @@ export default function TakeQuizPage({ params }) {
                   onClick={() => selectAnswer(q.id, o.index)}
                   className={`text-start text-sm px-3 py-2.5 rounded-lg border transition-colors ${
                     answers[q.id] === o.index
-                      ? "bg-[#eceef2] border-[#5c708d] text-[#0c2547] font-semibold"
+                      ? "bg-[#EBEFF6] border-[#5279B4] text-[#002E74] font-semibold"
                       : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
                   }`}
                 >
@@ -379,7 +379,7 @@ export default function TakeQuizPage({ params }) {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-1 sm:flex-none sm:px-10 flex items-center justify-center gap-2 bg-gradient-to-r from-[#0f2d57] to-[#0f2d57] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+            className="flex-1 sm:flex-none sm:px-10 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
           >
             {submitting && <Loader size={16} className="animate-spin" />}
             {t.submitQuiz}

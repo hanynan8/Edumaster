@@ -35,7 +35,7 @@ function useReveal(threshold = 0.08) {
 function ArrowRight({ size = 14 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>;
 }
-function Check({ size = 11, color = "#0f2d57" }) {
+function Check({ size = 11, color = "#003A91" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
 }
 function BookOpen({ size = 15 }) {
@@ -68,7 +68,7 @@ function GraduationCap({ size = 15 }) {
 // This object only keeps the icon + accent color, which are purely visual/UI
 // concerns and not content.
 const SECTION_META = {
-  educationSystem:       { icon: BookOpen,       color: "#0f2d57" },
+  educationSystem:       { icon: BookOpen,       color: "#003A91" },
   admissionRequirements: { icon: ClipboardList,  color: "#a855f7" },
   costOfLiving:          { icon: Wallet,         color: "#10b981" },
   partTimeWork:          { icon: Briefcase,      color: "#f59e0b" },
@@ -178,7 +178,7 @@ function HeroSection({ data, t }) {
               <h1 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2 sm:mb-3">
                 {(() => {
                   const words = t.hero.headline.split(" ");
-                  return (<><span className="text-[#1c1d1f]">{words.slice(0, 2).join(" ")}</span> <span className="text-[#0f2d57]">{words.slice(2).join(" ")}</span></>);
+                  return (<><span className="text-[#1c1d1f]">{words.slice(0, 2).join(" ")}</span> <span className="text-[#003A91]">{words.slice(2).join(" ")}</span></>);
                 })()}
               </h1>
               <p className="text-gray-600 text-xs sm:text-sm leading-relaxed animate-fadein-up2">
@@ -217,7 +217,7 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
 
       <div>
         {sectionKeys.map((key, i) => (
-          <SectionRow key={key} countryId={country.id} sectionKey={key} sectionData={country.sections[key]} content={country[key]} meta={SECTION_META[key] || { icon: BookOpen, color: "#0f2d57" }} index={i} id={`section-${country.id}-${key}`} />
+          <SectionRow key={key} countryId={country.id} sectionKey={key} sectionData={country.sections[key]} content={country[key]} meta={SECTION_META[key] || { icon: BookOpen, color: "#003A91" }} index={i} id={`section-${country.id}-${key}`} />
         ))}
       </div>
     </div>
@@ -238,7 +238,7 @@ function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }
     <div className="sticky top-28 sm:top-32 z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
         {sectionKeys.map((key) => {
-          const meta = SECTION_META[key] || { icon: BookOpen, color: "#0f2d57" };
+          const meta = SECTION_META[key] || { icon: BookOpen, color: "#003A91" };
           const Icon = meta.icon;
           const isActive = activeSection === `${country.id}-${key}`;
           return (
@@ -348,7 +348,7 @@ function StatsStrip({ data, t }) {
       <div className="absolute inset-0 z-0 opacity-10">
         <Image src={data.stats.backgroundImage} alt="" fill className="object-cover" unoptimized />
       </div>
-      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#0f2d57] z-10" />
+      <div className="absolute top-0 inset-x-0 h-0.75 bg-[#003A91] z-10" />
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
         <div className={`mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">{t.stats.title}</h2>
@@ -359,7 +359,7 @@ function StatsStrip({ data, t }) {
               style={{ transitionDelay: `${i * 100}ms` }}>
               <span className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tighter leading-none">{s.value}</span>
               <span className="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase tracking-widest mt-1 sm:mt-2">{t.stats.items[i]}</span>
-              <div className="w-5 sm:w-6 h-0.5 bg-[#0f2d57] mt-1 sm:mt-2" />
+              <div className="w-5 sm:w-6 h-0.5 bg-[#003A91] mt-1 sm:mt-2" />
             </div>
           ))}
         </div>

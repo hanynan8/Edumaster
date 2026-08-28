@@ -104,7 +104,7 @@ export default function CourseAssignmentsPage({ params }) {
         <h1 className="text-xl font-semibold text-gray-800">{t.pageTitle}</h1>
         <button
           onClick={() => setModal(null)}
-          className="flex items-center gap-2 text-sm font-semibold bg-[#0f2d57] text-white px-4 py-2.5 rounded-xl hover:bg-[#0c2547]"
+          className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
         >
           <Plus size={16} /> {t.newAssignment}
         </button>
@@ -114,7 +114,7 @@ export default function CourseAssignmentsPage({ params }) {
 
       {!assignments ? (
         <div className="flex justify-center py-16">
-          <Loader className="animate-spin text-[#314a6f]" size={32} />
+          <Loader className="animate-spin text-[#2456A1]" size={32} />
         </div>
       ) : assignments.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-14 text-center text-gray-400">
@@ -141,7 +141,7 @@ export default function CourseAssignmentsPage({ params }) {
               </div>
               <Link
                 href={`/teacher/assignments/${a.id}/submissions`}
-                className="flex items-center gap-1.5 text-xs font-semibold bg-[#eceef2] text-[#0f2d57] px-3 py-2 rounded-lg hover:bg-[#d9dde4] shrink-0"
+                className="flex items-center gap-1.5 text-xs font-semibold bg-[#EBEFF6] text-[#003A91] px-3 py-2 rounded-lg hover:bg-[#D7E0EE] shrink-0"
               >
                 <Inbox size={14} /> {t.submissions}
               </Link>

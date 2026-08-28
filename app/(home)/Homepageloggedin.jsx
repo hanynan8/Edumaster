@@ -3,7 +3,7 @@
 /* ════════════════════════════════════════════════════════════════════
    app/page.jsx  —  HOME PAGE (LOGGED-IN USER)
    ------------------------------------------------------------------
-   Only 2 own sections, exactly as requested:
+   Sections (top → bottom), same order as the guest home page:
      1) Welcome section — replaces the Hero. Shows "Welcome back, {name}",
         email, phone (if the user has one), a read-only avatar, and a
         link to the Student page (labeled "Profile"). Nothing here is
@@ -11,14 +11,20 @@
         today. Data comes from the SAME endpoint the Student page already
         uses: GET /api/profile (identical to app/student/page.jsx), so
         editing the profile from /student updates this section too.
-     2) All courses — now the shared <CoursesSection /> component
+     2) Services — shared <ServicesSection /> component
+        (components/ServicesSection.jsx), same source as /services page
+        (GET /api/data?collection=services).
+     3) All courses — shared <CoursesSection /> component
         (components/CoursesSection.jsx), same fetch as /courses page
         (GET /api/courses?limit=50).
+     4) Membership (preview) — shared <MembershipSection /> component
+        (components/MembershipSection.jsx), same source as /membership
+        page (GET /api/membership-plans).
 
-   Courses and Membership are shared with the guest home page, so both
-   now live in components/CoursesSection.jsx and
-   components/MembershipSection.jsx — imported below instead of being
-   duplicated inline.
+   Services, Courses and Membership are shared with the guest home page,
+   so all three now live in components/ServicesSection.jsx,
+   components/CoursesSection.jsx and components/MembershipSection.jsx —
+   imported below instead of being duplicated inline.
 
    The Footer is already rendered globally by app/layout.jsx right after
    <main>, so it automatically appears under this page — nothing extra
@@ -31,6 +37,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
+import ServicesSection from "../components/ServicesSection";
 import LoadingScreen from "../components/LoadingScreen";
 
 /* ─────────────────────────────────────────
@@ -51,6 +58,8 @@ const UI = {
     },
     dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
+    servicesTitle: "How We Help You Study Abroad",
+    servicesCta: "View All Services",
     coursesLabel: "Keep Learning",
     coursesTitle: "All Our Courses",
     coursesSubtitle: "Every course available on the platform, in one place.",
@@ -84,6 +93,8 @@ const UI = {
     },
     dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
+    servicesTitle: "إزاي بنساعدك تدرس بره",
+    servicesCta: "شوف كل خدماتنا",
     coursesLabel: "كمّل تعلّمك",
     coursesTitle: "كل الكورسات عندنا",
     coursesSubtitle: "كل الكورسات المتاحة على المنصة، في مكان واحد.",
@@ -117,6 +128,8 @@ const UI = {
     },
     dashboardHrefByRole: { student: "/student", teacher: "/teacher", admin: "/admin" },
     noPhone: "",
+    servicesTitle: "Cómo Te Ayudamos a Estudiar Fuera",
+    servicesCta: "Ver Todos los Servicios",
     coursesLabel: "Sigue Aprendiendo",
     coursesTitle: "Todos Nuestros Cursos",
     coursesSubtitle: "Todos los cursos disponibles en la plataforma, en un solo lugar.",
@@ -190,7 +203,10 @@ export default function HomePageLoggedIn() {
         {/* 1) WELCOME SECTION — replaces the Hero */}
         <WelcomeSection user={user} role={role} ui={ui} isRTL={isRTL} />
 
-        {/* 2) ALL COURSES — shared component */}
+        {/* 2) SERVICES — shared component, same source as /services */}
+        <ServicesSection lang={lang} ui={ui} />
+
+        {/* 3) ALL COURSES — shared component */}
         <CoursesSection
           lang={lang}
           ui={ui}
@@ -199,7 +215,7 @@ export default function HomePageLoggedIn() {
           paddingClassName="py-10 sm:py-20 md:py-28"
         />
 
-        {/* 3) MEMBERSHIP — shared component, same source as /membership */}
+        {/* 4) MEMBERSHIP — shared component, same source as /membership */}
         <MembershipSection />
       </div>
       {/* Footer is already rendered globally by app/layout.jsx below <main> */}

@@ -172,13 +172,16 @@ function isProtectedCollection(name) {
 // دي بيانات جايه من زوار الموقع نفسهم (زي فورم التواصل)، مش محتوى الموقع.
 // أي كولكشن تاني (navbar, home, about, services, courses...) بيانات محتوى الموقع
 // ولازم يتغير من لوحة الأدمن بس.
-const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations"]);
+// 🆕 نموذج طلب الترجمة (Translation Request Form) ونموذج التسجيل في برنامج
+// اللغة الإنجليزية (English Program Enrollment Form) — نفس فلسفة "form" و
+// "consultations": بيانات جايه من زوار الموقع نفسهم بدون تسجيل دخول.
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
 // "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
 // تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
 // للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
-const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations"]);
+const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests"]);
 
 function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
@@ -388,6 +391,110 @@ function validateConsultationPayload(body) {
     if (!Array.isArray(body.languageCertificates) || body.languageCertificates.length > 20) {
       return "Invalid language certificates";
     }
+  }
+  return null; // valid
+}
+
+// 🆕 نموذج "طلب ترجمة" (Translation Request Form) — تحقق أساسي زي
+// validateConsultationPayload: حقول أساسية مطلوبة + حدود طول لكل حقل.
+const TRANSLATION_FIELD_MAX_LENGTHS = {
+  fullName: 200,
+  email: 254,
+  phone: 40,
+  countryOfResidence: 100,
+  preferredContact: 20,
+  sourceLanguage: 60,
+  targetLanguage: 60,
+  numberOfDocuments: 20,
+  approxPages: 20,
+  documentDescription: 2000,
+  documentLink: 500,
+  certifiedRequired: 20,
+  officialUseOther: 200,
+  deadlineOption: 30,
+  specificDeadlineDate: 20,
+  specificDeadlineTime: 20,
+  deliveryOriginalRequired: 10,
+  deliveryCountryCity: 150,
+  paymentMethod: 30,
+  additionalInfo: 3000,
+};
+const TRANSLATION_REQUIRED_FIELDS = ["fullName", "email", "phone"];
+
+function validateTranslationRequestPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid translation request data";
+  }
+  for (const field of TRANSLATION_REQUIRED_FIELDS) {
+    if (!body[field] || typeof body[field] !== "string" || !body[field].trim()) {
+      return `Field '${field}' is required`;
+    }
+  }
+  if (!body.dataAccuracyConsent || !body.privacyConsent) {
+    return "Required declarations must be accepted";
+  }
+  for (const [field, maxLen] of Object.entries(TRANSLATION_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
+  }
+  for (const field of ["serviceTypes", "documentTypes", "deliveryMethods", "officialPurposes"]) {
+    if (body[field] !== undefined) {
+      if (!Array.isArray(body[field]) || body[field].length > 30) {
+        return `Invalid '${field}'`;
+      }
+      if (!body[field].every((s) => typeof s === "string" && s.length <= 100)) {
+        return `Invalid '${field}'`;
+      }
+    }
+  }
+  return null; // valid
+}
+
+// 🆕 نموذج "التسجيل في برنامج اللغة الإنجليزية" (English Program Enrollment
+// Form) — مبني على نفس فلسفة validateConsultationPayload.
+const ENGLISH_PROGRAM_FIELD_MAX_LENGTHS = {
+  fullName: 200,
+  email: 254,
+  phone: 40,
+  countryOfResidence: 100,
+  preferredContact: 20,
+  knowsCurrentLevel: 10,
+  currentLevel: 10,
+  desiredProgram: 100,
+  preferredIntake: 20,
+  studyFormat: 30,
+  studyGoal: 500,
+  notes: 3000,
+};
+const ENGLISH_PROGRAM_REQUIRED_FIELDS = ["fullName", "email", "phone"];
+
+function validateEnglishProgramRequestPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid English program request data";
+  }
+  for (const field of ENGLISH_PROGRAM_REQUIRED_FIELDS) {
+    if (!body[field] || typeof body[field] !== "string" || !body[field].trim()) {
+      return `Field '${field}' is required`;
+    }
+  }
+  if (!body.privacyConsent) {
+    return "Privacy policy consent is required";
+  }
+  for (const [field, maxLen] of Object.entries(ENGLISH_PROGRAM_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
   }
   return null; // valid
 }
@@ -753,6 +860,10 @@ export async function POST(request) {
         ? "Bulk submissions are not allowed for this collection"
         : colName === "consultations"
         ? validateConsultationPayload(sanitizedBody)
+        : colName === "translationRequests"
+        ? validateTranslationRequestPayload(sanitizedBody)
+        : colName === "englishProgramRequests"
+        ? validateEnglishProgramRequestPayload(sanitizedBody)
         : validateFormPayload(sanitizedBody);
       if (validationError) {
         return jsonResponse({ error: validationError }, 400);
@@ -801,6 +912,48 @@ export async function POST(request) {
           email: created.email,
           phone: created.whatsapp || created.phone,
           service: created.service || (created.requestedServices || []).join(", "),
+          message: summaryLines.join("\n"),
+          createdAt: created.createdAt,
+        });
+      }
+
+      // 🆕 طلب ترجمة جديد — إشعار إيميل بنفس قالب "form"
+      if (colName === "translationRequests") {
+        const summaryLines = [
+          created.serviceTypes?.length ? `Service type: ${created.serviceTypes.join(", ")}` : null,
+          created.sourceLanguage ? `Source language: ${created.sourceLanguage}` : null,
+          created.targetLanguage ? `Target language: ${created.targetLanguage}` : null,
+          created.numberOfDocuments ? `Number of documents: ${created.numberOfDocuments}` : null,
+          created.deadlineOption ? `Deadline: ${created.deadlineOption}` : null,
+          created.documentLink ? `Document link: ${created.documentLink}` : null,
+          created.additionalInfo ? `Notes: ${created.additionalInfo}` : null,
+        ].filter(Boolean);
+        await notifyViaResend({
+          name: created.fullName,
+          email: created.email,
+          phone: created.phone,
+          service: "Translation Request",
+          message: summaryLines.join("\n"),
+          createdAt: created.createdAt,
+        });
+      }
+
+      // 🆕 طلب تسجيل جديد في برنامج اللغة الإنجليزية — إشعار إيميل بنفس قالب "form"
+      if (colName === "englishProgramRequests") {
+        const summaryLines = [
+          created.desiredProgram ? `Desired program: ${created.desiredProgram}` : null,
+          created.currentLevel ? `Current level: ${created.currentLevel}` : null,
+          created.knowsCurrentLevel === "no" ? "Requested a placement test" : null,
+          created.preferredIntake ? `Preferred intake: ${created.preferredIntake}` : null,
+          created.studyFormat ? `Study format: ${created.studyFormat}` : null,
+          created.studyGoal ? `Study goal: ${created.studyGoal}` : null,
+          created.notes ? `Notes: ${created.notes}` : null,
+        ].filter(Boolean);
+        await notifyViaResend({
+          name: created.fullName,
+          email: created.email,
+          phone: created.phone,
+          service: "English Program Enrollment",
           message: summaryLines.join("\n"),
           createdAt: created.createdAt,
         });

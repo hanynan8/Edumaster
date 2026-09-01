@@ -7,14 +7,24 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
-import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock } from "lucide-react";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import ConsultationModal from "@/app/components/consultation/ConsultationModal";
+import TranslationModal from "@/app/components/translation/TranslationModal";
+import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramModal";
 
 const CONSULT_STRINGS = {
   en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
   ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن الخدمة دي" },
   es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
+};
+
+// 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
+// في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
+const QUICK_FORM_STRINGS = {
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join English Program", englishBadge: "A1 → C2" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في برنامج الإنجليزية", englishBadge: "A1 → C2" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Únete al programa de inglés", englishBadge: "A1 → C2" },
 };
 
 function useServicesData() {
@@ -81,6 +91,8 @@ export default function ServicesPage() {
   const { language, isRTL } = useLanguage();
   const data = useServicesData();
   const [consultService, setConsultService] = useState(null); // null = مقفولة، "" أو اسم خدمة = مفتوحة
+  const [translationOpen, setTranslationOpen] = useState(false);
+  const [englishProgramOpen, setEnglishProgramOpen] = useState(false);
 
   if (!data) {
     return (
@@ -96,6 +108,11 @@ export default function ServicesPage() {
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <ConsultationBanner language={language} onOpen={() => setConsultService("")} />
+        <QuickFormsBanner
+          language={language}
+          onOpenTranslation={() => setTranslationOpen(true)}
+          onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
+        />
         <ServicesList data={data} t={t} onRequestConsultation={(name) => setConsultService(name)} />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
@@ -105,7 +122,52 @@ export default function ServicesPage() {
         onClose={() => setConsultService(null)}
         initialService={consultService || ""}
       />
+      <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
+      <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
     </>
+  );
+}
+
+// 🆕 بانر بزرارين لفتح نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة
+// الإنجليزية مباشرة من صفحة الخدمات — نفس نمط ConsultationBanner.
+function QuickFormsBanner({ language, onOpenTranslation, onOpenEnglishProgram }) {
+  const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
+  const [ref, visible] = useReveal();
+  return (
+    <section ref={ref} className="px-5 sm:px-10 md:px-16">
+      <div
+        className={`max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mt-4 sm:mt-5 transition-all duration-700 ${
+          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onOpenTranslation}
+          className="flex items-center gap-3 sm:gap-4 bg-white border-2 border-[#003A91]/15 hover:border-[#003A91] rounded-2xl px-5 sm:px-6 py-5 sm:py-6 text-start transition-colors"
+        >
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-[#003A91]/10 text-[#003A91] flex items-center justify-center">
+            <Languages size={20} />
+          </span>
+          <div>
+            <p className="font-bold text-sm sm:text-base text-[#0a0a0a]">{qf.translationCta}</p>
+            <p className="text-gray-500 text-xs sm:text-sm">{qf.translationBadge}</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenEnglishProgram}
+          className="flex items-center gap-3 sm:gap-4 bg-white border-2 border-[#C9A227]/25 hover:border-[#C9A227] rounded-2xl px-5 sm:px-6 py-5 sm:py-6 text-start transition-colors"
+        >
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-[#C9A227]/15 text-[#8a6d10] flex items-center justify-center">
+            <GraduationCap size={20} />
+          </span>
+          <div>
+            <p className="font-bold text-sm sm:text-base text-[#0a0a0a]">{qf.englishCta}</p>
+            <p className="text-gray-500 text-xs sm:text-sm">{qf.englishBadge}</p>
+          </div>
+        </button>
+      </div>
+    </section>
   );
 }
 

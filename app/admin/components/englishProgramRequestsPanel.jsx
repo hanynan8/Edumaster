@@ -1,37 +1,63 @@
 'use client';
 
-// app/admin/components/translationRequestsPanel.jsx
+// app/admin/components/englishProgramRequestsPanel.jsx
 //
-// لوحة أدمن لطلبات الترجمة (Translation Request Form) — بتعرض كل الطلبات
-// الجايه من POST /api/data?collection=translationRequests (شوف
-// app/components/translation/TranslationForm.jsx)، بنفس فلسفة
-// consultationsPanel.jsx بالظبط: جدول + نافذة تفاصيل + حذف + تصدير Excel +
-// تغيير حالة الطلب عن طريق PUT /api/data?collection=translationRequests&id=.
+// لوحة أدمن لطلبات التسجيل في برنامج اللغة الإنجليزية (English Program
+// Enrollment Form) — بتعرض كل الطلبات الجايه من
+// POST /api/data?collection=englishProgramRequests (شوف
+// app/components/englishProgram/EnglishProgramForm.jsx)، بنفس فلسفة
+// translationRequestsPanel.jsx / consultationsPanel.jsx بالظبط: جدول +
+// نافذة تفاصيل + حذف + تصدير Excel + تغيير حالة الطلب عن طريق
+// PUT /api/data?collection=englishProgramRequests&id=.
 
 import { useState, useEffect } from 'react';
 import ExcelJS from 'exceljs';
 import {
-  Loader, AlertCircle, Languages, Trash2, Mail, MessageCircle, FileText, Phone, Link as LinkIcon,
+  Loader, AlertCircle, GraduationCap, Trash2, Mail, Phone, FileText,
 } from 'lucide-react';
 
-const STATUS_OPTIONS = ['pending', 'contacted', 'quoted', 'in_progress', 'delivered', 'cancelled'];
+const STATUS_OPTIONS = ['pending', 'contacted', 'placement_test', 'enrolled', 'declined', 'cancelled'];
 const STATUS_STYLES = {
   pending: 'bg-amber-100 text-amber-700',
   contacted: 'bg-blue-100 text-blue-700',
-  quoted: 'bg-indigo-100 text-indigo-700',
-  in_progress: 'bg-purple-100 text-purple-700',
-  delivered: 'bg-green-100 text-green-700',
+  placement_test: 'bg-indigo-100 text-indigo-700',
+  enrolled: 'bg-green-100 text-green-700',
+  declined: 'bg-red-100 text-red-700',
   cancelled: 'bg-red-100 text-red-700',
 };
 
+// نفس بنية المستويات/البرامج المستخدمة في EnglishProgramForm.jsx — مستخدمة
+// هنا بس لعرض اسم مقروء (label) بدل الـ id الخام (زي "b2-professional").
+const PROGRAM_LABELS = {
+  'a1-foundations': 'English Foundations (A1)',
+  'a2-everyday': 'Everyday English (A2)',
+  'b1-practical': 'Practical English (B1)',
+  'b2-professional': 'Professional English (B2)',
+  'c1-advanced-professional': 'Advanced Professional English (C1)',
+  'c2-mastery': 'English Mastery (C2)',
+  business: 'Business English (B2–C1)',
+  academic: 'Academic English (B2–C1)',
+  'call-centers': 'English for Call Centers (A2–B2)',
+  'customer-service': 'English for Customer Service (B1–B2)',
+  healthcare: 'English for Healthcare Professionals (B2–C1)',
+  university: 'English for University Students (B1–C1)',
+  'job-interviews': 'English for Job Interviews (B1–C1)',
+  hospitality: 'English for Hospitality & Tourism (A2–B2)',
+};
+
+function programLabel(id) {
+  if (!id) return '—';
+  return PROGRAM_LABELS[id] || labelize(id);
+}
+
 function labelize(s) {
-  return String(s || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+  return String(s || '').replace(/_/g, ' ').replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function buildGmailComposeUrl({ to, name }) {
-  const subject = `Your translation request — Edumaster`;
+  const subject = `Your English program enrollment — Edumaster`;
   const greeting = name ? `Hello ${name},` : 'Hello,';
-  const body = `${greeting}\n\nThank you for your translation request with Edumaster.\n`;
+  const body = `${greeting}\n\nThank you for your interest in the Edumaster English Program.\n`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:${to || ''}?${params.toString()}`;
 }
@@ -65,11 +91,7 @@ function getEffectiveTimestamp(doc) {
   return fromId ? fromId.getTime() : 0;
 }
 
-function joinList(list) {
-  return Array.isArray(list) && list.length ? list.map(labelize).join(', ') : '—';
-}
-
-function TranslationRequestsAdmin() {
+function EnglishProgramRequestsAdmin() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,7 +103,7 @@ function TranslationRequestsAdmin() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    fetch('/api/data?collection=translationRequests')
+    fetch('/api/data?collection=englishProgramRequests')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
@@ -89,7 +111,7 @@ function TranslationRequestsAdmin() {
         setSubmissions(sorted);
         setLoading(false);
       })
-      .catch(() => { setError('Error fetching translation requests'); setLoading(false); });
+      .catch(() => { setError('Error fetching English program requests'); setLoading(false); });
   }, []);
 
   const requestDelete = (sub) => { if (sub?._id) setConfirmTarget(sub); };
@@ -99,7 +121,7 @@ function TranslationRequestsAdmin() {
     setConfirmTarget(null);
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/data?collection=translationRequests&id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/data?collection=englishProgramRequests&id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       setSubmissions((prev) => prev.filter((s) => s._id !== id));
       setSelected((prev) => (prev && prev._id === id ? null : prev));
@@ -114,7 +136,7 @@ function TranslationRequestsAdmin() {
   const handleStatusChange = async (id, status) => {
     setUpdatingId(id);
     try {
-      const res = await fetch(`/api/data?collection=translationRequests&id=${id}`, {
+      const res = await fetch(`/api/data?collection=englishProgramRequests&id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -141,7 +163,7 @@ function TranslationRequestsAdmin() {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Edumaster Admin';
       workbook.created = new Date();
-      const sheet = workbook.addWorksheet('Translation Requests', { views: [{ state: 'frozen', ySplit: 1 }] });
+      const sheet = workbook.addWorksheet('English Program Requests', { views: [{ state: 'frozen', ySplit: 1 }] });
 
       const columnDefs = [
         { header: '#', key: 'index', width: 6 },
@@ -149,17 +171,14 @@ function TranslationRequestsAdmin() {
         { header: 'Email', key: 'email', width: 32 },
         { header: 'Phone', key: 'phone', width: 20 },
         { header: 'Country', key: 'countryOfResidence', width: 20 },
-        { header: 'Service Types', key: 'serviceTypes', width: 30 },
-        { header: 'Source Lang', key: 'sourceLanguage', width: 14 },
-        { header: 'Target Lang', key: 'targetLanguage', width: 14 },
-        { header: 'Documents', key: 'numberOfDocuments', width: 12 },
-        { header: 'Pages', key: 'approxPages', width: 14 },
-        { header: 'Document Types', key: 'documentTypes', width: 30 },
-        { header: 'Certified Required', key: 'certifiedRequired', width: 16 },
-        { header: 'Deadline', key: 'deadlineOption', width: 18 },
-        { header: 'Document Link', key: 'documentLink', width: 30 },
+        { header: 'Knows Level', key: 'knowsCurrentLevel', width: 14 },
+        { header: 'Current Level', key: 'currentLevel', width: 14 },
+        { header: 'Desired Program', key: 'desiredProgram', width: 34 },
+        { header: 'Preferred Intake', key: 'preferredIntake', width: 16 },
+        { header: 'Study Format', key: 'studyFormat', width: 14 },
+        { header: 'Study Goal', key: 'studyGoal', width: 26 },
         { header: 'Status', key: 'status', width: 14 },
-        { header: 'Notes', key: 'additionalInfo', width: 50 },
+        { header: 'Notes', key: 'notes', width: 50 },
         { header: 'Submitted', key: 'date', width: 20 },
         { header: 'ID', key: 'id', width: 26 },
       ];
@@ -180,17 +199,14 @@ function TranslationRequestsAdmin() {
           email: sub.email || '—',
           phone: sub.phone || '—',
           countryOfResidence: sub.countryOfResidence || '—',
-          serviceTypes: joinList(sub.serviceTypes),
-          sourceLanguage: sub.sourceLanguage || '—',
-          targetLanguage: sub.targetLanguage || '—',
-          numberOfDocuments: sub.numberOfDocuments || '—',
-          approxPages: sub.approxPages || '—',
-          documentTypes: joinList(sub.documentTypes),
-          certifiedRequired: sub.certifiedRequired || '—',
-          deadlineOption: labelize(sub.deadlineOption) || '—',
-          documentLink: sub.documentLink || '—',
+          knowsCurrentLevel: labelize(sub.knowsCurrentLevel) || '—',
+          currentLevel: sub.currentLevel || '—',
+          desiredProgram: programLabel(sub.desiredProgram),
+          preferredIntake: labelize(sub.preferredIntake) || '—',
+          studyFormat: labelize(sub.studyFormat) || '—',
+          studyGoal: sub.studyGoal || '—',
           status: sub.status || 'pending',
-          additionalInfo: sub.additionalInfo || sub.documentDescription || '—',
+          notes: sub.notes || '—',
           date: formatDate(sub.createdAt, sub._id),
           id: sub._id || '',
         });
@@ -208,7 +224,7 @@ function TranslationRequestsAdmin() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `translation-requests-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `english-program-requests-${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -223,7 +239,7 @@ function TranslationRequestsAdmin() {
   if (loading) return (
     <div className="bg-white rounded-2xl shadow-2xl p-12 text-center">
       <Loader className="animate-spin mx-auto text-[#003A91]" size={48} />
-      <p className="mt-4 text-gray-400 font-medium">Loading translation requests...</p>
+      <p className="mt-4 text-gray-400 font-medium">Loading English program requests...</p>
     </div>
   );
 
@@ -232,11 +248,11 @@ function TranslationRequestsAdmin() {
       <div className="p-4 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-semibold flex items-center gap-3 text-[#003A91]">
-            <Languages size={28} /> Translation Requests
+            <GraduationCap size={28} /> English Program Requests
             <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{submissions.length}</span>
           </h2>
           <p className="text-gray-400 text-sm mt-1">
-            Requests submitted from the Translation Request Form on the Services page and home pages.
+            Requests submitted from the English Program Enrollment Form on the Services page and home pages.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -275,7 +291,7 @@ function TranslationRequestsAdmin() {
             </div>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete this request?</h3>
             <p className="text-sm text-gray-500 mb-6">
-              This will permanently delete the translation request from{' '}
+              This will permanently delete the enrollment request from{' '}
               <span className="font-semibold text-gray-700">{confirmTarget.fullName || 'this client'}</span>. This action cannot be undone.
             </p>
             <div className="flex gap-3">
@@ -294,7 +310,7 @@ function TranslationRequestsAdmin() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-800">Translation Request Details</h3>
+              <h3 className="text-xl font-semibold text-gray-800">English Program Request Details</h3>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
 
@@ -310,49 +326,20 @@ function TranslationRequestsAdmin() {
               <DetailField label="Email" value={selected.email} isEmail />
               <DetailField label="Phone / WhatsApp" value={selected.phone} />
               <DetailField label="Country of Residence" value={selected.countryOfResidence} />
-              <DetailField label="Preferred Contact" value={selected.preferredContact} />
-              <DetailField label="Service Type(s)" value={joinList(selected.serviceTypes)} />
-              <DetailField label="Source Language" value={selected.sourceLanguage} />
-              <DetailField label="Target Language" value={selected.targetLanguage} />
-              <DetailField label="Number of Documents" value={selected.numberOfDocuments} />
-              <DetailField label="Approx. Pages" value={selected.approxPages} />
-              <DetailField label="Document Type(s)" value={joinList(selected.documentTypes)} />
-              <DetailField label="Certified/Sworn Required" value={selected.certifiedRequired} />
-              <DetailField label="Official Purpose(s)" value={joinList(selected.officialPurposes)} />
-              <DetailField label="Other Purpose" value={selected.officialUseOther} />
-              <DetailField label="Deadline" value={labelize(selected.deadlineOption)} />
-              <DetailField label="Specific Date/Time" value={[selected.specificDeadlineDate, selected.specificDeadlineTime].filter(Boolean).join(' · ')} />
-              <DetailField label="Delivery Method(s)" value={joinList(selected.deliveryMethods)} />
-              <DetailField label="Original Document Delivery" value={selected.deliveryOriginalRequired} />
-              <DetailField label="Delivery Country/City" value={selected.deliveryCountryCity} />
-              <DetailField label="Payment Method" value={selected.paymentMethod} />
+              <DetailField label="Preferred Contact" value={labelize(selected.preferredContact)} />
+              <DetailField label="Knows Current Level?" value={labelize(selected.knowsCurrentLevel)} />
+              <DetailField label="Current Level (CEFR)" value={selected.currentLevel} />
+              <DetailField label="Desired Program" value={programLabel(selected.desiredProgram)} />
+              <DetailField label="Preferred Intake" value={labelize(selected.preferredIntake)} />
+              <DetailField label="Study Format" value={labelize(selected.studyFormat)} />
+              <DetailField label="Study Goal" value={selected.studyGoal} />
             </div>
 
-            {selected.documentDescription && (
+            {selected.notes && (
               <div className="mb-6">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Document Description</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Additional Notes</span>
                 <p className="mt-1 text-gray-800 text-sm whitespace-pre-wrap break-words bg-gray-50 rounded-xl p-4 leading-relaxed border border-gray-100">
-                  {selected.documentDescription}
-                </p>
-              </div>
-            )}
-
-            {selected.documentLink && (
-              <div className="mb-6">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Document Link</span>
-                <p className="mt-1 text-sm">
-                  <a href={selected.documentLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[#003A91] hover:underline break-all">
-                    <LinkIcon size={14} className="shrink-0" /> {selected.documentLink}
-                  </a>
-                </p>
-              </div>
-            )}
-
-            {selected.additionalInfo && (
-              <div className="mb-6">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Additional Information</span>
-                <p className="mt-1 text-gray-800 text-sm whitespace-pre-wrap break-words bg-gray-50 rounded-xl p-4 leading-relaxed border border-gray-100">
-                  {selected.additionalInfo}
+                  {selected.notes}
                 </p>
               </div>
             )}
@@ -383,14 +370,6 @@ function TranslationRequestsAdmin() {
             </div>
 
             <div className="flex gap-3 mt-6">
-              <a
-                href={selected.email ? buildGmailComposeUrl({ to: selected.email, name: selected.fullName }) : undefined}
-                className={`flex-1 flex items-center justify-center gap-2 font-semibold px-4 py-2.5 rounded-xl transition-colors shadow ${
-                  selected.email ? 'bg-[#003A91] hover:opacity-90 text-white' : 'bg-gray-300 text-gray-500 pointer-events-none'
-                }`}
-              >
-                <MessageCircle size={18} /> Reply via Email
-              </a>
               <button
                 onClick={() => requestDelete(selected)}
                 disabled={deletingId === selected._id}
@@ -407,8 +386,8 @@ function TranslationRequestsAdmin() {
       <div className="p-4">
         {visibleSubmissions.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
-            <Languages size={48} className="mx-auto mb-3 opacity-30" />
-            <p>No translation requests {statusFilter !== 'all' ? `with status "${labelize(statusFilter)}"` : 'yet'}</p>
+            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+            <p>No English program requests {statusFilter !== 'all' ? `with status "${labelize(statusFilter)}"` : 'yet'}</p>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -417,8 +396,8 @@ function TranslationRequestsAdmin() {
                 <th className="text-left py-3 px-2 font-semibold text-gray-500">#</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Name</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Contact</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Languages</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Deadline</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Program</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Level</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Status</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Details</th>
               </tr>
@@ -444,11 +423,11 @@ function TranslationRequestsAdmin() {
                       </div>
                     )}
                   </td>
-                  <td className="py-3 px-2 whitespace-nowrap text-xs text-gray-600">
-                    {sub.sourceLanguage || '—'} → {sub.targetLanguage || '—'}
+                  <td className="py-3 px-2 text-xs text-gray-600 max-w-[220px]">
+                    {programLabel(sub.desiredProgram)}
                   </td>
                   <td className="py-3 px-2 text-gray-600 whitespace-nowrap text-xs">
-                    {labelize(sub.deadlineOption) || '—'}
+                    {sub.currentLevel || (sub.knowsCurrentLevel === 'no' ? 'Needs test' : '—')}
                   </td>
                   <td className="py-3 px-2 whitespace-nowrap">
                     <select
@@ -505,4 +484,4 @@ function DetailField({ label, value, isEmail }) {
   );
 }
 
-export default TranslationRequestsAdmin;
+export default EnglishProgramRequestsAdmin;

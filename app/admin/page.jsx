@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -24,6 +24,10 @@ import ContactAdmin from './components/(editcomponents)/contact';
 import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
 import ConsultationsAdmin from './components/consultationsPanel';
+// 🆕 طلبات نموذج "طلب ترجمة" ونموذج "التسجيل في برنامج اللغة الإنجليزية"
+// (شوف app/components/translation و app/components/englishProgram)
+import TranslationRequestsAdmin from './components/translationRequestsPanel';
+import EnglishProgramRequestsAdmin from './components/englishProgramRequestsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
@@ -128,6 +132,10 @@ const SIDEBAR_GROUPS = [
       { id: 'users',            name: 'Users',            icon: Users, component: UsersAdmin },
       { id: 'form_submissions', name: 'Form Submissions', icon: Inbox, component: FormSubmissionsAdmin },
       { id: 'consultations',    name: 'Consultations',    icon: CalendarClock, component: ConsultationsAdmin },
+      // 🆕 طلبات نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
+      // (بتظهر في صفحة الخدمات والهوم لوج-إن ولوج-أوت)
+      { id: 'translation_requests',    name: 'Translation Requests',     icon: Languages,      component: TranslationRequestsAdmin },
+      { id: 'english_program_requests', name: 'English Program Requests', icon: GraduationCap, component: EnglishProgramRequestsAdmin },
       // 🆕 كورسات المدرسين المستنية موافقة/رفض الأدمن قبل ما تظهر على الموقع
       { id: 'course_review',    name: 'Course Review',    icon: ClipboardCheck, component: CoursesReviewAdmin },
       // 🆕 تعليقات/ردود الطلاب تحت الدروس المستنية موافقة/رفض الأدمن قبل ما تظهر

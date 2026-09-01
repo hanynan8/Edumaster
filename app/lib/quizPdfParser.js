@@ -3,23 +3,23 @@
 // بيحوّل النص المستخرج من ملف PDF (بصيغة بنك أسئلة) لمصفوفة أسئلة جاهزة
 // للحفظ في قاعدة البيانات (نفس شكل Question schema: type/text/points/options).
 //
-// الصيغة المتوقعة للملف (بالتفصيل في PDF_QUIZ_FORMAT.md المرفق):
+// بيدعم 3 لغات (زي الموقع بالظبط: عربي / إنجليزي / إسباني) — كل سؤال
+// بيتعرف على لغته لوحده من الكلمات المفتاحية المستخدمة فيه (س / Question /
+// Pregunta...)، وبيتخزن نص خياري "صح/غلط" بنفس لغة السؤال تلقائيًا. تقدر
+// كمان تجبر لغة معيّنة لكل الملف عن طريق باراميتر forcedLang.
 //
-//   س1: نص السؤال؟
-//   أ) خيار أول
-//   ب) خيار تاني
-//   ج) خيار تالت
-//   د) خيار رابع
-//   الإجابة الصحيحة: ب
-//   الدرجة: 2
+// أمثلة الصيغة (تفصيل كامل في PDF_QUIZ_FORMAT.md):
 //
-//   (سطر فاضي بين كل سؤال والتاني)
+//   عربي:                          English:                        Español:
+//   س1: نص السؤال؟                  Question 1: question text?       Pregunta 1: texto de la pregunta?
+//   أ) خيار                         A) option                        A) opción
+//   ب) خيار                         B) option                        B) opción
+//   الإجابة الصحيحة: ب              Answer: B                        Respuesta correcta: B
+//   الدرجة: 2                       Points: 2                        Puntos: 2
 //
-//   س2: نص سؤال صح/غلط
-//   الإجابة: صح
-//
-// الأسئلة اللي معاها خيارات (2 على الأقل) بتتحسب "اختيار من متعدد"،
-// واللي إجابتها صح/غلط من غير خيارات بتتحسب "صح/غلط" تلقائيًا.
+//   صح/غلط:                        True/False:                      Verdadero/Falso:
+//   س1: نص السؤال                   Question 1: statement             Pregunta 1: enunciado
+//   الإجابة: صح                     Answer: True                      Respuesta: Verdadero
 
 const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
@@ -27,62 +27,112 @@ function normalizeDigits(str) {
   return String(str).replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)));
 }
 
-// بيشيل التشكيل، الفواصل الزيادة، والمسافات المكررة عشان المقارنة تبقى مستقرة
+// بيشيل التشكيل، علامات الترقيم، والمسافات الزيادة، وبيحوّل لحروف صغيرة
+// (بيأثرش على العربي) عشان المقارنة تبقى مستقرة بغض النظر عن اللغة
 function normalizeForCompare(str) {
   return normalizeDigits(str)
-    .replace(/[\u064B-\u0652\u0640]/g, "") // تشكيل + تطويل
+    .replace(/[\u064B-\u0652\u0640]/g, "") // تشكيل + تطويل عربي
+    .replace(/[¿¡]/g, "") // علامات استفهام/تعجب الإسبانية المقلوبة
     .replace(/[\)\.\-–:،,]/g, "")
     .trim()
     .toLowerCase();
 }
 
-const QUESTION_START_RE = /^\s*(?:السؤال|سؤال|س|question|q)\s*[\d٠-٩]*\s*[:\-–.)]\s*(.*)$/i;
+// ------------------------------------------------------------------------
+// تعريفات اللغات — كل لغة عندها الكلمات المفتاحية بتاعتها لبداية السؤال،
+// سطر الإجابة، سطر الدرجة، ونص "صح/غلط" اللي هيتخزن في الأوبشنز
+// ------------------------------------------------------------------------
+const LANG_DEFS = {
+  ar: {
+    questionRe: /^\s*(?:السؤال|سؤال|س)\s*[\d٠-٩]*\s*[:\-–.)]\s*(.*)$/i,
+    answerRe: /^\s*(?:الإجابة\s*الصحيحة|الاجابة\s*الصحيحة|الإجابة|الاجابة|الحل)\s*[:\-–]\s*(.+?)\s*$/i,
+    pointsRe: /^\s*(?:الدرجة|درجة\s*السؤال|النقاط)\s*[:\-–]\s*([\d٠-٩.]+)/i,
+    trueLabel: "صح",
+    falseLabel: "غلط",
+  },
+  en: {
+    questionRe: /^\s*(?:question|q)\s*[\d]*\s*[:\-–.)]\s*(.*)$/i,
+    answerRe: /^\s*(?:correct\s*answer|answer)\s*[:\-–]\s*(.+?)\s*$/i,
+    pointsRe: /^\s*(?:points?|score)\s*[:\-–]\s*([\d.]+)/i,
+    trueLabel: "True",
+    falseLabel: "False",
+  },
+  es: {
+    questionRe: /^\s*(?:pregunta|p)\s*[\d]*\s*[:\-–.)]\s*(.*)$/i,
+    answerRe: /^\s*(?:respuesta\s*correcta|respuesta|soluci[oó]n)\s*[:\-–]\s*(.+?)\s*$/i,
+    pointsRe: /^\s*(?:puntos?|puntuaci[oó]n)\s*[:\-–]\s*([\d.]+)/i,
+    trueLabel: "Verdadero",
+    falseLabel: "Falso",
+  },
+};
+const LANG_ORDER = ["ar", "en", "es"];
+const DEFAULT_LANG = "en";
 
 const OPTION_LINE_RE =
   /^\s*[\(\[]?([أإآاءبتثجحخدذرزسشصضطظعغفقكلمنهوىي]|[A-Za-z]|[\d٠-٩]{1,2})[\)\.\-–:]\s*(.+?)\s*$/;
 
+// سطر الإجابة/الدرجة بيتفهم بأي لغة من التلاتة في نفس الملف (مرونة أكتر
+// للملفات المخلوطة)، بس نص "صح/غلط" المخزّن بيتحدد حسب لغة *بداية السؤال*.
+// الكلمات المفتاحية مكتوبة هنا صراحةً (مش مشتقة من LANG_DEFS) عشان تبقى
+// واضحة وسهلة المراجعة/التعديل.
 const ANSWER_LINE_RE =
-  /^\s*(?:الإجابة\s*الصحيحة|الاجابة\s*الصحيحة|الإجابة|الاجابة|الحل|answer)\s*[:\-–]\s*(.+?)\s*$/i;
+  /^\s*(?:الإجابة\s*الصحيحة|الاجابة\s*الصحيحة|الإجابة|الاجابة|الحل|correct\s*answer|answer|respuesta\s*correcta|respuesta|soluci[oó]n)\s*[:\-–]\s*(.+?)\s*$/i;
 
-const POINTS_LINE_RE = /^\s*(?:الدرجة|درجة\s*السؤال|النقاط|points?)\s*[:\-–]\s*([\d٠-٩.]+)/i;
+const POINTS_LINE_RE =
+  /^\s*(?:الدرجة|درجة\s*السؤال|النقاط|points?|score|puntos?|puntuaci[oó]n)\s*[:\-–]\s*([\d٠-٩.]+)/i;
 
-const TYPE_HEADER_RE = /^\s*(?:نوع\s*الأسئلة|نوع\s*الملف|type)\s*[:\-–]\s*(.+?)\s*$/i;
+const TYPE_HEADER_RE = /^\s*(?:نوع\s*الأسئلة|نوع\s*الملف|question\s*type|type|tipo\s*de\s*preguntas?)\s*[:\-–]\s*(.+?)\s*$/i;
 
-const TRUE_VALUES = ["صح", "صحيح", "صحيحة", "true", "t", "نعم", "✓"];
-const FALSE_VALUES = ["خطأ", "خطا", "غلط", "خاطئ", "خاطئة", "false", "f", "لا", "✗"];
+const TRUE_VALUES = ["صح", "صحيح", "صحيحة", "نعم", "✓", "true", "t", "verdadero", "cierto", "v"];
+const FALSE_VALUES = ["خطأ", "خطا", "غلط", "خاطئ", "خاطئة", "لا", "✗", "false", "f", "falso", "incorrecto"];
 
 function detectForcedTypeFromHeader(line) {
   const m = line.match(TYPE_HEADER_RE);
   if (!m) return null;
   const v = normalizeForCompare(m[1]);
-  if (v.includes("صح") && v.includes("غلط")) return "true_false";
-  if (v.includes("متعدد") || v.includes("اختيار") || v.includes("multiple") || v.includes("choice")) return "multiple_choice";
-  if (v.includes("صح") || v.includes("غلط") || v.includes("true") || v.includes("false")) return "true_false";
+  const mcWords = ["متعدد", "اختيار", "multiple", "choice", "opcion", "opción", "multiple"];
+  const tfWords = ["صح", "غلط", "true", "false", "verdadero", "falso"];
+  if (mcWords.some((w) => v.includes(w))) return "multiple_choice";
+  if (tfWords.some((w) => v.includes(w))) return "true_false";
   return null;
 }
 
-// بيقسّم النص لكتل أسئلة: أي سطر يطابق QUESTION_START_RE بيبدأ كتلة جديدة
+// بيدور على أول لغة بتاعتها questionRe بتطابق السطر، وبيرجع اللغة + نص
+// السؤال المستخرج (من غير الرقم/الكلمة المفتاحية)
+function detectQuestionStart(line) {
+  for (const langCode of LANG_ORDER) {
+    const m = line.match(LANG_DEFS[langCode].questionRe);
+    if (m) return { lang: langCode, text: m[1] };
+  }
+  return null;
+}
+
+function isQuestionStartLine(line) {
+  return LANG_ORDER.some((l) => LANG_DEFS[l].questionRe.test(line));
+}
+
+// بيقسّم النص لكتل أسئلة: أي سطر بداية سؤال (بأي لغة) بيبدأ كتلة جديدة
 function splitIntoBlocks(lines) {
   const blocks = [];
   let current = null;
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    if (!line) continue; // نتجاهل الأسطر الفاضية، الفصل بيحصل بمجرد ظهور سؤال جديد
-    if (QUESTION_START_RE.test(line)) {
+    if (!line) continue;
+    if (isQuestionStartLine(line)) {
       if (current) blocks.push(current);
       current = { firstLine: line, lines: [] };
     } else if (current) {
       current.lines.push(line);
     }
-    // أي سطر قبل أول سؤال (غير هيدر النوع) بيتجاهل تلقائيًا
   }
   if (current) blocks.push(current);
   return blocks;
 }
 
-function parseBlock(block, forcedType, index) {
-  const qMatch = block.firstLine.match(QUESTION_START_RE);
-  const textParts = [(qMatch ? qMatch[1] : block.firstLine).trim()].filter(Boolean);
+function parseBlock(block, forcedType, forcedLang, index) {
+  const qStart = detectQuestionStart(block.firstLine);
+  const lang = forcedLang || qStart?.lang || DEFAULT_LANG;
+  const textParts = [(qStart ? qStart.text : block.firstLine).trim()].filter(Boolean);
 
   const options = []; // { marker, text }
   let answerRaw = null;
@@ -123,14 +173,17 @@ function parseBlock(block, forcedType, index) {
     if (TRUE_VALUES.some((v) => normalizeForCompare(v) === norm)) isTrue = true;
     else if (FALSE_VALUES.some((v) => normalizeForCompare(v) === norm)) isTrue = false;
     if (isTrue === null) return { error: { index, reason: "invalid_true_false_answer", preview: answerRaw } };
+
+    const { trueLabel, falseLabel } = LANG_DEFS[lang];
     return {
       question: {
         type: "true_false",
         text,
         points: points ?? 1,
+        lang,
         options: [
-          { text: "صح", isCorrect: isTrue },
-          { text: "غلط", isCorrect: !isTrue },
+          { text: trueLabel, isCorrect: isTrue },
+          { text: falseLabel, isCorrect: !isTrue },
         ],
       },
     };
@@ -142,11 +195,8 @@ function parseBlock(block, forcedType, index) {
   const answerKeys = answerRaw.split(/[،,\/]/).map((s) => normalizeForCompare(s)).filter(Boolean);
   const correctIdx = new Set();
   for (const key of answerKeys) {
-    // 1) تطابق مع رمز الخيار (أ/ب/ج/د أو A/B/C/D أو 1/2/3)
     let idx = options.findIndex((o) => normalizeForCompare(o.marker) === key);
-    // 2) تطابق مع نص الخيار كامل
     if (idx === -1) idx = options.findIndex((o) => normalizeForCompare(o.text) === key);
-    // 3) لو رقم، اعتبره ترتيب الخيار (1-based)
     if (idx === -1 && /^\d+$/.test(key)) {
       const n = parseInt(key, 10);
       if (n >= 1 && n <= options.length) idx = n - 1;
@@ -161,6 +211,7 @@ function parseBlock(block, forcedType, index) {
       type: "multiple_choice",
       text,
       points: points ?? 1,
+      lang,
       options: options.map((o, i) => ({ text: o.text, isCorrect: correctIdx.has(i) })),
     },
   };
@@ -168,13 +219,15 @@ function parseBlock(block, forcedType, index) {
 
 /**
  * @param {string} rawText - النص المستخرج من الـ PDF (pdf-parse أو أي مكتبة تانية)
- * @param {{ forcedType?: 'multiple_choice' | 'true_false' }} options
+ * @param {{ forcedType?: 'multiple_choice' | 'true_false', forcedLang?: 'ar'|'en'|'es' }} options
  * @returns {{ questions: Array, errors: Array }}
  */
 export function parseQuizPdfText(rawText, options = {}) {
   const lines = String(rawText || "").split(/\r?\n/);
 
   let forcedType = options.forcedType || null;
+  const forcedLang = LANG_ORDER.includes(options.forcedLang) ? options.forcedLang : null;
+
   const contentLines = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -182,7 +235,7 @@ export function parseQuizPdfText(rawText, options = {}) {
       const detected = detectForcedTypeFromHeader(trimmed);
       if (detected) {
         forcedType = detected;
-        continue; // سطر الهيدر ده مش جزء من أي سؤال
+        continue;
       }
     }
     contentLines.push(line);
@@ -193,7 +246,7 @@ export function parseQuizPdfText(rawText, options = {}) {
   const errors = [];
 
   blocks.forEach((block, i) => {
-    const result = parseBlock(block, forcedType, i + 1);
+    const result = parseBlock(block, forcedType, forcedLang, i + 1);
     if (result.question) questions.push(result.question);
     else if (result.error) errors.push(result.error);
   });

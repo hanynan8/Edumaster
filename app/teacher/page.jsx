@@ -11,7 +11,7 @@
 // اتنقل هنا حرفيًا عشان صفحة المدرّس تبقى مطابقة لصفحة الطالب بالكامل.
 
 import { useEffect, useState, useRef } from "react";
-import { Plus, Loader, BookOpen, GraduationCap, BarChart3, Camera, Mail, Phone, User, X, Pencil, CheckCircle2, Video } from "lucide-react";
+import { Plus, Loader, BookOpen, GraduationCap, BarChart3, Camera, Mail, Phone, User, X, Pencil, CheckCircle2, Video, MessageCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
@@ -61,6 +61,7 @@ const T = {
     manageCourses: "Manage the courses you teach",
     performance: "Performance & stats",
     liveLectures: "Live lectures",
+    messages: "Messages",
     newCourse: "New course",
     noCoursesYet: "You haven't created any course yet",
     createFirstCourse: "Create your first course",
@@ -105,6 +106,7 @@ const T = {
     manageCourses: "إدارة الكورسات اللي إنت بتدرّسها",
     performance: "الأداء والإحصائيات",
     liveLectures: "المحاضرات اللايف",
+    messages: "الرسائل",
     newCourse: "كورس جديد",
     noCoursesYet: "لسه معملتش أي كورس",
     createFirstCourse: "ابدأ بإنشاء أول كورس",
@@ -149,6 +151,7 @@ const T = {
     manageCourses: "Administra los cursos que impartes",
     performance: "Rendimiento y estadísticas",
     liveLectures: "Clases en vivo",
+    messages: "Mensajes",
     newCourse: "Nuevo curso",
     noCoursesYet: "Aún no has creado ningún curso",
     createFirstCourse: "Crea tu primer curso",
@@ -611,6 +614,12 @@ export default function TeacherCoursesPage() {
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
           >
             <BarChart3 size={16} /> {t.performance}
+          </Link>
+          <Link
+            href="/teacher/messages"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
+          >
+            <MessageCircle size={16} /> {t.messages}
           </Link>
           <Link
             href="/meet"

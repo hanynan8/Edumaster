@@ -74,6 +74,7 @@ const UI_STRINGS = {
       myGrades: "درجاتي",
       myCertificates: "شهاداتي",
       myPayments: "مدفوعاتي",
+      myMessages: "رسائلي",
       teacherDashboard: "لوحة المدرس",
       adminDashboard: "لوحة الأدمن",
     },
@@ -89,6 +90,7 @@ const UI_STRINGS = {
       myGrades: "My Grades",
       myCertificates: "My Certificates",
       myPayments: "My Payments",
+      myMessages: "My Messages",
       teacherDashboard: "Teacher Dashboard",
       adminDashboard: "Admin Dashboard",
     },
@@ -104,6 +106,7 @@ const UI_STRINGS = {
       myGrades: "Mis calificaciones",
       myCertificates: "Mis certificados",
       myPayments: "Mis pagos",
+      myMessages: "Mis mensajes",
       teacherDashboard: "Panel del profesor",
       adminDashboard: "Panel del administrador",
     },
@@ -217,6 +220,7 @@ function UserDropdown({ user }) {
           { href: "/student/grades", label: t.roleLinks.myGrades },
           { href: "/student/certificates", label: t.roleLinks.myCertificates },
           { href: "/student/payments", label: t.roleLinks.myPayments },
+          { href: "/student/messages", label: t.roleLinks.myMessages },
         ]
       : [];
   if (user?.role === "teacher" || user?.role === "admin") {

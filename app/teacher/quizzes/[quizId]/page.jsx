@@ -8,8 +8,9 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, Loader } from "lucide-react";
+import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, Loader, UploadCloud } from "lucide-react";
 import QuestionFormModal from "@/app/teacher/components/QuestionFormModal";
+import QuizPdfImportModal from "@/app/teacher/components/QuizPdfImportModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -22,6 +23,7 @@ const STRINGS = {
     draftNotice: "مسودة — مش ظاهر للطلاب لحد ما تنشره من صفحة الكويزات",
     questions: (n) => `الأسئلة (${n})`,
     newQuestion: "سؤال جديد",
+    importPdf: "استيراد من PDF",
     question: (n) => `سؤال ${n}`,
     points: (p) => `${p} درجة`,
     empty: "لسه مفيش أسئلة — الطلاب مش هيقدروا يحلّوا الكويز غير لما يكون فيه سؤال واحد على الأقل",
@@ -35,6 +37,7 @@ const STRINGS = {
     draftNotice: "Draft — not visible to students until you publish it from the quizzes page",
     questions: (n) => `Questions (${n})`,
     newQuestion: "New question",
+    importPdf: "Import from PDF",
     question: (n) => `Question ${n}`,
     points: (p) => `${p} pts`,
     empty: "No questions yet — students won't be able to take the quiz until it has at least one question",
@@ -49,6 +52,7 @@ export default function QuizQuestionsPage({ params }) {
   const [quiz, setQuiz] = useState(null);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(undefined);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   async function load() {
     try {
@@ -75,6 +79,11 @@ export default function QuizQuestionsPage({ params }) {
         questions: exists ? prev.questions.map((q) => (q.id === saved.id ? saved : q)) : [...prev.questions, saved],
       };
     });
+  }
+
+  function handleImported(createdQuestions) {
+    if (!createdQuestions?.length) return;
+    setQuiz((prev) => ({ ...prev, questions: [...prev.questions, ...createdQuestions] }));
   }
 
   async function handleDelete(question) {

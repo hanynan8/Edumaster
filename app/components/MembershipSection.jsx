@@ -1,3 +1,4 @@
+// path: app/components/MembershipSection.jsx
 "use client";
 
 /* ════════════════════════════════════════════════════════════════════
@@ -17,6 +18,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
+import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import { Check as CheckIcon, Crown, Loader, CheckCircle2 } from "lucide-react";
 
@@ -117,6 +119,7 @@ export default function MembershipSection() {
   const [subscribeError, setSubscribeError] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  const [gatewayPlan, setGatewayPlan] = useState(null);
 
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
@@ -127,6 +130,7 @@ export default function MembershipSection() {
   }, [sessionStatus]);
 
   async function handleSubscribeCheckout(plan) {
+    setGatewayPlan(null);
     setSubscribeError("");
     setSubscribingId(plan.id);
     try {
@@ -159,7 +163,11 @@ export default function MembershipSection() {
 
     const isFree = plan.billingCycle === "free" || getPriceForCurrency(plan.prices, language).amount === 0;
     if (!isFree) {
-      return handleSubscribeCheckout(plan);
+      // 🅿️ بدل ما نتصل بـ Paymob على طول، بنفتح مودال الدفع (اللي دلوقتي
+      // بيعرض بيانات التحويل البنكي طول ما Paymob مش مفعّل — شوف
+      // PaymentGatewayModal.jsx / PAYMOB_ENABLED)
+      setGatewayPlan(plan);
+      return;
     }
 
     setSubscribeError("");
@@ -305,6 +313,19 @@ export default function MembershipSection() {
       {showAuthModal && (
         <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitch={(next) => setAuthMode(next)} />
       )}
+
+      {gatewayPlan && (() => {
+        const priceInfo = getPriceForCurrency(gatewayPlan.prices, language);
+        return (
+          <PaymentGatewayModal
+            amount={priceInfo.amount}
+            currency={priceInfo.currency}
+            disabled={subscribingId === gatewayPlan.id}
+            onClose={() => setGatewayPlan(null)}
+            onConfirm={() => handleSubscribeCheckout(gatewayPlan)}
+          />
+        );
+      })()}
     </section>
   );
 }

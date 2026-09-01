@@ -172,13 +172,13 @@ function isProtectedCollection(name) {
 // دي بيانات جايه من زوار الموقع نفسهم (زي فورم التواصل)، مش محتوى الموقع.
 // أي كولكشن تاني (navbar, home, about, services, courses...) بيانات محتوى الموقع
 // ولازم يتغير من لوحة الأدمن بس.
-const PUBLIC_WRITE_COLLECTIONS = new Set(["form"]);
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
 // "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
 // تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
 // للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
-const ADMIN_READ_COLLECTIONS = new Set(["form"]);
+const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations"]);
 
 function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
@@ -309,6 +309,85 @@ function validateFormPayload(body) {
   }
   if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
     return "Invalid email format";
+  }
+  return null; // valid
+}
+
+// 🆕 نموذج "بيانات الطالب وطلب الاستشارة" — تحقق أساسي مماثل لـ validateFormPayload
+// لكن بحدود أطول لبعض الحقول (فورم أطول بكتير وفيه ملاحظات حرة) وحقول مطلوبة
+// فعليًا (الاسم، وسيلة تواصل، والموافقة على سياسة الخصوصية).
+const CONSULTATION_FIELD_MAX_LENGTHS = {
+  firstName: 100,
+  lastName: 100,
+  gender: 20,
+  dob: 20,
+  nationality: 100,
+  countryOfResidence: 100,
+  city: 100,
+  maritalStatus: 20,
+  passportNumber: 40,
+  passportExpiry: 20,
+  email: 254,
+  phone: 40,
+  whatsapp: 40,
+  preferredContact: 20,
+  highestQualification: 40,
+  major: 150,
+  institutionName: 200,
+  institutionCountry: 100,
+  graduationYear: 10,
+  finalGrade: 60,
+  studyLanguage: 60,
+  spanishLevel: 10,
+  englishLevel: 20,
+  desiredCountry: 40,
+  programType: 60,
+  desiredField: 200,
+  preferredIntake: 20,
+  annualBudget: 60,
+  fundingSource: 20,
+  service: 200,
+  preferredDate: 30,
+  preferredTimeSlot: 60,
+  howDidYouHear: 40,
+  notes: 3000,
+};
+const CONSULTATION_REQUIRED_FIELDS = ["firstName", "lastName", "email", "phone"];
+
+function validateConsultationPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid consultation request data";
+  }
+  for (const field of CONSULTATION_REQUIRED_FIELDS) {
+    if (!body[field] || typeof body[field] !== "string" || !body[field].trim()) {
+      return `Field '${field}' is required`;
+    }
+  }
+  if (!body.privacyConsent) {
+    return "Privacy policy consent is required";
+  }
+  for (const [field, maxLen] of Object.entries(CONSULTATION_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
+  }
+  if (body.requestedServices !== undefined) {
+    if (!Array.isArray(body.requestedServices) || body.requestedServices.length > 30) {
+      return "Invalid requested services";
+    }
+    if (!body.requestedServices.every((s) => typeof s === "string" && s.length <= 200)) {
+      return "Invalid requested services";
+    }
+  }
+  if (body.languageCertificates !== undefined) {
+    if (!Array.isArray(body.languageCertificates) || body.languageCertificates.length > 20) {
+      return "Invalid language certificates";
+    }
   }
   return null; // valid
 }
@@ -672,6 +751,8 @@ export async function POST(request) {
     if (isPublicWrite) {
       const validationError = Array.isArray(sanitizedBody)
         ? "Bulk submissions are not allowed for this collection"
+        : colName === "consultations"
+        ? validateConsultationPayload(sanitizedBody)
         : validateFormPayload(sanitizedBody);
       if (validationError) {
         return jsonResponse({ error: validationError }, 400);
@@ -700,6 +781,29 @@ export async function POST(request) {
 
       if (colName === "form") {
         await notifyViaResend(created); // ✅ Resend بدل Formspree
+      }
+
+      // 🆕 طلب استشارة جديد — نفس قالب إيميل "form" لكن بحقول محوّلة
+      // (الاسم من firstName+lastName، الخدمة = الخدمة المطلوبة، الرسالة =
+      // ملخص سريع بميعاد الاستشارة والسعر) عشان الأدمن ياخد إشعار فوري
+      // زي أي رسالة تواصل عادي، من غير ما نكرر قالب الإيميل من الأول.
+      if (colName === "consultations") {
+        const fullName = [created.firstName, created.lastName].filter(Boolean).join(" ");
+        const summaryLines = [
+          `Consultation duration: 45 minutes`,
+          `Consultation fee: 1300 EGP`,
+          created.preferredDate ? `Preferred date: ${created.preferredDate}` : null,
+          created.preferredTimeSlot ? `Preferred time: ${created.preferredTimeSlot}` : null,
+          created.notes ? `Notes: ${created.notes}` : null,
+        ].filter(Boolean);
+        await notifyViaResend({
+          name: fullName,
+          email: created.email,
+          phone: created.whatsapp || created.phone,
+          service: created.service || (created.requestedServices || []).join(", "),
+          message: summaryLines.join("\n"),
+          createdAt: created.createdAt,
+        });
       }
 
       return jsonResponse(created, 201);

@@ -1,3 +1,4 @@
+// path: app/components/payments/PaymentGatewayModal.jsx
 "use client";
 
 // app/components/payments/PaymentGatewayModal.jsx
@@ -22,6 +23,12 @@ import { useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { X, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/app/lib/currency";
+import BankTransferInfo from "./BankTransferInfo";
+
+// 🅿️ PAYMOB مؤقتًا OFF — حساب Paymob لسه مش مفعّل. المودال بيعرض بيانات
+// التحويل البنكي بدل زرار الدفع الإلكتروني. لما الحساب يتفعّل، رجّع القيمة
+// دي لـ true وهيرجع يشتغل بنفس الشكل القديم تمامًا من غير أي تعديل تاني.
+const PAYMOB_ENABLED = false;
 
 const STRINGS = {
   ar: {
@@ -65,7 +72,7 @@ export default function PaymentGatewayModal({ amount, currency, onConfirm, onClo
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: "rgba(10,10,10,0.55)", backdropFilter: "blur(6px)" }}
     >
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           aria-label="close"
@@ -74,22 +81,28 @@ export default function PaymentGatewayModal({ amount, currency, onConfirm, onClo
           <X size={18} />
         </button>
 
-        <h2 className="text-lg font-bold text-gray-900 mb-1">{t.title}</h2>
-        <p className="text-xs text-gray-400 mb-5">{t.subtitle}</p>
+        {PAYMOB_ENABLED ? (
+          <>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">{t.title}</h2>
+            <p className="text-xs text-gray-400 mb-5">{t.subtitle}</p>
 
-        <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-5">
-          <span className="text-sm text-gray-500">{t.total}</span>
-          <span className="text-lg font-black text-gray-900">{formatPrice(amount, currency, language)}</span>
-        </div>
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-5">
+              <span className="text-sm text-gray-500">{t.total}</span>
+              <span className="text-lg font-black text-gray-900">{formatPrice(amount, currency, language)}</span>
+            </div>
 
-        <button
-          disabled={disabled}
-          onClick={onConfirm}
-          className="w-full flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <ShieldCheck size={17} /> {t.confirm}
-        </button>
-        <p className="text-[11px] text-gray-400 text-center mt-3">{t.secure}</p>
+            <button
+              disabled={disabled}
+              onClick={onConfirm}
+              className="w-full flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <ShieldCheck size={17} /> {t.confirm}
+            </button>
+            <p className="text-[11px] text-gray-400 text-center mt-3">{t.secure}</p>
+          </>
+        ) : (
+          <BankTransferInfo amount={amount} currency={currency} />
+        )}
       </div>
     </div>
   );

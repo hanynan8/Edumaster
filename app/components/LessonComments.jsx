@@ -45,21 +45,48 @@ function CommentAvatar({ user, size = 24 }) {
 const STRINGS = {
   ar: {
     title: "أسئلة ونقاش",
+    moderationNotice: "التعليقات والردود بتخضع لمراجعة الأدمن قبل ما تظهر للكل.",
     askPlaceholder: "اسأل سؤال عن الدرس ده...",
     replyPlaceholder: "اكتب ردًا...",
     send: "إرسال",
     reply: "رد",
     empty: "لسه مفيش أسئلة على الدرس ده. كن أول من يسأل!",
+    pending: "بانتظار موافقة الأدمن — ظاهر لك بس",
+    rejected: "رفضه الأدمن — ظاهر لك بس",
   },
   en: {
     title: "Discussion",
+    moderationNotice: "Comments and replies are reviewed by an admin before they appear to everyone.",
     askPlaceholder: "Ask a question about this lesson...",
     replyPlaceholder: "Write a reply...",
     send: "Send",
     reply: "Reply",
     empty: "No questions yet. Be the first to ask!",
+    pending: "Awaiting admin approval — only visible to you",
+    rejected: "Rejected by admin — only visible to you",
   },
 };
+
+// 🆕 شارة صغيرة لحالة تعليق المستخدم نفسه (pending/rejected) — approved
+// مفيهاش شارة أصلاً (الوضع الطبيعي)، ومفيش داعي نعرضها لغير صاحب التعليق
+// (شوف isVisible/canManage في GET /api/lessons/[id]/comments).
+function StatusBadge({ status, t }) {
+  if (status === "pending") {
+    return (
+      <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+        {t.pending}
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+        {t.rejected}
+      </span>
+    );
+  }
+  return null;
+}
 
 export default function LessonComments({ lessonId }) {
   const { language } = useLanguage();
@@ -141,9 +168,10 @@ export default function LessonComments({ lessonId }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-100">
-      <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+      <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
         <MessageCircle size={15} className="text-[#003A91]" /> {t.title}
       </h4>
+      <p className="text-[11px] text-gray-400 mb-3">{t.moderationNotice}</p>
 
       <form onSubmit={submitQuestion} className="flex items-center gap-2 mb-4">
         <input
@@ -179,6 +207,7 @@ export default function LessonComments({ lessonId }) {
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-gray-800">{c.user?.name || "—"}</p>
                     <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{c.body}</p>
+                    {userId === c.user?.id && <StatusBadge status={c.status} t={t} />}
                   </div>
                 </div>
                 {userId === c.user?.id && (
@@ -202,6 +231,7 @@ export default function LessonComments({ lessonId }) {
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-gray-700">{r.user?.name || "—"}</p>
                       <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-line">{r.body}</p>
+                      {userId === r.user?.id && <StatusBadge status={r.status} t={t} />}
                     </div>
                   </div>
                   {userId === r.user?.id && (

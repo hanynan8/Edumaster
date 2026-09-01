@@ -197,7 +197,7 @@ export default function Footer() {
                 <div className="flex flex-wrap gap-2">
                   {data.languages.map((l) => (
                     <span key={l.code} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/8 rounded-lg text-xs text-gray-400 font-medium">
-                      {l.flag} {l.label}
+                       {l.label}
                     </span>
                   ))}
                 </div>

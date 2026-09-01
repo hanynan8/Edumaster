@@ -216,7 +216,7 @@ export default function HomePageLoggedIn() {
         />
 
         {/* 4) MEMBERSHIP — shared component, same source as /membership */}
-        <MembershipSection />
+        {/* <MembershipSection /> */}
       </div>
       {/* Footer is already rendered globally by app/layout.jsx below <main> */}
     </>

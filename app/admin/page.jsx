@@ -28,6 +28,7 @@ import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
 import OverviewAdmin from './components/overviewPanel';
 import CoursesReviewAdmin from './components/coursesReviewPanel';
+import CommentsReviewAdmin from './components/commentsReviewPanel';
 
 function NotFound() {
   return (
@@ -127,6 +128,8 @@ const SIDEBAR_GROUPS = [
       { id: 'form_submissions', name: 'Form Submissions', icon: Inbox, component: FormSubmissionsAdmin },
       // 🆕 كورسات المدرسين المستنية موافقة/رفض الأدمن قبل ما تظهر على الموقع
       { id: 'course_review',    name: 'Course Review',    icon: ClipboardCheck, component: CoursesReviewAdmin },
+      // 🆕 تعليقات/ردود الطلاب تحت الدروس المستنية موافقة/رفض الأدمن قبل ما تظهر
+      { id: 'comment_review',   name: 'Comment Review',   icon: MessageSquare,  component: CommentsReviewAdmin },
     ],
   },
 ];

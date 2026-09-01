@@ -23,7 +23,7 @@ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getLessonModel, getCommentModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createNotification } from "@/app/lib/notificationHelpers";
+import { createNotificationsForUsers, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
@@ -50,6 +50,7 @@ function serializeComment(c) {
       avatar: resolveSecureStoredUrl(c.user.profile?.avatar ?? null),
     },
     parentComment: c.parentComment ? c.parentComment.toString() : null,
+    status: c.status || "pending",
     createdAt: c.createdAt,
   };
 }
@@ -79,7 +80,7 @@ export async function GET(request, { params }) {
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
 
     await connectToMongo();
-    const { lesson, course, hasAccess, authResponse } = await loadLessonAndCheckAccess(id);
+    const { lesson, course, canManage, hasAccess, session, authResponse } = await loadLessonAndCheckAccess(id);
     if (authResponse) return authResponse;
     if (!lesson || !course) return jsonResponse({ error: "not_found" }, 404);
     if (!hasAccess) return jsonResponse({ error: "forbidden", reason: "enrollment_required" }, 403);
@@ -92,9 +93,16 @@ export async function GET(request, { params }) {
       .populate("user", "name profile.avatar")
       .lean();
 
-    const questions = all.filter((c) => !c.parentComment);
+    // 🔒 Moderation: تعليق/رد "pending" أو "rejected" مش ظاهر إلا لصاحبه (عشان
+    // يشوف حالة سؤاله) أو لمدير الكورس/أدمن (canManage) — أي حد تاني بيشوف
+    // "approved" بس. الموافقة الفعلية بتتم من /admin (لوحة Comment Review).
+    const userId = session?.user?.id ? String(session.user.id) : null;
+    const isVisible = (c) => c.status === "approved" || canManage || (userId && String(c.user?._id || c.user) === userId);
+    const visible = all.filter(isVisible);
+
+    const questions = visible.filter((c) => !c.parentComment);
     const repliesByParent = new Map();
-    for (const c of all) {
+    for (const c of visible) {
       if (!c.parentComment) continue;
       const key = c.parentComment.toString();
       if (!repliesByParent.has(key)) repliesByParent.set(key, []);
@@ -151,6 +159,8 @@ export async function POST(request, { params }) {
       }
     }
 
+    // 🆕 status="pending" افتراضيًا (شوف الموديل) — التعليق/الرد مش هيظهر
+    // لغير صاحبه لحد ما أدمن يوافق عليه من /admin.
     const created = await Comment.create({
       lesson: id,
       course: course._id,
@@ -159,25 +169,17 @@ export async function POST(request, { params }) {
       parentComment: parentDoc ? parentDoc._id : null,
     });
 
-    // 🔔 Phase 6 — اليوم 50-51
-    if (parentDoc) {
-      if (String(parentDoc.user) !== String(session.user.id)) {
-        await createNotification({
-          user: parentDoc.user,
-          type: "comment_reply",
-          title: "رد جديد على سؤالك",
-          message: text.slice(0, 200),
-          link: `/courses/${course._id}`,
-          course: course._id,
-        });
-      }
-    } else if (String(course.teacher) !== String(session.user.id)) {
-      await createNotification({
-        user: course.teacher,
-        type: "comment_question",
-        title: `سؤال جديد على درس "${lesson.title}"`,
+    // 🔔 مفيش إشعار للمدرس/صاحب السؤال دلوقتي — التعليق لسه مش ظاهر لحد.
+    // بدل كده بنبلّغ كل الأدمنز إن فيه تعليق مستني مراجعة (نفس فلسفة
+    // course_pending_review). إشعار comment_reply/comment_question الأصلي
+    // بيتبعت لاحقًا وقت الموافقة الفعلية (شوف approve/route.js).
+    const adminIds = await getAdminUserIds();
+    if (adminIds.length > 0) {
+      await createNotificationsForUsers(adminIds, {
+        type: "comment_pending_review",
+        title: parentDoc ? "رد جديد مستني موافقتك" : "سؤال جديد مستني موافقتك",
         message: text.slice(0, 200),
-        link: `/courses/${course._id}`,
+        link: "/admin",
         course: course._id,
       });
     }

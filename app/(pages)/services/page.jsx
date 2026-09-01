@@ -88,7 +88,7 @@ export default function ServicesPage() {
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
         <ServicesList data={data} t={t} />
-        <MembershipSection isRTL={isRTL} />
+        {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
       </div>
     </>
@@ -142,210 +142,210 @@ const MEMBERSHIP_STRINGS = {
   },
 };
 
-function MembershipSection({ isRTL }) {
-  const { language } = useLanguage();
-  const t = MEMBERSHIP_STRINGS[language] ?? MEMBERSHIP_STRINGS.en;
-  const { plans, error } = useMembershipPlans();
-  const [ref, visible] = useReveal(0.08);
+// function MembershipSection({ isRTL }) {
+//   const { language } = useLanguage();
+//   const t = MEMBERSHIP_STRINGS[language] ?? MEMBERSHIP_STRINGS.en;
+//   const { plans, error } = useMembershipPlans();
+//   const [ref, visible] = useReveal(0.08);
 
-  // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع عبر Paymob
-  const { data: session, status: sessionStatus } = useSession();
-  const [currentPlanId, setCurrentPlanId] = useState(null);
-  const [subscribingId, setSubscribingId] = useState(null);
-  const [subscribeError, setSubscribeError] = useState("");
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
+//   // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع عبر Paymob
+//   const { data: session, status: sessionStatus } = useSession();
+//   const [currentPlanId, setCurrentPlanId] = useState(null);
+//   const [subscribingId, setSubscribingId] = useState(null);
+//   const [subscribeError, setSubscribeError] = useState("");
+//   const [showAuthModal, setShowAuthModal] = useState(false);
+//   const [authMode, setAuthMode] = useState("login");
 
-  useEffect(() => {
-    if (sessionStatus !== "authenticated") return;
-    fetch("/api/membership")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setCurrentPlanId(data?.status === "active" ? data?.plan?.id || null : null))
-      .catch(() => {});
-  }, [sessionStatus]);
+//   useEffect(() => {
+//     if (sessionStatus !== "authenticated") return;
+//     fetch("/api/membership")
+//       .then((r) => (r.ok ? r.json() : null))
+//       .then((data) => setCurrentPlanId(data?.status === "active" ? data?.plan?.id || null : null))
+//       .catch(() => {});
+//   }, [sessionStatus]);
 
-  async function handleSubscribeCheckout(plan) {
-    setSubscribeError("");
-    setSubscribingId(plan.id);
-    try {
-      const res = await fetch("/api/payments/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "membership", id: plan.id, language }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.redirectUrl) {
-        setSubscribeError(
-          data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
-        );
-        setSubscribingId(null);
-        return;
-      }
-      window.location.href = data.redirectUrl;
-    } catch {
-      setSubscribeError(t.paymentGatewayError);
-      setSubscribingId(null);
-    }
-  }
+//   async function handleSubscribeCheckout(plan) {
+//     setSubscribeError("");
+//     setSubscribingId(plan.id);
+//     try {
+//       const res = await fetch("/api/payments/checkout", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ type: "membership", id: plan.id, language }),
+//       });
+//       const data = await res.json().catch(() => ({}));
+//       if (!res.ok || !data.redirectUrl) {
+//         setSubscribeError(
+//           data.error === "payment_gateway_not_configured" ? t.paymentSoon : t.paymentGatewayError
+//         );
+//         setSubscribingId(null);
+//         return;
+//       }
+//       window.location.href = data.redirectUrl;
+//     } catch {
+//       setSubscribeError(t.paymentGatewayError);
+//       setSubscribingId(null);
+//     }
+//   }
 
-  async function handleSubscribe(plan) {
-    if (!session?.user) {
-      setAuthMode("login");
-      setShowAuthModal(true);
-      return;
-    }
+//   async function handleSubscribe(plan) {
+//     if (!session?.user) {
+//       setAuthMode("login");
+//       setShowAuthModal(true);
+//       return;
+//     }
 
-    const isFree = plan.billingCycle === "free" || getPriceForCurrency(plan.prices, language).amount === 0;
-    if (!isFree) {
-      return handleSubscribeCheckout(plan);
-    }
+//     const isFree = plan.billingCycle === "free" || getPriceForCurrency(plan.prices, language).amount === 0;
+//     if (!isFree) {
+//       return handleSubscribeCheckout(plan);
+//     }
 
-    setSubscribeError("");
-    setSubscribingId(plan.id);
-    try {
-      const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.error === "payment_required") return handleSubscribeCheckout(plan);
-        setSubscribeError(t.error);
-        return;
-      }
-      setCurrentPlanId(plan.id);
-    } catch {
-      setSubscribeError(t.error);
-    } finally {
-      setSubscribingId(null);
-    }
-  }
+//     setSubscribeError("");
+//     setSubscribingId(plan.id);
+//     try {
+//       const res = await fetch(`/api/membership-plans/${plan.id}/subscribe`, { method: "POST" });
+//       const data = await res.json().catch(() => ({}));
+//       if (!res.ok) {
+//         if (data.error === "payment_required") return handleSubscribeCheckout(plan);
+//         setSubscribeError(t.error);
+//         return;
+//       }
+//       setCurrentPlanId(plan.id);
+//     } catch {
+//       setSubscribeError(t.error);
+//     } finally {
+//       setSubscribingId(null);
+//     }
+//   }
 
-  // مفيش أي شرط تسجيل دخول لعرض الخطط — القسم ده لازم يظهر لأي زائر عادي.
-  if (error) return null;
+//   // مفيش أي شرط تسجيل دخول لعرض الخطط — القسم ده لازم يظهر لأي زائر عادي.
+//   if (error) return null;
 
-  return (
-    <section ref={ref} className="py-14 sm:py-16 md:py-20 bg-[#f7f7f7]">
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
-        <div className={`max-w-2xl mx-auto text-center mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-          <Label text={t.label} visible={visible} />
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-3">{t.title}</h2>
-          <p className="text-gray-500 text-sm sm:text-base leading-relaxed">{t.subtitle}</p>
-        </div>
+//   return (
+//     <section ref={ref} className="py-14 sm:py-16 md:py-20 bg-[#f7f7f7]">
+//       <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-6">
+//         <div className={`max-w-2xl mx-auto text-center mb-10 sm:mb-14 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+//           <Label text={t.label} visible={visible} />
+//           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-3">{t.title}</h2>
+//           <p className="text-gray-500 text-sm sm:text-base leading-relaxed">{t.subtitle}</p>
+//         </div>
 
-        {plans === null && (
-          <div className="flex justify-center py-16">
-            <Loader className="animate-spin text-[#003A91]" size={28} />
-          </div>
-        )}
+//         {plans === null && (
+//           <div className="flex justify-center py-16">
+//             <Loader className="animate-spin text-[#003A91]" size={28} />
+//           </div>
+//         )}
 
-        {plans?.length === 0 && (
-          <p className="text-center text-gray-400 py-10">{t.empty}</p>
-        )}
+//         {plans?.length === 0 && (
+//           <p className="text-center text-gray-400 py-10">{t.empty}</p>
+//         )}
 
-        {subscribeError && (
-          <div className="max-w-xl mx-auto bg-amber-50 text-amber-700 text-sm px-4 py-3 rounded-xl text-center mb-8">
-            {subscribeError}
-          </div>
-        )}
+//         {subscribeError && (
+//           <div className="max-w-xl mx-auto bg-amber-50 text-amber-700 text-sm px-4 py-3 rounded-xl text-center mb-8">
+//             {subscribeError}
+//           </div>
+//         )}
 
-        {plans?.length > 0 && (() => {
-          const featuredIndex = Math.floor((plans.length - 1) / 2);
-          return (
-            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-7">
-              {plans.map((plan, i) => {
-                const isCurrent = currentPlanId === plan.id;
-                const planPriceInfo = getPriceForCurrency(plan.prices, language);
-                const isFree = plan.billingCycle === "free" || planPriceInfo.amount === 0;
-                const isFeatured = plans.length > 1 && i === featuredIndex;
-                return (
-                  <div
-                    key={plan.id}
-                    className={`relative w-full sm:w-65 bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
-                      isCurrent
-                        ? "border-[#003A91] ring-2 ring-[#003A91]/20"
-                        : isFeatured
-                        ? "border-[#003A91] shadow-xl shadow-[#003A91]/10 sm:scale-110 z-10"
-                        : "border-gray-100 sm:scale-95 opacity-100"
-                    } ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-                    style={{ transitionDelay: `${i * 80}ms` }}
-                  >
-                    {isFeatured && !isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
-                        {t.popular}
-                      </span>
-                    )}
-                    {isCurrent && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
-                        {t.subscribed}
-                      </span>
-                    )}
+//         {plans?.length > 0 && (() => {
+//           const featuredIndex = Math.floor((plans.length - 1) / 2);
+//           return (
+//             <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-7">
+//               {plans.map((plan, i) => {
+//                 const isCurrent = currentPlanId === plan.id;
+//                 const planPriceInfo = getPriceForCurrency(plan.prices, language);
+//                 const isFree = plan.billingCycle === "free" || planPriceInfo.amount === 0;
+//                 const isFeatured = plans.length > 1 && i === featuredIndex;
+//                 return (
+//                   <div
+//                     key={plan.id}
+//                     className={`relative w-full sm:w-65 bg-white rounded-2xl border p-6 flex flex-col transition-all duration-500 ${
+//                       isCurrent
+//                         ? "border-[#003A91] ring-2 ring-[#003A91]/20"
+//                         : isFeatured
+//                         ? "border-[#003A91] shadow-xl shadow-[#003A91]/10 sm:scale-110 z-10"
+//                         : "border-gray-100 sm:scale-95 opacity-100"
+//                     } ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+//                     style={{ transitionDelay: `${i * 80}ms` }}
+//                   >
+//                     {isFeatured && !isCurrent && (
+//                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
+//                         {t.popular}
+//                       </span>
+//                     )}
+//                     {isCurrent && (
+//                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#003A91] text-white px-3 py-1 rounded-full whitespace-nowrap">
+//                         {t.subscribed}
+//                       </span>
+//                     )}
 
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#003A91]/10" : "bg-amber-50"}`}>
-                      <Crown size={18} className={isFeatured || isCurrent ? "text-[#003A91]" : "text-amber-500"} />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
-                    {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
+//                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${isFeatured || isCurrent ? "bg-[#003A91]/10" : "bg-amber-50"}`}>
+//                       <Crown size={18} className={isFeatured || isCurrent ? "text-[#003A91]" : "text-amber-500"} />
+//                     </div>
+//                     <h3 className="text-lg font-semibold text-gray-800 mb-1">{plan.name}</h3>
+//                     {plan.description && <p className="text-xs text-gray-400 mb-4">{plan.description}</p>}
 
-                    <p className="text-2xl font-black text-gray-900 mb-1">
-                      {isFree ? t.free : formatPrice(planPriceInfo.amount, planPriceInfo.currency, language)}
-                      {!isFree && (
-                        <span className="text-sm font-medium text-gray-400">
-                          {plan.billingCycle === "yearly" ? t.perYear : t.perMonth}
-                        </span>
-                      )}
-                    </p>
+//                     <p className="text-2xl font-black text-gray-900 mb-1">
+//                       {isFree ? t.free : formatPrice(planPriceInfo.amount, planPriceInfo.currency, language)}
+//                       {!isFree && (
+//                         <span className="text-sm font-medium text-gray-400">
+//                           {plan.billingCycle === "yearly" ? t.perYear : t.perMonth}
+//                         </span>
+//                       )}
+//                     </p>
 
-                    <p className="text-xs text-gray-400 mb-4">
-                      {(plan.allowedCourses?.length ?? 0) === 0 ? t.allCourses : t.someCourses(plan.allowedCourses.length)}
-                    </p>
+//                     <p className="text-xs text-gray-400 mb-4">
+//                       {(plan.allowedCourses?.length ?? 0) === 0 ? t.allCourses : t.someCourses(plan.allowedCourses.length)}
+//                     </p>
 
-                    {plan.features?.length > 0 && (
-                      <ul className="space-y-2 mb-6 flex-1">
-                        {plan.features.slice(0, 4).map((f, fi) => (
-                          <li key={fi} className="flex items-start gap-2 text-sm text-gray-600">
-                            <CheckIcon size={15} className="text-[#003A91] shrink-0 mt-0.5" /> {f}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+//                     {plan.features?.length > 0 && (
+//                       <ul className="space-y-2 mb-6 flex-1">
+//                         {plan.features.slice(0, 4).map((f, fi) => (
+//                           <li key={fi} className="flex items-start gap-2 text-sm text-gray-600">
+//                             <CheckIcon size={15} className="text-[#003A91] shrink-0 mt-0.5" /> {f}
+//                           </li>
+//                         ))}
+//                       </ul>
+//                     )}
 
-                    {isCurrent ? (
-                      <div className="mt-auto flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold py-2.5 rounded-xl text-sm">
-                        <CheckCircle2 size={15} /> {t.subscribed}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleSubscribe(plan)}
-                        disabled={subscribingId === plan.id}
-                        className={`mt-auto w-full inline-flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl transition-opacity text-sm text-center disabled:opacity-60 ${
-                          isFeatured ? "bg-[#003A91] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
-                        }`}
-                      >
-                        {subscribingId === plan.id
-                          ? (isFree ? t.subscribing : t.redirecting)
-                          : t.cta}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+//                     {isCurrent ? (
+//                       <div className="mt-auto flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold py-2.5 rounded-xl text-sm">
+//                         <CheckCircle2 size={15} /> {t.subscribed}
+//                       </div>
+//                     ) : (
+//                       <button
+//                         onClick={() => handleSubscribe(plan)}
+//                         disabled={subscribingId === plan.id}
+//                         className={`mt-auto w-full inline-flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl transition-opacity text-sm text-center disabled:opacity-60 ${
+//                           isFeatured ? "bg-[#003A91] text-white hover:opacity-90" : "bg-[#0a0a0a] text-white hover:opacity-90"
+//                         }`}
+//                       >
+//                         {subscribingId === plan.id
+//                           ? (isFree ? t.subscribing : t.redirecting)
+//                           : t.cta}
+//                       </button>
+//                     )}
+//                   </div>
+//                 );
+//               })}
+//             </div>
+//           );
+//         })()}
 
-        {plans?.length > 0 && (
-          <div className="flex justify-center mt-8 sm:mt-10">
-            <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#003A91] hover:underline text-sm">
-              {t.viewAll} <ArrowRight size={13} />
-            </Link>
-          </div>
-        )}
-      </div>
+//         {plans?.length > 0 && (
+//           <div className="flex justify-center mt-8 sm:mt-10">
+//             <Link href="/membership" className="inline-flex items-center gap-2 font-bold text-[#003A91] hover:underline text-sm">
+//               {t.viewAll} <ArrowRight size={13} />
+//             </Link>
+//           </div>
+//         )}
+//       </div>
 
-      {showAuthModal && (
-        <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitch={(next) => setAuthMode(next)} />
-      )}
-    </section>
-  );
-}
+//       {showAuthModal && (
+//         <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitch={(next) => setAuthMode(next)} />
+//       )}
+//     </section>
+//   );
+// }
 function HeroSection({ data, t }) {
   return (
     <section className="relative overflow-hidden bg-white px-0 min-[851px]:px-20">

@@ -239,7 +239,7 @@ export default function HomePageLoggedOut() {
         {aboutData && <MissionVisionSection data={aboutData} lang={lang} ui={ui} />}
 
         {/* 6) MEMBERSHIP — shared component, same source as /membership */}
-        <MembershipSection />
+        {/* <MembershipSection /> */}
 
         {/* 7) NUMBERS SPEAK — unchanged, same as current Home "Stats" */}
         <Stats data={homeData} t={tHome} />

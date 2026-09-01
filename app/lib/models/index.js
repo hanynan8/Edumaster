@@ -22,6 +22,7 @@ export { getCertificateModel } from "./Certificate";
 export { getNotificationModel } from "./Notification";
 export { getAnnouncementModel } from "./Announcement";
 export { getCommentModel } from "./Comment";
+export { getMessageModel } from "./Message";
 
 // 🆕 محاضرات لايف (تلقائي عبر Daily.co، مع fallback يدوي لو Daily مش
 // متظبط على السيرفر أو فشل إنشاء الغرفة) — شوف app/lib/models/Meeting.js

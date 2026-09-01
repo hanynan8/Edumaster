@@ -3,6 +3,7 @@ import "./globals.css";
 import Providers from "./components/Providers";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
+import CookieConsent from "./components/CookieConsent";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -128,6 +129,7 @@ export default function RootLayout({ children }) {
           <Navbar />
           <main>{children}</main>
           <Footer />
+          <CookieConsent />
         </Providers>
       </body>
     </html>

@@ -1,3 +1,4 @@
+// path: app/(pages)/privacy/page.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -134,13 +135,24 @@ function CompanyInfo({ t }) {
 }
 
 /* ═══════════════════════════════════════
-   SECTIONS (Privacy / Cookies / Terms)
+   SECTIONS (Privacy / Cookies)
+   ملاحظة: أي قسم خاص بالـ Terms & Condition بيتستبعد من هنا
+   لأنه بقى ليه صفحة مستقلة /terms
 ═══════════════════════════════════════ */
+const TERMS_KEYWORDS = ["term", "شروط", "términos", "terminos"];
+
+function isTermsSection(section) {
+  const haystack = `${section.id ?? ""} ${section.title ?? ""}`.toLowerCase();
+  return TERMS_KEYWORDS.some((kw) => haystack.includes(kw));
+}
+
 function Sections({ t }) {
+  const sections = (t.sections ?? []).filter((section) => !isTermsSection(section));
+
   return (
     <section className="py-10 sm:py-16 md:py-20 bg-[#f7f7f7]">
       <div className="max-w-7xl mx-auto px-5 sm:px-10 md:px-16 flex flex-col gap-10 sm:gap-16">
-        {t.sections.map((section) => (
+        {sections.map((section) => (
           <SectionBlock key={section.id} section={section} />
         ))}
       </div>

@@ -12,6 +12,7 @@ import LoadingScreen from "@/app/components/LoadingScreen";
 import ConsultationModal from "@/app/components/consultation/ConsultationModal";
 import TranslationModal from "@/app/components/translation/TranslationModal";
 import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramModal";
+import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
 
 const CONSULT_STRINGS = {
   en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
@@ -514,6 +515,8 @@ function ServiceRow({ service, index, onRequestConsultation }) {
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
   const [ref, visible] = useReveal(0.08);
   const isEven = index % 2 === 0;
+  // منهج Aula Plus التفصيلي بيتعرض بس تحت خدمة الدورات اللغوية (id: "language")
+  const isLanguageService = service.id === "language";
   return (
     <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
       {/* Image — always first on mobile */}
@@ -552,6 +555,8 @@ function ServiceRow({ service, index, onRequestConsultation }) {
             <CalendarClock size={15} /> {cs.forService}
           </button>
         </div>
+
+        {isLanguageService && <SpanishCurriculum lang={language} />}
       </div>
     </div>
   );

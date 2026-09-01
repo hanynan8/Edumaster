@@ -22,12 +22,63 @@
 // app/(pages)/courses/page.jsx و app/(pages)/courses/[id]/page.jsx —
 // بيختاروا course.i18n[language] مع fallback لـ en وبعدين للحقول الأساسية).
 
-import { useEffect, useState } from "react";
-import { X, Loader, Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Loader, Check, RotateCcw } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const LANGS = ["ar", "en", "es"];
+
+// 🆕 مسودة "كورس جديد" في localStorage: لو المدرس قفل المودال بالغلط
+// (زرار X، ضغط برّه المودال، أو حتى قفل التاب) قبل ما يضغط "إنشاء الكورس"،
+// البيانات اللي كتبها (كل اللغات + التصنيف/المستوى/السعر...) تفضل محفوظة
+// محليًا وترجع تلقائي أول ما يفتح فورم "كورس جديد" تاني. بتتمسح بس لما
+// الكورس يتحفظ فعليًا بنجاح (POST ناجح) — مش لما يقفل المودال عادي، عشان
+// كده بالظبط هي موجودة أصلاً. الفيتشر ده بيشتغل بس للكورس الجديد (مش
+// التعديل) لأن كورس بيتعدّل أصلاً بياناته محفوظة في الداتابيز مش محتاجة
+// حفظ مؤقت. المودال يقدر يتفتح لأكتر من مدرس على نفس الجهاز نظريًا، فمفتاح
+// التخزين ثابت لكل الأجهزة (مفيش مقارنة بيانات مستخدم حساسة هنا أصلاً).
+const NEW_COURSE_DRAFT_KEY = "edumaster:newCourseDraft:v1";
+
+function loadNewCourseDraft() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(NEW_COURSE_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveNewCourseDraft(draft) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NEW_COURSE_DRAFT_KEY, JSON.stringify({ ...draft, savedAt: Date.now() }));
+  } catch {
+    // لو الـ localStorage ممتلئ أو متعطّل (وضع تصفح خاص مثلًا)، تجاهل بصمت —
+    // الفورم يفضل شغّال عادي من غير حفظ مؤقت بس.
+  }
+}
+
+function clearNewCourseDraft() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(NEW_COURSE_DRAFT_KEY);
+  } catch {
+    // تجاهل
+  }
+}
+
+// عشان نعرف لو المسودة المحفوظة فيها فعلًا حاجة اتكتبت (مش بس فورم فاضي
+// اتحفظ بالغلط) قبل ما نعرض تنبيه "تم استرجاع مسودة".
+function draftHasContent(draft) {
+  if (!draft) return false;
+  const anyTitle = LANGS.some((l) => draft.langContent?.[l]?.title?.trim());
+  return Boolean(anyTitle || draft.form?.category || draft.form?.thumbnail);
+}
 
 const T = {
   en: {
@@ -71,6 +122,8 @@ const T = {
     saveChanges: "Save changes",
     createCourse: "Create course",
     cancel: "Cancel",
+    draftRestored: "We restored your unsaved draft from last time.",
+    discardDraft: "Discard draft & start over",
   },
   ar: {
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
@@ -113,6 +166,8 @@ const T = {
     saveChanges: "حفظ التعديلات",
     createCourse: "إنشاء الكورس",
     cancel: "إلغاء",
+    draftRestored: "رجّعنالك البيانات اللي كنت بتكتبها قبل كده ولسه محفوظة.",
+    discardDraft: "تجاهل المسودة وابدأ من جديد",
   },
   es: {
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
@@ -155,6 +210,8 @@ const T = {
     saveChanges: "Guardar cambios",
     createCourse: "Crear curso",
     cancel: "Cancelar",
+    draftRestored: "Restauramos tu borrador sin guardar de la última vez.",
+    discardDraft: "Descartar borrador y empezar de nuevo",
   },
 };
 
@@ -192,6 +249,12 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("ar");
+  const [draftRestored, setDraftRestored] = useState(false);
+  // ⚠️ لازم نستنى لحد ما نحاول نحمّل المسودة الأول قبل ما نبدأ نكتبها تاني،
+  // وإلا هنكتب فورم فاضي فوق المسودة المحفوظة في اللحظة اللي المودال بيتفتح
+  // فيها (useEffect بتاع الحفظ هيشتغل قبل useEffect بتاع التحميل لو مفيش
+  // guard زي ده).
+  const draftHydrated = useRef(isEdit); // مودال التعديل مش محتاج تحميل مسودة أصلًا
 
   // 🆕 محتوى منفصل لكل لغة (عنوان/وصف قصير/وصف كامل/متطلبات/هيتعلم إيه/شهادة)
   const [langContent, setLangContent] = useState(() => ({
@@ -227,6 +290,49 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       .then(setCategories)
       .catch(() => setCategories([]));
   }, []);
+
+  // 🆕 تحميل مسودة "كورس جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
+  // بس في وضع "كورس جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
+  useEffect(() => {
+    if (isEdit) return; // مودال تعديل: مفيش مسودة تتحمّل
+    const draft = loadNewCourseDraft();
+    if (draft && draftHasContent(draft)) {
+      if (draft.langContent) setLangContent((c) => ({ ...c, ...draft.langContent }));
+      if (draft.form) setForm((f) => ({ ...f, ...draft.form }));
+      setDraftRestored(true);
+    }
+    draftHydrated.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 🆕 حفظ تلقائي في localStorage كل ما المدرس يعدّل أي حاجة في الفورم —
+  // بس في وضع "كورس جديد"، وبعد ما نخلّص محاولة تحميل مسودة قديمة (guard
+  // بـ draftHydrated فوق) عشان منمسحش مسودة موجودة بفورم فاضي للحظة.
+  useEffect(() => {
+    if (isEdit) return;
+    if (!draftHydrated.current) return;
+    saveNewCourseDraft({ langContent, form });
+  }, [isEdit, langContent, form]);
+
+  function discardDraft() {
+    clearNewCourseDraft();
+    setLangContent({
+      ar: langContentFrom(null, null),
+      en: langContentFrom(null, null),
+      es: langContentFrom(null, null),
+    });
+    setForm({
+      thumbnail: "",
+      category: "",
+      level: "beginner",
+      language: "ar",
+      prices: { EGP: 0, USD: 0, EUR: 0 },
+      isFree: false,
+      status: "draft",
+      tags: "",
+    });
+    setDraftRestored(false);
+  }
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -317,6 +423,9 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         alert(t.savedAsDraft);
       }
 
+      // 🆕 الكورس اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
+      if (!isEdit) clearNewCourseDraft();
+
       onSaved(data);
     } catch (err) {
       setError(err.message === "slug_taken" ? t.slugTaken : t.genericError);
@@ -344,6 +453,22 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
+
+          {/* 🆕 بانر مسودة مستردة — بيظهر بس لو فيه مسودة "كورس جديد" اتحمّلت
+              فعليًا من localStorage عند فتح المودال. */}
+          {!isEdit && draftRestored && (
+            <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2.5 rounded-lg">
+              <span>{t.draftRestored}</span>
+              <button
+                type="button"
+                onClick={discardDraft}
+                className="shrink-0 inline-flex items-center gap-1.5 font-semibold underline hover:no-underline"
+              >
+                <RotateCcw size={12} />
+                {t.discardDraft}
+              </button>
+            </div>
+          )}
 
           <div className="bg-[#EBEFF6] text-[#002E74] text-xs px-4 py-2.5 rounded-lg">{t.multilingualHint}</div>
 

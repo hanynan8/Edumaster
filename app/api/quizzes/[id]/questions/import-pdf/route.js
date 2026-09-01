@@ -103,7 +103,7 @@ export async function POST(request, { params }) {
     let pdfText = "";
     try {
       // استيراد ديناميكي عشان الحزمة تتحمّل بس وقت الحاجة (route ده تحديدًا)
-      const pdfParse = (await import("pdf-parse")).default;
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
       const parsed = await pdfParse(buffer);
       pdfText = parsed.text || "";
     } catch (err) {

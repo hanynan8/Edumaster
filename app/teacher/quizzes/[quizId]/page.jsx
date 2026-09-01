@@ -8,9 +8,9 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, Loader, UploadCloud } from "lucide-react";
+import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, Loader, FileUp } from "lucide-react";
 import QuestionFormModal from "@/app/teacher/components/QuestionFormModal";
-import QuizPdfImportModal from "@/app/teacher/components/QuizPdfImportModal";
+import PdfImportModal from "@/app/teacher/components/PdfImportModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -52,7 +52,7 @@ export default function QuizQuestionsPage({ params }) {
   const [quiz, setQuiz] = useState(null);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(undefined);
-  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
 
   async function load() {
     try {
@@ -81,9 +81,8 @@ export default function QuizQuestionsPage({ params }) {
     });
   }
 
-  function handleImported(createdQuestions) {
-    if (!createdQuestions?.length) return;
-    setQuiz((prev) => ({ ...prev, questions: [...prev.questions, ...createdQuestions] }));
+  function handlePdfImported(importedQuestions) {
+    setQuiz((prev) => ({ ...prev, questions: [...prev.questions, ...importedQuestions] }));
   }
 
   async function handleDelete(question) {
@@ -123,12 +122,20 @@ export default function QuizQuestionsPage({ params }) {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-700">{t.questions(quiz.questions.length)}</h2>
-        <button
-          onClick={() => setModal(null)}
-          className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
-        >
-          <Plus size={16} /> {t.newQuestion}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPdfImportOpen(true)}
+            className="flex items-center gap-2 text-sm font-semibold border border-[#003A91] text-[#003A91] px-4 py-2.5 rounded-xl hover:bg-blue-50"
+          >
+            <FileUp size={16} /> {t.importPdf}
+          </button>
+          <button
+            onClick={() => setModal(null)}
+            className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
+          >
+            <Plus size={16} /> {t.newQuestion}
+          </button>
+        </div>
       </div>
 
       {quiz.questions.length === 0 ? (
@@ -175,6 +182,10 @@ export default function QuizQuestionsPage({ params }) {
 
       {modal !== undefined && (
         <QuestionFormModal quizId={quizId} question={modal} onClose={() => setModal(undefined)} onSaved={handleSaved} />
+      )}
+
+      {pdfImportOpen && (
+        <PdfImportModal quizId={quizId} onClose={() => setPdfImportOpen(false)} onImported={handlePdfImported} />
       )}
     </div>
   );

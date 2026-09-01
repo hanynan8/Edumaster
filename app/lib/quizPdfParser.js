@@ -1,177 +1,202 @@
-// app/lib/quizPdfParser.js
+// quizPdfParser.js
 //
-// 🆕 استيراد أسئلة كويز (صح/غلط أو اختيار من متعدد) من ملف PDF بفورمات
-// نصيّة بسيطة ومحدّدة — شوف app/api/quizzes/[id]/questions/import-pdf/route.js
-// للاستخدام، و app/teacher/components/QuizPdfImportModal.jsx لواجهة الرفع
-// وشرح الفورمات للمدرس.
+// بيحوّل النص المستخرج من ملف PDF (بصيغة بنك أسئلة) لمصفوفة أسئلة جاهزة
+// للحفظ في قاعدة البيانات (نفس شكل Question schema: type/text/points/options).
 //
-// ------------------------------------------------------------------------
-// فورمات ملف "صح / غلط" (True/False):
+// الصيغة المتوقعة للملف (بالتفصيل في PDF_QUIZ_FORMAT.md المرفق):
 //
-//   1. Water boils at 100°C at sea level.
-//   Answer: True
-//   Points: 1
+//   س1: نص السؤال؟
+//   أ) خيار أول
+//   ب) خيار تاني
+//   ج) خيار تالت
+//   د) خيار رابع
+//   الإجابة الصحيحة: ب
+//   الدرجة: 2
 //
-//   2. The Earth is flat.
-//   Answer: False
+//   (سطر فاضي بين كل سؤال والتاني)
 //
-// - كل سؤال يبدأ بسطر "رقم. نص السؤال" (رقم متبوع بـ . أو ) أو : أو -).
-// - سطر "Answer:" (أو "الإجابة:") لازم يكون True/False أو صح/غلط.
-// - سطر "Points:" (أو "الدرجة:") اختياري، لو ملوش هيتحط 1 افتراضيًا.
+//   س2: نص سؤال صح/غلط
+//   الإجابة: صح
 //
-// ------------------------------------------------------------------------
-// فورمات ملف "اختيار من متعدد" (Multiple Choice):
-//
-//   1. What is the capital of France?
-//   A) Paris *
-//   B) London
-//   C) Berlin
-//   D) Madrid
-//   Points: 2
-//
-// - كل سؤال يبدأ بسطر "رقم. نص السؤال" زي فوق.
-// - الخيارات: سطر "حرف) نص الخيار" (A-F). حط "*" في آخر نص الخيار الصح.
-// - بدل الـ "*"، ينفع كمان سطر منفصل "Answer: B" بعد الخيارات.
-// - سطر "Points:" اختياري زي فوق.
-// ==========================================================================
+// الأسئلة اللي معاها خيارات (2 على الأقل) بتتحسب "اختيار من متعدد"،
+// واللي إجابتها صح/غلط من غير خيارات بتتحسب "صح/غلط" تلقائيًا.
 
-const TRUE_VALUES = new Set(["true", "t", "yes", "y", "1", "صح", "صحيح"]);
-const FALSE_VALUES = new Set(["false", "f", "no", "n", "0", "خطأ", "خطا", "غلط"]);
+const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
-// سطر فاصل بين صفحات pdf-parse ("-- 1 of 2 --") — بيتشال قبل التحليل.
-const PAGE_BREAK_RE = /^--\s*\d+\s*of\s*\d+\s*--$/i;
-
-const QUESTION_START_RE = /^(\d{1,3})[.).:\-]\s*(.+)$/;
-const ANSWER_RE = /^(?:answer|ans|الاجابه|الاجابة|الإجابة|إجابة)\s*[:\-]\s*(.+)$/i;
-const POINTS_RE = /^(?:points?|الدرجة|الدرجه|النقاط)\s*[:\-]\s*([\d.]+)$/i;
-const OPTION_RE = /^([A-Za-z])[.).:\-]\s*(.+)$/;
-
-function splitLines(rawText) {
-  return String(rawText || "")
-    .split("\n")
-    .map((l) => l.replace(/\r/g, "").trim())
-    .filter((l) => l && !PAGE_BREAK_RE.test(l));
+function normalizeDigits(str) {
+  return String(str).replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)));
 }
 
-/**
- * بيحوّل نص PDF (مستخرج بـ pdf-parse) لقائمة أسئلة "صح/غلط".
- * @returns {{ questions: Array, errors: string[] }}
- */
-function parseTrueFalseText(rawText) {
-  const lines = splitLines(rawText);
-  const questions = [];
-  const errors = [];
-  let current = null;
+// بيشيل التشكيل، الفواصل الزيادة، والمسافات المكررة عشان المقارنة تبقى مستقرة
+function normalizeForCompare(str) {
+  return normalizeDigits(str)
+    .replace(/[\u064B-\u0652\u0640]/g, "") // تشكيل + تطويل
+    .replace(/[\)\.\-–:،,]/g, "")
+    .trim()
+    .toLowerCase();
+}
 
-  function flush() {
-    if (!current) return;
-    if (current.answer === null) {
-      errors.push(`Question ${current.number} ("${current.text.slice(0, 40)}..."): missing "Answer: True/False" line`);
-    } else {
-      questions.push({
+const QUESTION_START_RE = /^\s*(?:السؤال|سؤال|س|question|q)\s*[\d٠-٩]*\s*[:\-–.)]\s*(.*)$/i;
+
+const OPTION_LINE_RE =
+  /^\s*[\(\[]?([أإآاءبتثجحخدذرزسشصضطظعغفقكلمنهوىي]|[A-Za-z]|[\d٠-٩]{1,2})[\)\.\-–:]\s*(.+?)\s*$/;
+
+const ANSWER_LINE_RE =
+  /^\s*(?:الإجابة\s*الصحيحة|الاجابة\s*الصحيحة|الإجابة|الاجابة|الحل|answer)\s*[:\-–]\s*(.+?)\s*$/i;
+
+const POINTS_LINE_RE = /^\s*(?:الدرجة|درجة\s*السؤال|النقاط|points?)\s*[:\-–]\s*([\d٠-٩.]+)/i;
+
+const TYPE_HEADER_RE = /^\s*(?:نوع\s*الأسئلة|نوع\s*الملف|type)\s*[:\-–]\s*(.+?)\s*$/i;
+
+const TRUE_VALUES = ["صح", "صحيح", "صحيحة", "true", "t", "نعم", "✓"];
+const FALSE_VALUES = ["خطأ", "خطا", "غلط", "خاطئ", "خاطئة", "false", "f", "لا", "✗"];
+
+function detectForcedTypeFromHeader(line) {
+  const m = line.match(TYPE_HEADER_RE);
+  if (!m) return null;
+  const v = normalizeForCompare(m[1]);
+  if (v.includes("صح") && v.includes("غلط")) return "true_false";
+  if (v.includes("متعدد") || v.includes("اختيار") || v.includes("multiple") || v.includes("choice")) return "multiple_choice";
+  if (v.includes("صح") || v.includes("غلط") || v.includes("true") || v.includes("false")) return "true_false";
+  return null;
+}
+
+// بيقسّم النص لكتل أسئلة: أي سطر يطابق QUESTION_START_RE بيبدأ كتلة جديدة
+function splitIntoBlocks(lines) {
+  const blocks = [];
+  let current = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue; // نتجاهل الأسطر الفاضية، الفصل بيحصل بمجرد ظهور سؤال جديد
+    if (QUESTION_START_RE.test(line)) {
+      if (current) blocks.push(current);
+      current = { firstLine: line, lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+    // أي سطر قبل أول سؤال (غير هيدر النوع) بيتجاهل تلقائيًا
+  }
+  if (current) blocks.push(current);
+  return blocks;
+}
+
+function parseBlock(block, forcedType, index) {
+  const qMatch = block.firstLine.match(QUESTION_START_RE);
+  const textParts = [(qMatch ? qMatch[1] : block.firstLine).trim()].filter(Boolean);
+
+  const options = []; // { marker, text }
+  let answerRaw = null;
+  let points = null;
+
+  for (const line of block.lines) {
+    const ansMatch = line.match(ANSWER_LINE_RE);
+    if (ansMatch) {
+      answerRaw = ansMatch[1].trim();
+      continue;
+    }
+    const ptsMatch = line.match(POINTS_LINE_RE);
+    if (ptsMatch) {
+      points = parseFloat(normalizeDigits(ptsMatch[1]));
+      continue;
+    }
+    const optMatch = line.match(OPTION_LINE_RE);
+    if (optMatch) {
+      options.push({ marker: optMatch[1], text: optMatch[2].trim() });
+      continue;
+    }
+    // سطر مكمل لنص السؤال (سؤال بيمتد لأكتر من سطر قبل ما تيجي الخيارات/الإجابة)
+    if (options.length === 0 && answerRaw === null) {
+      textParts.push(line);
+    }
+  }
+
+  const text = textParts.join(" ").replace(/\s+/g, " ").trim();
+
+  if (!text) return { error: { index, reason: "missing_question_text", preview: block.firstLine } };
+  if (answerRaw === null) return { error: { index, reason: "missing_answer", preview: text.slice(0, 60) } };
+
+  const type = forcedType || (options.length >= 2 ? "multiple_choice" : "true_false");
+
+  if (type === "true_false") {
+    const norm = normalizeForCompare(answerRaw);
+    let isTrue = null;
+    if (TRUE_VALUES.some((v) => normalizeForCompare(v) === norm)) isTrue = true;
+    else if (FALSE_VALUES.some((v) => normalizeForCompare(v) === norm)) isTrue = false;
+    if (isTrue === null) return { error: { index, reason: "invalid_true_false_answer", preview: answerRaw } };
+    return {
+      question: {
         type: "true_false",
-        text: current.text,
-        points: current.points ?? 1,
+        text,
+        points: points ?? 1,
         options: [
-          { text: "True", isCorrect: current.answer === true },
-          { text: "False", isCorrect: current.answer === false },
+          { text: "صح", isCorrect: isTrue },
+          { text: "غلط", isCorrect: !isTrue },
         ],
-      });
-    }
-    current = null;
+      },
+    };
   }
 
-  for (const line of lines) {
-    const aMatch = line.match(ANSWER_RE);
-    const pMatch = !aMatch ? line.match(POINTS_RE) : null;
-    const qMatch = !aMatch && !pMatch ? line.match(QUESTION_START_RE) : null;
+  // multiple_choice
+  if (options.length < 2) return { error: { index, reason: "not_enough_options", preview: text.slice(0, 60) } };
 
-    if (qMatch) {
-      flush();
-      current = { number: qMatch[1], text: qMatch[2].trim(), answer: null, points: null };
-    } else if (aMatch && current) {
-      const v = aMatch[1].trim().toLowerCase();
-      if (TRUE_VALUES.has(v)) current.answer = true;
-      else if (FALSE_VALUES.has(v)) current.answer = false;
-    } else if (pMatch && current) {
-      const n = parseFloat(pMatch[1]);
-      if (Number.isFinite(n)) current.points = n;
-    } else if (current && current.answer === null) {
-      // سطر تكملة لنص سؤال طويل على أكتر من سطر
-      current.text = `${current.text} ${line}`.trim();
+  const answerKeys = answerRaw.split(/[،,\/]/).map((s) => normalizeForCompare(s)).filter(Boolean);
+  const correctIdx = new Set();
+  for (const key of answerKeys) {
+    // 1) تطابق مع رمز الخيار (أ/ب/ج/د أو A/B/C/D أو 1/2/3)
+    let idx = options.findIndex((o) => normalizeForCompare(o.marker) === key);
+    // 2) تطابق مع نص الخيار كامل
+    if (idx === -1) idx = options.findIndex((o) => normalizeForCompare(o.text) === key);
+    // 3) لو رقم، اعتبره ترتيب الخيار (1-based)
+    if (idx === -1 && /^\d+$/.test(key)) {
+      const n = parseInt(key, 10);
+      if (n >= 1 && n <= options.length) idx = n - 1;
     }
+    if (idx !== -1) correctIdx.add(idx);
   }
-  flush();
 
-  return { questions, errors };
+  if (correctIdx.size === 0) return { error: { index, reason: "answer_not_matched_to_option", preview: answerRaw } };
+
+  return {
+    question: {
+      type: "multiple_choice",
+      text,
+      points: points ?? 1,
+      options: options.map((o, i) => ({ text: o.text, isCorrect: correctIdx.has(i) })),
+    },
+  };
 }
 
 /**
- * بيحوّل نص PDF (مستخرج بـ pdf-parse) لقائمة أسئلة "اختيار من متعدد".
- * @returns {{ questions: Array, errors: string[] }}
+ * @param {string} rawText - النص المستخرج من الـ PDF (pdf-parse أو أي مكتبة تانية)
+ * @param {{ forcedType?: 'multiple_choice' | 'true_false' }} options
+ * @returns {{ questions: Array, errors: Array }}
  */
-function parseMultipleChoiceText(rawText) {
-  const lines = splitLines(rawText);
+export function parseQuizPdfText(rawText, options = {}) {
+  const lines = String(rawText || "").split(/\r?\n/);
+
+  let forcedType = options.forcedType || null;
+  const contentLines = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!forcedType) {
+      const detected = detectForcedTypeFromHeader(trimmed);
+      if (detected) {
+        forcedType = detected;
+        continue; // سطر الهيدر ده مش جزء من أي سؤال
+      }
+    }
+    contentLines.push(line);
+  }
+
+  const blocks = splitIntoBlocks(contentLines);
   const questions = [];
   const errors = [];
-  let current = null;
 
-  function flush() {
-    if (!current) return;
-    const opts = current.options;
-    const correctCount = opts.filter((o) => o.isCorrect).length;
-    if (opts.length < 2) {
-      errors.push(`Question ${current.number} ("${current.text.slice(0, 40)}..."): needs at least 2 options (A, B, ...)`);
-    } else if (correctCount === 0) {
-      errors.push(`Question ${current.number} ("${current.text.slice(0, 40)}..."): no correct option marked (use "*" after the option, or an "Answer: <letter>" line)`);
-    } else if (correctCount > 1) {
-      errors.push(`Question ${current.number} ("${current.text.slice(0, 40)}..."): more than one option marked correct — mark only one`);
-    } else {
-      questions.push({
-        type: "multiple_choice",
-        text: current.text,
-        points: current.points ?? 1,
-        options: opts.slice(0, 6).map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-      });
-    }
-    current = null;
-  }
-
-  for (const line of lines) {
-    const oMatch = line.match(OPTION_RE);
-    const pMatch = !oMatch ? line.match(POINTS_RE) : null;
-    const aMatch = !oMatch && !pMatch ? line.match(ANSWER_RE) : null;
-    const qMatch = !oMatch && !pMatch && !aMatch ? line.match(QUESTION_START_RE) : null;
-
-    if (qMatch) {
-      flush();
-      current = { number: qMatch[1], text: qMatch[2].trim(), options: [], points: null };
-    } else if (oMatch && current) {
-      const letter = oMatch[1].toUpperCase();
-      let text = oMatch[2].trim();
-      let isCorrect = false;
-      if (/\*\s*$/.test(text)) {
-        isCorrect = true;
-        text = text.replace(/\*\s*$/, "").trim();
-      }
-      current.options.push({ letter, text, isCorrect });
-    } else if (aMatch && current) {
-      const letter = aMatch[1].trim().toUpperCase();
-      const opt = current.options.find((o) => o.letter === letter);
-      if (opt) {
-        current.options.forEach((o) => { o.isCorrect = false; });
-        opt.isCorrect = true;
-      }
-    } else if (pMatch && current) {
-      const n = parseFloat(pMatch[1]);
-      if (Number.isFinite(n)) current.points = n;
-    } else if (current && current.options.length === 0) {
-      current.text = `${current.text} ${line}`.trim();
-    }
-  }
-  flush();
+  blocks.forEach((block, i) => {
+    const result = parseBlock(block, forcedType, i + 1);
+    if (result.question) questions.push(result.question);
+    else if (result.error) errors.push(result.error);
+  });
 
   return { questions, errors };
 }
-
-export { parseTrueFalseText, parseMultipleChoiceText };

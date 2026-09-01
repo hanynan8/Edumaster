@@ -1,25 +1,22 @@
 // app/api/quizzes/[id]/questions/import-pdf/route.js
 //
-// 🆕 استيراد أسئلة كويز بالجملة من ملف PDF — بدل ما المدرس يضيف كل سؤال
-// يدويًا من QuestionFormModal، يقدر يرفع ملف PDF مكتوب بفورمات محدد (شوف
-// app/lib/quizPdfParser.js للتوثيق الكامل للفورمات) ويتملي الأسئلة
-// تلقائيًا. نفس صلاحيات POST /api/quizzes/[id]/questions بالظبط (صاحب
-// الكورس أو أدمن)، ونفس الـ validation النهائي.
+// استيراد أسئلة بالجملة لكويز معيّن من ملف PDF بصيغة "بنك الأسئلة"
+// (شوف app/lib/quizPdfParser.js + PDF_QUIZ_FORMAT.md للتفاصيل الكاملة).
 //
-// FormData المتوقع:
-//   - file: ملف PDF (application/pdf)
-//   - mode: "true_false" | "multiple_choice"
+// POST multipart/form-data:
+//   file       -> ملف PDF (مطلوب)
+//   type       -> "multiple_choice" | "true_false" | "auto" (اختياري، افتراضي auto)
 //
-// الرد:
-//   { created: [Question...], createdCount, errors: string[] }
-//   - errors بترجع لو في أسئلة اتقفزت لعيب في الفورمات (باقي الأسئلة
-//     الصحيحة بتتضاف عادي، مش كل الملف بيترفض عشان سؤال واحد غلط).
+// نفس صلاحيات إضافة سؤال عادي: صاحب الكورس أو أدمن بس. بيتحقق من كل سؤال
+// بنفس قواعد /api/quizzes/[id]/questions (validateOptions) قبل ما يتحفظ,
+// وبيرجّع تقرير بالأسئلة اللي اتحفظت والأسئلة اللي فشل تحليلها (مع السبب)
+// عشان المدرس يقدر يصلّح الملف ويعيد المحاولة.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
-import { parseTrueFalseText, parseMultipleChoiceText } from "@/app/lib/quizPdfParser";
+import { parseQuizPdfText } from "@/app/lib/quizPdfParser";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -28,14 +25,13 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const ALLOWED_MODES = ["multiple_choice", "true_false"];
+const ALLOWED_FORCED_TYPES = ["multiple_choice", "true_false"];
+const ALLOWED_FORCED_LANGS = ["ar", "en", "es"]; // نفس اللغات المدعومة في LanguageContext
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB كفاية جدًا لملف نصي بصيغة PDF
 
-// 🔒 حد أقصى لحجم الملف المرفوع (10MB كافية جدًا لملف نصي بسيط بكذا سؤال).
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
-
-// نفس منطق validateOptions في route.js الرئيسي — بنعيد التحقق هنا كمان
-// (defense in depth) قبل ما ننشئ أي سؤال، حتى لو الـ parser المفروض يضمن
-// شكل صحيح أصلًا.
+// نفس منطق التحقق من الخيارات المستخدم في route.js الأساسي، مكرر هنا
+// عمدًا (بدل استيراده) عشان الاستيراد بالجملة يفضل مستقل وميتأثرش لو
+// حد عدّل شكل الـ validation بتاع الإنشاء الفردي من غير قصد.
 function validateOptions(type, options) {
   if (!Array.isArray(options) || options.length < 2) return "options_required";
   if (type === "true_false" && options.length !== 2) return "true_false_needs_two_options";
@@ -83,63 +79,62 @@ export async function POST(request, { params }) {
       return jsonResponse({ error: "invalid_form_data" }, 400);
     }
 
-    const mode = formData.get("mode");
-    if (!ALLOWED_MODES.includes(mode)) {
-      return jsonResponse({ error: "invalid_mode", allowed: ALLOWED_MODES }, 400);
-    }
-
     const file = formData.get("file");
     if (!file || typeof file.arrayBuffer !== "function") {
       return jsonResponse({ error: "missing_file" }, 400);
     }
+    if (file.type && file.type !== "application/pdf" && !file.name?.toLowerCase().endsWith(".pdf")) {
+      return jsonResponse({ error: "file_must_be_pdf" }, 400);
+    }
     if (file.size > MAX_FILE_BYTES) {
       return jsonResponse({ error: "file_too_large", maxBytes: MAX_FILE_BYTES }, 400);
     }
-    const looksLikePdf =
-      (file.type && file.type.includes("pdf")) || (file.name && file.name.toLowerCase().endsWith(".pdf"));
-    if (!looksLikePdf) {
-      return jsonResponse({ error: "file_must_be_pdf" }, 400);
-    }
 
-    // 🆕 استخراج نص الـ PDF — pdf-parse v2 (import ديناميكي عشان النسخة
-    // Node-only ومحتاجة تتحمّل بس وقت الحاجة، مش على كل استيراد للراوت).
-    let text = "";
+    const rawType = formData.get("type");
+    const forcedType = ALLOWED_FORCED_TYPES.includes(rawType) ? rawType : null;
+
+    const rawLang = formData.get("lang");
+    const forcedLang = ALLOWED_FORCED_LANGS.includes(rawLang) ? rawLang : null;
+
+    // pdf-parse بيتطلب Buffer (Node), مش ArrayBuffer مباشرة
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    let pdfText = "";
     try {
-      const { PDFParse } = await import("pdf-parse");
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      const result = await parser.getText();
-      await parser.destroy();
-      text = result?.text || "";
+      // استيراد ديناميكي عشان الحزمة تتحمّل بس وقت الحاجة (route ده تحديدًا)
+      const pdfParse = (await import("pdf-parse")).default;
+      const parsed = await pdfParse(buffer);
+      pdfText = parsed.text || "";
     } catch (err) {
       console.error("[import-pdf] pdf-parse error:", err);
-      return jsonResponse({ error: "pdf_read_failed" }, 400);
+      return jsonResponse({ error: "could_not_read_pdf" }, 400);
     }
 
-    if (!text.trim()) {
+    if (!pdfText.trim()) {
       return jsonResponse({ error: "empty_pdf_text" }, 400);
     }
 
-    const { questions: parsedQuestions, errors: parseErrors } =
-      mode === "true_false" ? parseTrueFalseText(text) : parseMultipleChoiceText(text);
+    const { questions: parsedQuestions, errors: parseErrors } = parseQuizPdfText(pdfText, { forcedType, forcedLang });
 
     if (parsedQuestions.length === 0) {
-      return jsonResponse({ error: "no_questions_found", errors: parseErrors }, 400);
+      return jsonResponse({ error: "no_questions_found", parseErrors }, 400);
     }
 
     const Question = getQuestionModel();
     let order = await Question.countDocuments({ quiz: quiz._id });
 
-    const errors = [...parseErrors];
-    const docsToInsert = [];
-    parsedQuestions.forEach((q, idx) => {
-      const options = q.options.map((o) => ({ text: o.text.trim(), isCorrect: Boolean(o.isCorrect) }));
+    const toInsert = [];
+    const rejected = [...parseErrors]; // هنضيف عليها أي سؤال اتفهم لكن فشل في validateOptions
+
+    for (const q of parsedQuestions) {
+      const options = q.options.map((o) => ({ text: String(o.text || "").trim(), isCorrect: Boolean(o.isCorrect) }));
       const optionsError = validateOptions(q.type, options);
       if (optionsError) {
-        errors.push(`Question ${idx + 1} ("${q.text.slice(0, 40)}..."): ${optionsError}`);
-        return;
+        rejected.push({ reason: optionsError, preview: q.text.slice(0, 60) });
+        continue;
       }
-      docsToInsert.push({
+      toInsert.push({
         quiz: quiz._id,
         type: q.type,
         text: q.text,
@@ -147,19 +142,20 @@ export async function POST(request, { params }) {
         points: Number.isFinite(q.points) ? Math.max(0, q.points) : 1,
         order: order++,
       });
-    });
-
-    if (docsToInsert.length === 0) {
-      return jsonResponse({ error: "no_valid_questions", errors }, 400);
     }
 
-    const created = await Question.insertMany(docsToInsert);
+    if (toInsert.length === 0) {
+      return jsonResponse({ error: "no_valid_questions", parseErrors: rejected }, 400);
+    }
+
+    const created = await Question.insertMany(toInsert);
 
     return jsonResponse(
       {
-        created: created.map(serializeQuestion),
-        createdCount: created.length,
-        errors,
+        imported: created.map(serializeQuestion),
+        importedCount: created.length,
+        skippedCount: rejected.length,
+        skipped: rejected,
       },
       201
     );

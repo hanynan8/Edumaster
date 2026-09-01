@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck,
+  ClipboardCheck, CalendarClock,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -23,6 +23,7 @@ import BlogAdmin from './components/(editcomponents)/blogs';
 import ContactAdmin from './components/(editcomponents)/contact';
 import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
+import ConsultationsAdmin from './components/consultationsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
@@ -126,6 +127,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { id: 'users',            name: 'Users',            icon: Users, component: UsersAdmin },
       { id: 'form_submissions', name: 'Form Submissions', icon: Inbox, component: FormSubmissionsAdmin },
+      { id: 'consultations',    name: 'Consultations',    icon: CalendarClock, component: ConsultationsAdmin },
       // 🆕 كورسات المدرسين المستنية موافقة/رفض الأدمن قبل ما تظهر على الموقع
       { id: 'course_review',    name: 'Course Review',    icon: ClipboardCheck, component: CoursesReviewAdmin },
       // 🆕 تعليقات/ردود الطلاب تحت الدروس المستنية موافقة/رفض الأدمن قبل ما تظهر

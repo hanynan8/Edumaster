@@ -17,6 +17,16 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CalendarClock } from "lucide-react";
+import ConsultationModal from "./consultation/ConsultationModal";
+
+// نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
+// (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
+const CONSULT_STRINGS = {
+  en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP" },
+  ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه" },
+  es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP" },
+};
 
 const SERVICE_ID_MAP = {
   "Study in Spain": "study-spain",
@@ -67,6 +77,8 @@ function ArrowRight({ size = 16, color = "currentColor" }) {
 export default function ServicesSection({ lang, ui }) {
   const data = useServicesData();
   const [ref, visible] = useReveal();
+  const [consultOpen, setConsultOpen] = useState(false);
+  const cs = CONSULT_STRINGS[lang] ?? CONSULT_STRINGS.en;
 
   const t = data ? (data.i18n[lang] ?? data.i18n.en) : null;
   const merged = t
@@ -93,13 +105,24 @@ export default function ServicesSection({ lang, ui }) {
               {ui.servicesTitle}
             </h2>
           </div>
-          <Link
-            href="/services"
-            className="inline-flex items-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all shrink-0 self-start sm:self-auto w-fit"
-          >
-            {ui.servicesCta}
-            <ArrowRight size={13} />
-          </Link>
+          <div className="flex flex-wrap items-center gap-3 shrink-0 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setConsultOpen(true)}
+              className="inline-flex items-center gap-2 bg-[#003A91] text-white font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:opacity-90 transition-all w-fit"
+            >
+              <CalendarClock size={15} />
+              {cs.cta}
+              <span className="hidden sm:inline text-[10px] font-semibold bg-white/15 px-2 py-0.5 rounded-full">{cs.badge}</span>
+            </button>
+            <Link
+              href="/services"
+              className="inline-flex items-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all w-fit"
+            >
+              {ui.servicesCta}
+              <ArrowRight size={13} />
+            </Link>
+          </div>
         </div>
 
         {!data && (
@@ -141,6 +164,8 @@ export default function ServicesSection({ lang, ui }) {
           </div>
         )}
       </div>
+
+      <ConsultationModal open={consultOpen} onClose={() => setConsultOpen(false)} />
     </section>
   );
 }

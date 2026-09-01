@@ -7,8 +7,15 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
-import { Check as CheckIcon, Crown, Loader, CheckCircle2 } from "lucide-react";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import ConsultationModal from "@/app/components/consultation/ConsultationModal";
+
+const CONSULT_STRINGS = {
+  en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
+  ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن الخدمة دي" },
+  es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
+};
 
 function useServicesData() {
   const [data, setData] = useState(null);
@@ -73,6 +80,7 @@ function Label({ text, visible, dark = false }) {
 export default function ServicesPage() {
   const { language, isRTL } = useLanguage();
   const data = useServicesData();
+  const [consultService, setConsultService] = useState(null); // null = مقفولة، "" أو اسم خدمة = مفتوحة
 
   if (!data) {
     return (
@@ -87,11 +95,48 @@ export default function ServicesPage() {
       <style>{STYLES}</style>
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
-        <ServicesList data={data} t={t} />
+        <ConsultationBanner language={language} onOpen={() => setConsultService("")} />
+        <ServicesList data={data} t={t} onRequestConsultation={(name) => setConsultService(name)} />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
       </div>
+      <ConsultationModal
+        open={consultService !== null}
+        onClose={() => setConsultService(null)}
+        initialService={consultService || ""}
+      />
     </>
+  );
+}
+
+function ConsultationBanner({ language, onOpen }) {
+  const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
+  const [ref, visible] = useReveal();
+  return (
+    <section ref={ref} className="px-5 sm:px-10 md:px-16 -mt-1">
+      <div
+        className={`max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 bg-[#003A91] rounded-2xl px-6 sm:px-8 py-6 sm:py-7 mt-8 sm:mt-10 transition-all duration-700 ${
+          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+        }`}
+      >
+        <div className="flex items-center gap-3 text-white">
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center">
+            <CalendarClock size={20} />
+          </span>
+          <div>
+            <p className="font-bold text-sm sm:text-base">{cs.cta}</p>
+            <p className="text-white/70 text-xs sm:text-sm">{cs.badge}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex items-center gap-2 bg-[#C9A227] text-[#0a0a0a] font-bold px-6 py-2.5 rounded-lg text-sm hover:opacity-90 transition-all shrink-0 w-fit"
+        >
+          {cs.cta} <ArrowRight size={13} />
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -385,7 +430,7 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t }) {
+function ServicesList({ data, t, onRequestConsultation }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
     return { ...svc, ...(t.services[i18nKey] ?? {}) };
@@ -394,13 +439,17 @@ function ServicesList({ data, t }) {
   return (
     <section className="py-14 sm:py-16 md:py-20 bg-white">
       <div className="max-w-7xl mx-auto flex flex-col gap-0">
-        {merged.map((svc, i) => <ServiceRow key={svc.id} service={svc} index={i} />)}
+        {merged.map((svc, i) => (
+          <ServiceRow key={svc.id} service={svc} index={i} onRequestConsultation={onRequestConsultation} />
+        ))}
       </div>
     </section>
   );
 }
 
-function ServiceRow({ service, index }) {
+function ServiceRow({ service, index, onRequestConsultation }) {
+  const { language } = useLanguage();
+  const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
   const [ref, visible] = useReveal(0.08);
   const isEven = index % 2 === 0;
   return (
@@ -427,12 +476,19 @@ function ServiceRow({ service, index }) {
             </li>
           ))}
         </ul>
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <Link href={service.ctaHref}
             className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
             style={{ background: service.color }}>
             {service.cta} <ArrowRight size={13} />
           </Link>
+          <button
+            type="button"
+            onClick={() => onRequestConsultation?.(service.title)}
+            className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+          >
+            <CalendarClock size={15} /> {cs.forService}
+          </button>
         </div>
       </div>
     </div>

@@ -247,13 +247,13 @@ function Field({ label, children }) {
 
 const inputCls = "w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003A91]/20 focus:border-[#003A91]";
 
-export default function ConsultationForm({ onSuccess }) {
+export default function ConsultationForm({ onSuccess, initialService = "" }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
   const f = t.fields;
   const serviceNames = useCurrentServices(language);
 
-  const [form, setForm] = useState(initialFormState);
+  const [form, setForm] = useState(() => ({ ...initialFormState, service: initialService || "" }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);

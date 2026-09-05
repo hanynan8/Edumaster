@@ -114,7 +114,13 @@ export default function ServicesPage() {
           onOpenTranslation={() => setTranslationOpen(true)}
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
         />
-        <ServicesList data={data} t={t} onRequestConsultation={(name) => setConsultService(name)} />
+        <ServicesList
+          data={data}
+          t={t}
+          onRequestConsultation={(name) => setConsultService(name)}
+          onOpenTranslation={() => setTranslationOpen(true)}
+          onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
+        />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
       </div>
@@ -493,7 +499,7 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t, onRequestConsultation }) {
+function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
     return { ...svc, ...(t.services[i18nKey] ?? {}) };
@@ -503,20 +509,39 @@ function ServicesList({ data, t, onRequestConsultation }) {
     <section className="py-14 sm:py-16 md:py-20 bg-white">
       <div className="max-w-7xl mx-auto flex flex-col gap-0">
         {merged.map((svc, i) => (
-          <ServiceRow key={svc.id} service={svc} index={i} onRequestConsultation={onRequestConsultation} />
+          <ServiceRow
+            key={svc.id}
+            service={svc}
+            index={i}
+            onRequestConsultation={onRequestConsultation}
+            onOpenTranslation={onOpenTranslation}
+            onOpenEnglishProgram={onOpenEnglishProgram}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function ServiceRow({ service, index, onRequestConsultation }) {
+// 🆕 تحديد الخدمات الخاصة (اللي بتاخد زرار فورم مختلف عن "طلب استشارة" العادي)
+// بالاعتماد على الـ id الحقيقي القادم من الـ API — مش على ترتيب الخدمة في
+// الليست، عشان لو الأدمن غيّر ترتيب الخدمات الزرار الصح يفضل مربوط
+// بالخدمة الصح. الـ ids دي مطابقة تمامًا لما هو موجود فعليًا في الداتابيز.
+const TRANSLATION_SERVICE_ID = "translation";
+const LANGUAGE_SERVICE_IDS = new Set(["language Courses", "language"]);
+
+function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram }) {
   const { language } = useLanguage();
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
+  const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
   const [ref, visible] = useReveal(0.08);
   const isEven = index % 2 === 0;
-  // منهج Aula Plus التفصيلي بيتعرض بس تحت خدمة الدورات اللغوية (id: "language")
-  const isLanguageService = service.id === "language";
+  // منهج Aula Plus التفصيلي وزرار فورم اللانجويج بيتعرضوا بس تحت خدمة
+  // الدورات اللغوية (id: "language Courses")
+  const isLanguageService = LANGUAGE_SERVICE_IDS.has(service.id);
+  // 🆕 خدمة الترجمة المعتمدة (id: "translation") بتاخد زرار "نموذج طلب ترجمة"
+  // بدل زرار "طلب استشارة" العادي — نفس منطق QuickFormsBanner بالظبط.
+  const isTranslationService = service.id === TRANSLATION_SERVICE_ID;
   return (
     <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
       {/* Image — always first on mobile */}
@@ -547,13 +572,31 @@ function ServiceRow({ service, index, onRequestConsultation }) {
             style={{ background: service.color }}>
             {service.cta} <ArrowRight size={13} />
           </Link>
-          <button
-            type="button"
-            onClick={() => onRequestConsultation?.(service.title)}
-            className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
-          >
-            <CalendarClock size={15} /> {cs.forService}
-          </button>
+          {isTranslationService ? (
+            <button
+              type="button"
+              onClick={() => onOpenTranslation?.()}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <Languages size={15} /> {qf.translationCta}
+            </button>
+          ) : isLanguageService ? (
+            <button
+              type="button"
+              onClick={() => onOpenEnglishProgram?.()}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <GraduationCap size={15} /> {qf.englishCta}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onRequestConsultation?.(service.title)}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <CalendarClock size={15} /> {cs.forService}
+            </button>
+          )}
         </div>
 
         {isLanguageService && <SpanishCurriculum lang={language} />}

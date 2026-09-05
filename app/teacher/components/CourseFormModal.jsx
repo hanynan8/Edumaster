@@ -119,6 +119,8 @@ const T = {
     certDesc: "Certificate description (optional)",
     tags: "Tags (comma-separated)",
     status: "Status",
+    classMarkerQuizId: "ClassMarker Test ID (optional)",
+    classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
     createCourse: "Create course",
     cancel: "Cancel",
@@ -163,6 +165,8 @@ const T = {
     certDesc: "وصف الشهادة (اختياري)",
     tags: "Tags (مفصولة بفاصلة)",
     status: "الحالة",
+    classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
+    classMarkerQuizIdHint: "الصق الـ Quiz ID من رابط اختبار ClassMarker بتاعك (الجزء اللي بعد ?quiz= في رابط زي https://www.classmarker.com/online-test/start?quiz=...). لو اتحط، هيظهر قسم \"اختبر مستواك\" في صفحة الكورس. سيبه فاضي لو مش عايز اختبار.",
     saveChanges: "حفظ التعديلات",
     createCourse: "إنشاء الكورس",
     cancel: "إلغاء",
@@ -207,6 +211,8 @@ const T = {
     certDesc: "Descripción del certificado (opcional)",
     tags: "Etiquetas (separadas por coma)",
     status: "Estado",
+    classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
+    classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
     createCourse: "Crear curso",
     cancel: "Cancelar",
@@ -282,6 +288,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     isFree: course?.isFree ?? false,
     status: course?.status || "draft",
     tags: (course?.tags || []).join(", "),
+    classMarkerQuizId: course?.classMarkerQuizId || "",
   });
 
   useEffect(() => {
@@ -330,6 +337,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       isFree: false,
       status: "draft",
       tags: "",
+      classMarkerQuizId: "",
     });
     setDraftRestored(false);
   }
@@ -341,6 +349,11 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   function updatePrice(currency, value) {
     setForm((f) => ({ ...f, prices: { ...f.prices, [currency]: value } }));
   }
+
+  // 🆕 التصنيف المختار حاليًا هو "Language" ولا لأ — بيتحدد بالـ slug (مش
+  // الاسم) عشان يفضل شغال أيًا كانت لغة الموقع الحالية. لو الأدمن مغيّرش
+  // اسم/slug التصنيف ده من لوحة التصنيفات، الفحص ده هيفضل شغال زي ما هو.
+  const isLanguageCategory = categories.find((c) => c.id === form.category)?.slug === "language";
 
   function updateLang(lang, field, value) {
     setLangContent((c) => ({ ...c, [lang]: { ...c[lang], [field]: value } }));
@@ -395,6 +408,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         requirements: base.requirements,
         outcomes: base.outcomes,
         tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
+        classMarkerQuizId: form.classMarkerQuizId.trim(),
       };
 
       const res = await fetch(isEdit ? `/api/courses/${course.id}` : "/api/courses", {
@@ -663,6 +677,25 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
               onChange={(e) => update("tags", e.target.value)}
             />
           </div>
+
+          {/* 🆕 اختبار "قيّم مستواك" (ClassMarker) — الحقل ده بيظهر بس لو
+              التصنيف المختار هو "Language" (categorySlug === "language")،
+              لأن الاختبار ده معناه بس لكورسات اللغة (اختبار تحديد مستوى في
+              لغة معيّنة). لو المدرس بدّل التصنيف لحاجة تانية، الحقل بيختفي
+              (لكن القيمة المحفوظة مش بتتمسح من الداتابيز، بترجع تظهر تاني
+              لو رجّع اختار Language تاني). */}
+          {isLanguageCategory && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.classMarkerQuizId}</label>
+              <input
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                value={form.classMarkerQuizId}
+                onChange={(e) => update("classMarkerQuizId", e.target.value)}
+                placeholder="yba59c342adc8815"
+              />
+              <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{t.classMarkerQuizIdHint}</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>

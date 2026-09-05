@@ -31,6 +31,7 @@ function serializeCourse(c) {
     durationLabel: c.durationLabel || "",
     category: c.category?._id ? c.category._id.toString() : c.category?.toString(),
     categoryName: c.category?.name,
+    categorySlug: c.category?.slug || "",
     categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
@@ -41,6 +42,7 @@ function serializeCourse(c) {
     requirements: c.requirements,
     outcomes: c.outcomes,
     tags: c.tags,
+    classMarkerQuizId: c.classMarkerQuizId || "",
     status: c.status,
     studentsCount: c.studentsCount,
     ratingAverage: c.ratingAverage,
@@ -69,6 +71,7 @@ const EDITABLE_FIELDS = [
   "requirements",
   "outcomes",
   "tags",
+  "classMarkerQuizId",
   "status",
 ];
 
@@ -197,6 +200,11 @@ export async function PUT(request, { params }) {
     }
     if (updates.shortDescription !== undefined) {
       updates.shortDescription = String(updates.shortDescription).slice(0, 300);
+    }
+    // 🆕 اختبار ClassMarker: تعقيم بسيط (مسافات زيادة + حد أقصى للطول).
+    // فاضي = مفيش اختبار لهذا الكورس، ده سلوك طبيعي ومقصود.
+    if (updates.classMarkerQuizId !== undefined) {
+      updates.classMarkerQuizId = String(updates.classMarkerQuizId).trim().slice(0, 100);
     }
     // 🔒 لو المدرس عايز يغيّر الـ slug لازم يبقى فريد
     if (body.slug !== undefined) {

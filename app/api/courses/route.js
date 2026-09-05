@@ -44,6 +44,7 @@ function serializeCourse(c) {
     durationLabel: c.durationLabel || "",
     category: c.category?._id ? c.category._id.toString() : c.category?.toString(),
     categoryName: c.category?.name,
+    categorySlug: c.category?.slug || "",
     categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
@@ -54,6 +55,7 @@ function serializeCourse(c) {
     requirements: c.requirements,
     outcomes: c.outcomes,
     tags: c.tags,
+    classMarkerQuizId: c.classMarkerQuizId || "",
     status: c.status,
     studentsCount: c.studentsCount,
     ratingAverage: c.ratingAverage,
@@ -205,6 +207,7 @@ export async function POST(request) {
       requirements: Array.isArray(body?.requirements) ? body.requirements.map(String) : [],
       outcomes: Array.isArray(body?.outcomes) ? body.outcomes.map(String) : [],
       tags: Array.isArray(body?.tags) ? body.tags.map(String) : [],
+      classMarkerQuizId: String(body?.classMarkerQuizId || "").trim().slice(0, 100),
       status: "draft", // 🔒 كورس جديد دايمًا draft — النشر إجراء منفصل وواعي
     });
 

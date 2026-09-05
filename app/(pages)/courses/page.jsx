@@ -36,6 +36,15 @@ const LEVEL_COLORS = {
   advanced: "#ef4444",
 };
 
+// 🆕 Pagination بالصفوف: الشبكة عندها 4 أعمدة على الشاشات الكبيرة (xl:grid-cols-4)،
+// فأول 3 صفوف = 12 كورس. لما يكون فيه كورسات أكتر من كده يظهر زرار "عرض المزيد"،
+// وكل ضغطة عليه بتكشف صفين إضافيين (8 كورسات) لحد ما كل الكورسات المتاحة تتعرض.
+const COURSES_PER_ROW = 4;
+const INITIAL_VISIBLE_ROWS = 3;
+const LOAD_MORE_ROWS = 2;
+const INITIAL_VISIBLE_COUNT = COURSES_PER_ROW * INITIAL_VISIBLE_ROWS; // 12
+const LOAD_MORE_COUNT = COURSES_PER_ROW * LOAD_MORE_ROWS; // 8
+
 const STRINGS = {
   en: {
     badge: "What We Offer",
@@ -63,6 +72,7 @@ const STRINGS = {
     empty: "No courses available yet — check back soon.",
     noMatch: "No courses match your search or filters.",
     error: "Couldn't load courses. Please try again.",
+    loadMore: "Show More",
   },
   ar: {
     badge: "كورساتنا",
@@ -90,6 +100,7 @@ const STRINGS = {
     empty: "لسه مفيش كورسات متاحة — تابعنا قريبًا.",
     noMatch: "مفيش كورسات مطابقة لبحثك أو الفلاتر اللي اخترتها.",
     error: "تعذّر تحميل الكورسات، حاول تاني.",
+    loadMore: "عرض المزيد",
   },
   es: {
     badge: "Lo Que Ofrecemos",
@@ -117,6 +128,7 @@ const STRINGS = {
     empty: "Aún no hay cursos disponibles — vuelve pronto.",
     noMatch: "Ningún curso coincide con tu búsqueda o filtros.",
     error: "No se pudieron cargar los cursos. Inténtalo de nuevo.",
+    loadMore: "Mostrar más",
   },
 };
 
@@ -287,6 +299,7 @@ export default function CoursesPage() {
   const [level, setLevel] = useState("all");
   const [price, setPrice] = useState("all");
   const [sort, setSort] = useState("popular");
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
 
   const localized = useMemo(() => {
     if (rawCourses === undefined) return null;
@@ -354,6 +367,19 @@ export default function CoursesPage() {
 
   const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
 
+  // 🆕 أي تغيير في البحث/الفلاتر/الترتيب لازم يرجّع العدّاد لأول 3 صفوف تاني،
+  // عشان المستخدم ميلاقيش نتايج قليلة مخفية وراء زرار "عرض المزيد" من غير داعي.
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_COUNT);
+  }, [search, category, level, price, sort]);
+
+  const visibleCourses = filtered.slice(0, visibleCount);
+  const canLoadMore = visibleCount < filtered.length;
+
+  function handleLoadMore() {
+    setVisibleCount((c) => Math.min(c + LOAD_MORE_COUNT, filtered.length));
+  }
+
   function clearFilters() {
     setSearch("");
     setCategory("all");
@@ -411,7 +437,20 @@ export default function CoursesPage() {
         ) : filtered.length === 0 ? (
           <div className="max-w-3xl mx-auto px-5 py-24 text-center text-gray-400 text-sm">{t.noMatch}</div>
         ) : (
-          <CoursesGrid courses={filtered} t={t} />
+          <>
+            <CoursesGrid courses={visibleCourses} t={t} />
+            {canLoadMore && (
+              <div className="flex justify-center pb-10 sm:pb-14">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className="inline-flex items-center gap-2 font-bold px-7 sm:px-8 py-3 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+                >
+                  {t.loadMore} <ChevronDown size={14} />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

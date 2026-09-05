@@ -25,6 +25,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
+import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "@/app/components/LoadingScreen";
 
 const FALLBACK_IMAGE =
@@ -73,6 +74,7 @@ const STRINGS = {
     noMatch: "No courses match your search or filters.",
     error: "Couldn't load courses. Please try again.",
     loadMore: "Show More",
+    levelTestBtn: "Test Your Level",
   },
   ar: {
     badge: "كورساتنا",
@@ -101,6 +103,7 @@ const STRINGS = {
     noMatch: "مفيش كورسات مطابقة لبحثك أو الفلاتر اللي اخترتها.",
     error: "تعذّر تحميل الكورسات، حاول تاني.",
     loadMore: "عرض المزيد",
+    levelTestBtn: "اختبر مستواك",
   },
   es: {
     badge: "Lo Que Ofrecemos",
@@ -129,6 +132,7 @@ const STRINGS = {
     noMatch: "Ningún curso coincide con tu búsqueda o filtros.",
     error: "No se pudieron cargar los cursos. Inténtalo de nuevo.",
     loadMore: "Mostrar más",
+    levelTestBtn: "Evalúa tu nivel",
   },
 };
 
@@ -143,6 +147,8 @@ function localizeCourse(c, language, t) {
     shortDescription: i18nEntry?.shortDescription || c.shortDescription || c.description || "",
     thumbnail: c.thumbnail,
     categoryName: categoryI18nEntry?.name || c.categoryName || "",
+    categorySlug: c.categorySlug || "",
+    classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: t.levels[c.level] || c.level,
@@ -245,6 +251,14 @@ function XIcon({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+function GraduationCapIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+      <path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
     </svg>
   );
 }
@@ -516,6 +530,19 @@ function CoursesGrid({ courses, t }) {
 }
 
 function CourseCard({ course, t }) {
+  // 🆕 زرار "اختبر مستواك" على كارت الكورس نفسه (مش بس جوه صفحة التفاصيل):
+  // بيظهر بس لو الكورس عنده classMarkerQuizId (نفس شرط ظهور الاختبار في
+  // صفحة التفاصيل). بيفتح رابط ClassMarker مباشرة في تاب جديد، وبيوقف
+  // انتشار الضغطة (stopPropagation) عشان ميودّيش لصفحة تفاصيل الكورس.
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId);
+
+  function handleLevelTestClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = buildClassMarkerTestUrl(course.classMarkerQuizId);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <Link
       href={`/courses/${course.id}`}
@@ -570,6 +597,17 @@ function CourseCard({ course, t }) {
             </span>
           )}
         </div>
+
+        {showLevelTestBtn && (
+          <button
+            type="button"
+            onClick={handleLevelTestClick}
+            className="inline-flex items-center justify-center gap-1.5 mt-1 border border-[#003A91]/30 text-[#003A91] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
+          >
+            <GraduationCapIcon size={13} />
+            {t.levelTestBtn}
+          </button>
+        )}
 
         <div className="mt-auto pt-2.5 flex items-center justify-between">
           <span className="text-base font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>

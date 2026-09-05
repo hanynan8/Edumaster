@@ -5,6 +5,44 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import StudentConsultationForm from "@/app/components/consultation/ConsultationForm";
+import TranslationRequestForm from "@/app/components/translation/TranslationForm";
+import EnglishProgramRequestForm from "@/app/components/englishProgram/EnglishProgramForm";
+
+// 🆕 قايمة الخدمات "الكانونيكال" (ثابتة في الكود) اللي بنضمن بيها إن كل
+// خدمة (باللغات التلاتة) موجودة دايمًا في قايمة "Service of Interest"
+// جوه فورم الكونتاكت، حتى لو الداتا الجاية من الأدمن/الداتابيز ناقصة أو
+// فاضية لبعض اللغات (زي ما كان حاصل مع "Study in Romania" و"Translation").
+// لو الأدمن كتب label مخصص لخدمة معينة في لغة معينة، بناخد نص الأدمن؛ ولو
+// مكتوبش أو فاضي، بنرجع للنص الافتراضي هنا كـ fallback.
+const CANONICAL_SERVICES = [
+  { value: "study-spain", en: "Study in Spain", ar: "الدراسة في إسبانيا", es: "Estudiar en España" },
+  { value: "study-romania", en: "Study in Romania", ar: "الدراسة في رومانيا", es: "Estudiar en Rumanía" },
+  { value: "admissions", en: "University Admissions", ar: "القبول الجامعي", es: "Admisiones Universitarias" },
+  { value: "visa", en: "Student Visa & Documentation", ar: "التأشيرة والوثائق", es: "Visado y Documentación" },
+  { value: "language", en: "Languages Courses", ar: "دورات اللغات", es: "Cursos de Idiomas" },
+  { value: "career", en: "Call Center & Career Training", ar: "تدريب مراكز الاتصال والمهن", es: "Call Center y Formación Profesional" },
+  { value: "translation", en: "Certified Translation", ar: "الترجمة المعتمدة", es: "Traducción Certificada" },
+  { value: "other", en: "Other / General Inquiry", ar: "أخرى / استفسار عام", es: "Otro / Consulta General" },
+];
+
+// بيدمج serviceOptions الجاية من الأدمن (لو موجودة وسليمة) مع القايمة
+// الكانونيكال، عشان نضمن كل الخدمات ظاهرة بكل اللغات دايمًا وبنفس الترتيب.
+function buildServiceOptions(adminOptions, lang) {
+  const byValue = new Map(
+    (adminOptions || [])
+      .filter((o) => o && o.value && o.label)
+      .map((o) => [o.value, o.label])
+  );
+  return CANONICAL_SERVICES.map((svc) => ({
+    value: svc.value,
+    label: byValue.get(svc.value) || svc[lang] || svc.en,
+  }));
+}
+
+// الخدمات اللي بتاخد "نموذج بيانات الطالب وطلب الاستشارة" العام (نفس اللي
+// في صفحة Services تحت زرار "طلب استشارة عن الخدمة دي")
+const CONSULTATION_SERVICE_VALUES = new Set(["study-spain", "study-romania", "admissions", "visa", "career"]);
 
 function useContactData() {
   const [data, setData] = useState(null);
@@ -55,7 +93,7 @@ export default function ContactPage() {
       <style>{STYLES}</style>
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <ContactHero data={data} t={t} />
-        <ContactMain data={data} t={t} />
+        <ContactMain data={data} t={t} lang={lang} />
       </div>
     </>
   );
@@ -101,7 +139,7 @@ function PhoneIcon() {
   return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.01 2.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z" /></svg>;
 }
 
-function ContactMain({ data, t }) {
+function ContactMain({ data, t, lang }) {
   const [ref, visible] = useReveal();
   return (
     <section ref={ref} className="py-16 sm:py-20 md:py-28 bg-white">
@@ -122,7 +160,7 @@ function ContactMain({ data, t }) {
             </div>
           </div>
         </div>
-        <ConsultationForm data={data} t={t} visible={visible} />
+        <DynamicContactForm data={data} t={t} lang={lang} visible={visible} />
       </div>
     </section>
   );
@@ -151,21 +189,90 @@ function InfoCard({ icon, label, value, href, isExternal, accent, visible, delay
   );
 }
 
-function ConsultationForm({ data, t, visible }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
+// 🆕 الفورم الديناميكي بتاع صفحة الكونتاكت:
+// - في الأعلى دايمًا فيه اختيار "Service of Interest" (نفس مكان الفورم القديم بالظبط).
+// - أول ما المستخدم يختار خدمة، "باقي" الفورم بيتغيّر ويظهر نفس الفورم
+//   المخصص لنفس الخدمة دي في صفحة Services (بنفس الأقسام والحقول):
+//     • Study in Spain / Study in Romania / University Admissions /
+//       Visa & Documentation / Career Training → "نموذج بيانات الطالب
+//       وطلب الاستشارة" (ConsultationForm) — بنفس فورم زرار "طلب استشارة
+//       عن الخدمة دي" في صفحة Services، مع تعبئة حقل الخدمة تلقائيًا.
+//     • Languages Courses → "نموذج التسجيل في برنامج اللغة الإنجليزية"
+//       (EnglishProgramForm) — نفس فورم زرار "التسجيل في كورسات اللغات".
+//     • Certified Translation → "نموذج طلب ترجمة" (TranslationForm) — نفس
+//       فورم زرار "نموذج طلب ترجمة".
+// - لو اختار "Other / General Inquiry" (أو محددش خدمة أصلاً)، الفورم
+//   يفضل بسيط زي ما كان: الاسم + الإيميل + الهاتف + رسالة، وبيتبعت لنفس
+//   /api/data?collection=form زي الأول بالظبط.
+function DynamicContactForm({ data, t, lang, visible }) {
+  const [selectedService, setSelectedService] = useState("");
+
+  const serviceOptions = buildServiceOptions(t.form.serviceOptions, lang);
+  const selectedLabel = serviceOptions.find((o) => o.value === selectedService)?.label || "";
+
+  const showConsultationForm = CONSULTATION_SERVICE_VALUES.has(selectedService);
+  const showEnglishForm = selectedService === "language";
+  const showTranslationForm = selectedService === "translation";
+  const showSimpleForm = !showConsultationForm && !showEnglishForm && !showTranslationForm;
+
+  return (
+    <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+      <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-6 sm:mb-8">{t.form.title}</h2>
+
+      {/* الاختيار الرئيسي: الخدمة المطلوبة — دايمًا ظاهر فوق، وهو اللي بيتحكم في باقي الفورم */}
+      <div className="flex flex-col gap-1.5 mb-4 sm:mb-5">
+        <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
+        <select
+          value={selectedService}
+          onChange={(e) => setSelectedService(e.target.value)}
+          className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none focus:border-[#003A91] transition-colors"
+        >
+          <option value="">{t.form.fields.servicePlaceholder}</option>
+          {serviceOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {showConsultationForm && (
+        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
+          <StudentConsultationForm key={selectedService} initialService={selectedLabel} onSuccess={() => {}} />
+        </div>
+      )}
+
+      {showEnglishForm && (
+        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
+          <EnglishProgramRequestForm onSuccess={() => {}} />
+        </div>
+      )}
+
+      {showTranslationForm && (
+        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
+          <TranslationRequestForm onSuccess={() => {}} />
+        </div>
+      )}
+
+      {showSimpleForm && (
+        <SimpleInquiryForm t={t} lang={lang} selectedService={selectedService} />
+      )}
+    </div>
+  );
+}
+
+// الفورم البسيط الافتراضي (الاسم، الإيميل، الهاتف، الرسالة) — نفس الشكل
+// القديم بالظبط، بيتبعت لـ /api/data?collection=form. بيتعرض لما محدش
+// اختار خدمة، أو لما يختار "Other / General Inquiry".
+function SimpleInquiryForm({ t, lang, selectedService }) {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [errors, setErrors] = useState({});
 
   const REQUIRED_LABELS   = { en: "Required",              ar: "مطلوب",                      es: "Obligatorio" };
-  const OPTIONAL_LABELS   = { en: "Optional",              ar: "اختياري",                    es: "Opcional" };
   const EMAIL_ERROR_LABELS = { en: "Invalid email address", ar: "البريد الإلكتروني غير صحيح", es: "Correo electrónico inválido" };
-
-  const lang = data.i18n ? Object.keys(data.i18n).find((l) => t === data.i18n[l]) ?? "en" : "en";
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     if (e.target.name === "email") {
-      // ✅ تحقق فوري من الإيميل أثناء الكتابة
       setErrors((prev) => ({
         ...prev,
         email: e.target.value && !isValidEmail(e.target.value) ? "invalid" : false,
@@ -189,68 +296,55 @@ function ConsultationForm({ data, t, visible }) {
       const res = await fetch("/api/data?collection=form", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, service: selectedService }),
       });
       setStatus(res.ok ? "sent" : "error");
     } catch { setStatus("error"); }
   }
 
   const req          = REQUIRED_LABELS[lang];
-  const opt          = OPTIONAL_LABELS[lang];
   const emailErrMsg  = EMAIL_ERROR_LABELS[lang];
+  const opt          = { en: "Optional", ar: "اختياري", es: "Opcional" }[lang];
+
+  if (status === "sent") {
+    return (
+      <div className="p-8 sm:p-10 rounded-2xl bg-[#003A91]/5 border border-[#003A91]/20 flex flex-col items-center text-center gap-4">
+        <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#003A91] flex items-center justify-center">
+          <Check size={22} color="white" />
+        </span>
+        <h3 className="font-semibold text-lg sm:text-xl">{t.form.successTitle}</h3>
+        <p className="text-gray-500 text-sm max-w-xs">{t.form.successMsg}</p>
+      </div>
+    );
+  }
 
   return (
-    <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-6 sm:mb-8">{t.form.title}</h2>
-      {status === "sent" ? (
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#003A91]/5 border border-[#003A91]/20 flex flex-col items-center text-center gap-4">
-          <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#003A91] flex items-center justify-center">
-            <Check size={22} color="white" />
-          </span>
-          <h3 className="font-semibold text-lg sm:text-xl">{t.form.successTitle}</h3>
-          <p className="text-gray-500 text-sm max-w-xs">{t.form.successMsg}</p>
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
+        <Field label={t.form.fields.name}  name="name"  type="text"  value={form.name}  onChange={handleChange} badge={req} error={errors.name}  errorMsg={req} />
+        <Field label={t.form.fields.email} name="email" type="email" value={form.email} onChange={handleChange} badge={req} error={errors.email}
+          errorMsg={errors.email === "invalid" ? emailErrMsg : req} />
+      </div>
+      <Field label={t.form.fields.phone} name="phone" type="tel" value={form.phone} onChange={handleChange} badge={req} error={errors.phone} errorMsg={req} />
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.message}</label>
+          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
         </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:gap-4">
-          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-            <Field label={t.form.fields.name}  name="name"  type="text"  value={form.name}  onChange={handleChange} badge={req} error={errors.name}  errorMsg={req} />
-            <Field label={t.form.fields.email} name="email" type="email" value={form.email} onChange={handleChange} badge={req} error={errors.email}
-              errorMsg={errors.email === "invalid" ? emailErrMsg : req} />
-          </div>
-          <Field label={t.form.fields.phone} name="phone" type="tel" value={form.phone} onChange={handleChange} badge={req} error={errors.phone} errorMsg={req} />
+        <textarea name="message" value={form.message} onChange={handleChange} rows={4} placeholder={t.form.fields.messagePlaceholder}
+          className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#003A91] transition-colors resize-none" />
+      </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
-              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
-            </div>
-            <select name="service" value={form.service} onChange={handleChange}
-              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none focus:border-[#003A91] transition-colors">
-              <option value="">{t.form.fields.servicePlaceholder}</option>
-              {t.form.serviceOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.message}</label>
-              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
-            </div>
-            <textarea name="message" value={form.message} onChange={handleChange} rows={4} placeholder={t.form.fields.messagePlaceholder}
-              className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#003A91] transition-colors resize-none" />
-          </div>
-
-          <button onClick={handleSubmit} disabled={status === "sending"}
-            className="inline-flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">
-            {status === "sending" ? (
-              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{t.form.sending}</>
-            ) : (
-              <>{t.form.submit}<ArrowRight size={16} /></>
-            )}
-          </button>
-          {status === "error" && <p className="text-red-500 text-sm font-medium">{t.form.errorMsg}</p>}
-        </div>
-      )}
+      <button onClick={handleSubmit} disabled={status === "sending"}
+        className="inline-flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">
+        {status === "sending" ? (
+          <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{t.form.sending}</>
+        ) : (
+          <>{t.form.submit}<ArrowRight size={16} /></>
+        )}
+      </button>
+      {status === "error" && <p className="text-red-500 text-sm font-medium">{t.form.errorMsg}</p>}
     </div>
   );
 }

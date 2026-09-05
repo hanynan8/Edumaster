@@ -192,26 +192,29 @@ function HeroSection({ data, t }) {
   );
 }
 function CountryDetail({ country, t, activeSection, setActiveSection }) {
-  const [headerRef, headerVisible] = useReveal(0.1);
   const sectionKeys = getSectionKeys(country);
 
   return (
     <div>
-      <div ref={headerRef} className="relative overflow-hidden bg-[#0a0a0a]">
-        <div className="absolute inset-0 z-0 opacity-20">
-          <Image src={country.image} alt={country.name} fill className="object-cover" unoptimized />
+      {/* رأس صفحة الدولة — الصورة كبيرة وماخدة أكبر مساحة ممكنة، من غير أي
+          تعتيم أو ظل فوقها (صورة نضيفة 100%). النصوص (اسم الدولة + التاجلاين
+          + الوصف) في بلوك منفصل تحت الصورة على خلفية بيضاء كاملة — مش متراكبة
+          على الصورة ولا بتقصّها. */}
+      <section className="relative overflow-hidden bg-white">
+        <div className="relative w-full h-75 sm:h-90 md:h-105">
+          <Image src={country.image} alt={country.name} fill className="object-cover object-center" priority unoptimized />
         </div>
         <div className="absolute top-0 inset-x-0 h-0.75 z-10" style={{ background: country.color }} />
-        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 md:px-6 py-24 sm:py-28 md:py-32">
-          <div className={`transition-all duration-700 ${headerVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
-            <div className="mb-3 sm:mb-4">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white tracking-tight">{country.name}</h2>
-              <p className="text-gray-400 text-xs sm:text-sm font-medium mt-0.5">{country.tagline}</p>
-            </div>
-            <p className="text-gray-300 text-sm sm:text-[15px] max-w-2xl leading-relaxed">{country.desc}</p>
+        {/* الكارت الأبيض بيقعد فوق الصورة (overlay) في كل مقاسات الشاشات
+            بدون استثناء — مش بيتحول لبلوك تحت الصورة في الموبايل. */}
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 sm:px-8 md:px-12 pb-4 sm:pb-8 md:pb-10">
+          <div className="bg-white rounded-md shadow-xl w-full sm:max-w-md md:max-w-lg px-5 sm:px-8 py-5 sm:py-8 animate-fadein-up">
+            <h2 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2">{country.name}</h2>
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3" style={{ color: country.color }}>{country.tagline}</p>
+            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{country.desc}</p>
           </div>
         </div>
-      </div>
+      </section>
 
       <SectionNav sectionKeys={sectionKeys} t={t} activeSection={activeSection} setActiveSection={setActiveSection} country={country} />
 
@@ -260,7 +263,6 @@ function SectionNav({ sectionKeys, t, activeSection, setActiveSection, country }
 function SectionRow({ countryId, sectionKey, sectionData, content, meta, index, id }) {
   const [ref, visible] = useReveal(0.06);
   const isEven = index % 2 === 0;
-  const Icon = meta.icon;
   if (!content) return null;
   // Image now comes straight from the JSON data (country.sections[key].image),
   // no more code-side override lookup.
@@ -272,24 +274,22 @@ function SectionRow({ countryId, sectionKey, sectionData, content, meta, index, 
 
   return (
     <div id={id} ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0 scroll-mt-36">
-      {/* Image — always on top on mobile */}
+      {/* Image — نضيفة تمامًا زي صورة الـ Hero: من غير أي تعتيم، ولا شريط
+          لون فوقها، ولا badge أيقونة، ولا ظل. الصورة بس. */}
       <div className={`relative overflow-hidden min-h-55 sm:min-h-75 lg:min-h-120 order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
         {imageSrc && (
-          <Image src={imageSrc} alt={content.title} fill className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
+          <Image src={imageSrc} alt={content.title} fill className="object-cover object-center" unoptimized />
         )}
-        <div className="absolute top-0 inset-x-0 h-1" style={{ background: meta.color }} />
-        <div className="absolute top-4 sm:top-6 right-4 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: meta.color }}>
-          <Icon size={16} color="white" />
-        </div>
-        <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-linear-to-t from-black/60 to-transparent">
-          <span className="inline-flex items-center gap-1.5 text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest">
-            <div className="w-3 sm:w-4 h-px bg-white/60" />{content.label}
-          </span>
-        </div>
       </div>
 
-      {/* Content */}
-      <div className={`flex flex-col justify-center px-5 sm:px-8 md:px-10 py-8 sm:py-12 lg:py-20 order-2 ${isEven ? "lg:order-2 bg-white" : "lg:order-1 bg-[#f7f7f7]"} transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+      {/* Content — خلفية بيضاء ثابتة دايمًا (زي كارت الـ Hero بالظبط)،
+          واللابل بقى نص صغير جنب خط بدل ما كان مكتوب فوق الصورة الغامقة. */}
+      <div className={`flex flex-col justify-center px-5 sm:px-8 md:px-10 py-8 sm:py-12 lg:py-20 order-2 ${isEven ? "lg:order-2" : "lg:order-1"} bg-white transition-all duration-700 delay-100 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+        {content.label && (
+          <span className="inline-flex items-center gap-1.5 mb-2.5 sm:mb-3 text-[10px] sm:text-xs font-bold uppercase tracking-widest" style={{ color: meta.color }}>
+            <div className="w-3 sm:w-4 h-px" style={{ background: meta.color }} />{content.label}
+          </span>
+        )}
         <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight mb-3 sm:mb-4">{content.title}</h3>
         <p className="text-gray-500 text-sm sm:text-[15px] leading-relaxed mb-6 sm:mb-8">{content.desc}</p>
 

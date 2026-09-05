@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Loader, Check, RotateCcw } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { SUPPORTED_CURRENCIES, convertPrice } from "@/app/lib/currency";
 
 const LANGS = ["ar", "en", "es"];
 
@@ -109,6 +110,7 @@ const T = {
     choose: "Choose...",
     level: "Level",
     priceLabel: "Price (per currency)",
+    priceAutoHint: "Enter one currency and the other two are calculated automatically (approximate rate — you can still edit them).",
     free: "Free",
     egp: "EGP",
     usd: "USD (Dollar)",
@@ -155,6 +157,7 @@ const T = {
     choose: "اختر...",
     level: "المستوى",
     priceLabel: "السعر (لكل عملة)",
+    priceAutoHint: "اكتب سعر أي عملة وباقي العملتين يتحسبوا تلقائيًا (سعر تقريبي — تقدر تعدّلهم يدوي بعد كده).",
     free: "مجاني",
     egp: "جنيه (EGP)",
     usd: "دولار (USD)",
@@ -201,6 +204,7 @@ const T = {
     choose: "Elige...",
     level: "Nivel",
     priceLabel: "Precio (por moneda)",
+    priceAutoHint: "Introduce el precio en una moneda y las otras dos se calculan automáticamente (tasa aproximada — puedes editarlas después).",
     free: "Gratis",
     egp: "EGP (Libra egipcia)",
     usd: "USD (Dólar)",
@@ -346,8 +350,23 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // 🆕 لما المدرس يعدّل سعر عملة واحدة، بنحسب باقي العملتين تلقائيًا بسعر
+  // صرف تقريبي (شوف EXCHANGE_RATES_TO_EGP في app/lib/currency.js) — بدل
+  // ما يحتاج يكتب الأسعار التلاتة يدوي كل مرة. لسه يقدر يعدّل أي حقل يدوي
+  // بعد كده؛ بس لو رجع يعدّل نفس الحقل اللي حسب منه تاني هيعيد الحساب.
   function updatePrice(currency, value) {
-    setForm((f) => ({ ...f, prices: { ...f.prices, [currency]: value } }));
+    setForm((f) => {
+      const nextPrices = { ...f.prices, [currency]: value };
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue) && numericValue > 0) {
+        for (const other of SUPPORTED_CURRENCIES) {
+          if (other !== currency) {
+            nextPrices[other] = convertPrice(numericValue, currency, other);
+          }
+        }
+      }
+      return { ...f, prices: nextPrices };
+    });
   }
 
   // 🆕 التصنيف المختار حاليًا هو "Language" ولا لأ — بيتحدد بالـ slug (مش
@@ -628,6 +647,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 {t.free}
               </label>
             </div>
+            <p className="text-xs text-gray-400 mb-2">{t.priceAutoHint}</p>
             {/* 🆕 سعر منفصل يدوي لكل عملة (بدل تحويل تلقائي بسعر صرف) — العملة
                 اللي المستخدم بيدفع بيها بتتحدد حسب لغة الموقع وقت الشراء
                 (شوف app/lib/currency.js). لازم تتحط قيمة لكل العملات التلاتة

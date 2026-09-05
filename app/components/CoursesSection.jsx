@@ -28,7 +28,17 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
+import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "./LoadingScreen";
+
+// 🆕 زرار "اختبر مستواك" في كارت الكورس على الصفحة الرئيسية — نص بسيط
+// حسب اللغة (مش جوه ui المُمرّرة من الصفحة الأب عشان منضطرش نعدّل كل
+// الصفحات اللي بتستخدم CoursesSection).
+const LEVEL_TEST_BTN_LABEL = {
+  en: "Test Your Level",
+  ar: "اختبر مستواك",
+  es: "Evalúa tu nivel",
+};
 
 const LEVEL_COLORS = {
   beginner: "#10b981",
@@ -69,6 +79,8 @@ function localizeCourse(c, language, ui) {
     shortDescription: i18nEntry?.shortDescription || c.shortDescription || c.description || "",
     thumbnail: c.thumbnail,
     categoryName,
+    categorySlug: c.categorySlug || "",
+    classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: ui.levels[c.level] || c.level,
@@ -251,7 +263,7 @@ export default function CoursesSection({
         {filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {filtered.map((course, i) => (
-              <CourseCard key={course.id} course={course} ui={ui} visible={visible} delay={i * 50} />
+              <CourseCard key={course.id} course={course} ui={ui} lang={lang} visible={visible} delay={i * 50} />
             ))}
           </div>
         )}
@@ -260,7 +272,20 @@ export default function CoursesSection({
   );
 }
 
-function CourseCard({ course, ui, visible, delay }) {
+function CourseCard({ course, ui, lang, visible, delay }) {
+  // 🆕 نفس فكرة زرار "اختبر مستواك" في /courses، بس هنا (كارت الصفحة
+  // الرئيسية): بيظهر لو الكورس عنده classMarkerQuizId، وبيفتح رابط
+  // ClassMarker في تاب جديد من غير ما يودّي لصفحة تفاصيل الكورس.
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId);
+  const levelTestLabel = LEVEL_TEST_BTN_LABEL[lang] || LEVEL_TEST_BTN_LABEL.en;
+
+  function handleLevelTestClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = buildClassMarkerTestUrl(course.classMarkerQuizId);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <Link
       href={`/courses/${course.id}`}
@@ -306,6 +331,17 @@ function CourseCard({ course, ui, visible, delay }) {
             <span className="text-[11px] text-gray-400">{ui.noRatingYet}</span>
           )}
         </div>
+
+        {showLevelTestBtn && (
+          <button
+            type="button"
+            onClick={handleLevelTestClick}
+            className="inline-flex items-center justify-center gap-1.5 mt-1 border border-[#C9A227]/40 text-[#8a6d10] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#C9A227] hover:text-white hover:border-[#C9A227] transition-colors"
+          >
+            <GraduationCapIcon size={13} />
+            {levelTestLabel}
+          </button>
+        )}
 
         <div className="flex items-center justify-between mt-auto pt-2">
           <span className="text-sm font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
@@ -375,6 +411,14 @@ function ChevronDownIcon({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+function GraduationCapIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+      <path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
     </svg>
   );
 }

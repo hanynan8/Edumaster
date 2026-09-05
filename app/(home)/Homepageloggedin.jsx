@@ -39,7 +39,7 @@ import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
 import ServicesSection from "../components/ServicesSection";
 import LoadingScreen from "../components/LoadingScreen";
-
+import SuccessStoriesSection from "../components/SuccessStoriesSection";
 /* ─────────────────────────────────────────
    UI COPY (presentational only)
 ───────────────────────────────────────── */
@@ -214,6 +214,9 @@ export default function HomePageLoggedIn() {
           bgClassName="bg-white"
           paddingClassName="py-10 sm:py-20 md:py-28"
         />
+
+        <SuccessStoriesSection lang={lang} bgClassName="bg-[#f7f7f7]" paddingClassName="py-10 sm:py-20 md:py-28" />
+        {/* 3.5) SUCCESS STORIES — 4 videos, "View More" → /success-stories */}
 
         {/* 4) MEMBERSHIP — shared component, same source as /membership */}
         {/* <MembershipSection /> */}

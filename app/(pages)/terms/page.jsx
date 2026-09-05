@@ -39,7 +39,7 @@ const CONTENT = {
       fields: [
         { label: "اسم المنصة", value: "Edumaster" },
         { label: "نوع الخدمة", value: "منصة تعليمية إلكترونية" },
-        { label: "البريد الإلكتروني", value: "support@edumaster365.com" },
+        { label: "البريد الإلكتروني", value: "info@edumaster365.com" },
       ],
     },
     sections: [
@@ -92,7 +92,7 @@ const CONTENT = {
         id: "contact",
         title: "٩. التواصل معنا",
         text: "لأي استفسار بخصوص هذه الشروط، يمكنك التواصل معنا عبر البريد الإلكتروني الموضح أعلاه.",
-        contact: "support@edumaster365.com",
+        contact: "info@edumaster365.com",
       },
     ],
   },
@@ -105,7 +105,7 @@ const CONTENT = {
       fields: [
         { label: "Platform Name", value: "Edumaster" },
         { label: "Service Type", value: "Online Education Platform" },
-        { label: "Email", value: "support@edumaster365.com" },
+        { label: "Email", value: "info@edumaster365.com" },
       ],
     },
     sections: [
@@ -158,7 +158,7 @@ const CONTENT = {
         id: "contact",
         title: "9. Contact Us",
         text: "For any questions regarding these terms, you can reach us at the email address below.",
-        contact: "support@edumaster365.com",
+        contact: "info@edumaster365.com",
       },
     ],
   },
@@ -171,7 +171,7 @@ const CONTENT = {
       fields: [
         { label: "Nombre de la plataforma", value: "Edumaster" },
         { label: "Tipo de servicio", value: "Plataforma educativa en línea" },
-        { label: "Correo electrónico", value: "support@edumaster365.com" },
+        { label: "Correo electrónico", value: "info@edumaster365.com" },
       ],
     },
     sections: [
@@ -224,7 +224,7 @@ const CONTENT = {
         id: "contact",
         title: "9. Contáctanos",
         text: "Para cualquier consulta sobre estos términos, puedes escribirnos al correo electrónico indicado a continuación.",
-        contact: "support@edumaster365.com",
+        contact: "info@edumaster365.com",
       },
     ],
   },

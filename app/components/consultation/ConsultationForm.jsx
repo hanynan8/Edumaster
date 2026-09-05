@@ -118,7 +118,7 @@ const STRINGS = {
       notes: "ملاحظات أو طلبات خاصة",
       dataAccuracy: "أقر بأن جميع البيانات المقدمة صحيحة",
       contactConsent: "أوافق على التواصل معي من قبل Edumaster365",
-      privacyConsent: "أوافق على سياسة الخصوصية ومعالجة البيانات *",
+      privacyConsent: "أوافق على سياسة الخصوصية والشروط *",
     },
   },
   en: {
@@ -197,7 +197,7 @@ const STRINGS = {
       notes: "Notes or special requests",
       dataAccuracy: "I confirm all the information provided is accurate",
       contactConsent: "I agree to be contacted by Edumaster365",
-      privacyConsent: "I agree to the privacy policy & data processing *",
+      privacyConsent: "I agree to the terms & conditions *",
     },
   },
 };

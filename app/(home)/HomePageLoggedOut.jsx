@@ -39,6 +39,7 @@ import CoursesSection from "../components/CoursesSection";
 import MembershipSection from "../components/MembershipSection";
 import ServicesSection from "../components/ServicesSection";
 import LoadingScreen from "../components/LoadingScreen";
+import SuccessStoriesSection from "../components/SuccessStoriesSection";
 
 /* ─────────────────────────────────────────
    TEXT FOR THE NEW SECTION HEADERS
@@ -231,6 +232,9 @@ export default function HomePageLoggedOut() {
           bgClassName="bg-white"
           paddingClassName="py-8 sm:py-14 md:py-20"
         />
+
+        {/* 3.5) SUCCESS STORIES — 4 videos, "View More" → /success-stories */}
+       <SuccessStoriesSection lang={lang} bgClassName="bg-white" />
 
         {/* 4) COUNTRIES PREVIEW — same source as /countries, a few cards only */}
         {countriesData && <CountriesPreviewSection data={countriesData} lang={lang} ui={ui} />}
@@ -430,7 +434,7 @@ function MissionVisionSection({ data, lang, ui }) {
           <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight leading-tight">{t.mvTitle || ui.mvTitle}</h2>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
           {cards.map((card, i) => (
             <div
               key={card.key}

@@ -15,17 +15,17 @@ import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramM
 import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
 
 const CONSULT_STRINGS = {
-  en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
-  ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن الخدمة دي" },
-  es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
+  en: { cta: "Study abroad - book a paid consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
+  ar: { cta: "ادرس بالخارج - احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن الخدمة دي" },
+  es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
 };
 
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join English Program", englishBadge: "A1 → C2" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في برنامج الإنجليزية", englishBadge: "A1 → C2" },
-  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Únete al programa de inglés", englishBadge: "A1 → C2" },
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2" },
 };
 
 function useServicesData() {

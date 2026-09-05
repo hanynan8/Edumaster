@@ -7,6 +7,10 @@
 // تخصصية (Business, Academic, Call Centers...). بيتبعت لـ
 // POST /api/data?collection=englishProgramRequests (كتابة عامة من غير
 // تسجيل دخول، زي فورم الاستشارة وطلب الترجمة).
+//
+// اللغات المدعومة بالكامل: العربية (ar) والإنجليزية (en) والإسبانية (es) —
+// نصوص الفورم نفسها + أسماء المستويات الأساسية والبرامج التخصصية كلها
+// متوفرة بالثلاث لغات، مفيش fallback ناقص.
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -14,23 +18,23 @@ import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
 
 // نفس بنية المستوايات المقترحة في المستند المرفوع
 const CORE_LEVELS = [
-  { id: "a1-foundations", cefr: "A1", en: "English Foundations", ar: "أساسيات اللغة الإنجليزية" },
-  { id: "a2-everyday", cefr: "A2", en: "Everyday English", ar: "الإنجليزية اليومية" },
-  { id: "b1-practical", cefr: "B1", en: "Practical English", ar: "الإنجليزية العملية" },
-  { id: "b2-professional", cefr: "B2", en: "Professional English", ar: "إنجليزية احترافية" },
-  { id: "c1-advanced-professional", cefr: "C1", en: "Advanced Professional English", ar: "إنجليزية احترافية متقدمة" },
-  { id: "c2-mastery", cefr: "C2", en: "English Mastery", ar: "إتقان اللغة الإنجليزية" },
+  { id: "a1-foundations", cefr: "A1", en: "English Foundations", ar: "أساسيات اللغة الإنجليزية", es: "Fundamentos de Inglés" },
+  { id: "a2-everyday", cefr: "A2", en: "Everyday English", ar: "الإنجليزية اليومية", es: "Inglés Cotidiano" },
+  { id: "b1-practical", cefr: "B1", en: "Practical English", ar: "الإنجليزية العملية", es: "Inglés Práctico" },
+  { id: "b2-professional", cefr: "B2", en: "Professional English", ar: "إنجليزية احترافية", es: "Inglés Profesional" },
+  { id: "c1-advanced-professional", cefr: "C1", en: "Advanced Professional English", ar: "إنجليزية احترافية متقدمة", es: "Inglés Profesional Avanzado" },
+  { id: "c2-mastery", cefr: "C2", en: "English Mastery", ar: "إتقان اللغة الإنجليزية", es: "Dominio del Inglés" },
 ];
 
 const SPECIALIZED_PROGRAMS = [
-  { id: "business", range: "B2–C1", en: "Business English", ar: "إنجليزية الأعمال" },
-  { id: "academic", range: "B2–C1", en: "Academic English", ar: "الإنجليزية الأكاديمية" },
-  { id: "call-centers", range: "A2–B2", en: "English for Call Centers", ar: "إنجليزية مراكز الاتصال" },
-  { id: "customer-service", range: "B1–B2", en: "English for Customer Service", ar: "إنجليزية خدمة العملاء" },
-  { id: "healthcare", range: "B2–C1", en: "English for Healthcare Professionals", ar: "إنجليزية الكوادر الطبية" },
-  { id: "university", range: "B1–C1", en: "English for University Students", ar: "إنجليزية الطلاب الجامعيين" },
-  { id: "job-interviews", range: "B1–C1", en: "English for Job Interviews", ar: "إنجليزية مقابلات العمل" },
-  { id: "hospitality", range: "A2–B2", en: "English for Hospitality & Tourism", ar: "إنجليزية الضيافة والسياحة" },
+  { id: "business", range: "B2–C1", en: "Business English", ar: "إنجليزية الأعمال", es: "Inglés de Negocios" },
+  { id: "academic", range: "B2–C1", en: "Academic English", ar: "الإنجليزية الأكاديمية", es: "Inglés Académico" },
+  { id: "call-centers", range: "A2–B2", en: "English for Call Centers", ar: "إنجليزية مراكز الاتصال", es: "Inglés para Call Centers" },
+  { id: "customer-service", range: "B1–B2", en: "English for Customer Service", ar: "إنجليزية خدمة العملاء", es: "Inglés para Atención al Cliente" },
+  { id: "healthcare", range: "B2–C1", en: "English for Healthcare Professionals", ar: "إنجليزية الكوادر الطبية", es: "Inglés para Profesionales de la Salud" },
+  { id: "university", range: "B1–C1", en: "English for University Students", ar: "إنجليزية الطلاب الجامعيين", es: "Inglés para Estudiantes Universitarios" },
+  { id: "job-interviews", range: "B1–C1", en: "English for Job Interviews", ar: "إنجليزية مقابلات العمل", es: "Inglés para Entrevistas de Trabajo" },
+  { id: "hospitality", range: "A2–B2", en: "English for Hospitality & Tourism", ar: "إنجليزية الضيافة والسياحة", es: "Inglés para Hostelería y Turismo" },
 ];
 
 const STRINGS = {
@@ -108,8 +112,44 @@ const STRINGS = {
       privacyConsent: "I agree to be contacted by Edumaster regarding this request *",
     },
   },
+  es: {
+    formTitle: "Formulario de Inscripción al Programa de Inglés",
+    formSubtitle: "Elige el nivel o el programa especializado que más te convenga, y nuestro equipo se pondrá en contacto contigo para confirmar la inscripción y los detalles de inicio.",
+    submit: "Enviar solicitud",
+    submitting: "Enviando...",
+    required: "* Por favor completa los campos obligatorios y acepta la política de privacidad",
+    successTitle: "¡Tu solicitud de inscripción fue recibida!",
+    successDesc: "Nuestro equipo se pondrá en contacto contigo pronto para confirmar tu nivel y la fecha de inicio del programa.",
+    error: "Ocurrió un error al enviar tu solicitud, por favor intenta de nuevo.",
+    sections: {
+      personal: "Información de Contacto",
+      level: "Nivel Actual",
+      program: "Programa Deseado",
+      preferences: "Preferencias de Estudio",
+      additional: "Información Adicional",
+    },
+    fields: {
+      fullName: "Nombre Completo *",
+      email: "Correo Electrónico *",
+      phone: "Número de WhatsApp / Teléfono *",
+      countryOfResidence: "País de Residencia",
+      preferredContact: "Método de Contacto Preferido",
+      contactOptions: { whatsapp: "WhatsApp", email: "Correo Electrónico", phone: "Llamada Telefónica" },
+      knowsCurrentLevelLabel: "¿Conoces tu nivel actual de inglés? *",
+      yes: "Sí, conozco mi nivel", no: "No, necesito una prueba de nivel",
+      currentLevel: "Tu nivel actual (MCER)",
+      coreLevelsLabel: "Programa Principal (ruta completa A1 → C2)",
+      specializedLabel: "O un programa especializado",
+      preferredIntake: "Fecha de inicio preferida",
+      intakes: { immediate: "Lo antes posible", month1: "Dentro de un mes", flexible: "Flexible" },
+      studyFormat: "Formato de estudio preferido",
+      formats: { online: "En línea", inPerson: "Presencial", hybrid: "Híbrido (en línea + presencial)" },
+      studyGoal: "Tu objetivo al aprender inglés (viajar, estudiar, trabajar...)",
+      notes: "Notas o preguntas adicionales",
+      privacyConsent: "Acepto ser contactado/a por Edumaster respecto a esta solicitud *",
+    },
+  },
 };
-STRINGS.es = STRINGS.en; // fallback مؤقت للإسباني على نفس نصوص الإنجليزي
 
 const initialFormState = {
   fullName: "", email: "", phone: "", countryOfResidence: "", preferredContact: "",
@@ -161,11 +201,17 @@ function ProgramCard({ label, sub, selected, onClick }) {
   );
 }
 
+// اختيار اسم المستوى/البرنامج بالثلاث لغات (بدل الاعتماد على isAr بس)
+function pickLabel(item, language) {
+  if (language === "ar") return item.ar;
+  if (language === "es") return item.es;
+  return item.en;
+}
+
 export default function EnglishProgramForm({ onSuccess }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
   const f = t.fields;
-  const isAr = language === "ar";
 
   const [form, setForm] = useState(initialFormState);
   const [submitting, setSubmitting] = useState(false);
@@ -265,7 +311,7 @@ export default function EnglishProgramForm({ onSuccess }) {
             {CORE_LEVELS.map((lv) => (
               <ProgramCard
                 key={lv.id}
-                label={isAr ? lv.ar : lv.en}
+                label={pickLabel(lv, language)}
                 sub={lv.cefr}
                 selected={form.desiredProgram === lv.id}
                 onClick={() => set("desiredProgram", lv.id)}
@@ -279,7 +325,7 @@ export default function EnglishProgramForm({ onSuccess }) {
             {SPECIALIZED_PROGRAMS.map((p) => (
               <ProgramCard
                 key={p.id}
-                label={isAr ? p.ar : p.en}
+                label={pickLabel(p, language)}
                 sub={p.range}
                 selected={form.desiredProgram === p.id}
                 onClick={() => set("desiredProgram", p.id)}

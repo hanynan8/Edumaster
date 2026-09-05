@@ -8,6 +8,8 @@
 // التوثيق والتصديق، الموعد النهائي، طريقة التسليم، وإقرار العميل).
 // بيتبعت لـ POST /api/data?collection=translationRequests (كتابة عامة من
 // غير تسجيل دخول، زي فورم الاستشارة).
+//
+// اللغات المدعومة بالكامل: العربية (ar) والإنجليزية (en) والإسبانية (es).
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -238,8 +240,119 @@ const STRINGS = {
       additionalInfo: "Is there anything else we should know about your request?",
     },
   },
+  es: {
+    formTitle: "Formulario de Solicitud de Traducción",
+    formSubtitle:
+      "Por favor completa el siguiente formulario con información precisa para que nuestro equipo pueda evaluar tu solicitud de traducción y ofrecerte el servicio y presupuesto adecuados.",
+    submit: "Enviar solicitud",
+    submitting: "Enviando...",
+    required: "* Por favor completa los campos obligatorios y acepta las declaraciones",
+    successTitle: "¡Tu solicitud de traducción fue recibida!",
+    successDesc:
+      "Nuestro equipo revisará tus documentos y se pondrá en contacto contigo con el presupuesto final, el tiempo estimado de entrega y las instrucciones de pago.",
+    error: "Ocurrió un error al enviar tu solicitud, por favor intenta de nuevo.",
+    sections: {
+      client: "1. Información del Cliente",
+      request: "2. Detalles de la Solicitud de Traducción",
+      document: "3. Información de los Documentos",
+      upload: "4. Carga de Documentos",
+      certification: "5. Certificación y Legalización",
+      deadline: "6. Fecha Límite",
+      delivery: "7. Método de Entrega",
+      declaration: "Declaración del Cliente",
+      additional: "8. Información Adicional",
+    },
+    fields: {
+      fullName: "Nombre Completo *",
+      email: "Correo Electrónico *",
+      phone: "Número de WhatsApp / Teléfono *",
+      countryOfResidence: "País de Residencia *",
+      preferredContact: "Método de Contacto Preferido *",
+      contactOptions: { whatsapp: "WhatsApp", email: "Correo Electrónico", phone: "Llamada Telefónica" },
+      serviceTypeLabel: "¿Qué tipo de servicio necesitas? * (selecciona todo lo que aplique)",
+      serviceTypes: {
+        general: "Traducción General",
+        certified: "Traducción Certificada / Jurada",
+        academic: "Traducción Académica",
+        legal: "Traducción Legal",
+        business: "Traducción Comercial / de Negocios",
+        technical: "Traducción Técnica",
+        medical: "Traducción Médica",
+        website: "Traducción de Sitio Web / Contenido Digital",
+        other: "Otro",
+      },
+      sourceLanguage: "Idioma de Origen *",
+      targetLanguage: "Idioma de Destino *",
+      numberOfDocuments: "Número de Documentos *",
+      docCounts: { "1": "1", "2": "2", "3": "3", "4": "4", "5": "5", "5+": "Más de 5" },
+      approxPages: "Número Aproximado de Páginas",
+      pageRanges: { "1": "1 página", "2-5": "2–5 páginas", "6-10": "6–10 páginas", "11-20": "11–20 páginas", "20+": "Más de 20 páginas" },
+      documentTypeLabel: "¿Qué tipo de documento necesitas traducir? * (selecciona todo lo que aplique)",
+      documentTypes: {
+        passport: "Pasaporte / Identificación",
+        birth: "Acta de Nacimiento",
+        marriage: "Acta de Matrimonio",
+        academicCert: "Certificado Académico",
+        transcript: "Certificado de Notas / Transcripción",
+        diploma: "Diploma",
+        university: "Documentos Universitarios",
+        school: "Documentos Escolares",
+        employment: "Documentos Laborales",
+        legal: "Documentos Legales",
+        medical: "Documentos Médicos",
+        company: "Documentos de Empresa / Comerciales",
+        contract: "Contrato",
+        other: "Otro",
+      },
+      documentDescription: "Describe brevemente el/los documento(s)",
+      uploadNote:
+        "📎 Por favor envía una copia clara en PDF, JPG, PNG u otro formato compatible por WhatsApp o correo electrónico después de enviar este formulario, o pega un enlace de carga (Google Drive / WeTransfer) abajo.",
+      uploadImportant: "Importante: El documento debe estar completo y ser claramente legible para que Edumaster pueda ofrecer un presupuesto preciso.",
+      documentLink: "Enlace del documento (opcional)",
+      certifiedRequiredLabel: "¿Necesitas una traducción certificada/jurada? *",
+      yesNoUnknown: { yes: "Sí", no: "No", unknown: "No estoy seguro/a" },
+      officialPurposeLabel: "¿La traducción se usará para algún trámite oficial?",
+      officialPurposes: {
+        university: "Admisión universitaria",
+        visa: "Visa / Inmigración",
+        embassy: "Embajada / Consulado",
+        government: "Entidad gubernamental",
+        legalProcedure: "Trámite legal",
+        employment: "Empleo",
+        personal: "Uso personal",
+        other: "Otro",
+      },
+      officialUseOther: "Especifica el otro propósito (si aplica)",
+      deadlineLabel: "¿Cuándo necesitas la traducción? *",
+      deadlineOptions: {
+        standard: "Servicio estándar",
+        urgent48: "Urgente — en 48 horas",
+        urgent24: "Urgente — en 24 horas",
+        specific: "Fecha específica",
+      },
+      specificDeadlineDate: "Fecha específica",
+      specificDeadlineTime: "Hora específica",
+      deliveryMethodLabel: "¿Cómo prefieres recibir la traducción? * (selecciona todo lo que aplique)",
+      deliveryMethods: {
+        emailDigital: "Correo Electrónico — Copia Digital",
+        whatsappDigital: "WhatsApp — Copia Digital",
+        printed: "Copia Impresa",
+        both: "Copia Digital + Impresa",
+      },
+      deliveryOriginalRequired: "¿Necesitas que se entregue el documento original impreso?",
+      deliveryCountryCity: "País / Ciudad de entrega",
+      paymentMethodLabel: "Método de pago preferido",
+      paymentMethods: { bank: "Transferencia Bancaria", online: "Pago en Línea", other: "Otro" },
+      declarations: {
+        ownership: "Confirmo que los documentos cargados me pertenecen o que estoy autorizado/a para solicitar su traducción.",
+        accuracy: "Confirmo que la información proporcionada en este formulario es correcta.",
+        quoteDependency: "Entiendo que el presupuesto final depende del/los documento(s) real(es) presentado(s) y del servicio de traducción solicitado.",
+        authorization: "Autorizo a Edumaster a usar los documentos enviados únicamente con el fin de evaluar, preparar y entregar el servicio de traducción solicitado. *",
+      },
+      additionalInfo: "¿Hay algo más que debamos saber sobre tu solicitud?",
+    },
+  },
 };
-STRINGS.es = STRINGS.en; // fallback مؤقت للإسباني على نفس نصوص الإنجليزي
 
 const initialFormState = {
   fullName: "", email: "", phone: "", countryOfResidence: "", preferredContact: "",

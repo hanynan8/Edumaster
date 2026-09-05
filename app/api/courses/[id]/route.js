@@ -230,12 +230,46 @@ export async function PUT(request, { params }) {
     }
 
     Object.assign(existing, updates);
-    await existing.save();
 
-    const populated = await existing.populate([
-      { path: "category", select: "name slug i18n" },
-      { path: "teacher", select: "name" },
-    ]);
+    // 🩹 FIX (باگ "الحفظ بيرجع نجاح بس القيمة مش بتفضل"): existing.save()
+    // بيعتمد إن Mongoose قادر يـ diff نسخة المستند اللي اتحمّلت في الذاكرة
+    // صح. بعض الكورسات (خصوصًا كورسات قديمة اتحطت في الداتابيز مباشرة أو
+    // باستيراد بيانات — زي app/scripts/migrate-marketing-courses-to-real.js
+    // اللي بيعمل insertOne بالـ driver الخام من غير ما يعدي على Mongoose
+    // أصلًا) شكلها مش مطابق تمامًا للـ schema الحالي، فـ save() كان بيرجع
+    // status 200 "ناجح" من غير ما يبعت فعليًا كل الحقول المتغيّرة لداتابيز
+    // (فالـ classMarkerQuizId مثلًا بيختفي أول ما تعمل reload). نفس فئة
+    // المشكلة اللي DELETE تحت معالجها بـ fallback للـ driver الخام.
+    // findByIdAndUpdate بيبني أمر $set مباشر بالـ id بس (من غير أي اعتماد
+    // على "نسخة" المستند اللي اتحمّلت قبل كده)، فبيضمن إن كل حقل في updates
+    // يوصل فعليًا للداتابيز أيًا كان شكل المستند الأصلي.
+    let populated;
+    try {
+      const updatedDoc = await Course.findByIdAndUpdate(
+        existing._id,
+        { $set: updates },
+        { new: true, runValidators: true }
+      );
+      if (!updatedDoc) return jsonResponse({ error: "not_found" }, 404);
+      populated = await updatedDoc.populate([
+        { path: "category", select: "name slug i18n" },
+        { path: "teacher", select: "name" },
+      ]);
+    } catch (updateErr) {
+      // fallback بالـ driver الخام — لو الـ _id أو أي حقل شكله مش قياسي
+      // بيرمي CastError مع findByIdAndUpdate (نفس فكرة fallback الحذف تحت).
+      console.error("[/api/courses/[id]] PUT findByIdAndUpdate fallback triggered:", updateErr?.message);
+      const rawUpdates = { ...updates };
+      if (rawUpdates.category !== undefined && mongoose.Types.ObjectId.isValid(rawUpdates.category)) {
+        rawUpdates.category = new mongoose.Types.ObjectId(rawUpdates.category);
+      }
+      if (rawUpdates.i18n instanceof Map) {
+        rawUpdates.i18n = Object.fromEntries(rawUpdates.i18n);
+      }
+      await Course.collection.updateOne({ _id: existing._id }, { $set: rawUpdates });
+      populated = await loadCourse(existing._id);
+      if (!populated) return jsonResponse({ error: "not_found" }, 404);
+    }
 
     // 🆕 best-effort: مش لازم نستنى الإشعارات دي أو نفشل الطلب لو فشلت —
     // شوف تعليق notificationHelpers.js عن نفس المبدأ في certificateHelpers.js

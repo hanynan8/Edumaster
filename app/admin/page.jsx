@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -33,6 +33,7 @@ import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
 import OverviewAdmin from './components/overviewPanel';
 import CoursesReviewAdmin from './components/coursesReviewPanel';
+import AllCoursesAdmin from './components/allCoursesPanel';
 import CommentsReviewAdmin from './components/commentsReviewPanel';
 
 function NotFound() {
@@ -136,6 +137,10 @@ const SIDEBAR_GROUPS = [
       // (بتظهر في صفحة الخدمات والهوم لوج-إن ولوج-أوت)
       { id: 'translation_requests',    name: 'Translation Requests',     icon: Languages,      component: TranslationRequestsAdmin },
       { id: 'english_program_requests', name: 'English Program Requests', icon: GraduationCap, component: EnglishProgramRequestsAdmin },
+      // 🆕 كل كورسات المدرسين (أي حالة) — للأدمن يقدر يحط/يعدّل
+      // classMarkerQuizId (وأي حاجة تانية لاحقًا) لأي كورس في أي وقت،
+      // مش بس وقت ما يكون pending زي course_review تحت.
+      { id: 'all_courses',      name: 'All Courses',      icon: BookOpen,       component: AllCoursesAdmin },
       // 🆕 كورسات المدرسين المستنية موافقة/رفض الأدمن قبل ما تظهر على الموقع
       { id: 'course_review',    name: 'Course Review',    icon: ClipboardCheck, component: CoursesReviewAdmin },
       // 🆕 تعليقات/ردود الطلاب تحت الدروس المستنية موافقة/رفض الأدمن قبل ما تظهر

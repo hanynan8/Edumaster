@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react';
 import {
   ClipboardCheck, Loader, AlertCircle, CheckCircle2, XCircle, X, BookOpen,
   Clock, User, Tag, Layers, Video, FileType2, FileText as FileTextIcon,
-  DollarSign,
+  DollarSign, Link2, Save,
 } from 'lucide-react';
 
 function formatDuration(seconds) {
@@ -40,6 +40,14 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
 
+  // 🆕 تعديل ClassMarker Quiz ID من هنا مباشرة (شوف الشرح فوق الحقل جوه
+  // الـ JSX) — بيحفظ فعليًا في موديل Course الحقيقي عن طريق
+  // PUT /api/courses/[id]، بعكس محرر "app/admin/components/(editcomponents)/courses.jsx"
+  // اللي بيعدّل كولكشن تاني خالص (صفحة الكورسات التسويقية الثابتة).
+  const [quizIdInput, setQuizIdInput] = useState('');
+  const [savingQuiz, setSavingQuiz] = useState(false);
+  const [quizSaveMsg, setQuizSaveMsg] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -55,6 +63,7 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
         if (!courseRes.ok) throw new Error(courseData?.error || 'load_failed');
         if (cancelled) return;
         setCourse(courseData);
+        setQuizIdInput(courseData?.classMarkerQuizId || '');
         setSections(Array.isArray(sectionsData) ? sectionsData : []);
       } catch {
         if (!cancelled) setError('Could not load course content.');
@@ -65,6 +74,27 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
     load();
     return () => { cancelled = true; };
   }, [courseId]);
+
+  async function handleSaveQuizId() {
+    setSavingQuiz(true);
+    setQuizSaveMsg('');
+    try {
+      const res = await fetch(`/api/courses/${courseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classMarkerQuizId: quizIdInput.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'save_failed');
+      setCourse((c) => (c ? { ...c, classMarkerQuizId: data.classMarkerQuizId || '' } : c));
+      setQuizSaveMsg('saved');
+    } catch {
+      setQuizSaveMsg('error');
+    } finally {
+      setSavingQuiz(false);
+      setTimeout(() => setQuizSaveMsg(''), 3000);
+    }
+  }
 
   const totalLessons = sections?.reduce((acc, s) => acc + s.lessons.length, 0) ?? 0;
 
@@ -155,6 +185,39 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
                   {course.tags.map((t, i) => (
                     <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{t}</span>
                   ))}
+                </div>
+              )}
+
+              {course.categorySlug === 'language' && (
+                <div className="mb-5 border border-gray-200 rounded-xl p-4">
+                  <label className="text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                    <Link2 size={14} /> ClassMarker Quiz ID
+                  </label>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Paste the Quiz ID from the ClassMarker test link (the part after ?quiz=). Leave empty for no test.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
+                      value={quizIdInput}
+                      onChange={(e) => setQuizIdInput(e.target.value)}
+                      placeholder="yba59c342adc8815"
+                    />
+                    <button
+                      onClick={handleSaveQuizId}
+                      disabled={savingQuiz}
+                      className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {savingQuiz ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
+                      Save
+                    </button>
+                  </div>
+                  {quizSaveMsg === 'saved' && (
+                    <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1"><CheckCircle2 size={12} /> Saved.</p>
+                  )}
+                  {quizSaveMsg === 'error' && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} /> Failed to save.</p>
+                  )}
                 </div>
               )}
 

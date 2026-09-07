@@ -82,7 +82,7 @@ const courseSchema = new mongoose.Schema(
 
     language: { type: String, default: "ar" },
 
-    // 🆕 اعتماد كلي على Paymob + عملة الدفع بقت مربوطة بلغة الموقع (شوف
+    // 🆕 اعتماد كلي على GetPayIn + عملة الدفع بقت مربوطة بلغة الموقع (شوف
     // app/lib/currency.js). التسعير يدوي بالكامل: المدرس بيحط سعر منفصل لكل
     // عملة من التلاتة (مش تحويل تلقائي بسعر صرف). لو الكورس مجاني
     // isFree=true وprices بيتجاهل بالكامل.

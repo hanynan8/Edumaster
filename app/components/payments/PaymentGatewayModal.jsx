@@ -3,19 +3,20 @@
 
 // app/components/payments/PaymentGatewayModal.jsx
 //
-// 🆕 بعد إلغاء PayPal واعتماد Paymob كبوابة الدفع الوحيدة في المشروع،
-// مبقاش فيه داعي لمودال "اختيار بوابة دفع" (كان فيه اختيار بين PayPal
-// وPaymob قبل كده). المودال دلوقتي مجرد تأكيد بسيط قبل ما نفتح
-// POST /api/payments/checkout: بيعرض السعر النهائي (بالعملة المحسوبة من
-// لغة الموقع الحالية، شوف app/lib/currency.js) وزرار واحد "الدفع عبر
-// Paymob". الاسم اتساب زي ما هو (PaymentGatewayModal) عشان أي حد يقرا
-// كود المشروع يلاقي نفس المكوّن اللي كان بيستخدمه، بس دوره اتغيّر.
+// 🆕 بعد إلغاء PayPal واعتماد GetPayIn كبوابة الدفع الوحيدة في المشروع
+// (بعد ما كان Paymob)، مبقاش فيه داعي لمودال "اختيار بوابة دفع" (كان فيه
+// اختيار بين PayPal وPaymob قبل كده). المودال دلوقتي مجرد تأكيد بسيط قبل
+// ما نفتح POST /api/payments/checkout: بيعرض السعر النهائي (بالعملة
+// المحسوبة من لغة الموقع الحالية، شوف app/lib/currency.js) وزرار واحد
+// "الدفع عبر GetPayIn". الاسم اتساب زي ما هو (PaymentGatewayModal) عشان
+// أي حد يقرا كود المشروع يلاقي نفس المكوّن اللي كان بيستخدمه، بس دوره
+// اتغيّر.
 //
 // الاستخدام:
 //   <PaymentGatewayModal
 //     amount={250}
 //     currency="EGP"
-//     onConfirm={() => ...}   // مفيش provider تاني، Paymob بس
+//     onConfirm={() => ...}   // مفيش provider تاني، GetPayIn بس
 //     onClose={() => ...}
 //   />
 
@@ -25,24 +26,25 @@ import { X, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/app/lib/currency";
 import BankTransferInfo from "./BankTransferInfo";
 
-// 🅿️ PAYMOB مؤقتًا OFF — حساب Paymob لسه مش مفعّل. المودال بيعرض بيانات
-// التحويل البنكي بدل زرار الدفع الإلكتروني. لما الحساب يتفعّل، رجّع القيمة
-// دي لـ true وهيرجع يشتغل بنفس الشكل القديم تمامًا من غير أي تعديل تاني.
-const PAYMOB_ENABLED = false;
+// 🅿️ GETPAYIN مؤقتًا OFF — حساب GetPayIn لسه مش مفعّل. المودال بيعرض
+// بيانات التحويل البنكي بدل زرار الدفع الإلكتروني. لما الحساب يتفعّل، رجّع
+// القيمة دي لـ true وهيرجع يشتغل بنفس الشكل القديم تمامًا من غير أي تعديل
+// تاني.
+const GETPAYIN_ENABLED = false;
 
 const STRINGS = {
   ar: {
     title: "تأكيد الدفع",
     subtitle: "هتتحول لصفحة الدفع الآمنة بعد التأكيد",
     total: "الإجمالي",
-    confirm: "الدفع عبر Paymob",
+    confirm: "الدفع عبر GetPayIn",
     secure: "دفع آمن ببطاقتك أو محفظتك الإلكترونية",
   },
   en: {
     title: "Confirm payment",
     subtitle: "You'll be redirected to a secure payment page",
     total: "Total",
-    confirm: "Pay with Paymob",
+    confirm: "Pay with GetPayIn",
     secure: "Secure payment via card or e-wallet",
   },
 };
@@ -81,7 +83,7 @@ export default function PaymentGatewayModal({ amount, currency, onConfirm, onClo
           <X size={18} />
         </button>
 
-        {PAYMOB_ENABLED ? (
+        {GETPAYIN_ENABLED ? (
           <>
             <h2 className="text-lg font-bold text-gray-900 mb-1">{t.title}</h2>
             <p className="text-xs text-gray-400 mb-5">{t.subtitle}</p>

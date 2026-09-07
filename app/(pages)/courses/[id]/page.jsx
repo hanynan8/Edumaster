@@ -409,7 +409,7 @@ function RealCourseDetail({ id }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   // 🆕 المستخدم ضغط "اشترِ الآن" لكورس مدفوع — بننتظر تأكيده في
-  // PaymentGatewayModal قبل ما نبدأ checkout فعلي عند Paymob.
+  // PaymentGatewayModal قبل ما نبدأ checkout فعلي عند GetPayIn.
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   // تتبع تقدّم الطالب: أي درس (فيديو/PDF/نص) بيتحدد "مكتمل" لما الطالب
   // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الكورس
@@ -519,8 +519,8 @@ function RealCourseDetail({ id }) {
       .catch(() => setEnrollment({ enrolled: false, hasAccess: false }));
   }, [id, session, sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 27-28 + Paymob: كورس مدفوع (مش متاح مجانًا وعضويتنا
-  // لو موجودة مش بتغطيه) → checkout عند Paymob (بعد تأكيد المستخدم في
+  // 🆕 Phase 3 — اليوم 27-28 + GetPayIn: كورس مدفوع (مش متاح مجانًا وعضويتنا
+  // لو موجودة مش بتغطيه) → checkout عند GetPayIn (بعد تأكيد المستخدم في
   // PaymentGatewayModal) بدل POST /api/enrollments مباشرة. لو
   // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
   // كـ "متضمّن في اشتراكك" مش "اشتري" (شوف isViaMembership تحت)، فمفيش

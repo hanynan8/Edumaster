@@ -3,11 +3,11 @@
 // Phase 3 — اليوم 27-29: بداية أي عملية دفع (شراء كورس مفرد أو اشتراك
 // membership مدفوع، شهري أو سنوي). الراوت بيتحقق الأول إن المنتج
 // (كورس/خطة) فعلاً محتاج دفع ومتاح، يعمل سجل Payment بحالة "pending"،
-// بعدين يفتح عملية دفع عند Paymob ويرجّع للـ client رابط التحويل
+// بعدين يفتح عملية دفع عند GetPayIn ويرجّع للـ client رابط التحويل
 // (redirectUrl) عشان يوديه لصفحة الدفع يدفع فيها.
 //
-// 🆕 اعتماد كلي على Paymob (PayPal اتشال نهائيًا من المشروع). العملة بقت
-// ديناميكية حسب لغة الموقع الحالية عند المستخدم وقت الدفع — مش حسب أي
+// 🆕 اعتماد كلي على GetPayIn بعد استبدال Paymob بالكامل من المشروع. العملة
+// بقت ديناميكية حسب لغة الموقع الحالية عند المستخدم وقت الدفع — مش حسب أي
 // إعداد ثابت في السيرفر. الـ client لازم يبعت "language" في الـ body
 // (شوف app/lib/currency.js لخريطة لغة→عملة الكاملة):
 //
@@ -17,8 +17,8 @@
 // "ar" → EGP، وهو نفس افتراض لغة الموقع في باقي المشروع.
 //
 // 🔒 التفعيل الفعلي (Enrollment أو تفعيل membership) بيحصل *بعد كده* في
-// app/api/payments/paymob/callback أو app/api/payments/paymob/webhook —
-// مش هنا، ومش قبل ما Paymob تأكد الدفع فعليًا. ده بالظبط اللي تعليق
+// app/api/payments/getpayin/callback أو app/api/payments/getpayin/webhook —
+// مش هنا، ومش قبل ما GetPayIn تأكد الدفع فعليًا. ده بالظبط اللي تعليق
 // Payment.js بيقصده بـ "مصدر الحقيقة المالي".
 
 import mongoose from "mongoose";
@@ -27,13 +27,10 @@ import { getCourseModel, getMembershipPlanModel, getPaymentModel } from "@/app/l
 import { requireSession } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import {
-  createPaymobOrder,
-  createPaymobPaymentKey,
-  buildPaymobIframeUrl,
-  isPaymobConfigured,
-  isCurrencySupported,
-  getIntegrationIdForCurrency,
-} from "@/app/lib/paymob";
+  createGetPayInInvoice,
+  isGetPayInConfigured,
+  amountCentsToDecimalString,
+} from "@/app/lib/getpayin";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 
@@ -50,9 +47,9 @@ export async function POST(request) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    // 🔒 SECURITY (Day 59): كل نداء هنا بيفتح Paymob Order (نداءين خارجيين
-    // مكلفين ماليًا وزمنيًا) — 10 محاولات/دقيقة لكل مستخدم كافية لأي استخدام
-    // حقيقي ومنع أي محاولة سبام تفتح مئات الـ orders الفاضية.
+    // 🔒 SECURITY (Day 59): كل نداء هنا بيفتح GetPayIn Invoice (نداء خارجي
+    // مكلف ماليًا وزمنيًا) — 10 محاولات/دقيقة لكل مستخدم كافية لأي استخدام
+    // حقيقي ومنع أي محاولة سبام تفتح مئات الـ invoices الفاضية.
     const rl = await enforceRateLimit(request, {
       keyPrefix: "payments:checkout",
       limit: 10,
@@ -61,7 +58,7 @@ export async function POST(request) {
     });
     if (rl) return rl;
 
-    if (!isPaymobConfigured()) {
+    if (!isGetPayInConfigured()) {
       return jsonResponse({ error: "payment_gateway_not_configured" }, 503);
     }
 
@@ -101,7 +98,7 @@ export async function POST(request) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: targetId });
       if (access.hasAccess) return jsonResponse({ error: "already_have_access" }, 409);
 
-      amount = Math.round(priceInfo.amount * 100); // 🩹 FIX: course.prices مبالغ كاملة (جنيه/دولار/يورو) — لازم تتحول لقروش/سنت هنا (وحدة Payment.amount/Paymob amount_cents)، وإلا هيتحصّل 1% بس من السعر الفعلي.
+      amount = Math.round(priceInfo.amount * 100); // 🩹 FIX: course.prices مبالغ كاملة (جنيه/دولار/يورو) — لازم تتحول لقروش/سنت هنا (وحدة Payment.amount)، وإلا هيتحصّل 1% بس من السعر الفعلي.
       currency = priceInfo.currency;
       description = `Course: ${course.title}`.slice(0, 120);
       courseRef = course._id;
@@ -122,22 +119,6 @@ export async function POST(request) {
       metadata.billingCycle = plan.billingCycle;
     }
 
-    // 🩹 BUG FIX (audit): قبل كده كنا بنكتشف إن العملة مش مدعومة بس لما
-    // Paymob ترفض الطلب بـ "Invalid currency sent" (بعد ما نكون عملنا
-    // Payment بحالة pending واتصلنا بـ Paymob مرتين). دلوقتي بنتأكد الأول
-    // إن فيه integration فعلي متظبط للعملة دي، وبنرجّع رسالة واضحة بدل
-    // خطأ عام لو مش متاحة — مفيش Payment وهمية بتتعمل ومفيش نداء API
-    // ضايع لـ Paymob لو أصلاً هيفشل.
-    if (!isCurrencySupported(currency)) {
-      console.error(
-        `[/api/payments/checkout] No Paymob integration configured for currency "${currency}"`
-      );
-      return jsonResponse(
-        { error: "currency_not_available", currency },
-        503
-      );
-    }
-
     const payment = await Payment.create({
       user: session.user.id,
       type,
@@ -146,74 +127,64 @@ export async function POST(request) {
       amount,
       currency,
       status: "pending",
-      provider: "paymob",
+      provider: "getpayin",
       metadata,
     });
 
-    return await startPaymobCheckout({ payment, amount, currency, session, metadata });
+    const { origin } = new URL(request.url);
+    return await startGetPayInCheckout({ payment, amount, description, session, metadata, origin, currency });
   } catch (err) {
     console.error("[/api/payments/checkout] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
   }
 }
 
-// تدفق Paymob: order registration بعدها payment key، وبعدين رابط الـ
-// iframe المستضافة عند Paymob هو الـ redirectUrl اللي بنرجّعه للـ client
-// (window.location.href كامل، مفيش iframe مضمّن في صفحتنا احنا).
-async function startPaymobCheckout({ payment, amount, currency, session, metadata }) {
-  let paymobOrder;
+// تدفق GetPayIn: نداء واحد لإنشاء الـ invoice، وبعدين checkout_url المستضافة
+// عندهم هي الـ redirectUrl اللي بنرجّعه للـ client (window.location.href
+// كامل، مفيش iframe مضمّن في صفحتنا احنا — نفس فلسفة Paymob iframe URL
+// القديمة، بس هنا صفحة GetPayIn المستضافة مباشرة).
+async function startGetPayInCheckout({ payment, amount, currency, description, session, metadata, origin }) {
+  const [firstName, ...rest] = (session.user.name || "NA NA").trim().split(" ");
+
+  // 🔒 بنبني redirection_url إحنا (مش من إعداد ثابت في لوحة GetPayIn زي
+  // Paymob) وبنحط Payment._id فيها — عشان صفحة الرجوع تعرف تربط الـ
+  // request اللي جاي بالسجل المالي عندنا حتى قبل ما تشوف أي حاجة من
+  // GetPayIn نفسها (شوف app/api/payments/getpayin/callback).
+  const redirectionUrl = `${origin}/api/payments/getpayin/callback?payment=${payment._id.toString()}`;
+  const webhookUrl = `${origin}/api/payments/getpayin/webhook`;
+
+  let invoice;
   try {
-    paymobOrder = await createPaymobOrder({
-      amount,
+    invoice = await createGetPayInInvoice({
+      amount: amountCentsToDecimalString(amount),
       currency,
-      merchantOrderId: payment._id.toString(),
+      firstName: firstName || "NA",
+      lastName: rest.join(" ") || "NA",
+      email: session.user.email,
+      orderTitle: description,
+      orderDetails: description,
+      redirectionUrl,
+      webhookUrl,
     });
   } catch (err) {
-    console.error("[/api/payments/checkout] Paymob order creation failed:", err);
+    console.error("[/api/payments/checkout] GetPayIn invoice creation failed:", err);
     payment.status = "failed";
-    payment.metadata = { ...metadata, failureReason: "paymob_order_creation_failed" };
+    payment.metadata = { ...metadata, failureReason: "getpayin_invoice_creation_failed" };
     await payment.save();
-    return jsonResponse({ error: "paymob_error" }, 502);
+    return jsonResponse({ error: "getpayin_error" }, 502);
   }
 
-  let paymentKey;
-  try {
-    const [firstName, ...rest] = (session.user.name || "NA NA").trim().split(" ");
-    paymentKey = await createPaymobPaymentKey({
-      amount,
-      currency,
-      orderId: paymobOrder.id,
-      // 🩹 BUG FIX (audit): integration_id الصح لعملة الدفعة دي بالذات —
-      // ده كان بيتقرا قبل كده من متغير بيئة واحد ثابت جوه paymob.js نفسه
-      // (PAYMOB_INTEGRATION_ID)، فأي عملة غير اللي الـ integration ده
-      // متسجل بيها في Paymob كانت بترجع "Invalid currency sent".
-      integrationId: getIntegrationIdForCurrency(currency),
-      billingData: {
-        firstName: firstName || "NA",
-        lastName: rest.join(" ") || "NA",
-        email: session.user.email,
-        phone: session.user.phone,
-      },
-    });
-  } catch (err) {
-    console.error("[/api/payments/checkout] Paymob payment key request failed:", err);
-    payment.status = "failed";
-    payment.metadata = { ...metadata, failureReason: "paymob_payment_key_failed" };
-    await payment.save();
-    return jsonResponse({ error: "paymob_error" }, 502);
-  }
-
-  // providerPaymentId بيتخزن هنا order id بتاع Paymob (رقم) — بنستخدمه
-  // كـ fallback lookup في الـ webhook/callback؛ الاعتماد الأساسي بيبقى على
-  // merchant_order_id (= payment._id).
-  payment.providerPaymentId = String(paymobOrder.id);
+  // providerPaymentId بيتخزن هنا invoice id بتاع GetPayIn — ده اللي بنعتمد
+  // عليه في lookup وقت الـ webhook/callback (مفيش merchant_order_id مباشر
+  // زي Paymob في invoice creation عند GetPayIn).
+  payment.providerPaymentId = String(invoice.invoiceId);
   await payment.save();
 
   return jsonResponse(
     {
       paymentId: payment._id.toString(),
-      orderId: paymobOrder.id,
-      redirectUrl: buildPaymobIframeUrl(paymentKey.token),
+      invoiceId: invoice.invoiceId,
+      redirectUrl: invoice.checkoutUrl,
     },
     201
   );

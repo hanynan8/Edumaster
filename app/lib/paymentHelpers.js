@@ -1,9 +1,9 @@
 // app/lib/paymentHelpers.js
 //
 // منطق مشترك بعد نجاح/فشل/استرجاع أي عملية دفع، مستخدم من
-// app/api/payments/paymob/callback و app/api/payments/paymob/webhook مع
+// app/api/payments/getpayin/callback و app/api/payments/getpayin/webhook مع
 // بعض — المفروض الاتنين يودّوا لنفس النتيجة بالظبط مهما كان مين وصل الأول
-// (المستخدم لما يرجع لمتصفحه، أو الـ webhook من Paymob).
+// (المستخدم لما يرجع لمتصفحه، أو الـ webhook من GetPayIn).
 //
 // 🔒 markPaymentSucceededAndGrantAccess هي القلب: بتعمل transition
 // pending → succeeded بشكل atomic (findOneAndUpdate بشرط status:"pending")

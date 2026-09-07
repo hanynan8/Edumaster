@@ -262,7 +262,7 @@ const MEMBERSHIP_STRINGS = {
 //   const { plans, error } = useMembershipPlans();
 //   const [ref, visible] = useReveal(0.08);
 
-//   // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع عبر Paymob
+//   // نفس بالظبط منطق /membership: تسجيل الدخول + الدفع عبر GetPayIn
 //   const { data: session, status: sessionStatus } = useSession();
 //   const [currentPlanId, setCurrentPlanId] = useState(null);
 //   const [subscribingId, setSubscribingId] = useState(null);

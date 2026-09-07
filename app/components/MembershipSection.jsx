@@ -7,7 +7,7 @@
    Shared "Membership Plans" section, extracted from both home pages
    (logged-in and guest). Fetches the exact same endpoint the
    /membership page uses: GET /api/membership-plans, and reuses the
-   exact same subscribe logic (free plans + Paymob checkout).
+   exact same subscribe logic (free plans + GetPayIn checkout).
 
    No props required — it manages its own language, session, and
    data fetching, exactly like the original inline sections did.
@@ -112,7 +112,7 @@ export default function MembershipSection() {
   const { plans, error } = useMembershipPlans();
   const [ref, visible] = useReveal(0.08);
 
-  // same logic as /membership: login gate + payment via Paymob
+  // same logic as /membership: login gate + payment via GetPayIn
   const { data: session, status: sessionStatus } = useSession();
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [subscribingId, setSubscribingId] = useState(null);
@@ -163,9 +163,9 @@ export default function MembershipSection() {
 
     const isFree = plan.billingCycle === "free" || getPriceForCurrency(plan.prices, language).amount === 0;
     if (!isFree) {
-      // 🅿️ بدل ما نتصل بـ Paymob على طول، بنفتح مودال الدفع (اللي دلوقتي
-      // بيعرض بيانات التحويل البنكي طول ما Paymob مش مفعّل — شوف
-      // PaymentGatewayModal.jsx / PAYMOB_ENABLED)
+      // 🅿️ بدل ما نتصل بـ GetPayIn على طول، بنفتح مودال الدفع (اللي دلوقتي
+      // بيعرض بيانات التحويل البنكي طول ما GetPayIn مش مفعّل — شوف
+      // PaymentGatewayModal.jsx / GETPAYIN_ENABLED)
       setGatewayPlan(plan);
       return;
     }

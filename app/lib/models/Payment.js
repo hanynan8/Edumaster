@@ -34,16 +34,16 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
-    // 🆕 "paymob" هي بوابة الدفع الوحيدة الفعلية المستخدمة في المشروع
-    // (app/lib/paymob.js) — اتشال PayPal نهائيًا (شوف app/lib/currency.js).
-    // باقي القيم (stripe/fawry) اتسابت في الـ enum لمرونة مستقبلية بس مفيش
-    // تكامل فعلي ليها دلوقتي. "manual" لسه مستخدمة في
-    // app/api/admin/users/[id]/membership للتفعيل اليدوي. سجلات قديمة كانت
-    // provider="paypal" ممكن تفضل موجودة تاريخيًا في الداتابيز (مش بتتمسح)
-    // بس مفيش كود جديد بيكتب "paypal" تاني.
+    // 🆕 "getpayin" هي بوابة الدفع الوحيدة الفعلية المستخدمة في المشروع
+    // (app/lib/getpayin.js) بعد استبدال Paymob بالكامل. باقي القيم
+    // (stripe/fawry) اتسابت في الـ enum لمرونة مستقبلية بس مفيش تكامل فعلي
+    // ليها دلوقتي. "manual" لسه مستخدمة في app/api/admin/users/[id]/membership
+    // للتفعيل اليدوي. سجلات قديمة كانت provider="paymob" أو "paypal" ممكن
+    // تفضل موجودة تاريخيًا في الداتابيز (مش بتتمسح) بس مفيش كود جديد بيكتب
+    // "paymob" أو "paypal" تاني.
     provider: {
       type: String,
-      enum: ["paymob", "stripe", "paypal", "fawry", "manual"],
+      enum: ["getpayin", "paymob", "stripe", "paypal", "fawry", "manual"],
       required: true,
     },
 

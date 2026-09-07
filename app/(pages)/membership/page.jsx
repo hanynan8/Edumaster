@@ -8,9 +8,9 @@
 //   - خطة مجانية → POST /api/membership-plans/[id]/subscribe (فوري، بدون دفع)
 //   - خطة مدفوعة (شهري/سنوي) → المستخدم بيأكّد الدفع (PaymentGatewayModal)
 //     → POST /api/payments/checkout {type:"membership", language} يفتح
-//     عملية دفع عند Paymob ويحوّل المستخدم لصفحته؛ التفعيل الفعلي
+//     عملية دفع عند GetPayIn ويحوّل المستخدم لصفحته؛ التفعيل الفعلي
 //     (user.membership) بيحصل بعد نجاح الدفع في
-//     app/api/payments/paymob/callback (أو webhook) — نفس بالظبط منطق
+//     app/api/payments/getpayin/callback (أو webhook) — نفس بالظبط منطق
 //     شراء الكورس المفرد. العملة بتتحدد تلقائيًا حسب لغة الموقع الحالية
 //     (شوف app/lib/currency.js).
 
@@ -95,9 +95,9 @@ export default function MembershipPage() {
       .catch(() => {});
   }, [sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 29: خطة مدفوعة → checkout عند Paymob (بعد تأكيد
+  // 🆕 Phase 3 — اليوم 29: خطة مدفوعة → checkout عند GetPayIn (بعد تأكيد
   // المستخدم في PaymentGatewayModal) بدل التفعيل الفوري. بعد الموافقة على
-  // الدفع، المستخدم بيرجع لـ app/api/payments/paymob/callback اللي بيفعّل
+  // الدفع، المستخدم بيرجع لـ app/api/payments/getpayin/callback اللي بيفعّل
   // user.membership فعليًا (grantMembershipAccess في
   // app/lib/paymentHelpers.js) — مش هنا.
   async function handleSubscribeConfirm(plan) {
@@ -135,7 +135,7 @@ export default function MembershipPage() {
     const priceInfo = getPriceForCurrency(plan.prices, language);
     const isFree = plan.billingCycle === "free" || priceInfo.amount === 0;
     if (!isFree) {
-      // 🆕 نفتح مودال تأكيد الدفع (Paymob) بدل ما نروح على checkout مباشرة
+      // 🆕 نفتح مودال تأكيد الدفع (GetPayIn) بدل ما نروح على checkout مباشرة
       setSubscribeError("");
       setPendingPlan(plan);
       return;

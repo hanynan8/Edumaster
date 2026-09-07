@@ -3,9 +3,9 @@
 // app/(pages)/payments/failed/page.jsx
 //
 // Phase 3 — صفحة هبوط بسيطة لما الدفع يفشل أو يتلغي. المصدر الوحيد
-// اللي بيحوّل هنا دلوقتي هو app/api/payments/paymob/callback (بعد إلغاء
-// PayPal نهائيًا من المشروع) بـ ?reason=<...>. القيم في REASON_KEYS
-// مطابقة لكل الـ reason اللي بترجعها الراوت دي فعليًا.
+// اللي بيحوّل هنا دلوقتي هو app/api/payments/getpayin/callback (بعد إلغاء
+// PayPal، ثم Paymob، نهائيًا من المشروع) بـ ?reason=<...>. القيم في
+// REASON_KEYS مطابقة لكل الـ reason اللي بترجعها الراوت دي فعليًا.
 
 import { use as usePromise } from "react";
 import Link from "next/link";
@@ -18,6 +18,7 @@ const REASON_KEYS = {
   not_found: { ar: "عملية الدفع غير موجودة", en: "Payment not found", es: "Pago no encontrado" },
   not_completed: { ar: "الدفع لم يكتمل", en: "The payment wasn't completed", es: "El pago no se completó" },
   internal_error: { ar: "حصل خطأ غير متوقع", en: "An unexpected error occurred", es: "Ocurrió un error inesperado" },
+  too_many_requests: { ar: "محاولات كتير في وقت قصير، حاول تاني بعد شوية", en: "Too many attempts — please try again shortly", es: "Demasiados intentos — inténtalo de nuevo en unos momentos" },
 };
 
 const STRINGS = {

@@ -12,6 +12,20 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,
+  // 🆕 محلي/تجربة بس: Next.js dev server بيرفض افتراضيًا أي طلب جاي من
+  // دومين غير localhost (حماية ضد DNS rebinding). لما بنعدّي عن طريق
+  // tunnel (cloudflared/ngrok) عشان نختبر GetPayIn (اللي بيتطلب HTTPS
+  // فعلي في redirection_url)، الطلبات بتوصل من دومين الـ tunnel مش
+  // localhost، فلازم نضيفه هنا وإلا Next هيرفضها بـ "Unauthorized" —
+  // خصوصًا على اتصال الـ HMR (websocket) اللي بيتحدث تلقائيًا.
+  // ⚠️ ده تأثيره في وضع dev بس (next dev) — production (next start /
+  // next build) مش بيستخدم الإعداد ده خالص، فمفيش أي أثر أمني على
+  // الاستضافة الحقيقية. حدّث القيمة دي كل مرة رابط tunnel جديد يتعمل
+  // (روابط trycloudflare.com/ngrok-free.app بتتغيّر كل تشغيلة جديدة).
+  allowedDevOrigins: [
+    'references-two-tobacco-stevens.trycloudflare.com',
+    '*.trycloudflare.com', // بديل: يغطي أي رابط جديد يتعمل من غير ما تعدّل الملف تاني
+  ],
   images: {
     remotePatterns: [
       {

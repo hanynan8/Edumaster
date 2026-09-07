@@ -30,7 +30,7 @@ import BankTransferInfo from "./BankTransferInfo";
 // بيانات التحويل البنكي بدل زرار الدفع الإلكتروني. لما الحساب يتفعّل، رجّع
 // القيمة دي لـ true وهيرجع يشتغل بنفس الشكل القديم تمامًا من غير أي تعديل
 // تاني.
-const GETPAYIN_ENABLED = false;
+const GETPAYIN_ENABLED = true;
 
 const STRINGS = {
   ar: {

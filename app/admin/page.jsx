@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -30,6 +30,8 @@ import TranslationRequestsAdmin from './components/translationRequestsPanel';
 import EnglishProgramRequestsAdmin from './components/englishProgramRequestsPanel';
 // 🆕 طلبات نموذج "طلب تقييم فرص المنح الدراسية" (شوف app/components/scholarship)
 import ScholarshipRequestsAdmin from './components/scholarshipRequestsPanel';
+// 🆕 طلبات استمارة "التسجيل في دورة Call Center Operations – Level 1" (شوف app/components/callCenter)
+import CallCenterRequestsAdmin from './components/callCenterRequestsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
@@ -141,6 +143,8 @@ const SIDEBAR_GROUPS = [
       { id: 'english_program_requests', name: 'English Program Requests', icon: GraduationCap, component: EnglishProgramRequestsAdmin },
       // 🆕 طلبات نموذج تقييم فرص المنح الدراسية (بيظهر في صفحة الخدمات)
       { id: 'scholarship_requests',     name: 'Scholarship Requests',     icon: Award,         component: ScholarshipRequestsAdmin },
+      // 🆕 طلبات استمارة التسجيل في دورة الـ Call Center (بتظهر في صفحة الخدمات)
+      { id: 'call_center_requests',     name: 'Call Center Requests',     icon: Headphones,    component: CallCenterRequestsAdmin },
       // 🆕 كل كورسات المدرسين (أي حالة) — للأدمن يقدر يحط/يعدّل
       // classMarkerQuizId (وأي حاجة تانية لاحقًا) لأي كورس في أي وقت،
       // مش بس وقت ما يكون pending زي course_review تحت.

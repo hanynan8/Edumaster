@@ -176,13 +176,14 @@ function isProtectedCollection(name) {
 // اللغة الإنجليزية (English Program Enrollment Form) — نفس فلسفة "form" و
 // "consultations": بيانات جايه من زوار الموقع نفسهم بدون تسجيل دخول.
 // 🆕 "scholarshipRequests": نموذج طلب تقييم فرص المنح الدراسية (خدمة المنح).
-const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests"]);
+// 🆕 "callCenterRequests": استمارة التسجيل في دورة Call Center Operations – Level 1.
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests", "callCenterRequests"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
 // "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
 // تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
 // للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
-const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests"]);
+const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests", "callCenterRequests"]);
 
 function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
@@ -544,6 +545,65 @@ function validateScholarshipRequestPayload(body) {
       if (typeof val !== "string") return `Field '${field}' must be a string`;
       if (val.length > maxLen) return `Field '${field}' is too long`;
     }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
+  }
+  return null; // valid
+}
+
+// 🆕 استمارة "التسجيل في دورة Call Center Operations – Level 1" — نفس فلسفة
+// validateScholarshipRequestPayload: حقول أساسية مطلوبة + الموافقة على سياسة
+// الخصوصية + حدود طول لكل حقل + قيم الاختيارات لازم تكون من القائمة المسموحة
+// (الفورم بيبعت ids ثابتة زي "senior_agent" مش نصوص حرة).
+const CALL_CENTER_FIELD_MAX_LENGTHS = {
+  fullName: 200,
+  age: 10,
+  phone: 40,
+  email: 254,
+  hasExperience: 10,
+  lastPosition: 30,
+  englishLevel: 20,
+  objective: 40,
+  course: 100,
+};
+const CALL_CENTER_REQUIRED_FIELDS = ["fullName", "age", "phone", "email", "hasExperience", "englishLevel", "objective"];
+const CALL_CENTER_ALLOWED_VALUES = {
+  hasExperience: ["yes", "no"],
+  lastPosition: ["agent", "senior_agent", "team_leader", "supervisor", "other", "none"],
+  englishLevel: ["basic", "intermediate", "advanced", "native"],
+  objective: ["start_career", "improve_performance", "prepare_leadership", "develop_operations", "other"],
+};
+
+function validateCallCenterRequestPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid call center request data";
+  }
+  for (const field of CALL_CENTER_REQUIRED_FIELDS) {
+    if (!body[field] || typeof body[field] !== "string" || !body[field].trim()) {
+      return `Field '${field}' is required`;
+    }
+  }
+  if (!body.privacyConsent) {
+    return "Privacy policy consent is required";
+  }
+  for (const [field, maxLen] of Object.entries(CALL_CENTER_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  for (const [field, allowed] of Object.entries(CALL_CENTER_ALLOWED_VALUES)) {
+    const val = body[field];
+    // lastPosition اختياري (السؤال 6)؛ الباقي مطلوب وبيتشيك فوق
+    if (val !== undefined && val !== null && val !== "" && !allowed.includes(val)) {
+      return `Invalid '${field}'`;
+    }
+  }
+  const ageNum = Number(body.age);
+  if (!Number.isFinite(ageNum) || ageNum < 10 || ageNum > 100) {
+    return "Invalid 'age'";
   }
   if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
     return "Invalid email format";
@@ -918,6 +978,8 @@ export async function POST(request) {
         ? validateEnglishProgramRequestPayload(sanitizedBody)
         : colName === "scholarshipRequests"
         ? validateScholarshipRequestPayload(sanitizedBody)
+        : colName === "callCenterRequests"
+        ? validateCallCenterRequestPayload(sanitizedBody)
         : validateFormPayload(sanitizedBody);
       if (validationError) {
         return jsonResponse({ error: validationError }, 400);
@@ -1034,6 +1096,27 @@ export async function POST(request) {
           email: created.email,
           phone: created.phone,
           service: "Scholarship Assessment Request",
+          message: summaryLines.join("\n"),
+          createdAt: created.createdAt,
+        });
+      }
+
+      // 🆕 طلب تسجيل جديد في دورة Call Center Operations – Level 1 — إشعار إيميل
+      // بنفس قالب "form". القيم بتتحول من ids لنصوص مقروءة للأدمن.
+      if (colName === "callCenterRequests") {
+        const labelize = (v) => String(v || "").replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const summaryLines = [
+          created.age ? `Age: ${created.age}` : null,
+          created.hasExperience ? `Call Center experience: ${labelize(created.hasExperience)}` : null,
+          created.lastPosition ? `Last position: ${labelize(created.lastPosition)}` : null,
+          created.englishLevel ? `English level: ${labelize(created.englishLevel)}` : null,
+          created.objective ? `Main objective: ${labelize(created.objective)}` : null,
+        ].filter(Boolean);
+        await notifyViaResend({
+          name: created.fullName,
+          email: created.email,
+          phone: created.phone,
+          service: "Call Center Operations – Level 1 Registration",
           message: summaryLines.join("\n"),
           createdAt: created.createdAt,
         });

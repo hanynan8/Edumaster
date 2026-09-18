@@ -7,13 +7,15 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
-import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award } from "lucide-react";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award, Headphones, MessageCircle } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import ConsultationModal from "@/app/components/consultation/ConsultationModal";
 import TranslationModal from "@/app/components/translation/TranslationModal";
 import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramModal";
 // 🆕 نموذج "طلب تقييم فرص المنح الدراسية" — بيتفتح من خدمة المنح الدراسية
 import ScholarshipModal from "@/app/components/scholarship/ScholarshipModal";
+// 🆕 استمارة "التسجيل في دورة Call Center Operations – Level 1" — بتتفتح من خدمة الـ Call Center
+import CallCenterModal from "@/app/components/callCenter/CallCenterModal";
 import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
 
 const CONSULT_STRINGS = {
@@ -25,9 +27,9 @@ const CONSULT_STRINGS = {
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2", scholarshipCta: "Request a Scholarship Assessment" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية" },
-  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2", scholarshipCta: "Solicitar evaluación de becas" },
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2", scholarshipCta: "Request a Scholarship Assessment", callCenterCta: "Register for Call Center Operations", callCenterBadge: "Level 1", contactCta: "Contact us" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية", callCenterCta: "التسجيل في دورة الـ Call Center", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2", scholarshipCta: "Solicitar evaluación de becas", callCenterCta: "Inscribirse en Call Center Operations", callCenterBadge: "Nivel 1", contactCta: "Contáctanos" },
 };
 
 function useServicesData() {
@@ -97,6 +99,7 @@ export default function ServicesPage() {
   const [translationOpen, setTranslationOpen] = useState(false);
   const [englishProgramOpen, setEnglishProgramOpen] = useState(false);
   const [scholarshipOpen, setScholarshipOpen] = useState(false);
+  const [callCenterOpen, setCallCenterOpen] = useState(false);
 
   if (!data) {
     return (
@@ -116,6 +119,7 @@ export default function ServicesPage() {
           language={language}
           onOpenTranslation={() => setTranslationOpen(true)}
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
+          onOpenCallCenter={() => setCallCenterOpen(true)}
         />
         <ServicesList
           data={data}
@@ -124,6 +128,7 @@ export default function ServicesPage() {
           onOpenTranslation={() => setTranslationOpen(true)}
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
           onOpenScholarship={() => setScholarshipOpen(true)}
+          onOpenCallCenter={() => setCallCenterOpen(true)}
         />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
@@ -136,19 +141,20 @@ export default function ServicesPage() {
       <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
       <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
       <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
+      <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />
     </>
   );
 }
 
 // 🆕 بانر بزرارين لفتح نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة
 // الإنجليزية مباشرة من صفحة الخدمات — نفس نمط ConsultationBanner.
-function QuickFormsBanner({ language, onOpenTranslation, onOpenEnglishProgram }) {
+function QuickFormsBanner({ language, onOpenTranslation, onOpenEnglishProgram, onOpenCallCenter }) {
   const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
   const [ref, visible] = useReveal();
   return (
     <section ref={ref} className="px-5 sm:px-10 md:px-16">
       <div
-        className={`max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mt-4 sm:mt-5 transition-all duration-700 ${
+        className={`max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mt-4 sm:mt-5 transition-all duration-700 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
@@ -176,6 +182,19 @@ function QuickFormsBanner({ language, onOpenTranslation, onOpenEnglishProgram })
           <div>
             <p className="font-bold text-sm sm:text-base text-[#0a0a0a]">{qf.englishCta}</p>
             <p className="text-gray-500 text-xs sm:text-sm">{qf.englishBadge}</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenCallCenter}
+          className="flex items-center gap-3 sm:gap-4 bg-white border-2 border-[#0a0a0a]/15 hover:border-[#0a0a0a] rounded-2xl px-5 sm:px-6 py-5 sm:py-6 text-start transition-colors"
+        >
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-[#0a0a0a]/5 text-[#0a0a0a] flex items-center justify-center">
+            <Headphones size={20} />
+          </span>
+          <div>
+            <p className="font-bold text-sm sm:text-base text-[#0a0a0a]">{qf.callCenterCta}</p>
+            <p className="text-gray-500 text-xs sm:text-sm">{qf.callCenterBadge}</p>
           </div>
         </button>
       </div>
@@ -504,7 +523,7 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship }) {
+function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
     return { ...svc, ...(t.services[i18nKey] ?? {}) };
@@ -522,6 +541,7 @@ function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpe
             onOpenTranslation={onOpenTranslation}
             onOpenEnglishProgram={onOpenEnglishProgram}
             onOpenScholarship={onOpenScholarship}
+            onOpenCallCenter={onOpenCallCenter}
           />
         ))}
       </div>
@@ -538,8 +558,16 @@ const LANGUAGE_SERVICE_IDS = new Set(["language Courses", "language"]);
 // 🆕 خدمة المنح الدراسية (id: "Scholarships") — زرارها الأساسي بيفتح نموذج
 // "طلب تقييم فرص المنح الدراسية" مباشرة (بدل لينك ctaHref).
 const SCHOLARSHIP_SERVICE_IDS = new Set(["Scholarships", "scholarships"]);
+// 🆕 خدمة الـ Call Center (في الأدمن id الافتراضي بتاعها "career" — "Call Center &
+// Career Training") — بتاخد زرار استمارة التسجيل في دورة Call Center Operations
+// بدل زرار "طلب استشارة" العادي. بنطبّع الـ id (حروف صغيرة من غير مسافات/شرطات)
+// عشان يمسك أي كتابة زي "career" أو "call-center" أو "Call Center".
+function isCallCenterServiceId(id) {
+  const key = String(id ?? "").toLowerCase().replace(/[\s_-]+/g, "");
+  return key === "career" || key.includes("callcenter");
+}
 
-function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship }) {
+function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter }) {
   const { language } = useLanguage();
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
   const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
@@ -553,6 +581,8 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   const isTranslationService = service.id === TRANSLATION_SERVICE_ID;
   // 🆕 خدمة المنح الدراسية بتفتح نموذج طلب تقييم فرص المنح
   const isScholarshipService = SCHOLARSHIP_SERVICE_IDS.has(service.id);
+  // 🆕 خدمة الـ Call Center بتفتح استمارة التسجيل في الدورة
+  const isCallCenterService = isCallCenterServiceId(service.id);
   return (
     <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
       {/* Image — always first on mobile */}
@@ -594,13 +624,29 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
               {service.cta} <ArrowRight size={13} />
             </Link>
           )}
-          {isScholarshipService ? null : isTranslationService ? (
+          {isScholarshipService ? (
+            // 🆕 خدمة المنح: زرار التواصل بيودّي لصفحة /contact زي باقي الخدمات
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <MessageCircle size={15} /> {qf.contactCta}
+            </Link>
+          ) : isTranslationService ? (
             <button
               type="button"
               onClick={() => onOpenTranslation?.()}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
             >
               <Languages size={15} /> {qf.translationCta}
+            </button>
+          ) : isCallCenterService ? (
+            <button
+              type="button"
+              onClick={() => onOpenCallCenter?.()}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <Headphones size={15} /> {qf.callCenterCta}
             </button>
           ) : isLanguageService ? (
             <button

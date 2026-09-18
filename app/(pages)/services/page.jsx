@@ -7,11 +7,13 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
-import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap } from "lucide-react";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import ConsultationModal from "@/app/components/consultation/ConsultationModal";
 import TranslationModal from "@/app/components/translation/TranslationModal";
 import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramModal";
+// 🆕 نموذج "طلب تقييم فرص المنح الدراسية" — بيتفتح من خدمة المنح الدراسية
+import ScholarshipModal from "@/app/components/scholarship/ScholarshipModal";
 import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
 
 const CONSULT_STRINGS = {
@@ -23,9 +25,9 @@ const CONSULT_STRINGS = {
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2" },
-  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2" },
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2", scholarshipCta: "Request a Scholarship Assessment" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2", scholarshipCta: "Solicitar evaluación de becas" },
 };
 
 function useServicesData() {
@@ -94,6 +96,7 @@ export default function ServicesPage() {
   const [consultService, setConsultService] = useState(null); // null = مقفولة، "" أو اسم خدمة = مفتوحة
   const [translationOpen, setTranslationOpen] = useState(false);
   const [englishProgramOpen, setEnglishProgramOpen] = useState(false);
+  const [scholarshipOpen, setScholarshipOpen] = useState(false);
 
   if (!data) {
     return (
@@ -120,6 +123,7 @@ export default function ServicesPage() {
           onRequestConsultation={(name) => setConsultService(name)}
           onOpenTranslation={() => setTranslationOpen(true)}
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
+          onOpenScholarship={() => setScholarshipOpen(true)}
         />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
@@ -131,6 +135,7 @@ export default function ServicesPage() {
       />
       <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
       <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
+      <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
     </>
   );
 }
@@ -499,7 +504,7 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram }) {
+function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
     return { ...svc, ...(t.services[i18nKey] ?? {}) };
@@ -516,6 +521,7 @@ function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpe
             onRequestConsultation={onRequestConsultation}
             onOpenTranslation={onOpenTranslation}
             onOpenEnglishProgram={onOpenEnglishProgram}
+            onOpenScholarship={onOpenScholarship}
           />
         ))}
       </div>
@@ -529,8 +535,11 @@ function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpe
 // بالخدمة الصح. الـ ids دي مطابقة تمامًا لما هو موجود فعليًا في الداتابيز.
 const TRANSLATION_SERVICE_ID = "translation";
 const LANGUAGE_SERVICE_IDS = new Set(["language Courses", "language"]);
+// 🆕 خدمة المنح الدراسية (id: "Scholarships") — زرارها الأساسي بيفتح نموذج
+// "طلب تقييم فرص المنح الدراسية" مباشرة (بدل لينك ctaHref).
+const SCHOLARSHIP_SERVICE_IDS = new Set(["Scholarships", "scholarships"]);
 
-function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram }) {
+function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship }) {
   const { language } = useLanguage();
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
   const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
@@ -542,6 +551,8 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   // 🆕 خدمة الترجمة المعتمدة (id: "translation") بتاخد زرار "نموذج طلب ترجمة"
   // بدل زرار "طلب استشارة" العادي — نفس منطق QuickFormsBanner بالظبط.
   const isTranslationService = service.id === TRANSLATION_SERVICE_ID;
+  // 🆕 خدمة المنح الدراسية بتفتح نموذج طلب تقييم فرص المنح
+  const isScholarshipService = SCHOLARSHIP_SERVICE_IDS.has(service.id);
   return (
     <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
       {/* Image — always first on mobile */}
@@ -567,12 +578,23 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
           ))}
         </ul>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={service.ctaHref}
-            className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
-            style={{ background: service.color }}>
-            {service.cta} <ArrowRight size={13} />
-          </Link>
-          {isTranslationService ? (
+          {isScholarshipService ? (
+            <button
+              type="button"
+              onClick={() => onOpenScholarship?.()}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
+              style={{ background: service.color }}
+            >
+              <Award size={15} /> {service.cta || qf.scholarshipCta}
+            </button>
+          ) : (
+            <Link href={service.ctaHref}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
+              style={{ background: service.color }}>
+              {service.cta} <ArrowRight size={13} />
+            </Link>
+          )}
+          {isScholarshipService ? null : isTranslationService ? (
             <button
               type="button"
               onClick={() => onOpenTranslation?.()}

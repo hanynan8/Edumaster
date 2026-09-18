@@ -35,7 +35,8 @@ function redirectFailed(origin, reason) {
 }
 
 export async function GET(request) {
-  const { origin, searchParams } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+const origin = (process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin).replace(/\/+$/, "");
 
   try {
     // 🔒 SECURITY FIX (نفس منطق Paymob القديم): الراوت ده بيوصله المستخدم

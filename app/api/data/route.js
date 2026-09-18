@@ -175,13 +175,14 @@ function isProtectedCollection(name) {
 // 🆕 نموذج طلب الترجمة (Translation Request Form) ونموذج التسجيل في برنامج
 // اللغة الإنجليزية (English Program Enrollment Form) — نفس فلسفة "form" و
 // "consultations": بيانات جايه من زوار الموقع نفسهم بدون تسجيل دخول.
-const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests"]);
+// 🆕 "scholarshipRequests": نموذج طلب تقييم فرص المنح الدراسية (خدمة المنح).
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
 // "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
 // تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
 // للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
-const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests"]);
+const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests"]);
 
 function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
@@ -487,6 +488,57 @@ function validateEnglishProgramRequestPayload(body) {
     return "Privacy policy consent is required";
   }
   for (const [field, maxLen] of Object.entries(ENGLISH_PROGRAM_FIELD_MAX_LENGTHS)) {
+    const val = body[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== "string") return `Field '${field}' must be a string`;
+      if (val.length > maxLen) return `Field '${field}' is too long`;
+    }
+  }
+  if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
+    return "Invalid email format";
+  }
+  return null; // valid
+}
+
+// 🆕 نموذج "طلب تقييم فرص المنح الدراسية" (Scholarship Assessment Request /
+// Paid consultation form) — نفس فلسفة validateEnglishProgramRequestPayload:
+// حقول أساسية مطلوبة (الاسم، الإيميل، الواتساب) + الموافقة على استخدام
+// البيانات + حدود طول لكل حقل.
+const SCHOLARSHIP_FIELD_MAX_LENGTHS = {
+  fullName: 200,
+  nationality: 100,
+  age: 10,
+  countryOfResidence: 100,
+  email: 254,
+  phone: 40,
+  educationLevel: 30,
+  lastDegree: 200,
+  fieldOfStudy: 200,
+  gpa: 50,
+  certificateLink: 500,
+  spanishLevel: 10,
+  englishLevel: 10,
+  studyField: 300,
+  studyCountry: 20,
+  studyLevel: 20,
+  startDate: 100,
+  notes: 3000,
+};
+const SCHOLARSHIP_REQUIRED_FIELDS = ["fullName", "email", "phone"];
+
+function validateScholarshipRequestPayload(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid scholarship request data";
+  }
+  for (const field of SCHOLARSHIP_REQUIRED_FIELDS) {
+    if (!body[field] || typeof body[field] !== "string" || !body[field].trim()) {
+      return `Field '${field}' is required`;
+    }
+  }
+  if (!body.privacyConsent) {
+    return "Data-use consent is required";
+  }
+  for (const [field, maxLen] of Object.entries(SCHOLARSHIP_FIELD_MAX_LENGTHS)) {
     const val = body[field];
     if (val !== undefined && val !== null) {
       if (typeof val !== "string") return `Field '${field}' must be a string`;
@@ -864,6 +916,8 @@ export async function POST(request) {
         ? validateTranslationRequestPayload(sanitizedBody)
         : colName === "englishProgramRequests"
         ? validateEnglishProgramRequestPayload(sanitizedBody)
+        : colName === "scholarshipRequests"
+        ? validateScholarshipRequestPayload(sanitizedBody)
         : validateFormPayload(sanitizedBody);
       if (validationError) {
         return jsonResponse({ error: validationError }, 400);
@@ -954,6 +1008,32 @@ export async function POST(request) {
           email: created.email,
           phone: created.phone,
           service: "English Program Enrollment",
+          message: summaryLines.join("\n"),
+          createdAt: created.createdAt,
+        });
+      }
+
+      // 🆕 طلب تقييم فرص منح دراسية جديد — إشعار إيميل بنفس قالب "form"
+      if (colName === "scholarshipRequests") {
+        const summaryLines = [
+          created.nationality ? `Nationality: ${created.nationality}` : null,
+          created.educationLevel ? `Education level: ${created.educationLevel}` : null,
+          created.fieldOfStudy ? `Field of study: ${created.fieldOfStudy}` : null,
+          created.gpa ? `GPA / average: ${created.gpa}` : null,
+          created.spanishLevel ? `Spanish level: ${created.spanishLevel}` : null,
+          created.englishLevel ? `English level: ${created.englishLevel}` : null,
+          created.studyField ? `Wants to study: ${created.studyField}` : null,
+          created.studyCountry ? `Destination: ${created.studyCountry}` : null,
+          created.studyLevel ? `Study level: ${created.studyLevel}` : null,
+          created.startDate ? `Start: ${created.startDate}` : null,
+          created.certificateLink ? `Certificate link: ${created.certificateLink}` : null,
+          created.notes ? `Notes: ${created.notes}` : null,
+        ].filter(Boolean);
+        await notifyViaResend({
+          name: created.fullName,
+          email: created.email,
+          phone: created.phone,
+          service: "Scholarship Assessment Request",
           message: summaryLines.join("\n"),
           createdAt: created.createdAt,
         });

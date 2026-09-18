@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -28,6 +28,8 @@ import ConsultationsAdmin from './components/consultationsPanel';
 // (شوف app/components/translation و app/components/englishProgram)
 import TranslationRequestsAdmin from './components/translationRequestsPanel';
 import EnglishProgramRequestsAdmin from './components/englishProgramRequestsPanel';
+// 🆕 طلبات نموذج "طلب تقييم فرص المنح الدراسية" (شوف app/components/scholarship)
+import ScholarshipRequestsAdmin from './components/scholarshipRequestsPanel';
 import Gategories from './components/(editcomponents)/categories';
 import MembershipPlansAdmin from './components/membershipPlansPanel';
 import RevenueAdmin from './components/revenuePanel';
@@ -137,6 +139,8 @@ const SIDEBAR_GROUPS = [
       // (بتظهر في صفحة الخدمات والهوم لوج-إن ولوج-أوت)
       { id: 'translation_requests',    name: 'Translation Requests',     icon: Languages,      component: TranslationRequestsAdmin },
       { id: 'english_program_requests', name: 'English Program Requests', icon: GraduationCap, component: EnglishProgramRequestsAdmin },
+      // 🆕 طلبات نموذج تقييم فرص المنح الدراسية (بيظهر في صفحة الخدمات)
+      { id: 'scholarship_requests',     name: 'Scholarship Requests',     icon: Award,         component: ScholarshipRequestsAdmin },
       // 🆕 كل كورسات المدرسين (أي حالة) — للأدمن يقدر يحط/يعدّل
       // classMarkerQuizId (وأي حاجة تانية لاحقًا) لأي كورس في أي وقت،
       // مش بس وقت ما يكون pending زي course_review تحت.

@@ -131,7 +131,7 @@ export async function POST(request) {
       metadata,
     });
 
-    const { origin } = new URL(request.url);
+    const origin = (process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin).replace(/\/+$/, "");
     return await startGetPayInCheckout({ payment, amount, description, session, metadata, origin, currency });
   } catch (err) {
     console.error("[/api/payments/checkout] POST error:", err);

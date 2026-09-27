@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
-import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award, Headphones, MessageCircle } from "lucide-react";
+import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award, Headphones } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import ConsultationModal from "@/app/components/consultation/ConsultationModal";
 import TranslationModal from "@/app/components/translation/TranslationModal";
@@ -619,9 +619,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
       <div className={`relative overflow-hidden min-h-55 sm:min-h-75 lg:min-h-115 order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
         <Image src={service.image} alt={service.title ?? "Service image"} fill  className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />
         <div className="absolute top-0 inset-x-0 h-1" style={{ background: service.color }} />
-        <div className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-          <span className="text-white font-black text-base sm:text-xl leading-none">{String(index + 1).padStart(2, "0")}</span>
-        </div>
+  
       </div>
 
       {/* Content */}
@@ -654,23 +652,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
               {service.cta} <ArrowRight size={13} />
             </Link>
           )}
-          {isScholarshipService ? (
-            // 🆕 خدمة المنح: زرار التواصل بيودّي لصفحة /contact زي باقي الخدمات
-            <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
-            >
-              <MessageCircle size={15} /> {qf.contactCta}
-            </Link>
-          ) : isTranslationService ? (
-            <button
-              type="button"
-              onClick={() => onOpenTranslation?.()}
-              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
-            >
-              <Languages size={15} /> {qf.translationCta}
-            </button>
-          ) : isCallCenterService ? (
+          {isScholarshipService || isTranslationService ? null : isCallCenterService ? (
             <button
               type="button"
               onClick={() => onOpenCallCenter?.()}

@@ -155,8 +155,8 @@ export default function Footer() {
                 ))}
                 <li>
                   <Link href="/privacy"
-                    className="flex items-center gap-2 text-sm font-bold text-[#C9A227] hover:text-white group transition-colors duration-150">
-                    <span className="w-3 overflow-hidden transition-all duration-200">
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
+                    <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                       <ArrowRight size={11} />
                     </span>
                     {language === "ar" ? "سياسة الخصوصية" : language === "es" ? "Política de Privacidad" : "Privacy Policy"}
@@ -164,11 +164,20 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link href="/terms"
-                    className="flex items-center gap-2 text-sm font-bold text-[#C9A227] hover:text-white group transition-colors duration-150">
-                    <span className="w-3 overflow-hidden transition-all duration-200">
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
+                    <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                       <ArrowRight size={11} />
                     </span>
                     {language === "ar" ? "الشروط والأحكام" : language === "es" ? "Términos y Condiciones" : "Terms & Condition"}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/refund"
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
+                    <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
+                      <ArrowRight size={11} />
+                    </span>
+                    {language === "ar" ? "سياسة الاسترداد والإلغاء" : language === "es" ? "Política de Reembolso y Cancelación" : "Refund & Cancellation Policy"}
                   </Link>
                 </li>
               </ul>

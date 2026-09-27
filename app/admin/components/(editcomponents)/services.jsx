@@ -136,7 +136,7 @@ if (data) {
               title: 'University Admission Support',
               desc: 'Navigating university applications can be overwhelming. Our team handles every detail — from choosing universities to receiving your offer letter.',
               features: ['University selection', 'Application submission', 'Offer letters', 'Enrollment assistance'],
-              cta: 'Get Admission Help'
+              cta: 'Start Your University Admission'
             },
             'visa': {
               category: 'Legal & Documentation',

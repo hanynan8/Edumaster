@@ -320,6 +320,98 @@ function useNavbarData() {
   return data;
 }
 
+/* ─────────────────────────────────────────
+   SERVICES HOVER DROPDOWN (نافبار → Services)
+   🆕 بيجيب نفس بيانات صفحة /services (collection="services") عشان
+   قائمة الخدمات في الهوفر تفضل مطابقة تمامًا لما هو متحكم فيه من لوحة
+   الأدمن، بدل ما نكتب أسماء الخدمات يدويًا هنا وتفضل قديمة لو الأدمن
+   غيّرها. نفس منطق ID_MAP + slugifyServiceId الموجود في
+   app/(pages)/services/page.jsx (وanchor id بتاعه) عشان اللينكات هنا
+   توصل بالظبط لنفس مكان الخدمة في الصفحة (/services#<anchor>).
+───────────────────────────────────────── */
+function useServicesDropdownData() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch("/api/data?collection=services")
+      .then((r) => r.json())
+      .then((res) => setData(Array.isArray(res) ? res[0] : res))
+      .catch(console.error);
+  }, []);
+  return data;
+}
+
+const SERVICE_ID_MAP = {
+  "Study in Spain": "study-spain",
+  "Visa Services": "visa",
+  "language Courses": "language",
+};
+
+function slugifyServiceId(id) {
+  return String(id ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function useServicesForDropdown(language) {
+  const raw = useServicesDropdownData();
+  if (!raw || !Array.isArray(raw.services) || !raw.i18n) return [];
+  const t = raw.i18n[language] ?? raw.i18n.en;
+  if (!t?.services) return [];
+  return raw.services.map((svc) => {
+    const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
+    const title = t.services[i18nKey]?.title ?? svc.title ?? svc.id;
+    return { anchorId: slugifyServiceId(svc.id), title };
+  });
+}
+
+function ServicesNavItem({ label, href, services }) {
+  if (!services.length) {
+    // مفيش خدمات لسه اتحمّلت (أو مفيش خدمات أصلًا) — نفس اللينك العادي
+    return (
+      <Link
+        href={href}
+        className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
+      >
+        {label}
+        <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <Link
+        href={href}
+        className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
+      >
+        {label}
+        <span className="text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-[#0a0a0a]">
+          <ChevronDown size={12} />
+        </span>
+        <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+      </Link>
+
+      {/* pt-2 بيعمل جسر خفي بين اللينك والقائمة عشان الهوفر ميتقطعش
+          لما الماوس يعدي من اللينك للقايمة تحته */}
+      <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
+        <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
+          {services.map((svc) => (
+            <Link
+              key={svc.anchorId}
+              href={`${href}#${svc.anchorId}`}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+            >
+              {svc.title}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════
   NAVBAR COMPONENT
 ═══════════════════════════════════════ */
@@ -330,6 +422,9 @@ export default function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [authModal, setAuthModal] = useState(null);
+  // 🔒 لازم يتنادى هنا قبل أي return مبكر تحت (return null لو !data)، عشان
+  // ترتيب الـ hooks يفضل ثابت في كل render زي قواعد React (Rules of Hooks).
+  const servicesForDropdown = useServicesForDropdown(language);
 
   const isLoading = status === "loading";
   const isLoggedIn = status === "authenticated";
@@ -469,16 +564,25 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
             {data.links
               .filter((_, i) => i !== 4 && i !== 5)
-              .map((link) => (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
-                >
-                  {t.links[link.id]}
-                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
-                </Link>
-              ))}
+              .map((link) =>
+                link.id === "services" ? (
+                  <ServicesNavItem
+                    key={link.id}
+                    label={t.links[link.id]}
+                    href={link.href}
+                    services={servicesForDropdown}
+                  />
+                ) : (
+                  <Link
+                    key={link.id}
+                    href={link.href}
+                    className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
+                  >
+                    {t.links[link.id]}
+                    <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+                  </Link>
+                )
+              )}
           </div>
 
           {/* Desktop right controls */}

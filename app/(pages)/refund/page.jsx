@@ -1,4 +1,4 @@
-// path: app/(pages)/terms/page.jsx
+// path: app/(pages)/refund/page.jsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -28,11 +28,11 @@ function useReveal(threshold = 0.1) {
 }
 
 /* ═══════════════════════════════════════
-   STATIC CONTENT — مأخوذ من مستند "Edumaster Terms & Conditions"
+   STATIC CONTENT — مأخوذ من مستند "Edumaster Refund & Cancellation Policy"
 ═══════════════════════════════════════ */
 const CONTENT = {
   ar: {
-    pageTitle: "الشروط والأحكام",
+    pageTitle: "سياسة الاسترداد والإلغاء",
     lastUpdated: "آخر تحديث: سبتمبر 2026",
     companyInfo: {
       title: "بيانات المنصة",
@@ -44,75 +44,52 @@ const CONTENT = {
     },
     sections: [
       {
-        id: "acceptance",
-        title: "١. الموافقة على الشروط",
-        text: "من خلال الوصول إلى المنصة أو استخدامها، فإنك توافق على هذه الشروط والأحكام وجميع السياسات ذات الصلة.",
+        id: "general-policy",
+        title: "١. السياسة العامة",
+        text: "جميع رسوم الخدمة غير قابلة للاسترداد بمجرد بدء تقديم الخدمة.",
       },
       {
-        id: "services",
-        title: "٢. وصف الخدمات",
-        intro: "تقدم Edumaster:",
+        id: "refunds-considered",
+        title: "٢. الحالات التي قد يُنظر فيها بالاسترداد",
+        intro: "فقط في الحالات التالية:",
         items: [
-          "الاستشارات الأكاديمية والمهنية",
-          "دعم القبول الجامعي",
-          "أدوات التقييم المهني المعتمدة على الذكاء الاصطناعي",
-          "نظام إدارة الاستشارات (SaaS)",
-          "خدمات استشارية للدراسة في الخارج",
-        ],
-        contact: "لا تضمن Edumaster القبول الجامعي أو المنح الدراسية أو التأشيرات أو الموافقة عليها.",
-      },
-      {
-        id: "responsibilities",
-        title: "٣. مسؤوليات المستخدم",
-        intro: "يوافق المستخدمون على:",
-        items: [
-          "تقديم معلومات دقيقة وصحيحة",
-          "تقديم مستندات أصلية وموثوقة",
-          "استخدام المنصة بشكل قانوني",
-          "احترام حقوق الملكية الفكرية",
+          "حدوث دفع مكرر",
+          "وجود خطأ تقني منع الوصول إلى الخدمة",
+          "حدوث خطأ في الفوترة",
         ],
       },
       {
-        id: "payments",
-        title: "٤. المدفوعات والرسوم",
+        id: "non-refundable",
+        title: "٣. الحالات غير القابلة للاسترداد",
+        intro: "لن يتم إصدار أي استرداد في الحالات التالية:",
         items: [
-          "يتم الإفصاح عن الرسوم بوضوح قبل الدفع",
-          "تتم معالجة المدفوعات عبر بوابات دفع آمنة",
-          "يبدأ الوصول إلى الخدمات المدفوعة فور إتمام الدفع بنجاح",
+          "إلغاء المستخدم للخدمة بعد بدء تنفيذها",
+          "عدم تقديم المستندات المطلوبة",
+          "تغيير المستخدم للبلد أو الجامعة أو البرنامج",
+          "عدم نجاح نتيجة التقديم",
+          "رفض أو تأخير التأشيرة",
         ],
       },
       {
-        id: "ip",
-        title: "٥. الملكية الفكرية",
-        text: "جميع المحتويات والبرمجيات والخوارزميات والعلامات التجارية وميزات المنصة هي ملكية حصرية لشركة Edumaster Consulting. أي استخدام غير مصرّح به محظور تمامًا.",
-      },
-      {
-        id: "liability",
-        title: "٦. حدود المسؤولية",
-        intro: "لا تتحمل Edumaster المسؤولية عن:",
+        id: "visa-disclaimer",
+        title: "٤. إخلاء مسؤولية بخصوص التأشيرة",
+        intro: "تقدّم Edumaster دعمًا لإعداد ملف التأشيرة فقط. نحن لا:",
         items: [
-          "القرارات الصادرة عن الجامعات أو السفارات",
-          "رفض طلبات التأشيرة",
-          "التأخيرات الناتجة عن أطراف ثالثة",
-          "النتائج المبنية على المعلومات المقدَّمة من المستخدم",
+          "نضمن إصدار التأشيرة",
+          "نؤمّن مواعيد السفارة",
+          "نؤثّر على قرارات السفارة",
         ],
-        contact: "تُقدَّم الخدمات \"كما هي\" و\"حسب توفرها\".",
       },
       {
-        id: "termination",
-        title: "٧. إنهاء الخدمة",
-        text: "تحتفظ Edumaster بالحق في تعليق أو إنهاء الوصول إلى المنصة في حال إساءة الاستخدام أو الاحتيال أو مخالفة هذه الشروط.",
-      },
-      {
-        id: "governing-law",
-        title: "٨. القانون الحاكم",
-        text: "تخضع هذه الشروط لقوانين جمهورية مصر العربية، ما لم تقتضِ اللوائح الدولية المعمول بها خلاف ذلك.",
+        id: "subscription-cancellation",
+        title: "٥. إلغاء الاشتراك",
+        text: "يمكن إلغاء الاشتراكات في أي وقت لوقف الفوترة المستقبلية. تظل المدفوعات السابقة غير قابلة للاسترداد.",
       },
     ],
   },
 
   en: {
-    pageTitle: "Terms & Conditions",
+    pageTitle: "Refund & Cancellation Policy",
     lastUpdated: "Last updated: September 2026",
     companyInfo: {
       title: "Platform Information",
@@ -124,75 +101,52 @@ const CONTENT = {
     },
     sections: [
       {
-        id: "acceptance",
-        title: "1. Acceptance",
-        text: "By accessing or using the Platform, you agree to these Terms & Conditions and all related policies.",
+        id: "general-policy",
+        title: "1. General Policy",
+        text: "All service fees are non-refundable once service delivery has commenced.",
       },
       {
-        id: "services",
-        title: "2. Services Description",
-        intro: "Edumaster provides:",
+        id: "refunds-considered",
+        title: "2. Refunds May Be Considered",
+        intro: "Only if:",
         items: [
-          "Academic and career counseling",
-          "University admissions support",
-          "AI-based career assessment tools",
-          "SaaS counseling management system",
-          "Study abroad advisory services",
-        ],
-        contact: "Edumaster does not guarantee admission, scholarships, visas, or visa approvals.",
-      },
-      {
-        id: "responsibilities",
-        title: "3. User Responsibilities",
-        intro: "Users agree to:",
-        items: [
-          "Provide accurate and truthful information",
-          "Submit authentic documents",
-          "Use the Platform lawfully",
-          "Respect intellectual property rights",
+          "A duplicate payment was made",
+          "A technical error prevented service access",
+          "A billing error occurred",
         ],
       },
       {
-        id: "payments",
-        title: "4. Payments & Fees",
+        id: "non-refundable",
+        title: "3. Non-Refundable Cases",
+        intro: "No refunds will be issued if:",
         items: [
-          "Fees are clearly communicated before payment",
-          "Payments are processed via secure gateways",
-          "Access to paid services begins upon successful payment",
+          "The user cancels after service initiation",
+          "Required documents are not provided",
+          "The user changes country, university, or program",
+          "The application outcome is unsuccessful",
+          "Visa is rejected or delayed",
         ],
       },
       {
-        id: "ip",
-        title: "5. Intellectual Property",
-        text: "All content, software, algorithms, branding, and platform features are the exclusive property of Edumaster Consulting. Unauthorized use is strictly prohibited.",
-      },
-      {
-        id: "liability",
-        title: "6. Limitation of Liability",
-        intro: "Edumaster is not liable for:",
+        id: "visa-disclaimer",
+        title: "4. Visa Disclaimer",
+        intro: "Edumaster provides visa preparation support only. We do not:",
         items: [
-          "Decisions made by universities or embassies",
-          "Visa rejections",
-          "Delays caused by third parties",
-          "Outcomes based on user-provided information",
+          "Guarantee visa issuance",
+          "Secure embassy appointments",
+          "Influence embassy decisions",
         ],
-        contact: "Services are provided \"as is\" and \"as available.\"",
       },
       {
-        id: "termination",
-        title: "7. Termination",
-        text: "Edumaster reserves the right to suspend or terminate access in case of misuse, fraud, or violation of these terms.",
-      },
-      {
-        id: "governing-law",
-        title: "8. Governing Law",
-        text: "These Terms are governed by the laws of the Arab Republic of Egypt, unless otherwise required by applicable international regulations.",
+        id: "subscription-cancellation",
+        title: "5. Subscription Cancellation",
+        text: "Subscriptions may be canceled at any time to stop future billing. Past payments remain non-refundable.",
       },
     ],
   },
 
   es: {
-    pageTitle: "Términos y Condiciones",
+    pageTitle: "Política de Reembolso y Cancelación",
     lastUpdated: "Última actualización: septiembre de 2026",
     companyInfo: {
       title: "Información de la Plataforma",
@@ -204,69 +158,46 @@ const CONTENT = {
     },
     sections: [
       {
-        id: "acceptance",
-        title: "1. Aceptación",
-        text: "Al acceder o utilizar la Plataforma, aceptas estos Términos y Condiciones y todas las políticas relacionadas.",
+        id: "general-policy",
+        title: "1. Política General",
+        text: "Todas las tarifas de servicio no son reembolsables una vez que la prestación del servicio ha comenzado.",
       },
       {
-        id: "services",
-        title: "2. Descripción de los Servicios",
-        intro: "Edumaster ofrece:",
+        id: "refunds-considered",
+        title: "2. Casos en los que se Puede Considerar un Reembolso",
+        intro: "Solo si:",
         items: [
-          "Asesoría académica y profesional",
-          "Apoyo en la admisión universitaria",
-          "Herramientas de evaluación profesional basadas en IA",
-          "Sistema de gestión de asesoría (SaaS)",
-          "Servicios de asesoría para estudiar en el extranjero",
-        ],
-        contact: "Edumaster no garantiza la admisión, becas, visados ni su aprobación.",
-      },
-      {
-        id: "responsibilities",
-        title: "3. Responsabilidades del Usuario",
-        intro: "Los usuarios se comprometen a:",
-        items: [
-          "Proporcionar información precisa y veraz",
-          "Presentar documentos auténticos",
-          "Usar la Plataforma de forma lícita",
-          "Respetar los derechos de propiedad intelectual",
+          "Se realizó un pago duplicado",
+          "Un error técnico impidió el acceso al servicio",
+          "Se produjo un error de facturación",
         ],
       },
       {
-        id: "payments",
-        title: "4. Pagos y Tarifas",
+        id: "non-refundable",
+        title: "3. Casos No Reembolsables",
+        intro: "No se emitirá ningún reembolso si:",
         items: [
-          "Las tarifas se comunican claramente antes del pago",
-          "Los pagos se procesan a través de pasarelas seguras",
-          "El acceso a los servicios pagos comienza tras un pago exitoso",
+          "El usuario cancela después de iniciado el servicio",
+          "No se proporcionan los documentos requeridos",
+          "El usuario cambia de país, universidad o programa",
+          "El resultado de la solicitud no es exitoso",
+          "El visado es rechazado o se retrasa",
         ],
       },
       {
-        id: "ip",
-        title: "5. Propiedad Intelectual",
-        text: "Todo el contenido, software, algoritmos, marca y funciones de la plataforma son propiedad exclusiva de Edumaster Consulting. El uso no autorizado está estrictamente prohibido.",
-      },
-      {
-        id: "liability",
-        title: "6. Limitación de Responsabilidad",
-        intro: "Edumaster no se hace responsable de:",
+        id: "visa-disclaimer",
+        title: "4. Aviso sobre el Visado",
+        intro: "Edumaster ofrece únicamente apoyo en la preparación del visado. No:",
         items: [
-          "Decisiones tomadas por universidades o embajadas",
-          "Rechazos de visado",
-          "Retrasos causados por terceros",
-          "Resultados basados en información proporcionada por el usuario",
+          "Garantizamos la emisión del visado",
+          "Aseguramos citas en la embajada",
+          "Influimos en las decisiones de la embajada",
         ],
-        contact: "Los servicios se prestan \"tal cual\" y \"según disponibilidad\".",
       },
       {
-        id: "termination",
-        title: "7. Terminación",
-        text: "Edumaster se reserva el derecho de suspender o cancelar el acceso en caso de mal uso, fraude o incumplimiento de estos términos.",
-      },
-      {
-        id: "governing-law",
-        title: "8. Ley Aplicable",
-        text: "Estos Términos se rigen por las leyes de la República Árabe de Egipto, salvo que la normativa internacional aplicable exija lo contrario.",
+        id: "subscription-cancellation",
+        title: "5. Cancelación de Suscripción",
+        text: "Las suscripciones pueden cancelarse en cualquier momento para detener la facturación futura. Los pagos anteriores permanecen no reembolsables.",
       },
     ],
   },
@@ -275,7 +206,7 @@ const CONTENT = {
 /* ═══════════════════════════════════════
    ROOT PAGE
 ═══════════════════════════════════════ */
-export default function TermsPage() {
+export default function RefundPage() {
   const { language: lang } = useLanguage();
   const t = CONTENT[lang] ?? CONTENT.en;
   const isRTL = lang === "ar";

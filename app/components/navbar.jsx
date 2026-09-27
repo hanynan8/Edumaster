@@ -362,7 +362,7 @@ function useServicesForDropdown(language) {
   return raw.services.map((svc) => {
     const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
     const title = t.services[i18nKey]?.title ?? svc.title ?? svc.id;
-    return { anchorId: slugifyServiceId(svc.id), title };
+    return { anchorId: slugifyServiceId(svc.id), title, image: svc.image };
   });
 }
 
@@ -395,15 +395,108 @@ function ServicesNavItem({ label, href, services }) {
 
       {/* pt-2 بيعمل جسر خفي بين اللينك والقائمة عشان الهوفر ميتقطعش
           لما الماوس يعدي من اللينك للقايمة تحته */}
-      <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
-        <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
-          {services.map((svc) => (
+      <div className="fixed left-0 right-0  pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
+        <div className="w-screen bg-white border-b border-gray-100 shadow-xl shadow-black/8">
+          <div className="mx-auto px-5 sm:px-8 md:px-16 py-6 flex items-center justify-center flex-wrap gap-4">
+            {services.map((svc) => (
+              <Link
+                key={svc.anchorId}
+                href={`${href}#${svc.anchorId}`}
+                className="flex flex-col items-center gap-2 px-4 py-3 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+              >
+                {svc.image && (
+                  <img
+                    src={svc.image}
+                    alt={svc.title}
+                    className="w-32 h-32 rounded-2xl object-cover ring-1 ring-black/5"
+                  />
+                )}
+                <span className="font-medium whitespace-nowrap">{svc.title}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   COUNTRIES HOVER DROPDOWN (نافبار → Countries)
+   🆕 نفس فكرة الـ Services hover بالظبط، لكن بيجيب بيانات صفحة /countries
+   (collection="countries") عشان يعرض بس الدولتين المتاحين فعليًا
+   (Study in Spain / Study in Romania) بصورة كل دولة، ولما تدوس على
+   واحدة فيهم بتودّيك لـ /countries?country=<id> اللي بيفتح تاب الدولة
+   دي على طول (صفحة /countries بقت بتقرأ ?country= من الرابط).
+───────────────────────────────────────── */
+function useCountriesDropdownData() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch("/api/data?collection=countries")
+      .then((r) => r.json())
+      .then((res) => setData(Array.isArray(res) ? res[0] : res))
+      .catch(console.error);
+  }, []);
+  return data;
+}
+
+function useCountriesForDropdown(language) {
+  const raw = useCountriesDropdownData();
+  if (!raw || !Array.isArray(raw.countries) || !raw.i18n) return [];
+  const t = raw.i18n[language] ?? raw.i18n.en;
+  if (!t?.countries) return [];
+  return raw.countries.map((c) => ({
+    id: c.id,
+    title: t.countries[c.id]?.name ?? c.id,
+    image: c.image,
+  }));
+}
+
+function CountriesNavItem({ label, href, countries }) {
+  if (!countries.length) {
+    // مفيش دول لسه اتحمّلت — نفس اللينك العادي
+    return (
+      <Link
+        href={href}
+        className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
+      >
+        {label}
+        <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <Link
+        href={href}
+        className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
+      >
+        {label}
+        <span className="text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-[#0a0a0a]">
+          <ChevronDown size={12} />
+        </span>
+        <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+      </Link>
+
+      {/* هنا القائمة بقت بحجم محتواها بس (مش full-width زي الـ Services)،
+          صف واحد جمب بعض وبتتمركز تحت اللينك. */}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
+        <div className="flex items-center gap-8 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden p-8 animate-dropdown">
+          {countries.map((c) => (
             <Link
-              key={svc.anchorId}
-              href={`${href}#${svc.anchorId}`}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+              key={c.id}
+              href={`${href}?country=${c.id}`}
+              className="flex flex-col items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
             >
-              {svc.title}
+              {c.image && (
+                <img
+                  src={c.image}
+                  alt={c.title}
+                  className="w-64 h-auto rounded-2xl ring-1 ring-black/5"
+                />
+              )}
+              <span className="font-medium whitespace-nowrap">{c.title}</span>
             </Link>
           ))}
         </div>
@@ -425,6 +518,7 @@ export default function Navbar() {
   // 🔒 لازم يتنادى هنا قبل أي return مبكر تحت (return null لو !data)، عشان
   // ترتيب الـ hooks يفضل ثابت في كل render زي قواعد React (Rules of Hooks).
   const servicesForDropdown = useServicesForDropdown(language);
+  const countriesForDropdown = useCountriesForDropdown(language);
 
   const isLoading = status === "loading";
   const isLoggedIn = status === "authenticated";
@@ -571,6 +665,13 @@ export default function Navbar() {
                     label={t.links[link.id]}
                     href={link.href}
                     services={servicesForDropdown}
+                  />
+                ) : link.id === "countries" ? (
+                  <CountriesNavItem
+                    key={link.id}
+                    label={t.links[link.id]}
+                    href={link.href}
+                    countries={countriesForDropdown}
                   />
                 ) : (
                   <Link

@@ -107,6 +107,14 @@ export default function CountriesPage() {
   const [activeSection, setActiveSection] = useState(null);
   const [selectedId, setSelectedId] = useState("spain");
 
+  // 🆕 لو الدخول جاي من رابط زي /countries?country=romania (من هوفر
+  // "Countries" في النافبار)، نفتح تاب الدولة دي على طول بدل ما نفضل
+  // على "spain" الافتراضية دايمًا.
+  useEffect(() => {
+    const country = new URLSearchParams(window.location.search).get("country");
+    if (country) setSelectedId(country);
+  }, []);
+
   if (!data) {
     return (
       <LoadingScreen />

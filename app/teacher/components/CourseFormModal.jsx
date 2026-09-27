@@ -648,7 +648,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 <option value="">{t.choose}</option>
                 {topCategories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.i18n?.[language]?.name || c.name}
                   </option>
                 ))}
               </select>
@@ -685,7 +685,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 <option value="">{t.choose}</option>
                 {subcategories.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.i18n?.[language]?.name || s.name}
                   </option>
                 ))}
               </select>

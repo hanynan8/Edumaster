@@ -19,8 +19,8 @@ import CallCenterModal from "@/app/components/callCenter/CallCenterModal";
 import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
 
 const CONSULT_STRINGS = {
-  en: { cta: "Study abroad - book a paid consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
-  ar: { cta: "ادرس بالخارج - احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن هذه الخدمة" },
+  en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
+  ar: { cta: "ادرس بالخارج - احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن هذه الخدمة" },
   es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
 };
 

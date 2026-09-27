@@ -29,7 +29,7 @@ import CallCenterModal from "./callCenter/CallCenterModal";
 // نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
 // (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
 const CONSULT_STRINGS = {
-  en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP" },
+  en: { cta: "Book a Consultation", badge: "45 min · 1300 EGP" },
   ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه" },
   es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP" },
 };

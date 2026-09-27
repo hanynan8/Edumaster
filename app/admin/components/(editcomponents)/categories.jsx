@@ -24,6 +24,11 @@ const EMPTY_FORM = {
   i18n: { ar: { name: '' }, en: { name: '' }, es: { name: '' } },
 };
 
+// 🆕 التصنيف الرئيسي (parent) بيتبعت دلوقتي فعليًا للـ API (كان الحقل ده
+// موجود في EMPTY_FORM من زمان بس مالوش واجهة، فالأدمن ماكانش يقدر يعمل
+// ساب-تصنيف حقيقي من لوحة الإدارة خالص — كان لازم يتعمل يدوي بالداتابيز).
+// بيسمح بمستوى واحد بس (تصنيف رئيسي ← ساب-تصنيف)، زي ما الـ API بيفرضه.
+
 const LANG_LABELS = { ar: 'عربي', en: 'إنجليزي', es: 'إسباني' };
 
 export default function CategoriesAdmin() {
@@ -64,6 +69,32 @@ export default function CategoriesAdmin() {
 
   useEffect(loadCategories, []);
 
+  // 🆕 التصنيفات الرئيسية بس (parent=null) — دي اللي تصلح تتختار كـ "تصنيف
+  // رئيسي" لساب-تصنيف جديد. ساب-تصنيف مينفعش يبقى ليه هو كمان ساب-تصنيفات
+  // (مستوى واحد بس)، فمش بنعرضه في القايمة دي أصلاً.
+  const topLevelCategories = categories.filter((c) => !c.parent);
+  const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
+  // للعرض: كل تصنيف رئيسي وتحته ساب-تصنيفاته (لو موجودة)، عشان الشكل
+  // الشجري يبان واضح في الجدول بدل ليستة مسطحة تخلط الاتنين.
+  const groupedForDisplay = (() => {
+    const tops = topLevelCategories.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const rows = [];
+    for (const top of tops) {
+      rows.push({ cat: top, isSub: false });
+      const subs = categories
+        .filter((c) => c.parent === top.id)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      for (const sub of subs) rows.push({ cat: sub, isSub: true });
+    }
+    // أي تصنيف parent بتاعه اتحذف أو مش موجود (حالة نادرة/بيانات قديمة) —
+    // نوريه في الآخر بدل ما يختفي بصمت.
+    const shown = new Set(rows.map((r) => r.cat.id));
+    for (const c of categories) {
+      if (!shown.has(c.id)) rows.push({ cat: c, isSub: Boolean(c.parent) });
+    }
+    return rows;
+  })();
+
   function startEdit(cat) {
     setEditingId(cat.id);
     setEditForm({
@@ -72,6 +103,7 @@ export default function CategoriesAdmin() {
       description: cat.description || '',
       icon: cat.icon || '',
       order: cat.order ?? 0,
+      parent: cat.parent || '',
       i18n: {
         ar: { name: cat.i18n?.ar?.name || '' },
         en: { name: cat.i18n?.en?.name || '' },
@@ -105,11 +137,20 @@ export default function CategoriesAdmin() {
           icon: createForm.icon.trim() || null,
           order: Number(createForm.order) || 0,
           i18n: createForm.i18n,
+          parent: createForm.parent || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionError(data.error === 'slug_taken' ? 'الرابط (slug) ده مستخدم بالفعل' : 'حصل خطأ أثناء الإضافة');
+        setActionError(
+          data.error === 'slug_taken'
+            ? 'الرابط (slug) ده مستخدم بالفعل'
+            : data.error === 'parent_not_found'
+            ? 'التصنيف الرئيسي المختار مش موجود'
+            : data.error === 'parent_must_be_top_level'
+            ? 'التصنيف اللي اخترته كـ "رئيسي" هو نفسه ساب-تصنيف — اختر تصنيف رئيسي أصلي بس'
+            : 'حصل خطأ أثناء الإضافة'
+        );
         return;
       }
       setCreateForm(EMPTY_FORM);
@@ -136,11 +177,24 @@ export default function CategoriesAdmin() {
           icon: editForm.icon.trim() || null,
           order: Number(editForm.order) || 0,
           i18n: editForm.i18n,
+          parent: editForm.parent || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionError(data.error === 'slug_taken' ? 'الرابط (slug) ده مستخدم بالفعل' : 'حصل خطأ أثناء الحفظ');
+        setActionError(
+          data.error === 'slug_taken'
+            ? 'الرابط (slug) ده مستخدم بالفعل'
+            : data.error === 'parent_not_found'
+            ? 'التصنيف الرئيسي المختار مش موجود'
+            : data.error === 'parent_must_be_top_level'
+            ? 'التصنيف اللي اخترته كـ "رئيسي" هو نفسه ساب-تصنيف — اختر تصنيف رئيسي أصلي بس'
+            : data.error === 'parent_cannot_be_self'
+            ? 'التصنيف مينفعش يبقى أب لنفسه'
+            : data.error === 'has_subcategories'
+            ? 'التصنيف ده ليه ساب-تصنيفات بالفعل، مينفعش يتحول لساب-تصنيف تاني'
+            : 'حصل خطأ أثناء الحفظ'
+        );
         return;
       }
       setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, ...data } : c)));
@@ -263,6 +317,18 @@ export default function CategoriesAdmin() {
             placeholder="ترتيب العرض (0 = الأول)"
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
           />
+          <select
+            value={createForm.parent}
+            onChange={(e) => setCreateForm((f) => ({ ...f, parent: e.target.value }))}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 sm:col-span-2 bg-white"
+          >
+            <option value="">تصنيف رئيسي (مش ساب-تصنيف)</option>
+            {topLevelCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                ساب-تصنيف تابع لـ «{c.name}»
+              </option>
+            ))}
+          </select>
 
           <div className="sm:col-span-2 grid sm:grid-cols-3 gap-3 pt-1 border-t border-blue-100 mt-1">
             <p className="sm:col-span-3 text-xs font-semibold text-gray-500 -mb-1">
@@ -314,23 +380,28 @@ export default function CategoriesAdmin() {
                 <th className="py-2 px-2 font-semibold">الاسم</th>
                 <th className="py-2 px-2 font-semibold">الرابط (slug)</th>
                 <th className="py-2 px-2 font-semibold">الوصف</th>
+                <th className="py-2 px-2 font-semibold">التصنيف الرئيسي</th>
                 <th className="py-2 px-2 font-semibold">الترتيب</th>
                 <th className="py-2 px-2 font-semibold">الحالة</th>
                 <th className="py-2 px-2 font-semibold"></th>
               </tr>
             </thead>
             <tbody>
-              {categories
-                .slice()
-                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((cat) => {
+              {groupedForDisplay.map(({ cat, isSub }) => {
                   const isEditing = editingId === cat.id;
                   const isSaving = savingId === cat.id;
+                  // ساب-تصنيف مينفعش يبقى هو نفسه أب لتصنيف تاني (مستوى واحد
+                  // بس)، فبنمنعه يظهر في قايمة "التصنيف الرئيسي" وقت التعديل.
+                  const parentOptionsForEdit = topLevelCategories.filter((c) => c.id !== cat.id);
                   return (
-                    <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50/60 align-top">
+                    <tr
+                      key={cat.id}
+                      className={`border-b border-gray-50 hover:bg-gray-50/60 align-top ${isSub ? 'bg-blue-50/20' : ''}`}
+                    >
                       {isEditing ? (
                         <>
                           <td className="py-2 px-2">
+                            {isSub && <span className="text-gray-300 me-1">↳</span>}
                             <input
                               value={editForm.name}
                               onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
@@ -368,6 +439,20 @@ export default function CategoriesAdmin() {
                             />
                           </td>
                           <td className="py-2 px-2">
+                            <select
+                              value={editForm.parent}
+                              onChange={(e) => setEditForm((f) => ({ ...f, parent: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                            >
+                              <option value="">— رئيسي —</option>
+                              {parentOptionsForEdit.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-2 px-2">
                             <input
                               type="number"
                               value={editForm.order}
@@ -399,6 +484,7 @@ export default function CategoriesAdmin() {
                       ) : (
                         <>
                           <td className="py-3 px-2 font-semibold text-gray-800">
+                            {isSub && <span className="text-gray-300 me-1">↳</span>}
                             {cat.name}
                             {(cat.i18n?.ar?.name || cat.i18n?.en?.name || cat.i18n?.es?.name) && (
                               <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] font-normal text-gray-400">
@@ -410,6 +496,15 @@ export default function CategoriesAdmin() {
                           </td>
                           <td className="py-3 px-2 text-gray-400 font-mono text-xs">{cat.slug}</td>
                           <td className="py-3 px-2 text-gray-500 max-w-[220px] truncate">{cat.description || '—'}</td>
+                          <td className="py-3 px-2">
+                            {cat.parent ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
+                                <Tags size={11} /> {categoryById[cat.parent]?.name || '—'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">— رئيسي —</span>
+                            )}
+                          </td>
                           <td className="py-3 px-2 text-gray-500">{cat.order ?? 0}</td>
                           <td className="py-3 px-2">
                             <button

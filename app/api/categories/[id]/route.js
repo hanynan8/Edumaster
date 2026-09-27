@@ -58,12 +58,13 @@ function serializeCategory(c) {
     icon: c.icon,
     order: c.order,
     isActive: c.isActive,
+    parent: c.parent ? c.parent.toString() : null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };
 }
 
-const EDITABLE_FIELDS = ["name", "slug", "description", "icon", "order", "isActive"];
+const EDITABLE_FIELDS = ["name", "slug", "description", "icon", "order", "isActive", "parent"];
 
 export async function GET(request, { params }) {
   try {
@@ -135,6 +136,30 @@ export async function PATCH(request, { params }) {
       updates.icon = updates.icon ? String(updates.icon) : null;
     }
 
+    // 🆕 تعديل parent (تحويل تصنيف لساب-تصنيف أو العكس):
+    //   - "" أو null → يرجع تصنيف رئيسي (parent=null)
+    //   - id تصنيف تاني → لازم يكون موجود فعلاً، رئيسي هو نفسه (parent=null)،
+    //     مش نفس التصنيف اللي بيتعدّل (مش ممكن يبقى أب لنفسه)، ومفيش أي
+    //     ساب-تصنيفات تحت التصنيف ده أصلًا (عشان نفضل بمستوى واحد بس).
+    if (updates.parent !== undefined) {
+      if (!updates.parent) {
+        updates.parent = null;
+      } else {
+        if (!mongoose.Types.ObjectId.isValid(updates.parent)) {
+          return jsonResponse({ error: "invalid_parent" }, 400);
+        }
+        if (String(updates.parent) === String(existing._id)) {
+          return jsonResponse({ error: "parent_cannot_be_self" }, 400);
+        }
+        const parentCat = await Category.findById(updates.parent).lean();
+        if (!parentCat) return jsonResponse({ error: "parent_not_found" }, 404);
+        if (parentCat.parent) return jsonResponse({ error: "parent_must_be_top_level" }, 400);
+        const hasChildren = await Category.exists({ parent: existing._id });
+        if (hasChildren) return jsonResponse({ error: "has_subcategories" }, 409);
+        updates.parent = updates.parent;
+      }
+    }
+
     Object.assign(existing, updates);
     await existing.save();
 
@@ -163,6 +188,18 @@ export async function DELETE(request, { params }) {
     const coursesCount = await Course.countDocuments({ category: id });
     if (coursesCount > 0) {
       return jsonResponse({ error: "category_in_use", coursesCount }, 409);
+    }
+
+    // 🆕 منع حذف تصنيف لسه ليه ساب-تصنيفات (لازم تحذف/تنقل الساب-تصنيفات
+    // الأول)، ومنع حذف تصنيف (رئيسي أو ساب) لسه مستخدم كـ subcategory في
+    // أي كورس.
+    const subcategoriesCount = await Category.countDocuments({ parent: id });
+    if (subcategoriesCount > 0) {
+      return jsonResponse({ error: "category_has_subcategories", subcategoriesCount }, 409);
+    }
+    const coursesUsingAsSubcategory = await Course.countDocuments({ subcategory: id });
+    if (coursesUsingAsSubcategory > 0) {
+      return jsonResponse({ error: "subcategory_in_use", coursesCount: coursesUsingAsSubcategory }, 409);
     }
 
     await category.deleteOne();

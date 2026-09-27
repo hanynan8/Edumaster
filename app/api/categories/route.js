@@ -3,6 +3,7 @@
 // GET: عام بالكامل (أي زائر يشوف التصنيفات — محتاجينها لفلترة الكورسات في
 // الصفحة العامة). POST: أدمن بس.
 
+import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCategoryModel } from "@/app/lib/models/Category";
 import { requireRole } from "@/app/lib/rbac";
@@ -51,12 +52,24 @@ export async function GET(request) {
     // وإلا بيترجع نفس السلوك العام القديم (الفعّالة بس).
     const { searchParams } = new URL(request.url);
     const wantsAll = searchParams.get("all") === "1";
+    // 🆕 ?parent=<id> بيرجّع بس الساب-تصنيفات التابعة لتصنيف معيّن (مفيد
+    // للفرونت إند عشان يبني فلتر الساب-تصنيف بتاع أي تصنيف رئيسي عنده
+    // ساب-تصنيفات، مش بس "Language"). ?parent=none|null|top بيرجّع بس
+    // التصنيفات الرئيسية (parent=null).
+    const parentParam = searchParams.get("parent");
 
     let filter = { isActive: true };
     if (wantsAll) {
       const session = await getServerSession(authOptions);
       if (session?.user?.role === "admin") {
         filter = {};
+      }
+    }
+    if (parentParam) {
+      if (["none", "null", "top"].includes(parentParam)) {
+        filter.parent = null;
+      } else if (mongoose.Types.ObjectId.isValid(parentParam)) {
+        filter.parent = parentParam;
       }
     }
 
@@ -74,6 +87,7 @@ export async function GET(request) {
         icon: c.icon,
         order: c.order,
         isActive: c.isActive,
+        parent: c.parent ? c.parent.toString() : null,
       }))
     );
   } catch (err) {
@@ -100,6 +114,21 @@ export async function POST(request) {
     const existing = await Category.findOne({ slug }).lean();
     if (existing) return jsonResponse({ error: "slug_taken" }, 409);
 
+    // 🆕 ساب-تصنيف: لو body.parent موجود، لازم يكون id صالح لتصنيف موجود
+    // فعلاً، وده التصنيف لازم يكون هو نفسه رئيسي (parent=null) — بنسمح
+    // بمستوى واحد بس (رئيسي ← ساب) عشان نتجنب تعقيد شجرة متداخلة مالهاش
+    // داعي حاليًا.
+    let parent = null;
+    if (body?.parent) {
+      if (!mongoose.Types.ObjectId.isValid(body.parent)) {
+        return jsonResponse({ error: "invalid_parent" }, 400);
+      }
+      const parentCat = await Category.findById(body.parent).lean();
+      if (!parentCat) return jsonResponse({ error: "parent_not_found" }, 404);
+      if (parentCat.parent) return jsonResponse({ error: "parent_must_be_top_level" }, 400);
+      parent = body.parent;
+    }
+
     const created = await Category.create({
       name,
       slug,
@@ -107,9 +136,13 @@ export async function POST(request) {
       icon: body?.icon || null,
       order: Number.isFinite(body?.order) ? body.order : 0,
       i18n: sanitizeCategoryI18n(body?.i18n),
+      parent,
     });
 
-    return jsonResponse({ id: created._id.toString(), name: created.name, slug: created.slug }, 201);
+    return jsonResponse(
+      { id: created._id.toString(), name: created.name, slug: created.slug, parent: created.parent ? created.parent.toString() : null },
+      201
+    );
   } catch (err) {
     console.error("[/api/categories] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

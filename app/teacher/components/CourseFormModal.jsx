@@ -108,6 +108,8 @@ const T = {
     coverImage: "Cover image",
     category: "Category *",
     choose: "Choose...",
+    subcategory: "Sub-category *",
+    chooseSubcategory: "Choose a sub-category",
     level: "Level",
     priceLabel: "Price (per currency)",
     priceAutoHint: "Enter one currency and the other two are calculated automatically (approximate rate — you can still edit them).",
@@ -155,6 +157,8 @@ const T = {
     coverImage: "صورة الغلاف",
     category: "التصنيف *",
     choose: "اختر...",
+    subcategory: "الساب تصنيف *",
+    chooseSubcategory: "اختر الساب تصنيف",
     level: "المستوى",
     priceLabel: "السعر (لكل عملة)",
     priceAutoHint: "اكتب سعر أي عملة وباقي العملتين يتحسبوا تلقائيًا (سعر تقريبي — تقدر تعدّلهم يدوي بعد كده).",
@@ -202,6 +206,8 @@ const T = {
     coverImage: "Imagen de portada",
     category: "Categoría *",
     choose: "Elige...",
+    subcategory: "Subcategoría *",
+    chooseSubcategory: "Elige una subcategoría",
     level: "Nivel",
     priceLabel: "Precio (por moneda)",
     priceAutoHint: "Introduce el precio en una moneda y las otras dos se calculan automáticamente (tasa aproximada — puedes editarlas después).",
@@ -282,6 +288,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   const [form, setForm] = useState({
     thumbnail: course?.thumbnail || "",
     category: course?.category || "",
+    subcategory: course?.subcategory || "",
     level: course?.level || "beginner",
     language: course?.language || "ar",
     prices: {
@@ -335,6 +342,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     setForm({
       thumbnail: "",
       category: "",
+      subcategory: "",
       level: "beginner",
       language: "ar",
       prices: { EGP: 0, USD: 0, EUR: 0 },
@@ -347,7 +355,15 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   }
 
   function update(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      // 🆕 لو المدرس غيّر التصنيف الرئيسي، لازم نصفّر الساب-تصنيف المختار
+      // (لو كان فيه) — وإلا ممكن يفضل مربوط بساب-تصنيف تابع لتصنيف رئيسي
+      // تاني (مش موجود أصلًا تحت التصنيف الجديد).
+      if (field === "category" && value !== f.category) {
+        return { ...f, category: value, subcategory: "" };
+      }
+      return { ...f, [field]: value };
+    });
   }
 
   // 🆕 لما المدرس يعدّل سعر عملة واحدة، بنحسب باقي العملتين تلقائيًا بسعر
@@ -374,6 +390,16 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   // اسم/slug التصنيف ده من لوحة التصنيفات، الفحص ده هيفضل شغال زي ما هو.
   const isLanguageCategory = categories.find((c) => c.id === form.category)?.slug === "language";
 
+  // 🆕 نظام الساب-تصنيفات الحقيقي: التصنيف الرئيسي (dropdown الأول) بيعرض
+  // بس التصنيفات اللي مالهاش parent (top-level) — الساب-تصنيفات (زي عربي/
+  // إنجليزي/إسباني تحت "Language") بتتعرض في dropdown تاني منفصل بيظهر بس
+  // لو التصنيف المختار فعلاً عنده ساب-تصنيفات حقيقية متخزنة في الداتابيز
+  // (مش أي قايمة ثابتة في الكود). ده بيشتغل لأي تصنيف رئيسي عنده
+  // ساب-تصنيفات، مش بس "Language".
+  const topCategories = categories.filter((c) => !c.parent);
+  const subcategories = categories.filter((c) => c.parent === form.category);
+  const hasSubcategories = subcategories.length > 0;
+
   function updateLang(lang, field, value) {
     setLangContent((c) => ({ ...c, [lang]: { ...c[lang], [field]: value } }));
   }
@@ -388,6 +414,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       return setError(t.titleRequiredAllLangs);
     }
     if (!form.category) return setError(t.chooseCategory);
+    if (hasSubcategories && !form.subcategory) return setError(t.chooseSubcategory);
 
     setSaving(true);
     try {
@@ -414,6 +441,9 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         description: base.description,
         thumbnail: form.thumbnail || null,
         category: form.category,
+        // 🆕 ساب-تصنيف حقيقي (لو التصنيف المختار عنده ساب-تصنيفات) — بيتبعت
+        // null لو التصنيف مالوش ساب-تصنيفات أصلًا.
+        subcategory: hasSubcategories ? form.subcategory : null,
         level: form.level,
         language: form.language,
         i18n,
@@ -616,7 +646,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 required
               >
                 <option value="">{t.choose}</option>
-                {categories.map((c) => (
+                {topCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -638,6 +668,29 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
               </select>
             </div>
           </div>
+
+          {/* 🆕 ساب-تصنيف حقيقي — بيظهر بس لو التصنيف المختار فعلاً عنده
+              ساب-تصنيفات متخزنة في الداتابيز (شوف hasSubcategories فوق).
+              لتصنيف "Language" دي هي اللي بتحدد لغة الكورس فعليًا دلوقتي
+              (بدل حقل ثابت مالوش واجهة زي الأول). */}
+          {hasSubcategories && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.subcategory}</label>
+              <select
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                value={form.subcategory}
+                onChange={(e) => update("subcategory", e.target.value)}
+                required
+              >
+                <option value="">{t.choose}</option>
+                {subcategories.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-1.5">

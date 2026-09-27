@@ -24,6 +24,17 @@ const categorySchema = new mongoose.Schema(
     description: { type: String, default: "" },
     icon: { type: String, default: null }, // اسم أيقونة (lucide-react) أو رابط صورة
 
+    // 🆕 ساب-تصنيف حقيقي: لو موجودة، يبقى التصنيف ده "تحت-تصنيف" (subcategory)
+    // تابع لتصنيف رئيسي تاني (مثال: "عربي/إنجليزي/إسباني" تحت تصنيف "Language").
+    // null = تصنيف رئيسي (top-level). بنسمح بمستوى واحد بس (تصنيف رئيسي ← ساب
+    // تصنيف)، يعني الساب-تصنيف نفسه ميقدرش يكون ليه هو كمان ساب-تصنيفات —
+    // بيتحقق من كده في الـ API (routes)، مش هنا في الموديل.
+    parent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Model_category",
+      default: null,
+    },
+
     // 🆕 اسم/وصف التصنيف بلغات تانية (ar/en/es). "name"/"description" برّه
     // بيفضلوا الـ fallback الافتراضي. نفس فكرة i18n بتاعة Course.js بالظبط.
     i18n: {
@@ -42,6 +53,9 @@ const categorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// فهرسة تسريع جلب "ساب-تصنيفات تصنيف معيّن" (شوف /api/categories?parent=)
+categorySchema.index({ parent: 1, order: 1 });
 
 export function getCategoryModel() {
   return getOrCreateModel("category", categorySchema, "categories");

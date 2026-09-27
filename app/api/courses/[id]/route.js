@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
-import { slugify, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
+import { slugify, sanitizeCourseI18n, resolveCourseSubcategory } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
@@ -33,6 +33,10 @@ function serializeCourse(c) {
     categoryName: c.category?.name,
     categorySlug: c.category?.slug || "",
     categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
+    subcategory: c.subcategory?._id ? c.subcategory._id.toString() : c.subcategory?.toString() || null,
+    subcategoryName: c.subcategory?.name || "",
+    subcategorySlug: c.subcategory?.slug || "",
+    subcategoryI18n: c.subcategory?.i18n instanceof Map ? Object.fromEntries(c.subcategory.i18n) : c.subcategory?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
     level: c.level,
@@ -64,6 +68,7 @@ const EDITABLE_FIELDS = [
   "thumbnail",
   "durationLabel",
   "category",
+  "subcategory",
   "level",
   "language",
   "prices",
@@ -106,6 +111,7 @@ async function loadCourse(id) {
   getCategoryModel();
   return course.populate([
     { path: "category", select: "name slug i18n" },
+    { path: "subcategory", select: "name slug i18n parent" },
     { path: "teacher", select: "name" },
   ]);
 }
@@ -161,13 +167,27 @@ export async function PUT(request, { params }) {
       updates.title = String(updates.title).trim();
       if (!updates.title) return jsonResponse({ error: "invalid_title" }, 400);
     }
+    let Category; // 🆕 لو المدرس/الأدمن عدّل category و/أو subcategory
     if (updates.category !== undefined) {
       if (!mongoose.Types.ObjectId.isValid(updates.category)) {
         return jsonResponse({ error: "invalid_category" }, 400);
       }
-      const Category = getCategoryModel();
+      Category = getCategoryModel();
       const cat = await Category.findById(updates.category).lean();
       if (!cat) return jsonResponse({ error: "category_not_found" }, 404);
+    }
+
+    // 🆕 ساب-تصنيف حقيقي (اختياري) — لازم يكون تابع لنفس التصنيف الرئيسي
+    // (الجديد لو اتغيّر، وإلا القديم المحفوظ على الكورس أصلًا). لو
+    // subcategory تابع لتصنيف "Language"، بنعبّي course.language تلقائيًا
+    // من الـ slug بتاعه (backward-compat).
+    if (updates.subcategory !== undefined) {
+      Category = Category || getCategoryModel();
+      const effectiveCategoryId = updates.category !== undefined ? updates.category : existing.category;
+      const subRes = await resolveCourseSubcategory(Category, { subcategory: updates.subcategory }, effectiveCategoryId);
+      if (!subRes.ok) return jsonResponse({ error: subRes.error }, 400);
+      updates.subcategory = subRes.id;
+      if (subRes.autoLanguage) updates.language = subRes.autoLanguage;
     }
     if (updates.level !== undefined && !["beginner", "intermediate", "advanced"].includes(updates.level)) {
       return jsonResponse({ error: "invalid_level" }, 400);
@@ -253,6 +273,7 @@ export async function PUT(request, { params }) {
       if (!updatedDoc) return jsonResponse({ error: "not_found" }, 404);
       populated = await updatedDoc.populate([
         { path: "category", select: "name slug i18n" },
+        { path: "subcategory", select: "name slug i18n parent" },
         { path: "teacher", select: "name" },
       ]);
     } catch (updateErr) {
@@ -262,6 +283,9 @@ export async function PUT(request, { params }) {
       const rawUpdates = { ...updates };
       if (rawUpdates.category !== undefined && mongoose.Types.ObjectId.isValid(rawUpdates.category)) {
         rawUpdates.category = new mongoose.Types.ObjectId(rawUpdates.category);
+      }
+      if (rawUpdates.subcategory !== undefined && rawUpdates.subcategory && mongoose.Types.ObjectId.isValid(rawUpdates.subcategory)) {
+        rawUpdates.subcategory = new mongoose.Types.ObjectId(rawUpdates.subcategory);
       }
       if (rawUpdates.i18n instanceof Map) {
         rawUpdates.i18n = Object.fromEntries(rawUpdates.i18n);

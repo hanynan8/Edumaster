@@ -16,7 +16,7 @@ import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
-import { generateUniqueCourseSlug, sanitizeCourseI18n } from "@/app/lib/courseHelpers";
+import { generateUniqueCourseSlug, sanitizeCourseI18n, resolveCourseSubcategory } from "@/app/lib/courseHelpers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -46,6 +46,12 @@ function serializeCourse(c) {
     categoryName: c.category?.name,
     categorySlug: c.category?.slug || "",
     categoryI18n: c.category?.i18n instanceof Map ? Object.fromEntries(c.category.i18n) : c.category?.i18n || {},
+    // 🆕 ساب-تصنيف حقيقي (مثلاً لغة الكورس تحت تصنيف "Language") — لو
+    // الكورس مالوش ساب-تصنيف، كل الحقول دي بترجع فاضية/null بدل ما تتكسر.
+    subcategory: c.subcategory?._id ? c.subcategory._id.toString() : c.subcategory?.toString() || null,
+    subcategoryName: c.subcategory?.name || "",
+    subcategorySlug: c.subcategory?.slug || "",
+    subcategoryI18n: c.subcategory?.i18n instanceof Map ? Object.fromEntries(c.subcategory.i18n) : c.subcategory?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
     level: c.level,
@@ -122,6 +128,7 @@ export async function GET(request) {
     const [courses, total] = await Promise.all([
       Course.find(query)
         .populate("category", "name slug i18n")
+        .populate("subcategory", "name slug i18n parent")
         .populate("teacher", "name")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
@@ -169,6 +176,11 @@ export async function POST(request) {
     const category = await Category.findById(body.category).lean();
     if (!category) return jsonResponse({ error: "category_not_found" }, 404);
 
+    // 🆕 ساب-تصنيف حقيقي (اختياري) — شوف شرح resolveCourseSubcategory في
+    // app/lib/courseHelpers.js.
+    const subRes = await resolveCourseSubcategory(Category, body, body.category);
+    if (!subRes.ok) return jsonResponse({ error: subRes.error }, 400);
+
     // slug: إما اللي المدرس كتبه (بنتأكد إنه فريد وإلا نرفض)، أو بيتولّد
     // تلقائيًا من العنوان مع ضمان الفرادة (شوف courseHelpers.js)
     let slug;
@@ -201,7 +213,11 @@ export async function POST(request) {
       category: body.category,
       teacher: session.user.id, // 🔒 دايمًا صاحب الـ session، مش من الـ body
       level,
-      language: body?.language || "ar",
+      // 🆕 لو فيه subcategory حقيقي تابع لتصنيف "Language"، الـ language
+      // القديم بيتعبّي تلقائيًا من الـ slug بتاعه (backward-compat) — وإلا
+      // بيرجع للقيمة اللي المدرس بعتها يدوي أو "ar" افتراضيًا.
+      language: subRes.provided && subRes.autoLanguage ? subRes.autoLanguage : body?.language || "ar",
+      subcategory: subRes.provided ? subRes.id : null,
       prices: isFree ? emptyPrices() : sanitizePrices(body?.prices),
       isFree,
       requirements: Array.isArray(body?.requirements) ? body.requirements.map(String) : [],
@@ -213,6 +229,7 @@ export async function POST(request) {
 
     const populated = await created.populate([
       { path: "category", select: "name slug i18n" },
+      { path: "subcategory", select: "name slug i18n parent" },
       { path: "teacher", select: "name" },
     ]);
 

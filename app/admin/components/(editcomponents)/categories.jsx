@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 const EMPTY_FORM = {
-  name: '', slug: '', description: '', icon: '', order: 0,
+  name: '', slug: '', description: '', icon: '', order: 0, parent: '',
   i18n: { ar: { name: '' }, en: { name: '' }, es: { name: '' } },
 };
 

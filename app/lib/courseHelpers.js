@@ -38,6 +38,36 @@ export function sanitizeCourseI18n(input) {
   return clean;
 }
 
+// 🆕 بيتحقق من subcategory جاية من الفرونت إند (وقت إنشاء/تعديل كورس):
+//   - لو مفيش subcategory في الـ body أصلًا → ok=true, id=undefined (معناها
+//     "متتغيرش" وقت التعديل، أو "من غير ساب-تصنيف" وقت الإنشاء).
+//   - لو القيمة null/"" → ok=true, id=null (المدرس شايل الساب-تصنيف).
+//   - لو id: لازم يكون تصنيف موجود فعلاً، وparent بتاعه لازم يساوي
+//     categoryId (يعني تابع فعلاً للتصنيف الرئيسي المختار للكورس) — وإلا
+//     بترجع ok=false برسالة خطأ مناسبة.
+// بترجّع كمان subcategorySlug لو الساب-تصنيف ده تابع لتصنيف "Language"
+// (slug === "language")، عشان نعبّي حقل course.language القديم تلقائيًا
+// (backward-compat مع أي كود لسه بيقرا c.language مباشرة).
+export async function resolveCourseSubcategory(Category, body, categoryId) {
+  if (body?.subcategory === undefined) return { ok: true, provided: false };
+  if (!body.subcategory) return { ok: true, provided: true, id: null, autoLanguage: null };
+
+  const mongoose = (await import("mongoose")).default;
+  if (!mongoose.Types.ObjectId.isValid(body.subcategory)) {
+    return { ok: false, error: "invalid_subcategory" };
+  }
+  const sub = await Category.findById(body.subcategory).lean();
+  if (!sub) return { ok: false, error: "subcategory_not_found" };
+  if (!sub.parent || String(sub.parent) !== String(categoryId)) {
+    return { ok: false, error: "subcategory_not_child_of_category" };
+  }
+
+  const parentCat = await Category.findById(sub.parent).lean();
+  const autoLanguage = parentCat?.slug === "language" ? sub.slug : null;
+
+  return { ok: true, provided: true, id: sub._id, autoLanguage };
+}
+
 export async function recomputeCourseTotals(courseId) {
   const Lesson = getLessonModel();
   const Course = getCourseModel();

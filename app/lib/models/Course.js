@@ -66,6 +66,18 @@ const courseSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 🆕 ساب-تصنيف حقيقي (اختياري) — لازم يكون تابع لنفس "category" فوق
+    // (بيتحقق من كده في الـ API). أهم استخدام حاليًا: تصنيف "Language"
+    // بيبقى ليه ساب-تصنيفات (عربي/إنجليزي/إسباني...) بيختارها المدرس وقت
+    // إنشاء/تعديل الكورس — بدل القايمة الثابتة القديمة اللي كانت مجرد
+    // فلتر في الفرونت إند من غير ما تتخزن فعليًا. لو التصنيف المختار مالوش
+    // ساب-تصنيفات أصلًا، الحقل ده بيفضل null عادي.
+    subcategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Model_category",
+      default: null,
+    },
+
     // 🔒 المدرس صاحب الكورس. بنتحقق في الـ API إن اللي بيعدّل الكورس هو
     // نفس الـ teacher ده أو أدمن — مش أي مدرس تاني.
     teacher: {
@@ -140,6 +152,7 @@ const courseSchema = new mongoose.Schema(
 // فهرسة تسريع البحث والفلترة الشائعة في صفحة الكورسات العامة
 courseSchema.index({ status: 1, category: 1 });
 courseSchema.index({ teacher: 1 });
+courseSchema.index({ subcategory: 1 });
 // 🔒 FIX: بدون language_override، MongoDB بتفترض إن أي حقل اسمه "language"
 // في الـ document هو "لغة الفهرسة" (للـ stemming)، وده بيتعارض مع حقل
 // "language" بتاعنا (ar/en - لغة الكورس نفسه). لغة "ar" مش من اللغات

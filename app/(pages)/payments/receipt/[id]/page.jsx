@@ -34,6 +34,7 @@ const STRINGS = {
     error: "تعذّر تحميل تفاصيل الفاتورة",
     course: "كورس",
     membership: "اشتراك",
+    consultation: "استشارة",
   },
   en: {
     title: "Payment Receipt",
@@ -50,6 +51,7 @@ const STRINGS = {
     error: "Couldn't load invoice details",
     course: "Course",
     membership: "Membership",
+    consultation: "Consultation",
   },
 };
 
@@ -93,7 +95,12 @@ export default function ReceiptPage({ params }) {
     );
   }
 
-  const itemLabel = payment.type === "course" ? payment.courseTitle : payment.membershipPlanName;
+  const itemLabel =
+    payment.type === "course"
+      ? payment.courseTitle
+      : payment.type === "consultation"
+      ? t.consultation
+      : payment.membershipPlanName;
 
   return (
     <div
@@ -161,7 +168,9 @@ export default function ReceiptPage({ params }) {
               <tr>
                 <td className="py-3">
                   <p className="font-semibold text-gray-800">{itemLabel || "—"}</p>
-                  <p className="text-xs text-gray-400">{payment.type === "course" ? t.course : t.membership}</p>
+                  <p className="text-xs text-gray-400">
+                    {payment.type === "course" ? t.course : payment.type === "consultation" ? t.consultation : t.membership}
+                  </p>
                 </td>
                 <td className="py-3 text-end font-bold text-gray-800">
                   {(payment.amount / 100).toFixed(2)} {payment.currency}

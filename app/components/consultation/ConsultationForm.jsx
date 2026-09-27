@@ -9,15 +9,20 @@
 // زي فورم التواصل "form")، وبيظهر في لوحة الأدمن (شوف
 // app/admin/components/consultationsPanel.jsx).
 //
-// بعد الإرسال بنجاح، بيتحول المستخدم لخطوة الدفع (تحويل بنكي — نفس مكوّن
-// BankTransferInfo المستخدم في باقي المشروع) بمبلغ 1300 جنيه.
+// 🆕 بعد الإرسال بنجاح، بيتحول المستخدم مباشرة لبوابة GetPayIn (بدل خطوة
+// التحويل البنكي القديمة اللي كانت بتعرض BankTransferInfo) — نفس بوابة
+// الدفع الوحيدة المستخدمة في باقي المشروع (app/lib/getpayin.js). الرسوم
+// الأساسية 1300 جنيه مصري، ومتحوّلة تلقائيًا حسب لغة الموقع الحالية بنفس
+// منطق app/lib/currency.js (ar→EGP, en→USD, es→EUR) — المبلغ المعروض هنا
+// للعميل والمبلغ الفعلي اللي بيتحصّل في GetPayIn (محسوب في السيرفر في
+// app/api/payments/getpayin/consultation-checkout) نفس القيمة بالظبط.
 
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
-import BankTransferInfo from "@/app/components/payments/BankTransferInfo";
+import { ChevronDown, Loader, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react";
+import { getCurrencyForLanguage, convertPrice, formatPrice } from "@/app/lib/currency";
 
-const CONSULTATION_FEE = 1300; // جنيه
+const CONSULTATION_FEE = 1300; // جنيه مصري (السعر الأساسي المخزّن)
 const CONSULTATION_CURRENCY = "EGP";
 const CONSULTATION_DURATION_MIN = 45;
 
@@ -52,8 +57,13 @@ const STRINGS = {
     submitting: "جارٍ الإرسال...",
     required: "* حقل مطلوب",
     successTitle: "تم استلام طلبك بنجاح!",
-    successDesc: "سنتواصل معك قريبًا لتأكيد الموعد. أكمل خطوة الدفع أدناه لتأكيد الحجز.",
+    successDesc: "سنتواصل معك قريبًا لتأكيد الموعد. أكمل الدفع أدناه لتأكيد الحجز.",
     error: "حدث خطأ أثناء إرسال الطلب، يُرجى المحاولة مرة أخرى.",
+    redirectingToPayment: "جارٍ تحويلك لصفحة الدفع الآمنة...",
+    payNow: "الدفع عبر GetPayIn",
+    paymentError: "تعذّر بدء عملية الدفع، يُرجى المحاولة مرة أخرى.",
+    retryPayment: "إعادة المحاولة",
+    securePayment: "دفع آمن ببطاقتك أو محفظتك الإلكترونية",
     sections: {
       personal: "المعلومات الشخصية",
       contact: "معلومات التواصل",
@@ -131,8 +141,13 @@ const STRINGS = {
     submitting: "Submitting...",
     required: "* Required field",
     successTitle: "Your request was received!",
-    successDesc: "We'll contact you soon to confirm the appointment. Complete the payment step below to confirm your booking.",
+    successDesc: "We'll contact you soon to confirm the appointment. Complete the payment below to confirm your booking.",
     error: "Something went wrong submitting your request, please try again.",
+    redirectingToPayment: "Redirecting you to the secure payment page...",
+    payNow: "Pay with GetPayIn",
+    paymentError: "Couldn't start the payment, please try again.",
+    retryPayment: "Retry",
+    securePayment: "Secure payment via card or e-wallet",
     sections: {
       personal: "Personal Information",
       contact: "Contact Information",
@@ -253,10 +268,21 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
   const f = t.fields;
   const serviceNames = useCurrentServices(language);
 
+  // 🆕 عملة وسعر العرض الفعليين للمستخدم — محسوبين من لغة الموقع الحالية
+  // بنفس منطق app/lib/currency.js (ar→EGP, en→USD, es→EUR)، نفس المبلغ
+  // اللي هيتحسب في السيرفر وقت فتح عملية الدفع فعليًا (شوف
+  // app/api/payments/getpayin/consultation-checkout) — مفيش أي فرق بين
+  // اللي المستخدم شايفه هنا واللي هيتحصّل منه فعليًا.
+  const displayCurrency = getCurrencyForLanguage(language);
+  const displayFee = convertPrice(CONSULTATION_FEE, CONSULTATION_CURRENCY, displayCurrency);
+
   const [form, setForm] = useState(() => ({ ...initialFormState, service: initialService || "" }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [consultationId, setConsultationId] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -272,6 +298,33 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
           : [...prev.languageCertificates, cert],
       };
     });
+  }
+
+  // 🆕 بيفتح عملية دفع GetPayIn لطلب الاستشارة اللي اتسجل بالفعل (بعد نجاح
+  // POST /api/data?collection=consultations) وبيحوّل المستخدم لصفحة الدفع
+  // المستضافة عندهم — نفس تدفق باقي المشروع (شوف
+  // app/(pages)/courses/[id]/page.jsx → handleBuyConfirm). قابلة للمناداة
+  // تاني لو فشلت المحاولة الأولى (زرار "إعادة المحاولة").
+  async function startPayment(id) {
+    setPaymentError("");
+    setPaymentLoading(true);
+    try {
+      const res = await fetch("/api/payments/getpayin/consultation-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consultationId: id, language }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.redirectUrl) {
+        setPaymentError(t.paymentError);
+        setPaymentLoading(false);
+        return;
+      }
+      window.location.href = data.redirectUrl;
+    } catch {
+      setPaymentError(t.paymentError);
+      setPaymentLoading(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -300,8 +353,14 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
         }),
       });
       if (!res.ok) throw new Error("failed");
+      const created = await res.json();
+      setConsultationId(created._id);
       setSuccess(true);
       onSuccess?.();
+      // 🆕 بنبدأ عملية الدفع تلقائيًا على طول بعد نجاح تسجيل الطلب — من غير
+      // ما نستنى ضغطة زرار زيادة من المستخدم (نفس شكل التحويل البنكي
+      // القديم اللي كان بيظهر على طول في شاشة النجاح).
+      startPayment(created._id);
     } catch {
       setError(t.error);
     } finally {
@@ -317,7 +376,38 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
           <h3 className="text-lg font-bold text-gray-900 mb-1">{t.successTitle}</h3>
           <p className="text-sm text-gray-500 max-w-sm">{t.successDesc}</p>
         </div>
-        <BankTransferInfo amount={CONSULTATION_FEE} currency={CONSULTATION_CURRENCY} />
+
+        <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
+          <span className="text-sm text-gray-500">{t.feeLabel}</span>
+          <span className="text-lg font-black text-gray-900">
+            {formatPrice(displayFee, displayCurrency, language)}
+          </span>
+        </div>
+
+        {paymentError && (
+          <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl mb-4 flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{paymentError}</span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          disabled={paymentLoading}
+          onClick={() => startPayment(consultationId)}
+          className="w-full flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60"
+        >
+          {paymentLoading ? (
+            <>
+              <Loader size={16} className="animate-spin" /> {t.redirectingToPayment}
+            </>
+          ) : (
+            <>
+              <ShieldCheck size={17} /> {paymentError ? t.retryPayment : t.payNow}
+            </>
+          )}
+        </button>
+        <p className="text-[11px] text-gray-400 text-center mt-3">{t.securePayment}</p>
       </div>
     );
   }
@@ -331,7 +421,7 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
             {t.durationLabel}: {CONSULTATION_DURATION_MIN} {t.minutes}
           </span>
           <span className="inline-flex items-center gap-1.5 bg-[#C9A227]/10 text-[#8a6d10] font-bold px-3 py-1.5 rounded-full">
-            {t.feeLabel}: {CONSULTATION_FEE} {t.egp}
+            {t.feeLabel}: {formatPrice(displayFee, displayCurrency, language)}
           </span>
         </div>
       </div>

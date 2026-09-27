@@ -12,6 +12,7 @@
 // (Enrollment/membership)؛ التاني هيلاقي الدفعة already succeeded ومش
 // هيكرر أي حاجة. ده هو "مصدر الحقيقة المالي" المشروح في تعليق Payment.js.
 
+import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import {
   getPaymentModel,
@@ -128,6 +129,13 @@ export async function markPaymentSucceededAndGrantAccess(paymentId, { providerPa
     await grantCourseAccess(updated);
   } else if (updated.type === "membership") {
     await grantMembershipAccess(updated);
+  } else if (updated.type === "consultation") {
+    // 🆕 مفيش "وصول" يتفعّل هنا (زي Enrollment/membership) — طلب الاستشارة
+    // نفسه اتسجل بالفعل وقت إرسال الفورم (POST /api/data?collection=consultations)
+    // قبل ما نوصل لخطوة الدفع أصلاً. كل اللي محتاجينه دلوقتي إننا نعلّم
+    // مستند الاستشارة بحالة الدفع (best-effort، زي notifyPaymentSucceeded
+    // تحت — فشلها مبيبوظش نجاح الدفعة نفسها).
+    await markConsultationPaidBestEffort(updated);
   }
 
   // 🔔 Phase 6 — اليوم 52 (اختياري): إشعار داخلي + إيميل "نجاح دفع".
@@ -143,9 +151,38 @@ export async function markPaymentSucceededAndGrantAccess(paymentId, { providerPa
   return updated;
 }
 
+// 🆕 بيحدّث مستند الاستشارة نفسه في كولكشن "consultations" (كولكشن عام
+// بسكيمة مرنة — مفيش موديل mongoose ثابت ليه، شوف app/api/data/route.js —
+// فبنستخدم collection() مباشرة بدل موديل). best-effort بالكامل: فشل
+// التحديث ده (مثلاً race نادرة أو مستند اتمسح) ميرجعش يبوّظ نجاح الدفعة
+// اللي بالفعل اتسجلت "succeeded" فوق.
+async function markConsultationPaidBestEffort(payment) {
+  if (!payment.consultation) return;
+  try {
+    await mongoose.connection.db.collection("consultations").updateOne(
+      { _id: payment.consultation },
+      {
+        $set: {
+          paymentStatus: "paid",
+          paidAmount: payment.amount,
+          paidCurrency: payment.currency,
+          paidAt: payment.paidAt || new Date(),
+        },
+      }
+    );
+  } catch (err) {
+    console.error("[markConsultationPaidBestEffort] update error:", err);
+  }
+}
+
 async function notifyPaymentSucceeded(payment) {
-  const AuthModel = getAuthModel();
-  const user = await AuthModel.findById(payment.user, "name email").lean();
+  // 🆕 دفعات "consultation" مالهاش user مسجّل (guest checkout) — بنستخدم
+  // guestName/guestEmail المخزّنة على الدفعة نفسها (شوف Payment.js) بدل
+  // AuthModel.findById اللي هيرجع null دايمًا هنا.
+  const isGuest = payment.type === "consultation" && !payment.user;
+  const user = isGuest
+    ? { name: payment.guestName, email: payment.guestEmail }
+    : await getAuthModel().findById(payment.user, "name email").lean();
   if (!user) return;
 
   let itemLabel = "your purchase";
@@ -157,16 +194,22 @@ async function notifyPaymentSucceeded(payment) {
     const MembershipPlan = getMembershipPlanModel();
     const plan = await MembershipPlan.findById(payment.membershipPlan, "name").lean();
     itemLabel = plan?.name || "your membership";
+  } else if (payment.type === "consultation") {
+    itemLabel = "Consultation booking";
   }
 
-  await createNotification({
-    user: payment.user,
-    type: "payment_succeeded",
-    title: "Payment successful",
-    message: itemLabel,
-    link: payment.type === "course" ? `/courses/${payment.course}` : "/student/payments",
-    course: payment.type === "course" ? payment.course : null,
-  });
+  // 🔒 createNotification بتحتاج user ObjectId فعلي (بتترتبط بحساب مسجّل
+  // في لوحة الطالب) — مفيش لوحة زي كده لضيف الاستشارة، فبنكتفي بالإيميل تحت.
+  if (!isGuest) {
+    await createNotification({
+      user: payment.user,
+      type: "payment_succeeded",
+      title: "Payment successful",
+      message: itemLabel,
+      link: payment.type === "course" ? `/courses/${payment.course}` : "/student/payments",
+      course: payment.type === "course" ? payment.course : null,
+    });
+  }
 
   if (user.email) {
     await sendPaymentSucceededEmail({

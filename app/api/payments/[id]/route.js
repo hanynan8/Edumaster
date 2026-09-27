@@ -6,9 +6,10 @@
 // isOwnerOrAdmin المستخدم في باقي المشروع).
 
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authOptions";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getPaymentModel, getCourseModel, getMembershipPlanModel } from "@/app/lib/models";
-import { requireSession } from "@/app/lib/rbac";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -19,10 +20,6 @@ function jsonResponse(data, status = 200) {
 
 export async function GET(request, { params }) {
   try {
-    const auth = await requireSession();
-    if (auth.response) return auth.response;
-    const { session } = auth;
-
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
 
@@ -42,6 +39,31 @@ export async function GET(request, { params }) {
       .lean();
 
     if (!payment) return jsonResponse({ error: "not_found" }, 404);
+
+    // 🆕 دفعات "consultation" مالهاش user (guest checkout — الفورم نفسه
+    // بيتبعت من غير تسجيل دخول، شوف consultation-checkout/route.js)، فمفيش
+    // session نتحقق منها هنا أصلاً. الوصول بقى محمي بمعرفة Payment._id
+    // نفسه بس (نفس فلسفة صفحة success/receipt العامة لأي حد معاه الرابط —
+    // ده بالظبط نفس Payment._id اللي المستخدم رجع بيه من GetPayIn توًا).
+    if (payment.type === "consultation") {
+      return jsonResponse({
+        id: payment._id.toString(),
+        type: payment.type,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        provider: payment.provider,
+        invoiceNumber: payment.invoiceNumber,
+        paidAt: payment.paidAt,
+        createdAt: payment.createdAt,
+        customerName: payment.guestName || null,
+        customerEmail: payment.guestEmail || null,
+      });
+    }
+
+    // course/membership: لسه محتاجين session — صاحب الدفعة أو أدمن بس.
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return jsonResponse({ error: "unauthorized" }, 401);
 
     const isOwner = payment.user?._id?.toString() === session.user.id;
     if (!isOwner && session.user.role !== "admin") {

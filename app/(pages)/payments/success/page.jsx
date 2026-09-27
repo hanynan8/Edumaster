@@ -20,9 +20,12 @@ const STRINGS = {
     title: "تم الدفع بنجاح",
     subtitleCourse: "تم تفعيل اشتراكك في الكورس وأصبح متاحًا الآن",
     subtitleMembership: "تم تفعيل اشتراكك في خطة العضوية",
+    subtitleConsultation: "تم تأكيد حجز استشارتك، سنتواصل معك قريبًا لتأكيد الموعد",
+    consultationLabel: "استشارة",
     goToCourse: "اذهب إلى الكورس",
     goToCourses: "كورساتي",
     goToMembership: "خطط الاشتراك",
+    backHome: "العودة للرئيسية",
     receipt: "عرض الإيصال",
     loading: "جارِ التحميل...",
     error: "تعذّر تحميل تفاصيل الدفعة، لكن عملية الدفع تمت بنجاح",
@@ -32,9 +35,12 @@ const STRINGS = {
     title: "Payment successful",
     subtitleCourse: "Your course access has been activated",
     subtitleMembership: "Your membership plan has been activated",
+    subtitleConsultation: "Your consultation booking is confirmed — we'll contact you soon",
+    consultationLabel: "Consultation",
     goToCourse: "Go to course",
     goToCourses: "My Courses",
     goToMembership: "Membership Plans",
+    backHome: "Back to home",
     receipt: "View receipt",
     loading: "Loading...",
     error: "Couldn't load payment details, but your payment was successful",
@@ -70,6 +76,7 @@ export default function PaymentSuccessPage({ searchParams }) {
   }, [paymentId]);
 
   const isMembership = payment?.type === "membership";
+  const isConsultation = payment?.type === "consultation";
 
   return (
     <div
@@ -93,10 +100,10 @@ export default function PaymentSuccessPage({ searchParams }) {
         {payment && (
           <>
             <p className="text-sm text-gray-400 mb-1">
-              {isMembership ? t.subtitleMembership : t.subtitleCourse}
+              {isConsultation ? t.subtitleConsultation : isMembership ? t.subtitleMembership : t.subtitleCourse}
             </p>
             <p className="text-sm font-bold text-gray-700 mb-5">
-              {payment.courseTitle || payment.membershipPlanName}
+              {isConsultation ? t.consultationLabel : payment.courseTitle || payment.membershipPlanName}
             </p>
             <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-xl py-3 mb-6">
               <span className="text-xs text-gray-400">{t.amount}</span>
@@ -109,7 +116,14 @@ export default function PaymentSuccessPage({ searchParams }) {
 
         <div className="flex flex-col gap-2.5">
           {payment && (
-            isMembership ? (
+            isConsultation ? (
+              <Link
+                href="/"
+                className="flex items-center justify-center gap-2 bg-[#0a0a0a] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
+              >
+                {t.backHome} <BackArrow size={15} />
+              </Link>
+            ) : isMembership ? (
               <Link
                 href={dashboardHref}
                 className="flex items-center justify-center gap-2 bg-[#0a0a0a] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"

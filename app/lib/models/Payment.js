@@ -9,17 +9,33 @@ import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
 
 const paymentSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
+    // 🆕 GetPayIn + استشارات: طلب الاستشارة (ConsultationForm) بيتبعت من غير
+    // تسجيل دخول (زي فورم التواصل)، فـ "user" مبقاش required — دفعات
+    // النوع "consultation" بتفضل user=null، وبنستخدم guestName/guestEmail
+    // تحت بدالها للعرض في صفحة النجاح/الإيصال. دفعات course/membership
+    // لسه لازم لها user زي ما هي (بتتطلب تسجيل دخول أصلاً في checkout/route.js).
+    user: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, default: null },
 
-    type: { type: String, enum: ["course", "membership"], required: true },
+    type: { type: String, enum: ["course", "membership", "consultation"], required: true },
 
-    // واحد من الاتنين بيتملى حسب type، مش الاتنين مع بعض
+    // واحد من التلاتة بيتملى حسب type، مش أكتر من واحد مع بعض
     course: { type: mongoose.Schema.Types.ObjectId, ref: "Model_course", default: null },
     membershipPlan: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Model_membership_plan",
       default: null,
     },
+    // 🆕 مرجع لمستند الاستشارة في كولكشن "consultations" (كولكشن عام بسكيمة
+    // مرنة، شوف app/api/data/route.js — مفيش موديل mongoose ثابت ليه، فمفيش
+    // "ref" هنا، بس الـ ObjectId بيتخزن عشان الربط والتحديث بعد نجاح الدفع).
+    consultation: { type: mongoose.Schema.Types.ObjectId, default: null },
+
+    // 🆕 بيانات ضيف (Guest) للدفعات اللي مالهاش user مسجّل (النوع
+    // "consultation" حاليًا) — مأخوذة من فورم الاستشارة نفسه (firstName+
+    // lastName، email) عشان نعرض "الفاتورة باسم" في صفحة النجاح/الإيصال
+    // بدل الاعتماد على populate("user") اللي هيرجع null هنا.
+    guestName: { type: String, default: null },
+    guestEmail: { type: String, default: null },
 
     // المبلغ بالقروش/السنت — نفس منطق Course.price
     amount: { type: Number, required: true, min: 0 },

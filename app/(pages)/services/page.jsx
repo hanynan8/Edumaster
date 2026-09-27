@@ -20,7 +20,7 @@ import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculu
 
 const CONSULT_STRINGS = {
   en: { cta: "Study abroad - book a paid consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
-  ar: { cta: "ادرس بالخارج - احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن الخدمة دي" },
+  ar: { cta: "ادرس بالخارج - احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن هذه الخدمة" },
   es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
 };
 
@@ -28,7 +28,7 @@ const CONSULT_STRINGS = {
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
   en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2", scholarshipCta: "Request a Scholarship Assessment", callCenterCta: "Register for Call Center Operations", callCenterBadge: "Level 1", contactCta: "Contact us" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في كورسات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية", callCenterCta: "التسجيل في دورة الـ Call Center", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في دورات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية", callCenterCta: "التسجيل في دورة الـ Call Center", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
   es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2", scholarshipCta: "Solicitar evaluación de becas", callCenterCta: "Inscribirse en Call Center Operations", callCenterBadge: "Nivel 1", contactCta: "Contáctanos" },
 };
 
@@ -236,20 +236,20 @@ function ConsultationBanner({ language, onOpen }) {
 const MEMBERSHIP_STRINGS = {
   ar: {
     label: "خطط الاشتراك",
-    title: "افتح كل الكورسات باشتراك واحد",
-    subtitle: "اختار الخطة اللي تناسبك وابدأ تعلّم من غير ما تدفع كل كورس لوحده",
+    title: "افتح جميع الدورات باشتراك واحد",
+    subtitle: "اختر الخطة التي تناسبك وابدأ التعلّم من غير أن تدفع ثمن كل دورة على حدة",
     free: "مجانية",
     perMonth: "/شهر",
     perYear: "/سنة",
-    allCourses: "كل الكورسات متاحة",
-    someCourses: (n) => `${n} كورس متاح`,
-    cta: "اشترك دلوقتي",
-    viewAll: "شوف كل خطط الاشتراك",
-    loading: "جارِ تحميل الخطط...",
-    empty: "لسه مفيش خطط اشتراك متاحة",
-    popular: "الأكتر طلبًا",
-    subscribing: "جارِ التفعيل...",
-    redirecting: "جارِ التحويل لصفحة الدفع...",
+    allCourses: "جميع الدورات متاحة",
+    someCourses: (n) => `${n} دورة متاحة`,
+    cta: "اشترك الآن",
+    viewAll: "عرض جميع خطط الاشتراك",
+    loading: "جارٍ تحميل الخطط...",
+    empty: "لا توجد خطط اشتراك متاحة حتى الآن",
+    popular: "الأكثر طلبًا",
+    subscribing: "جارٍ التفعيل...",
+    redirecting: "جارٍ التحويل إلى صفحة الدفع...",
     subscribed: "خطتك الحالية",
     login: "سجّل دخولك للاشتراك",
     paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتفعيل اليدوي",

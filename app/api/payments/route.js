@@ -6,7 +6,7 @@
 // بيسمح تشوف مدفوعات مستخدم تاني؛ ده دور app/api/admin/revenue بس للأدمن.
 
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getPaymentModel } from "@/app/lib/models";
+import { getPaymentModel, getCourseModel, getMembershipPlanModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 
 function jsonResponse(data, status = 200) {
@@ -45,6 +45,9 @@ export async function GET(request) {
 
     await connectToMongo();
     const Payment = getPaymentModel();
+    // 🔧 نفس فيكس /api/payments/[id] — لازم الموديلات دي تتسجل قبل populate تحت.
+    getCourseModel();
+    getMembershipPlanModel();
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);

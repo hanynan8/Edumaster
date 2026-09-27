@@ -7,7 +7,7 @@
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getPaymentModel } from "@/app/lib/models";
+import { getPaymentModel, getCourseModel, getMembershipPlanModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
 
 function jsonResponse(data, status = 200) {
@@ -28,6 +28,13 @@ export async function GET(request, { params }) {
 
     await connectToMongo();
     const Payment = getPaymentModel();
+    // 🔧 لازم الموديلات دي تتسجل قبل الـ populate تحت، وإلا mongoose بيرمي
+    // MissingSchemaError ("Model_course" / "Model_membership_plan" مش
+    // مسجلين لسه) لو الروت ده أول حاجة بتتنفذ في instance جديد من السيرفر
+    // (زي لما بيجي redirect من صفحة success على طول بعد الدفع) — وده كان
+    // بيظهر كـ 500 هنا رغم إن الدفع نفسه نجح فعلاً.
+    getCourseModel();
+    getMembershipPlanModel();
     const payment = await Payment.findById(id)
       .populate("course", "title")
       .populate("membershipPlan", "name billingCycle")

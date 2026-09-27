@@ -17,7 +17,7 @@ import { CheckCircle2, Loader, Receipt, ArrowRight, ArrowLeft, BookOpen, Crown }
 
 const STRINGS = {
   ar: {
-    title: "تم الدفع بنجاح 🎉",
+    title: "تم الدفع بنجاح",
     subtitleCourse: "تم تفعيل اشتراكك في الكورس وأصبح متاحًا الآن",
     subtitleMembership: "تم تفعيل اشتراكك في خطة العضوية",
     goToCourse: "اذهب إلى الكورس",
@@ -29,7 +29,7 @@ const STRINGS = {
     amount: "المبلغ المدفوع",
   },
   en: {
-    title: "Payment successful 🎉",
+    title: "Payment successful",
     subtitleCourse: "Your course access has been activated",
     subtitleMembership: "Your membership plan has been activated",
     goToCourse: "Go to course",

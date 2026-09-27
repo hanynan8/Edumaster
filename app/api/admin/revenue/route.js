@@ -6,7 +6,7 @@
 // وأحدث 15 عملية ناجحة — أدمن بس (requireRole).
 
 import { connectToMongo } from "@/app/lib/mongodb";
-import { getPaymentModel } from "@/app/lib/models";
+import { getPaymentModel, getCourseModel, getMembershipPlanModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 
 function jsonResponse(data, status = 200) {
@@ -23,6 +23,10 @@ export async function GET() {
 
     await connectToMongo();
     const Payment = getPaymentModel();
+    // 🔧 نفس فيكس /api/payments و /api/payments/[id] — لازم الموديلات دي
+    // تتسجل قبل populate("course"/"membershipPlan") تحت.
+    getCourseModel();
+    getMembershipPlanModel();
 
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);

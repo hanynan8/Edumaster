@@ -17,10 +17,14 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarClock, Languages, GraduationCap } from "lucide-react";
+import { CalendarClock, Languages, GraduationCap, Award, Headphones, ChevronDown } from "lucide-react";
 import ConsultationModal from "./consultation/ConsultationModal";
 import TranslationModal from "./translation/TranslationModal";
 import EnglishProgramModal from "./englishProgram/EnglishProgramModal";
+// 🆕 باقي الفورمات اللي ممكن تتملي في المشروع — بتتفتح كلها دلوقتي من
+// قائمة منسدلة تحت زرار "View All Services" بدل ما يودّي لصفحة تانية.
+import ScholarshipModal from "./scholarship/ScholarshipModal";
+import CallCenterModal from "./callCenter/CallCenterModal";
 
 // نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
 // (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
@@ -33,9 +37,30 @@ const CONSULT_STRINGS = {
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية —
 // نفس فلسفة CONSULT_STRINGS، بتظهر في الهوم (لوج-إن ولوج-أوت) وصفحة الخدمات.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", englishCta: "Join English Program" },
-  ar: { translationCta: "نموذج طلب ترجمة", englishCta: "التسجيل في برنامج الإنجليزية" },
-  es: { translationCta: "Solicitud de traducción", englishCta: "Únete al programa de inglés" },
+  en: {
+    translationCta: "Translation Request Form",
+    englishCta: "Join English Program",
+    scholarshipCta: "Request a Scholarship Assessment",
+    callCenterCta: "Register for Call Center Operations",
+    browseAllCta: "Browse full services page",
+    menuLabel: "All service forms",
+  },
+  ar: {
+    translationCta: "نموذج طلب ترجمة",
+    englishCta: "التسجيل في برنامج الإنجليزية",
+    scholarshipCta: "طلب تقييم فرص المنح الدراسية",
+    callCenterCta: "التسجيل في دورة الـ Call Center",
+    browseAllCta: "تصفح صفحة الخدمات كاملة",
+    menuLabel: "كل استمارات الخدمات",
+  },
+  es: {
+    translationCta: "Solicitud de traducción",
+    englishCta: "Únete al programa de inglés",
+    scholarshipCta: "Solicitar evaluación de becas",
+    callCenterCta: "Inscribirse en Call Center Operations",
+    browseAllCta: "Ver la página completa de servicios",
+    menuLabel: "Todos los formularios",
+  },
 };
 
 const SERVICE_ID_MAP = {
@@ -101,8 +126,35 @@ export default function ServicesSection({ lang, ui }) {
   const [consultOpen, setConsultOpen] = useState(false);
   const [translationOpen, setTranslationOpen] = useState(false);
   const [englishProgramOpen, setEnglishProgramOpen] = useState(false);
+  // 🆕 المودالات الباقية اللي كانت متاحة بس من صفحة /services — دلوقتي
+  // بتتفتح من نفس القائمة المنسدلة الجديدة.
+  const [scholarshipOpen, setScholarshipOpen] = useState(false);
+  const [callCenterOpen, setCallCenterOpen] = useState(false);
+  // 🆕 "View All Services" مبقاش بيودي لمكان — بقى زرار بيفتح/يقفل
+  // القائمة المنسدلة دي، اللي فيها كل الفورمات اللي ممكن تتملي في المشروع.
+  const [servicesMenuOpen, setServicesMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const cs = CONSULT_STRINGS[lang] ?? CONSULT_STRINGS.en;
   const qf = QUICK_FORM_STRINGS[lang] ?? QUICK_FORM_STRINGS.en;
+
+  // اقفل القائمة لو اليوزر دوس بره منها
+  useEffect(() => {
+    if (!servicesMenuOpen) return;
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setServicesMenuOpen(false);
+      }
+    }
+    function handleEscape(e) {
+      if (e.key === "Escape") setServicesMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [servicesMenuOpen]);
 
   const t = data ? (data.i18n[lang] ?? data.i18n.en) : null;
   const merged = t
@@ -120,7 +172,7 @@ export default function ServicesSection({ lang, ui }) {
     <section ref={ref} className="py-8 sm:py-14 md:py-20 bg-[#f7f7f7]">
       <div className="px-5 sm:px-10 md:px-16">
         <div
-          className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
+          className={`relative z-20 flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-7 sm:mb-14 transition-all duration-700 ${
             visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -155,13 +207,54 @@ export default function ServicesSection({ lang, ui }) {
               <GraduationCap size={15} />
               {qf.englishCta}
             </button>
-            <Link
-              href="/services"
-              className="inline-flex items-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all w-fit"
-            >
-              {ui.servicesCta}
-              <ArrowRight size={13} />
-            </Link>
+            <div className="relative w-fit" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setServicesMenuOpen((v) => !v)}
+                aria-haspopup="true"
+                aria-expanded={servicesMenuOpen}
+                className={`inline-flex items-center gap-2 border-2 border-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm transition-all w-fit ${
+                  servicesMenuOpen ? "bg-[#0a0a0a] text-white" : "text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                }`}
+              >
+                {ui.servicesCta}
+                <ChevronDown
+                  size={15}
+                  className={`transition-transform duration-200 ${servicesMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {servicesMenuOpen && (
+                <div className="absolute top-full mt-2 end-0 z-50 w-[19rem] max-w-[calc(100vw-2.5rem)] bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 p-3 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setScholarshipOpen(true); setServicesMenuOpen(false); }}
+                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#10b981] text-[#0d7a5f] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#10b981] hover:text-white transition-all"
+                  >
+                    <Award size={15} />
+                    {qf.scholarshipCta}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setCallCenterOpen(true); setServicesMenuOpen(false); }}
+                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#3b82f6] text-[#1d4ed8] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#3b82f6] hover:text-white transition-all"
+                  >
+                    <Headphones size={15} />
+                    {qf.callCenterCta}
+                  </button>
+
+                  <Link
+                    href="/services"
+                    onClick={() => setServicesMenuOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all"
+                  >
+                    {qf.browseAllCta}
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -208,6 +301,8 @@ export default function ServicesSection({ lang, ui }) {
       <ConsultationModal open={consultOpen} onClose={() => setConsultOpen(false)} />
       <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
       <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
+      <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
+      <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />
     </section>
   );
 }

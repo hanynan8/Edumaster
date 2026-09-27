@@ -44,6 +44,17 @@ const SERVICE_ID_MAP = {
   "language Courses": "language",
 };
 
+// 🆕 بنحوّل الـ id الحقيقي بتاع الخدمة (الجاي من الـ API) لصيغة صالحة كـ
+// HTML id، بالظبط زي الـ function الموجودة في app/(pages)/services/page.jsx،
+// عشان اللينك #<id> اللي بنولّده هنا يطابق الـ anchor id الموجود هناك.
+function slugifyServiceId(id) {
+  return String(id ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /* same as /services page: collection=services */
 function useServicesData() {
   const [data, setData] = useState(null);
@@ -167,7 +178,7 @@ export default function ServicesSection({ lang, ui }) {
             {merged.map((s, i) => (
               <Link
                 key={s.id}
-                href="/services"
+                href={`/services#${slugifyServiceId(s.id)}`}
                 className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#C9A227]/30 hover:shadow-xl hover:shadow-amber-900/5 transition-all duration-300 ${
                   visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 }`}

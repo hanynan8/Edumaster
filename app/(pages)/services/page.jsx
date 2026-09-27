@@ -83,6 +83,18 @@ function Check({ size = 11 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#003A91" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
 }
 
+// 🆕 بنحوّل الـ id الحقيقي بتاع الخدمة (الجاي من الـ API) لصيغة صالحة كـ
+// HTML id (حروف صغيرة + شرطات، من غير مسافات/رموز) عشان نقدر نعمل anchor
+// لكل خدمة في الصفحة ونوصل ليها من الهوم بلينك زي /services#study-in-spain.
+// نفس الـ function موجودة في ServicesSection.jsx (الهوم) عشان الـ id يطابق.
+function slugifyServiceId(id) {
+  return String(id ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function Label({ text, visible, dark = false }) {
   return (
     <div className={`flex items-center gap-2 mb-3 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
@@ -101,6 +113,23 @@ export default function ServicesPage() {
   const [scholarshipOpen, setScholarshipOpen] = useState(false);
   const [callCenterOpen, setCallCenterOpen] = useState(false);
 
+  // 🆕 لو الصفحة اتفتحت بلينك فيه #id لخدمة معينة (زي اللي جاي من كارت
+  // الخدمة في الهوم)، نعمل scroll تلقائي للخدمة دي بمجرد ما البيانات توصل.
+  // لازم ننتظر البيانات الأول لأن الصفحة بتعرض LoadingScreen قبل كده،
+  // فالـ element بتاع الخدمة مش موجود في الـ DOM لغاية ما data توصل.
+  useEffect(() => {
+    if (!data) return;
+    const hash = window.location.hash;
+    if (!hash) return;
+    const targetId = decodeURIComponent(hash.slice(1));
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    // نستنى فريم واحد عشان الـ layout يخلص يترسم الأول
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [data]);
+
   if (!data) {
     return (
       <LoadingScreen />
@@ -114,13 +143,7 @@ export default function ServicesPage() {
       <style>{STYLES}</style>
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
         <HeroSection data={data} t={t} />
-        <ConsultationBanner language={language} onOpen={() => setConsultService("")} />
-        <QuickFormsBanner
-          language={language}
-          onOpenTranslation={() => setTranslationOpen(true)}
-          onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
-          onOpenCallCenter={() => setCallCenterOpen(true)}
-        />
+  
         <ServicesList
           data={data}
           t={t}
@@ -583,8 +606,15 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   const isScholarshipService = SCHOLARSHIP_SERVICE_IDS.has(service.id);
   // 🆕 خدمة الـ Call Center بتفتح استمارة التسجيل في الدورة
   const isCallCenterService = isCallCenterServiceId(service.id);
+  // 🆕 الـ anchor id بتاع الخدمة — ده اللي بيتوصله من كارت الهوم
+  // (/services#<id>) عشان الصفحة تعمل scroll للخدمة المطلوبة بالظبط.
+  const anchorId = slugifyServiceId(service.id);
   return (
-    <div ref={ref} className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0">
+    <div
+      ref={ref}
+      id={anchorId}
+      className="grid lg:grid-cols-2 gap-0 items-stretch border-b border-gray-100 last:border-0 scroll-mt-20 sm:scroll-mt-24"
+    >
       {/* Image — always first on mobile */}
       <div className={`relative overflow-hidden min-h-55 sm:min-h-75 lg:min-h-115 order-1 ${isEven ? "lg:order-1" : "lg:order-2"} transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
         <Image src={service.image} alt={service.title ?? "Service image"} fill  className="object-cover hover:scale-105 transition-transform duration-700" unoptimized />

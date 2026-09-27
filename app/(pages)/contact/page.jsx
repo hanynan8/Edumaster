@@ -204,16 +204,33 @@ function InfoCard({ icon, label, value, href, isExternal, accent, visible, delay
 // - لو اختار "Other / General Inquiry" (أو محددش خدمة أصلاً)، الفورم
 //   يفضل بسيط زي ما كان: الاسم + الإيميل + الهاتف + رسالة، وبيتبعت لنفس
 //   /api/data?collection=form زي الأول بالظبط.
+// 🆕 نصوص بادچ "مطلوب" ورسالة توضيحية تحت اختيار الخدمة — بنفس أسلوب
+// REQUIRED_LABELS/opt جوه SimpleInquiryForm، لكن هنا مستقلة لأن
+// DynamicContactForm منفصل عن SimpleInquiryForm.
+const SERVICE_FIELD_STRINGS = {
+  en: { required: "Required", hint: "Please select a service above to continue" },
+  ar: { required: "مطلوب", hint: "من فضلك اختر خدمة من الأعلى للمتابعة" },
+  es: { required: "Obligatorio", hint: "Selecciona un servicio arriba para continuar" },
+};
+
 function DynamicContactForm({ data, t, lang, visible }) {
   const [selectedService, setSelectedService] = useState("");
+  const [serviceTouched, setServiceTouched] = useState(false);
+  const sf = SERVICE_FIELD_STRINGS[lang] ?? SERVICE_FIELD_STRINGS.en;
 
   const serviceOptions = buildServiceOptions(t.form.serviceOptions, lang);
   const selectedLabel = serviceOptions.find((o) => o.value === selectedService)?.label || "";
 
+  // 🆕 "Service of Interest" بقى حقل مطلوب فعليًا: من غير ما المستخدم
+  // يختار خدمة (حتى لو "Other / General Inquiry")، مفيش أي فورم بيظهر
+  // تحته خالص — عكس الوضع القديم اللي كان بيعرض الفورم البسيط تلقائيًا
+  // من غير ما حد يختار حاجة.
+  const hasSelectedService = selectedService !== "";
   const showConsultationForm = CONSULTATION_SERVICE_VALUES.has(selectedService);
   const showEnglishForm = selectedService === "language";
   const showTranslationForm = selectedService === "translation";
-  const showSimpleForm = !showConsultationForm && !showEnglishForm && !showTranslationForm;
+  const showSimpleForm = hasSelectedService && !showConsultationForm && !showEnglishForm && !showTranslationForm;
+  const showRequiredError = serviceTouched && !hasSelectedService;
 
   return (
     <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
@@ -221,17 +238,28 @@ function DynamicContactForm({ data, t, lang, visible }) {
 
       {/* الاختيار الرئيسي: الخدمة المطلوبة — دايمًا ظاهر فوق، وهو اللي بيتحكم في باقي الفورم */}
       <div className="flex flex-col gap-1.5 mb-4 sm:mb-5">
-        <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${showRequiredError ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-100"}`}>
+            {sf.required}
+          </span>
+        </div>
         <select
           value={selectedService}
           onChange={(e) => setSelectedService(e.target.value)}
-          className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none focus:border-[#003A91] transition-colors"
+          onBlur={() => setServiceTouched(true)}
+          className={`w-full bg-[#f7f7f7] border rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none transition-colors ${showRequiredError ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#003A91]"}`}
         >
           <option value="">{t.form.fields.servicePlaceholder}</option>
           {serviceOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
+        {showRequiredError ? (
+          <span className="text-red-500 text-xs font-medium">{sf.required}</span>
+        ) : !hasSelectedService ? (
+          <span className="text-gray-400 text-xs font-medium">{sf.hint}</span>
+        ) : null}
       </div>
 
       {showConsultationForm && (
@@ -259,6 +287,41 @@ function DynamicContactForm({ data, t, lang, visible }) {
   );
 }
 
+// 🆕 مرفق اختياري لفورم الكونتاكت البسيط — بيتحمّل لـ Bunny Storage عن طريق
+// /api/upload/contact-attachment (راوت عام من غير تسجيل دخول) وقت الإرسال،
+// والرابط الجاهز بيتحط في attachmentUrl/attachmentName ضمن body الفورم.
+const ATTACHMENT_ACCEPT =
+  "image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const ATTACHMENT_ALLOWED_TYPES = ATTACHMENT_ACCEPT.split(",");
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5MB — لازم يطابق MAX_BYTES في الراوت
+
+const ATTACHMENT_STRINGS = {
+  en: {
+    label: "Attach a file",
+    hint: "Images, PDF or Word — up to 5MB",
+    remove: "Remove",
+    tooLarge: "File is too large (max 5MB)",
+    invalidType: "Unsupported file type",
+    uploadError: "Couldn't upload the file, please try again",
+  },
+  ar: {
+    label: "إرفاق ملف",
+    hint: "صور أو PDF أو Word — لغاية 5 ميجا",
+    remove: "إزالة",
+    tooLarge: "حجم الملف كبير جدًا (الأقصى 5 ميجا)",
+    invalidType: "نوع الملف غير مدعوم",
+    uploadError: "تعذّر رفع الملف، حاول مرة أخرى",
+  },
+  es: {
+    label: "Adjuntar archivo",
+    hint: "Imágenes, PDF o Word — hasta 5MB",
+    remove: "Quitar",
+    tooLarge: "El archivo es demasiado grande (máx. 5MB)",
+    invalidType: "Tipo de archivo no compatible",
+    uploadError: "No se pudo subir el archivo, inténtalo de nuevo",
+  },
+};
+
 // الفورم البسيط الافتراضي (الاسم، الإيميل، الهاتف، الرسالة) — نفس الشكل
 // القديم بالظبط، بيتبعت لـ /api/data?collection=form. بيتعرض لما محدش
 // اختار خدمة، أو لما يختار "Other / General Inquiry".
@@ -266,9 +329,41 @@ function SimpleInquiryForm({ t, lang, selectedService }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [errors, setErrors] = useState({});
+  // 🆕 حالة المرفق الاختياري
+  const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState("");
+  const fileInputRef = useRef(null);
+  const at = ATTACHMENT_STRINGS[lang] ?? ATTACHMENT_STRINGS.en;
 
   const REQUIRED_LABELS   = { en: "Required",              ar: "مطلوب",                      es: "Obligatorio" };
   const EMAIL_ERROR_LABELS = { en: "Invalid email address", ar: "البريد الإلكتروني غير صحيح", es: "Correo electrónico inválido" };
+
+  // 🆕 فحص فوري (نوع + حجم) قبل ما نضيّع وقت المستخدم بمحاولة رفع هيترفض
+  // من السيرفر أصلًا — نفس الحدود بالظبط الموجودة في الراوت.
+  function handleFileChange(e) {
+    const picked = e.target.files?.[0] || null;
+    if (!picked) { setFile(null); setFileError(""); return; }
+    if (!ATTACHMENT_ALLOWED_TYPES.includes(picked.type)) {
+      setFileError(at.invalidType);
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (picked.size > ATTACHMENT_MAX_BYTES) {
+      setFileError(at.tooLarge);
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setFileError("");
+    setFile(picked);
+  }
+
+  function handleRemoveFile() {
+    setFile(null);
+    setFileError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -291,12 +386,38 @@ function SimpleInquiryForm({ t, lang, selectedService }) {
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
+    if (fileError) return;
+
     setStatus("sending");
     try {
+      // 🆕 لو المستخدم اختار مرفق، بنرفعه الأول لـ Bunny Storage (عن طريق
+      // راوت عام مخصص من غير تسجيل دخول)، وبعدين بس بنبعت الفورم نفسه
+      // مع رابط المرفق الجاهز. لو الرفع فشل، بنوقف هنا ومنبعتش رسالة
+      // ناقصة — بنورّي رسالة خطأ واضحة عن المرفق تحديدًا.
+      let attachmentUrl = null;
+      let attachmentName = null;
+
+      if (file) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", file);
+        const uploadRes = await fetch("/api/upload/contact-attachment", {
+          method: "POST",
+          body: uploadForm,
+        });
+        const uploadData = await uploadRes.json().catch(() => ({}));
+        if (!uploadRes.ok || !uploadData.url) {
+          setStatus("error");
+          setFileError(at.uploadError);
+          return;
+        }
+        attachmentUrl = uploadData.url;
+        attachmentName = uploadData.name || file.name;
+      }
+
       const res = await fetch("/api/data?collection=form", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, service: selectedService }),
+        body: JSON.stringify({ ...form, service: selectedService, attachmentUrl, attachmentName }),
       });
       setStatus(res.ok ? "sent" : "error");
     } catch { setStatus("error"); }
@@ -334,6 +455,38 @@ function SimpleInquiryForm({ t, lang, selectedService }) {
         </div>
         <textarea name="message" value={form.message} onChange={handleChange} rows={4} placeholder={t.form.fields.messagePlaceholder}
           className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#003A91] transition-colors resize-none" />
+      </div>
+
+      {/* 🆕 مرفق اختياري */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{at.label}</label>
+          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
+        </div>
+        <div className={`w-full flex items-center gap-3 bg-[#f7f7f7] border rounded-xl px-4 py-3 transition-colors ${fileError ? "border-red-400" : "border-gray-200"}`}>
+          <label className="shrink-0 flex items-center gap-1.5 cursor-pointer text-[#003A91] font-bold text-xs hover:underline">
+            <span>📎</span>
+            {at.label}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ATTACHMENT_ACCEPT}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+          <span className="truncate text-sm text-gray-500 flex-1">{file ? file.name : at.hint}</span>
+          {file && (
+            <button
+              type="button"
+              onClick={handleRemoveFile}
+              className="shrink-0 text-gray-400 hover:text-red-500 text-xs font-bold"
+            >
+              {at.remove}
+            </button>
+          )}
+        </div>
+        {fileError && <span className="text-red-500 text-xs font-medium">{fileError}</span>}
       </div>
 
       <button onClick={handleSubmit} disabled={status === "sending"}

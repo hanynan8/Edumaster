@@ -298,8 +298,23 @@ const FORM_FIELD_MAX_LENGTHS = {
   phone: 40,
   service: 200,
   message: 5000,
+  // 🆕 مرفق اختياري (اتضاف عبر POST /api/upload/contact-attachment قبل ما
+  // الفورم نفسه يتبعت) — بنخزّن بس رابط Bunny الجاهز واسم الملف الأصلي،
+  // مش الملف نفسه، فحد الطول هنا كافي لأي رابط/اسم ملف طبيعي.
+  attachmentUrl: 500,
+  attachmentName: 150,
 };
 const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 🔒 بنتأكد إن attachmentUrl (لو موجود) رابط https فعلي، مش أي نص عشوائي —
+// بيتخزن في الداتابيز وبيتعرض كلينك جاهز في إيميل الإشعار للأدمن.
+function isValidHttpsUrl(value) {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function validateFormPayload(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -314,6 +329,9 @@ function validateFormPayload(body) {
   }
   if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
     return "Invalid email format";
+  }
+  if (body.attachmentUrl && !isValidHttpsUrl(body.attachmentUrl)) {
+    return "Invalid attachment URL";
   }
   return null; // valid
 }
@@ -653,6 +671,10 @@ async function notifyViaResend(data) {
     const phone = escapeHtml(data?.phone);
     const service = escapeHtml(data?.service);
     const message = escapeHtml(data?.message);
+    // 🆕 مرفق اختياري (لو الزائر رفع ملف مع رسالته) — بيتحط كلينك قابل
+    // للضغط بدل ما يتحط كنص عادي زي باقي الحقول.
+    const attachmentUrl = data?.attachmentUrl;
+    const attachmentName = escapeHtml(data?.attachmentName || "Attachment");
     const logoUrl = RESEND_LOGO_URL;
 
     const row = (label, value) => `
@@ -675,6 +697,19 @@ async function notifyViaResend(data) {
                       </div>
                       <div style="font-family:'DM Sans','Tajawal',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;">
                         ${value ? `<a href="mailto:${value}" style="color:#2563eb;font-weight:600;text-decoration:none;">${value}</a>` : "—"}
+                      </div>
+                    </td>
+                  </tr>`;
+
+    // 🆕 صف رابط المرفق — نفس شكل mailtoRow لكن بيفتح رابط Bunny بدل mailto:.
+    const linkRow = (label, href, linkText) => `
+                  <tr>
+                    <td style="padding:14px 0;border-bottom:1px solid #dbeafe;" dir="ltr" align="left">
+                      <div style="font-family:'DM Sans','Tajawal',Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#C9A227;margin-bottom:4px;">
+                        ${label}
+                      </div>
+                      <div style="font-family:'DM Sans','Tajawal',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;">
+                        <a href="${href}" style="color:#2563eb;font-weight:600;text-decoration:none;">${linkText}</a>
                       </div>
                     </td>
                   </tr>`;
@@ -743,6 +778,7 @@ async function notifyViaResend(data) {
                   ${row("Phone", phone)}
                   ${row("Requested Service", service)}
                   ${row("Message", message)}
+                  ${attachmentUrl ? linkRow("Attachment", attachmentUrl, `📎 ${attachmentName}`) : ""}
                 </table>
               </td>
             </tr>

@@ -479,8 +479,9 @@ function CountriesNavItem({ label, href, countries }) {
         <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
       </Link>
 
-      {/* هنا القائمة بقت بحجم محتواها بس (مش full-width زي الـ Services)،
-          صف واحد جمب بعض وبتتمركز تحت اللينك. */}
+      {/* مكان القائمة رجع زي ما كان الأول: absolute تحت اللينك ومتمركزة
+          في نص الشاشة (مش fixed/full-width زي الـ Services)، لكن نفس
+          عرض الكروت (w-32 h-32) فضل زي ما اتعدّل. */}
       <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
         <div className="flex items-center gap-8 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden p-8 animate-dropdown">
           {countries.map((c) => (
@@ -493,7 +494,7 @@ function CountriesNavItem({ label, href, countries }) {
                 <img
                   src={c.image}
                   alt={c.title}
-                  className="w-64 h-auto rounded-2xl ring-1 ring-black/5"
+                  className="w-32 h-32 rounded-2xl object-cover ring-1 ring-black/5"
                 />
               )}
               <span className="font-medium whitespace-nowrap">{c.title}</span>

@@ -80,6 +80,7 @@ function localizeCourse(c, language, ui) {
     thumbnail: c.thumbnail,
     categoryName,
     categorySlug: c.categorySlug || "",
+    courseLanguage: c.language || "",
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -142,6 +143,7 @@ export default function CoursesSection({
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [courseLanguage, setCourseLanguage] = useState("all");
   const [level, setLevel] = useState("all");
   const [price, setPrice] = useState("all");
 
@@ -155,6 +157,21 @@ export default function CoursesSection({
     const present = new Set(courses.map((c) => c.categoryName).filter(Boolean));
     return [{ value: "all", label: ui.allCategories }, ...[...present].map((name) => ({ value: name, label: name }))];
   }, [courses, ui]);
+
+  // 🆕 نفس فكرة صفحة /courses بالظبط: ساب-فلتر بيظهر بس جوه تصنيف اللغة،
+  // بيفلتر على course.language (ar/en/es). بنتحقق بمرونة (اسم التصنيف
+  // يحتوي على "language"/"لغ"/"idioma") بدل ما نفترض slug ثابت.
+  const LANGUAGE_CATEGORY_KEYWORDS = ["language", "لغ", "idioma"];
+  const isLanguageCategorySelected =
+    category !== "all" &&
+    LANGUAGE_CATEGORY_KEYWORDS.some((k) => String(category).toLowerCase().includes(k));
+
+  const courseLanguageOptions = [
+    { value: "all", label: ui.allCourseLanguages },
+    { value: "es", label: ui.courseLanguages?.es },
+    { value: "en", label: ui.courseLanguages?.en },
+    { value: "ar", label: ui.courseLanguages?.ar },
+  ];
 
   const levelOptions = [
     { value: "all", label: ui.allLevels },
@@ -175,18 +192,26 @@ export default function CoursesSection({
     return courses.filter((c) => {
       if (q && !c.searchBlob.includes(q)) return false;
       if (category !== "all" && c.categoryName !== category) return false;
+      if (isLanguageCategorySelected && courseLanguage !== "all" && c.courseLanguage !== courseLanguage) return false;
       if (level !== "all" && c.level !== level) return false;
       if (price === "free" && !c.isFree) return false;
       if (price === "paid" && c.isFree) return false;
       return true;
     });
-  }, [courses, search, category, level, price]);
+  }, [courses, search, category, courseLanguage, isLanguageCategorySelected, level, price]);
 
-  const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
+  const hasActiveFilters =
+    search || category !== "all" || (isLanguageCategorySelected && courseLanguage !== "all") || level !== "all" || price !== "all";
+
+  // لو المستخدم غيّر التصنيف الرئيسي لغير تصنيف اللغة، نصفّر الساب-فلتر.
+  useEffect(() => {
+    if (!isLanguageCategorySelected) setCourseLanguage("all");
+  }, [category]);
 
   function clearFilters() {
     setSearch("");
     setCategory("all");
+    setCourseLanguage("all");
     setLevel("all");
     setPrice("all");
   }
@@ -232,6 +257,9 @@ export default function CoursesSection({
 
             <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar">
               <FilterSelect value={category} onChange={setCategory} options={categoryOptions} />
+              {isLanguageCategorySelected && (
+                <FilterSelect value={courseLanguage} onChange={setCourseLanguage} options={courseLanguageOptions} />
+              )}
               <FilterSelect value={level} onChange={setLevel} options={levelOptions} />
               <FilterSelect value={price} onChange={setPrice} options={priceOptions} />
 

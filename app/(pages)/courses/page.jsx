@@ -56,6 +56,8 @@ const STRINGS = {
     filterLevel: "Level",
     filterPrice: "Price",
     allCategories: "All Categories",
+    allCourseLanguages: "All Languages",
+    courseLanguages: { es: "Spanish", en: "English", ar: "Arabic" },
     allLevels: "All Levels",
     allPrices: "Any Price",
     free: "Free",
@@ -85,6 +87,8 @@ const STRINGS = {
     filterLevel: "المستوى",
     filterPrice: "السعر",
     allCategories: "جميع التصنيفات",
+    allCourseLanguages: "جميع اللغات",
+    courseLanguages: { es: "إسباني", en: "إنجليزي", ar: "عربي" },
     allLevels: "جميع المستويات",
     allPrices: "أي سعر",
     free: "مجاني",
@@ -114,6 +118,8 @@ const STRINGS = {
     filterLevel: "Nivel",
     filterPrice: "Precio",
     allCategories: "Todas las categorías",
+    allCourseLanguages: "Todos los idiomas",
+    courseLanguages: { es: "Español", en: "Inglés", ar: "Árabe" },
     allLevels: "Todos los niveles",
     allPrices: "Cualquier precio",
     free: "Gratis",
@@ -148,6 +154,7 @@ function localizeCourse(c, language, t) {
     thumbnail: c.thumbnail,
     categoryName: categoryI18nEntry?.name || c.categoryName || "",
     categorySlug: c.categorySlug || "",
+    courseLanguage: c.language || "",
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -310,6 +317,7 @@ export default function CoursesPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [courseLanguage, setCourseLanguage] = useState("all");
   const [level, setLevel] = useState("all");
   const [price, setPrice] = useState("all");
   const [sort, setSort] = useState("popular");
@@ -322,9 +330,35 @@ export default function CoursesPage() {
 
   const categoryOptions = useMemo(() => {
     if (!localized) return [{ value: "all", label: t.allCategories }];
-    const present = new Set(localized.map((c) => c.categoryName).filter(Boolean));
-    return [{ value: "all", label: t.allCategories }, ...[...present].map((name) => ({ value: name, label: name }))];
+    const present = new Map();
+    localized.forEach((c) => {
+      if (c.categorySlug && !present.has(c.categorySlug)) present.set(c.categorySlug, c.categoryName || c.categorySlug);
+    });
+    return [{ value: "all", label: t.allCategories }, ...[...present.entries()].map(([slug, name]) => ({ value: slug, label: name }))];
   }, [localized, t]);
+
+  // 🆕 ساب-فلتر بيظهر بس لما التصنيف المختار يكون تصنيف "اللغة". بدل ما
+  // نعتمد على slug ثابت بالظبط "language" (اللي ممكن يختلف فعليًا حسب
+  // إزاي الأدمن سمّى/أنشأ التصنيف — لو مثلاً كتب الاسم بالعربي "لغات" من
+  // غير ما يحدد slug يدوي، الـ slug هيتولّد من النص العربي نفسه مش
+  // "language")، بنتحقق بمرونة: الـ slug أو اسم التصنيف المعروض (بأي لغة)
+  // يحتوي على كلمة لغة/language/idioma.
+  const LANGUAGE_CATEGORY_KEYWORDS = ["language", "لغ", "idioma"];
+  function isLanguageCategoryValue(slugOrName) {
+    const s = String(slugOrName || "").toLowerCase();
+    return LANGUAGE_CATEGORY_KEYWORDS.some((k) => s.includes(k));
+  }
+  const selectedCategoryOption = categoryOptions.find((o) => o.value === category);
+  const isLanguageCategorySelected =
+    category !== "all" &&
+    (isLanguageCategoryValue(category) || isLanguageCategoryValue(selectedCategoryOption?.label));
+
+  const courseLanguageOptions = [
+    { value: "all", label: t.allCourseLanguages },
+    { value: "es", label: t.courseLanguages.es },
+    { value: "en", label: t.courseLanguages.en },
+    { value: "ar", label: t.courseLanguages.ar },
+  ];
 
   const levelOptions = [
     { value: "all", label: t.allLevels },
@@ -353,7 +387,8 @@ export default function CoursesPage() {
 
     let list = localized.filter((c) => {
       if (q && !c.searchBlob.includes(q)) return false;
-      if (category !== "all" && c.categoryName !== category) return false;
+      if (category !== "all" && c.categorySlug !== category) return false;
+      if (isLanguageCategorySelected && courseLanguage !== "all" && c.courseLanguage !== courseLanguage) return false;
       if (level !== "all" && c.level !== level) return false;
       if (price === "free" && !c.isFree) return false;
       if (price === "paid" && c.isFree) return false;
@@ -377,15 +412,23 @@ export default function CoursesPage() {
     });
 
     return list;
-  }, [localized, search, category, level, price, sort]);
+  }, [localized, search, category, courseLanguage, level, price, sort]);
 
-  const hasActiveFilters = search || category !== "all" || level !== "all" || price !== "all";
+  const hasActiveFilters =
+    search || category !== "all" || (isLanguageCategorySelected && courseLanguage !== "all") || level !== "all" || price !== "all";
 
   // 🆕 أي تغيير في البحث/الفلاتر/الترتيب لازم يرجّع العدّاد لأول 3 صفوف تاني،
   // عشان المستخدم ميلاقيش نتايج قليلة مخفية وراء زرار "عرض المزيد" من غير داعي.
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_COUNT);
-  }, [search, category, level, price, sort]);
+  }, [search, category, courseLanguage, level, price, sort]);
+
+  // لو المستخدم غيّر التصنيف الرئيسي لحاجة تانية غير "Language"، مفيش داعي
+  // نفضّل قيمة ساب-فلتر اللغة (هيبقى مخفي أصلًا، لكن نضمن إنه يرجع "all"
+  // عشان لو رجع لـ Language تاني ميلاقيش فلتر قديم شغال من غير ما يشوفه).
+  useEffect(() => {
+    if (!isLanguageCategorySelected) setCourseLanguage("all");
+  }, [category]);
 
   const visibleCourses = filtered.slice(0, visibleCount);
   const canLoadMore = visibleCount < filtered.length;
@@ -397,6 +440,7 @@ export default function CoursesPage() {
   function clearFilters() {
     setSearch("");
     setCategory("all");
+    setCourseLanguage("all");
     setLevel("all");
     setPrice("all");
   }
@@ -420,6 +464,9 @@ export default function CoursesPage() {
           <div className="sticky top-15 sm:top-17 z-40 bg-white border-b border-gray-100 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
               <FilterSelect value={category} onChange={setCategory} options={categoryOptions} />
+              {isLanguageCategorySelected && (
+                <FilterSelect value={courseLanguage} onChange={setCourseLanguage} options={courseLanguageOptions} />
+              )}
               <FilterSelect value={level} onChange={setLevel} options={levelOptions} />
               <FilterSelect value={price} onChange={setPrice} options={priceOptions} />
 

@@ -19,7 +19,12 @@ import {
   Eye, EyeOff, GripVertical,
 } from 'lucide-react';
 
-const EMPTY_FORM = { name: '', slug: '', description: '', icon: '', order: 0 };
+const EMPTY_FORM = {
+  name: '', slug: '', description: '', icon: '', order: 0,
+  i18n: { ar: { name: '' }, en: { name: '' }, es: { name: '' } },
+};
+
+const LANG_LABELS = { ar: 'عربي', en: 'إنجليزي', es: 'إسباني' };
 
 export default function CategoriesAdmin() {
   const [categories, setCategories] = useState([]);
@@ -67,6 +72,11 @@ export default function CategoriesAdmin() {
       description: cat.description || '',
       icon: cat.icon || '',
       order: cat.order ?? 0,
+      i18n: {
+        ar: { name: cat.i18n?.ar?.name || '' },
+        en: { name: cat.i18n?.en?.name || '' },
+        es: { name: cat.i18n?.es?.name || '' },
+      },
     });
     setActionError('');
   }
@@ -94,6 +104,7 @@ export default function CategoriesAdmin() {
           description: createForm.description.trim(),
           icon: createForm.icon.trim() || null,
           order: Number(createForm.order) || 0,
+          i18n: createForm.i18n,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -124,6 +135,7 @@ export default function CategoriesAdmin() {
           description: editForm.description.trim(),
           icon: editForm.icon.trim() || null,
           order: Number(editForm.order) || 0,
+          i18n: editForm.i18n,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -251,6 +263,27 @@ export default function CategoriesAdmin() {
             placeholder="ترتيب العرض (0 = الأول)"
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
           />
+
+          <div className="sm:col-span-2 grid sm:grid-cols-3 gap-3 pt-1 border-t border-blue-100 mt-1">
+            <p className="sm:col-span-3 text-xs font-semibold text-gray-500 -mb-1">
+              ترجمة اسم التصنيف (اختياري — لو فاضي بيترجع للاسم الأساسي فوق)
+            </p>
+            {['ar', 'en', 'es'].map((lang) => (
+              <input
+                key={lang}
+                value={createForm.i18n[lang].name}
+                onChange={(e) =>
+                  setCreateForm((f) => ({
+                    ...f,
+                    i18n: { ...f.i18n, [lang]: { name: e.target.value } },
+                  }))
+                }
+                placeholder={`الاسم بال${LANG_LABELS[lang]}`}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            ))}
+          </div>
+
           <div className="sm:col-span-2 flex items-center gap-2">
             <button
               type="submit"
@@ -303,6 +336,22 @@ export default function CategoriesAdmin() {
                               onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300"
                             />
+                            <div className="flex flex-col gap-1 mt-1.5">
+                              {['ar', 'en', 'es'].map((lang) => (
+                                <input
+                                  key={lang}
+                                  value={editForm.i18n[lang].name}
+                                  onChange={(e) =>
+                                    setEditForm((f) => ({
+                                      ...f,
+                                      i18n: { ...f.i18n, [lang]: { name: e.target.value } },
+                                    }))
+                                  }
+                                  placeholder={`ترجمة (${LANG_LABELS[lang]})`}
+                                  className="w-full border border-gray-100 rounded-lg px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-200 text-gray-500"
+                                />
+                              ))}
+                            </div>
                           </td>
                           <td className="py-2 px-2">
                             <input
@@ -349,7 +398,16 @@ export default function CategoriesAdmin() {
                         </>
                       ) : (
                         <>
-                          <td className="py-3 px-2 font-semibold text-gray-800">{cat.name}</td>
+                          <td className="py-3 px-2 font-semibold text-gray-800">
+                            {cat.name}
+                            {(cat.i18n?.ar?.name || cat.i18n?.en?.name || cat.i18n?.es?.name) && (
+                              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] font-normal text-gray-400">
+                                {cat.i18n?.ar?.name && <span>AR: {cat.i18n.ar.name}</span>}
+                                {cat.i18n?.en?.name && <span>EN: {cat.i18n.en.name}</span>}
+                                {cat.i18n?.es?.name && <span>ES: {cat.i18n.es.name}</span>}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-3 px-2 text-gray-400 font-mono text-xs">{cat.slug}</td>
                           <td className="py-3 px-2 text-gray-500 max-w-[220px] truncate">{cat.description || '—'}</td>
                           <td className="py-3 px-2 text-gray-500">{cat.order ?? 0}</td>

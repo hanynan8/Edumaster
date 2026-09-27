@@ -32,12 +32,29 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
+const SUPPORTED_LANGS = ["ar", "en", "es"];
+
+function sanitizeCategoryI18n(input) {
+  const clean = {};
+  if (!input || typeof input !== "object") return clean;
+  for (const lang of SUPPORTED_LANGS) {
+    const raw = input[lang];
+    if (!raw || typeof raw !== "object") continue;
+    clean[lang] = {
+      name: String(raw.name || "").trim(),
+      description: String(raw.description || ""),
+    };
+  }
+  return clean;
+}
+
 function serializeCategory(c) {
   return {
     id: c._id.toString(),
     name: c.name,
     slug: c.slug,
     description: c.description,
+    i18n: c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {},
     icon: c.icon,
     order: c.order,
     isActive: c.isActive,
@@ -85,6 +102,9 @@ export async function PATCH(request, { params }) {
     for (const field of EDITABLE_FIELDS) {
       if (body[field] === undefined) continue;
       updates[field] = body[field];
+    }
+    if (body.i18n !== undefined) {
+      updates.i18n = sanitizeCategoryI18n(body.i18n);
     }
 
     if (updates.name !== undefined) {

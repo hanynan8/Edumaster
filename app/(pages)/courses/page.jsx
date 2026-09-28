@@ -142,6 +142,22 @@ const STRINGS = {
   },
 };
 
+// 🐛 FIX (السيرش): تطبيع النص قبل المقارنة — lowercase + شيل التشكيل والتطويل
+// + توحيد الألف/الياء/التاء المربوطة + شيل accents اللاتينية (á → a).
+function normalizeSearchText(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f\u064b-\u065f\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ─── تطبيع كورس حقيقي (i18n-aware) لشكل موحّد يستخدمه العرض ───
 function localizeCourse(c, language, t) {
   const i18nEntry = c.i18n?.[language] || c.i18n?.en || null;
@@ -171,10 +187,22 @@ function localizeCourse(c, language, t) {
     price: getPriceForCurrency(c.prices, language).amount,
     currency: getPriceForCurrency(c.prices, language).currency,
     createdAt: c.createdAt ? new Date(c.createdAt).getTime() : 0,
-    searchBlob: [c.title, c.shortDescription, c.teacherName, categoryI18nEntry?.name || c.categoryName, ...(c.tags || [])]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase(),
+    // 🐛 FIX: البلوب بقى بيشمل النص المترجم الظاهر فعلًا للمستخدم + كل اللغات +
+    // الوصف (من غير التصنيف — السيرش مش بيدوّر بالكاتيجوري)، ومتطبّع (عربي/لاتيني) عشان السيرش يلاقي النتايج.
+    searchBlob: normalizeSearchText(
+      [
+        i18nEntry?.title,
+        i18nEntry?.shortDescription,
+        c.title,
+        c.shortDescription,
+        c.description,
+        c.teacherName,
+        ...Object.values(c.i18n || {}).flatMap((e) => [e?.title, e?.shortDescription]),
+        ...(Array.isArray(c.tags) ? c.tags : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+    ),
   };
 }
 
@@ -191,8 +219,27 @@ function useAllCourses() {
 
   useEffect(() => {
     let cancelled = false;
+    // 🐛 FIX: الـ API بيرجّع 50 كورس بحد أقصى في الصفحة، فكان السيرش/الفلاتر
+    // بتشتغل على أول 50 بس. دلوقتي بنجيب كل الصفحات.
+    async function fetchAllCourses() {
+      const all = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const r = await fetch(`/api/courses?limit=50&page=${page}`);
+        if (!r.ok) {
+          if (page === 1) return null;
+          break;
+        }
+        const data = await r.json();
+        if (Array.isArray(data?.courses)) all.push(...data.courses);
+        totalPages = data?.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages && page <= 40);
+      return { courses: all };
+    }
     Promise.all([
-      fetch("/api/courses?limit=50").then((r) => (r.ok ? r.json() : null)),
+      fetchAllCourses(),
       fetch("/api/categories").then((r) => (r.ok ? r.json() : [])),
     ])
       .then(([coursesRes, categoriesRes]) => {
@@ -384,10 +431,10 @@ export default function CoursesPage() {
 
   const filtered = useMemo(() => {
     if (!localized) return [];
-    const q = search.trim().toLowerCase();
+    const tokens = normalizeSearchText(search).split(" ").filter(Boolean);
 
     let list = localized.filter((c) => {
-      if (q && !c.searchBlob.includes(q)) return false;
+      if (tokens.length && !tokens.every((tk) => c.searchBlob.includes(tk))) return false;
       if (category !== "all" && c.categorySlug !== category) return false;
       if (isLanguageCategorySelected && courseLanguage !== "all" && c.courseLanguage !== courseLanguage) return false;
       if (level !== "all" && c.level !== level) return false;

@@ -34,7 +34,7 @@ import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
-  Clock, Users, Award, BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
+  BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
 } from "lucide-react";
 
 const LESSON_ICONS = { video: PlayCircle, pdf: FileType2, text: FileText, quiz: HelpCircle };
@@ -674,13 +674,6 @@ function RealCourseDetail({ id }) {
               {loc.shortDescription && (
                 <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-5">{loc.shortDescription}</p>
               )}
-              <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-300">
-                <span className="flex items-center gap-1.5"><BookOpen size={14} /> {t.lessonsCount(course.totalLessonsCount || 0)}</span>
-                <span className="flex items-center gap-1.5"><Clock size={14} /> {formatDuration(course.totalDurationSeconds)}</span>
-                <span className="flex items-center gap-1.5"><Users size={14} /> {t.studentsCount(course.studentsCount || 0)}</span>
-                {course.level && <span className="flex items-center gap-1.5"><Award size={14} /> {t.levels[course.level] || course.level}</span>}
-                {course.teacherName && <span>{t.by} <b className="text-white">{course.teacherName}</b></span>}
-              </div>
             </div>
 
 

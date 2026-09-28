@@ -262,7 +262,7 @@ function Field({ label, children }) {
 
 const inputCls = "w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003A91]/20 focus:border-[#003A91]";
 
-export default function ConsultationForm({ onSuccess, initialService = "" }) {
+export default function ConsultationForm({ onSuccess, initialService = "", initialCountry = "" }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
   const f = t.fields;
@@ -276,7 +276,7 @@ export default function ConsultationForm({ onSuccess, initialService = "" }) {
   const displayCurrency = getCurrencyForLanguage(language);
   const displayFee = convertPrice(CONSULTATION_FEE, CONSULTATION_CURRENCY, displayCurrency);
 
-  const [form, setForm] = useState(() => ({ ...initialFormState, service: initialService || "" }));
+  const [form, setForm] = useState(() => ({ ...initialFormState, service: initialService || "", desiredCountry: initialCountry || "" }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);

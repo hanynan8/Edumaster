@@ -11,7 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { X } from "lucide-react";
 import ConsultationForm from "./ConsultationForm";
 
-export default function ConsultationModal({ open, onClose, initialService = "" }) {
+export default function ConsultationModal({ open, onClose, initialService = "", initialCountry = "" }) {
   const { isRTL } = useLanguage();
 
   // ESC يقفل النافذة + منع سكرول الصفحة اللي وراها وهي مفتوحة
@@ -50,7 +50,7 @@ export default function ConsultationModal({ open, onClose, initialService = "" }
           <X size={18} />
         </button>
         <div className="p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
-          <ConsultationForm initialService={initialService} onSuccess={() => {}} />
+          <ConsultationForm initialService={initialService} initialCountry={initialCountry} onSuccess={() => {}} />
         </div>
       </div>
     </div>

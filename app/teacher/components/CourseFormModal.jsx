@@ -23,7 +23,7 @@
 // بيختاروا course.i18n[language] مع fallback لـ en وبعدين للحقول الأساسية).
 
 import { useEffect, useRef, useState } from "react";
-import { X, Loader, Check, RotateCcw } from "lucide-react";
+import { X, Loader, Check, RotateCcw, FileEdit, Send } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SUPPORTED_CURRENCIES, convertPrice } from "@/app/lib/currency";
@@ -123,6 +123,10 @@ const T = {
     certDesc: "Certificate description (optional)",
     tags: "Tags (comma-separated)",
     status: "Status",
+    statusDraftBtn: "Save as draft",
+    statusPublishBtn: "Publish",
+    statusPublishHint: "Needs admin approval before it appears to students.",
+    statusPendingHint: "Already sent to the admin — waiting for review.",
     classMarkerQuizId: "ClassMarker Test ID (optional)",
     classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
@@ -172,6 +176,10 @@ const T = {
     certDesc: "وصف الشهادة (اختياري)",
     tags: "Tags (مفصولة بفاصلة)",
     status: "الحالة",
+    statusDraftBtn: "حفظ كمسودة",
+    statusPublishBtn: "نشر",
+    statusPublishHint: "يحتاج موافقة الأدمن الأول قبل ما يظهر للطلاب.",
+    statusPendingHint: "الكورس ده اتبعت بالفعل للأدمن وبينتظر المراجعة.",
     classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
     classMarkerQuizIdHint: "الصق الـ Quiz ID من رابط اختبار ClassMarker بتاعك (الجزء اللي بعد ?quiz= في رابط زي https://www.classmarker.com/online-test/start?quiz=...). لو اتحط، هيظهر قسم \"اختبر مستواك\" في صفحة الكورس. سيبه فاضي لو مش عايز اختبار.",
     saveChanges: "حفظ التعديلات",
@@ -221,6 +229,10 @@ const T = {
     certDesc: "Descripción del certificado (opcional)",
     tags: "Etiquetas (separadas por coma)",
     status: "Estado",
+    statusDraftBtn: "Guardar como borrador",
+    statusPublishBtn: "Publicar",
+    statusPublishHint: "Requiere aprobación del admin antes de mostrarse a los estudiantes.",
+    statusPendingHint: "Ya se envió al admin — esperando revisión.",
     classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
     classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
@@ -253,12 +265,6 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     { value: "beginner", label: t.levels.beginner },
     { value: "intermediate", label: t.levels.intermediate },
     { value: "advanced", label: t.levels.advanced },
-  ];
-  const STATUSES = [
-    { value: "draft", label: t.statuses.draft },
-    { value: "published", label: t.statuses.published },
-    { value: "pending", label: t.statuses.pending },
-    { value: "archived", label: t.statuses.archived },
   ];
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
@@ -770,19 +776,52 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             </div>
           )}
 
+          {/* 🆕 اتشال الـ <select> اللي كان بيدي المدرس 4 خيارات (draft/
+              published/pending/archived). "pending" حالة بيحطها النظام
+              تلقائيًا لما المدرس يختار "نشر" (مش حاجة المدرس يختارها هو
+              بنفسه — شوف app/api/courses/[id]/route.js PUT)، و"archived"
+              إجراء إداري مش متاح من الفورم ده أصلًا. المدرس دلوقتي قدامه
+              خياره الحقيقي بس: مسودة أو نشر — بزرارين واضحين بدل قايمة
+              منسدلة، وزرار "نشر" بارز أكتر (أكبر، ملوّن، وبعلامة صح لما
+              يبقى مختار) لأنه الهدف الأساسي من الفورم، والنشر الفعلي
+              للطلاب بيفضل يحتاج موافقة الأدمن زي ما هو موضّح تحت الزرار. */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>
-            <select
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
-              value={form.status}
-              onChange={(e) => update("status", e.target.value)}
-            >
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => update("status", "draft")}
+                aria-pressed={form.status !== "published" && form.status !== "pending"}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-3 text-sm font-semibold transition ${
+                  form.status !== "published" && form.status !== "pending"
+                    ? "border-gray-500 bg-gray-100 text-gray-800"
+                    : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
+                }`}
+              >
+                <FileEdit size={16} />
+                {t.statusDraftBtn}
+              </button>
+              <button
+                type="button"
+                onClick={() => update("status", "published")}
+                aria-pressed={form.status === "published" || form.status === "pending"}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 px-3 text-base font-bold transition ${
+                  form.status === "published" || form.status === "pending"
+                    ? "border-[#003A91] bg-gradient-to-r from-[#003A91] to-[#5279B4] text-white shadow-md scale-[1.02]"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-[#5279B4]"
+                }`}
+              >
+                {(form.status === "published" || form.status === "pending") ? (
+                  <Check size={18} />
+                ) : (
+                  <Send size={16} />
+                )}
+                {t.statusPublishBtn}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              {form.status === "pending" ? t.statusPendingHint : t.statusPublishHint}
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">

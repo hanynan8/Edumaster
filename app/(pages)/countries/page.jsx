@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import ConsultationForm from "@/app/components/consultation/ConsultationForm";
 
 function useCountriesData() {
   const [data, setData] = useState(null);
@@ -221,7 +222,16 @@ function HeroSection({ data, t }) {
     </section>
   );
 }
+const APPLY_BTN_LABELS = {
+  en: { open: "Request a Consultation", close: "Close Form" },
+  ar: { open: "احجز استشارتك", close: "إغلاق الفورم" },
+  es: { open: "Solicitar una consulta", close: "Cerrar formulario" },
+};
+
 function CountryDetail({ country, t, activeSection, setActiveSection }) {
+  const { language } = useLanguage();
+  const [formOpen, setFormOpen] = useState(false);
+  const btnLabels = APPLY_BTN_LABELS[language] ?? APPLY_BTN_LABELS.en;
   const sectionKeys = getSectionKeys(country);
 
   return (
@@ -242,9 +252,28 @@ function CountryDetail({ country, t, activeSection, setActiveSection }) {
             <h2 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2">{country.name}</h2>
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3" style={{ color: country.color }}>{country.tagline}</p>
             <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{country.desc}</p>
+            <button
+              type="button"
+              onClick={() => setFormOpen((v) => !v)}
+              aria-expanded={formOpen}
+              className="mt-4 inline-flex items-center gap-2 text-white text-xs sm:text-sm font-bold px-5 sm:px-6 py-2.5 rounded-full shadow-sm hover:opacity-90 transition-opacity"
+              style={{ background: country.color }}
+            >
+              {formOpen ? btnLabels.close : btnLabels.open}
+            </button>
           </div>
         </div>
       </section>
+
+      {/* الفورم بتفتح تحت الهيرو لما المستخدم يدوس الزرار اللي جوه الكارت
+          (الدولة بتتحدد تلقائيًا جواها). */}
+      {formOpen && (
+        <div className="bg-white px-4 sm:px-8 md:px-12 py-6 sm:py-8">
+          <div className="max-w-3xl bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8">
+            <ConsultationForm initialCountry={country.id} />
+          </div>
+        </div>
+      )}
 
       <SectionNav sectionKeys={sectionKeys} t={t} activeSection={activeSection} setActiveSection={setActiveSection} country={country} />
 

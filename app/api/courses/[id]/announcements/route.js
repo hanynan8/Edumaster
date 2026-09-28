@@ -120,7 +120,7 @@ export async function POST(request, { params }) {
     if (enrolledUserIds.length > 0) {
       await createNotificationsForUsers(enrolledUserIds, {
         type: "announcement_new",
-        title: `إعلان جديد على كورس ${course.title}`,
+        title: `إعلان جديد في دورة ${course.title}`,
         message: title,
         link: `/courses/${id}`,
         course: id,

@@ -3,7 +3,7 @@
 // app/teacher/components/QuestionFormModal.jsx
 //
 // Phase 4 — اليوم 33-34: إضافة/تعديل سؤال (Multiple Choice / True-False)
-// جوه كويز معيّن. بيستخدم POST /api/quizzes/[id]/questions للإنشاء و
+// جوه اختبار معيّن. بيستخدم POST /api/quizzes/[id]/questions للإنشاء و
 // PUT /api/quizzes/[id]/questions/[questionId] للتعديل.
 
 import { useState } from "react";
@@ -19,10 +19,10 @@ const STRINGS = {
     trueLabel: "صح",
     falseLabel: "غلط",
     textRequired: "نص السؤال مطلوب",
-    optionsNeedText: "كل الخيارات لازم يكون ليها نص",
-    needCorrectAnswer: "لازم تحدد إجابة صحيحة واحدة على الأقل",
-    trueFalseTwoOptions: "صح/غلط لازم يكون بالظبط خيارين",
-    genericError: "حصل خطأ، حاول تاني",
+    optionsNeedText: "يجب أن يكون لكل الخيارات نص",
+    needCorrectAnswer: "يجب تحديد إجابة صحيحة واحدة على الأقل",
+    trueFalseTwoOptions: "أسئلة صح/غلط يجب أن تحتوي على خيارين بالضبط",
+    genericError: "حدث خطأ، حاول مرة أخرى",
     editQuestion: "تعديل السؤال",
     newQuestion: "سؤال جديد",
     questionType: "نوع السؤال",

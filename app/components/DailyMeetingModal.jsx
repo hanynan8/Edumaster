@@ -45,7 +45,7 @@ const FORBIDDEN_REASONS = {
   enrollment_cancelled: {
     message: {
       en: "Your enrollment in this course was cancelled, so you can't join the meeting.",
-      ar: "تسجيلك في الكورس ده اتلغى، فمش تقدر تدخل المحاضرة.",
+      ar: "تم إلغاء تسجيلك في هذه الدورة، لذا لا يمكنك دخول المحاضرة.",
       es: "Tu inscripción en este curso fue cancelada, por lo que no puedes unirte a la clase.",
     },
     actionLabel: { en: "Contact support", ar: "تواصل مع الدعم", es: "Contactar soporte" },
@@ -54,7 +54,7 @@ const FORBIDDEN_REASONS = {
   membership_expired: {
     message: {
       en: "Your subscription has expired — renew it to join meetings again.",
-      ar: "اشتراكك انتهى — جدّد اشتراكك عشان ترجع تقدر تدخل المحاضرات.",
+      ar: "انتهى اشتراكك — جدّد اشتراكك لتتمكن من دخول المحاضرات مجددًا.",
       es: "Tu suscripción venció — renuévala para volver a unirte a las clases.",
     },
     actionLabel: { en: "Renew subscription", ar: "تجديد الاشتراك", es: "Renovar suscripción" },
@@ -63,7 +63,7 @@ const FORBIDDEN_REASONS = {
   membership_plan_excludes_course: {
     message: {
       en: "Your current plan doesn't cover this course — upgrade to a broader plan.",
-      ar: "خطة اشتراكك الحالية متغطيش الكورس ده — ترقّى لخطة أشمل.",
+      ar: "خطة اشتراكك الحالية لا تشمل هذه الدورة — قم بالترقية إلى خطة أشمل.",
       es: "Tu plan actual no incluye este curso — mejora a un plan más amplio.",
     },
     actionLabel: { en: "Subscription plans", ar: "خطط الاشتراك", es: "Planes de suscripción" },
@@ -72,7 +72,7 @@ const FORBIDDEN_REASONS = {
   not_enrolled: {
     message: {
       en: "You need to be enrolled in this course first to join the meeting.",
-      ar: "لازم تكون مسجّل في الكورس ده الأول عشان تقدر تدخل المحاضرة.",
+      ar: "يجب أن تكون مسجّلًا في هذه الدورة أولًا لتتمكن من دخول المحاضرة.",
       es: "Debes estar inscrito en este curso primero para unirte a la clase.",
     },
     actionLabel: null,
@@ -109,29 +109,29 @@ const T = {
   },
   ar: {
     meetingUnavailable: "الاجتماع غير متاح",
-    timeoutError: "استغرق التحقق وقت طويل جدًا — تحقق من اتصال الإنترنت وحاول تاني",
-    accessCheckFailed: "تعذّر التحقق من صلاحية الدخول، حاول تاني",
-    joinError: "حصل خطأ أثناء الانضمام للاجتماع",
+    timeoutError: "استغرق التحقق وقتًا طويلًا جدًا — تحقق من اتصال الإنترنت وحاول مرة أخرى",
+    accessCheckFailed: "تعذّر التحقق من صلاحية الدخول، حاول مرة أخرى",
+    joinError: "حدث خطأ أثناء الانضمام إلى الاجتماع",
     loadError: "تعذّر تحميل الاجتماع",
-    confirmLeave: "متأكد إنك عايز تسيب الاجتماع؟",
+    confirmLeave: "هل أنت متأكد من مغادرة الاجتماع؟",
     defaultTitle: "الاجتماع المباشر",
-    reconnecting: "بيحاول يعيد الاتصال...",
+    reconnecting: "جارٍ محاولة إعادة الاتصال...",
     minimize: "تصغير",
     fullscreen: "ملء الشاشة",
     close: "إغلاق",
-    checkingDevices: "جاري التحقق من الكاميرا والمايك...",
-    cameraWorking: "الكاميرا شغالة",
-    micWorking: "المايك شغال",
-    joinDefaultsInfo: "هتدخل الاجتماع والكاميرا والمايك مقفولين افتراضيًا، وتقدر تشغّلهم من جوه الاجتماع وقت ما تحب.",
-    enterMeeting: "الدخول للاجتماع",
-    noDeviceMsg: "مش لاقيين كاميرا أو مايك على الجهاز ده. تقدر تدخل بالصوت/الصورة مقفولين، أو تجرّب من جهاز فيه كاميرا/مايك.",
-    permissionDeniedMsg: "المتصفح مش دّيك إذن الكاميرا/المايك — افتح إعدادات الموقع في المتصفح وسمح بالوصول، أو كمّل من غيرهم.",
+    checkingDevices: "جارٍ التحقق من الكاميرا والميكروفون...",
+    cameraWorking: "الكاميرا تعمل",
+    micWorking: "الميكروفون يعمل",
+    joinDefaultsInfo: "ستدخل الاجتماع والكاميرا والميكروفون مغلقين افتراضيًا، ويمكنك تشغيلهما من داخل الاجتماع في أي وقت.",
+    enterMeeting: "الدخول إلى الاجتماع",
+    noDeviceMsg: "لم يتم العثور على كاميرا أو ميكروفون على هذا الجهاز. يمكنك الدخول بالصوت والصورة مغلقين، أو المحاولة من جهاز يحتوي على كاميرا وميكروفون.",
+    permissionDeniedMsg: "لم يمنح المتصفح إذن الكاميرا/الميكروفون — افتح إعدادات الموقع في المتصفح وامنح الإذن، أو تابع بدونهما.",
     retry: "إعادة المحاولة",
-    enterWithoutDevices: "الدخول من غيرهم",
-    unsupportedMsg: "المتصفح ده مش بيدعم معاينة الكاميرا/المايك قبل الدخول — هتقدر تتحكم فيهم من داخل الاجتماع نفسه.",
-    verifyingAccess: "جاري التحقق من الصلاحية...",
-    joiningMeeting: "جاري الانضمام للاجتماع...",
-    waitingTeacher: "استنى المدرس يبدأ المحاضرة...",
+    enterWithoutDevices: "الدخول بدونهما",
+    unsupportedMsg: "هذا المتصفح لا يدعم معاينة الكاميرا/الميكروفون قبل الدخول — ستتمكن من التحكم بهما من داخل الاجتماع نفسه.",
+    verifyingAccess: "جارٍ التحقق من الصلاحية...",
+    joiningMeeting: "جارٍ الانضمام إلى الاجتماع...",
+    waitingTeacher: "بانتظار بدء المدرّس للمحاضرة...",
   },
   es: {
     meetingUnavailable: "Clase no disponible",
@@ -187,7 +187,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   // dependency array بتاعة الـ effect ده، فـ React مكنش بيعيد تشغيله لما
   // proceedPastDeviceCheck() تنادي setStatus("loading") — يعني connect()
   // مكنتش بتتنادى خالص والحالة كانت بتفضل واقفة على "loading" للأبد (شاشة
-  // "جاري التحقق من الصلاحية..." معلّقة). الحل: state مستقلة بتتغيّر مرة
+  // "جارٍ التحقق من الصلاحية..." معلّقة). الحل: state مستقلة بتتغيّر مرة
   // واحدة بعد الـ precheck ومضافة في dependency array فعليًا، فالـ effect
   // بيتشغّل تلقائيًا لحظة ما تتغيّر.
   const [readyToConnect, setReadyToConnect] = useState(false);
@@ -284,7 +284,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
       // 🆕 PERFORMANCE + RELIABILITY: AbortController بحد أقصى 15 ثانية —
       // من غيره، لو السيرفر بطيء جدًا أو في مشكلة شبكة جزئية (مش قطع كامل
       // يرجّع خطأ فورًا)، الـ fetch كان ممكن يفضل معلّق بلا نهاية وتفضل
-      // الشاشة واقفة على "جاري التحقق من الصلاحية..." — بالظبط نفس أعراض
+      // الشاشة واقفة على "جارٍ التحقق من الصلاحية..." — بالظبط نفس أعراض
       // باج dependency array اللي اتصلح قبل كده، بس بسبب مختلف (شبكة مش React).
       let tokenData;
       const controller = new AbortController();

@@ -78,10 +78,10 @@ export async function POST(request, { params }) {
       createNotification({
         user: teacherId,
         type: "course_rejected",
-        title: "تم رفض كورسك",
+        title: "تم رفض دورتك",
         message: reason
-          ? `الأدمن رفض كورس "${courseTitle}" وتم حذفه. السبب: ${reason}`
-          : `الأدمن رفض كورس "${courseTitle}" وتم حذفه.`,
+          ? `رفضت الإدارة دورة "${courseTitle}" وتم حذفها. السبب: ${reason}`
+          : `رفضت الإدارة دورة "${courseTitle}" وتم حذفها.`,
         link: "/teacher",
       }).catch((err) => console.error("[/api/admin/courses/[id]/reject] notify error:", err));
     }

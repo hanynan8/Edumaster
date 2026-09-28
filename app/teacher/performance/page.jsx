@@ -2,10 +2,10 @@
 
 // app/teacher/performance/page.jsx
 //
-// Phase 7 — اليوم 55-56: "Teacher Dashboard: أداء كل كورس (عدد الطلاب،
-// Completion Rate، متوسط الدرجات)". نظرة مُجمّعة عبر كل كورسات المدرس مع
+// Phase 7 — اليوم 55-56: "Teacher Dashboard: أداء كل دورة (عدد الطلاب،
+// Completion Rate، متوسط الدرجات)". نظرة مُجمّعة عبر كل دورات المدرس مع
 // بعض (بعكس /teacher/courses/[id]/performance اللي بتدّي تفصيل طالب-طالب
-// جوه كورس واحد بس — Phase 4 اليوم 41). البيانات من
+// جوه دورة واحد بس — Phase 4 اليوم 41). البيانات من
 // GET /api/teacher/performance.
 //
 // اليوم 58: زرار "Export to Excel" بينزّل نفس الجدول ده كملف xlsx — نفس
@@ -21,8 +21,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
-  // 🆕 pending: الكورس بعتوه المدرس للمراجعة وبينتظر موافقة/رفض الأدمن —
-  // كان الكورس ده هيظهر من غير أي لون (className undefined) قبل الإضافة دي
+  // 🆕 pending: الدورة بعتوه المدرس للمراجعة وبينتظر موافقة/رفض الإدارة —
+  // كان هذه الدورة هيظهر من غير أي لون (className undefined) قبل الإضافة دي
   // لأن status الجديدة دي مكنتش موجودة في الماب أصلاً وقت ما كان فيه draft/published/archived بس.
   pending: "bg-[#D7E0EE] text-[#002E74]",
   published: "bg-green-100 text-green-700",
@@ -31,19 +31,19 @@ const STATUS_STYLES = {
 
 const STRINGS = {
   ar: {
-    myCourses: "كورساتي",
+    myCourses: "دوراتي",
     performance: "الأداء والإحصائيات",
     loadError: "تعذّر تحميل بيانات الأداء",
     exportToExcel: "تصدير إلى Excel",
-    coursePerformance: "أداء الكورسات",
-    subtitle: "الطلاب، نسبة الإتمام، ومتوسط الدرجات في كل كورساتك",
-    noCourses: "لسه معندكش أي كورسات",
-    completionRateByCourse: "نسبة الإتمام لكل كورس",
-    course: "الكورس",
+    coursePerformance: "أداء الدورات",
+    subtitle: "الطلاب ونسبة الإتمام ومتوسط الدرجات في جميع دوراتك",
+    noCourses: "لا توجد لديك أي دورات بعد",
+    completionRateByCourse: "نسبة الإتمام لكل دورة",
+    course: "الدورة",
     status: "الحالة",
     students: "الطلاب",
     completionRate: "نسبة الإتمام",
-    avgQuiz: "متوسط الكويزات",
+    avgQuiz: "متوسط الاختبارات",
     avgAssignment: "متوسط الواجبات",
     overallAvg: "المتوسط العام",
     viewDetails: "عرض التفاصيل",
@@ -70,7 +70,7 @@ const STRINGS = {
   },
 };
 
-/* ─── شريط تنقّل: كورساتي / الأداء — نفس تنسيق StudentQuickNav بالظبط ─── */
+/* ─── شريط تنقّل: دوراتي / الأداء — نفس تنسيق StudentQuickNav بالظبط ─── */
 function TeacherQuickNav({ t, isRTL }) {
   const items = [
     { href: "/teacher", label: t.myCourses, icon: BookOpen },
@@ -242,7 +242,7 @@ export default function TeacherPerformancePage() {
 
         {courses && courses.length > 0 && (
           <>
-            {/* مقارنة بصرية سريعة بين الكورسات — Completion Rate */}
+            {/* مقارنة بصرية سريعة بين الدورات — Completion Rate */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-5 flex items-center gap-2">
                 <TrendingUp size={16} className="text-[#003A91]" /> {t.completionRateByCourse}

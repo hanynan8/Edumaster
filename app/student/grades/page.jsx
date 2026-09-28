@@ -2,12 +2,12 @@
 
 // app/student/grades/page.jsx
 //
-// Phase 4 — اليوم 41: "درجاتي ونتائجي" — كل نتائج الكويزات ودرجات الواجبات
-// بتاعة الطالب الحالي، مجمّعة حسب الكورس. البيانات كلها من
+// Phase 4 — اليوم 41: "درجاتي ونتائجي" — كل نتائج الاختبارات ودرجات الواجبات
+// بتاعة الطالب الحالي، مجمّعة حسب الدورة. البيانات كلها من
 // GET /api/student/grades (شوف الراوت للتفاصيل).
 //
-// Phase 7 — اليوم 58: زرار "Export to Excel" بينزّل نفس البيانات (كويزات +
-// واجبات، لكل كورس) كملف xlsx — بنفس نمط overviewPanel.jsx (أدمن) و
+// Phase 7 — اليوم 58: زرار "Export to Excel" بينزّل نفس البيانات (اختبارات +
+// واجبات، لكل دورة) كملف xlsx — بنفس نمط overviewPanel.jsx (أدمن) و
 // teacher/performance/page.jsx (مدرس)، عشان الثلاث لوحات (أدمن/مدرس/طالب)
 // يبقى عندها كلها نفس ميزة تصدير التقارير.
 
@@ -22,30 +22,30 @@ import {
 const STRINGS = {
   ar: {
     title: "درجاتي ونتائجي",
-    subtitle: "نتايجك في كل الكويزات ودرجاتك في الواجبات، لكل كورس مسجّل فيه",
-    myCourses: "كورساتي",
+    subtitle: "نتائجك في جميع الاختبارات ودرجاتك في الواجبات، لكل دورة مسجّل فيها",
+    myCourses: "دوراتي",
     grades: "درجاتي",
-    empty: "لسه معملتش enroll في أي كورس",
-    browse: "تصفّح الكورسات",
+    empty: "لم تسجّل في أي دورة بعد",
+    browse: "تصفّح الدورات",
     loading: "جارِ التحميل...",
     error: "تعذّر تحميل درجاتك",
     progress: "نسبة الإكمال",
-    quizzes: "الكويزات",
+    quizzes: "الاختبارات",
     assignments: "الواجبات",
-    noQuizzes: "مفيش كويزات منشورة في الكورس ده لسه",
-    noAssignments: "مفيش واجبات منشورة في الكورس ده لسه",
+    noQuizzes: "لا توجد اختبارات منشورة في هذه الدورة بعد",
+    noAssignments: "لا توجد واجبات منشورة في هذه الدورة بعد",
     attempts: (used, max) => `${used}/${max} محاولة`,
     passed: "ناجح",
     failed: "راسب",
-    notAttempted: "لسه ما حلتهوش",
-    solve: "حل الكويز",
+    notAttempted: "لم يتم حلّه بعد",
+    solve: "حل الاختبار",
     review: "مراجعة",
     submitted: "مُسلَّم",
     late: "متأخر",
     graded: "مُصحَّح",
-    notSubmitted: "لسه ما سلمتهوش",
+    notSubmitted: "لم يتم تسليمه بعد",
     submit: "سلّم الواجب",
-    viewSubmission: "شوف تسليمك",
+    viewSubmission: "عرض تسليمك",
     dueDate: (d) => `الموعد النهائي: ${d}`,
     noDueDate: "بدون موعد نهائي",
     score: (s, m) => `${s}/${m}`,
@@ -130,7 +130,7 @@ export default function StudentGradesPage() {
       const headerFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4338CA" } };
       const headerFont = { color: { argb: "FFFFFFFF" }, bold: true, size: 12 };
 
-      // شيت الكويزات — صف واحد لكل كويز في كل كورس
+      // شيت الاختبارات — صف واحد لكل اختبار في كل دورة
       const quizSheet = workbook.addWorksheet("Quizzes");
       quizSheet.columns = [
         { header: "Course", key: "course", width: 30 },
@@ -166,7 +166,7 @@ export default function StudentGradesPage() {
         });
       });
 
-      // شيت الواجبات — صف واحد لكل واجب في كل كورس
+      // شيت الواجبات — صف واحد لكل واجب في كل دورة
       const assignmentSheet = workbook.addWorksheet("Assignments");
       assignmentSheet.columns = [
         { header: "Course", key: "course", width: 30 },
@@ -277,7 +277,7 @@ export default function StudentGradesPage() {
                   </div>
                 </div>
 
-                {/* الكويزات */}
+                {/* الاختبارات */}
                 <div className="mb-5">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">{t.quizzes}</h3>
                   {c.quizzes.length === 0 ? (

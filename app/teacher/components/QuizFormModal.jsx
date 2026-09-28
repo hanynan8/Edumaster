@@ -2,7 +2,7 @@
 
 // app/teacher/components/QuizFormModal.jsx
 //
-// Phase 4 — اليوم 33-34: إنشاء/تعديل كويز (بيانات الكويز نفسه — الأسئلة
+// Phase 4 — اليوم 33-34: إنشاء/تعديل اختبار (بيانات الاختبار نفسه — الأسئلة
 // بتتضاف من صفحة منفصلة app/teacher/quizzes/[quizId]).
 
 import { useState } from "react";
@@ -28,17 +28,17 @@ const T = {
     cancel: "Cancel",
   },
   ar: {
-    titleRequired: "عنوان الكويز مطلوب",
-    genericError: "حصل خطأ، حاول تاني",
-    editQuiz: "تعديل الكويز",
-    newQuiz: "كويز جديد",
-    quizTitle: "عنوان الكويز *",
+    titleRequired: "عنوان الاختبار مطلوب",
+    genericError: "حدث خطأ، حاول مرة أخرى",
+    editQuiz: "تعديل الاختبار",
+    newQuiz: "اختبار جديد",
+    quizTitle: "عنوان الاختبار *",
     shortDesc: "وصف مختصر (اختياري)",
     timeMinutes: "الوقت (دقيقة)",
     noLimit: "بدون حد",
     passingScore: "نسبة النجاح %",
     maxAttempts: "أقصى محاولات",
-    publishQuiz: "نشر الكويز (يظهر للطلاب فورًا — سيب ده مقفول لحد ما تخلّص إضافة الأسئلة)",
+    publishQuiz: "نشر الاختبار (يظهر للطلاب فورًا — اترك هذا الخيار مغلقًا حتى تنتهي من إضافة الأسئلة)",
     save: "حفظ",
     cancel: "إلغاء",
   },

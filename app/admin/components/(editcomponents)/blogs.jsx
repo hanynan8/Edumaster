@@ -219,7 +219,7 @@ export default function BlogAdmin() {
           {/* Quick legend */}
           <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700 flex items-start gap-2">
             <Lightbulb size={14} className="mt-0.5 shrink-0" />
-            <span>هنا بتحدد البيانات الثابتة لكل مقال: الصورة، الكاتيجوري، اللون، وقت القراءة، التاريخ، وهل هو Featured. النصوص والمحتوى في قسم Translations تحت.</span>
+            <span>هنا تحدد البيانات الثابتة لكل مقال: الصورة، والتصنيف، واللون، ووقت القراءة، والتاريخ، وهل هو Featured. النصوص والمحتوى في قسم Translations أدناه.</span>
           </div>
 
           <div className="space-y-3">
@@ -402,7 +402,7 @@ export default function BlogAdmin() {
                     {/* Tip */}
                     <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-start gap-2">
                       <Lightbulb size={13} className="mt-0.5 shrink-0" />
-                      <span>اضغط على اسم أي مقال عشان تشوف وتعدّل فيه — العنوان، المقطع، اسم الكاتب، والأقسام (Sections) اللي جوّاه.</span>
+                      <span>اضغط على اسم أي مقال لعرضه وتعديله — العنوان، والمقتطف، واسم الكاتب، والأقسام (Sections) التي بداخله.</span>
                     </div>
 
                     <div className="space-y-3">

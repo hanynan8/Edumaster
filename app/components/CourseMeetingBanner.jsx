@@ -30,12 +30,12 @@ const T = {
     viewDetails: "View details",
   },
   ar: {
-    liveNow: "محاضرة لايف شغالة دلوقتي",
+    liveNow: "محاضرة مباشرة جارية الآن",
     upcomingCompact: (when) => `محاضرة قريبة: ${when}`,
-    liveToday: "محاضرة النهاردة شغالة دلوقتي 🔴",
-    upcomingToday: (when) => `محاضرة النهاردة الساعة ${when}`,
-    joinNow: "ادخل دلوقتي",
-    viewDetails: "شوف التفاصيل",
+    liveToday: "محاضرة اليوم جارية الآن 🔴",
+    upcomingToday: (when) => `محاضرة اليوم الساعة ${when}`,
+    joinNow: "ادخل الآن",
+    viewDetails: "عرض التفاصيل",
   },
   es: {
     liveNow: "Clase en vivo ahora mismo",

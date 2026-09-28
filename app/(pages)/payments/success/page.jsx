@@ -18,14 +18,14 @@ import { CheckCircle2, Loader, Receipt, ArrowRight, ArrowLeft, BookOpen, Crown }
 const STRINGS = {
   ar: {
     title: "تم الدفع بنجاح",
-    subtitleCourse: "تم تفعيل اشتراكك في الكورس وأصبح متاحًا الآن",
+    subtitleCourse: "تم تفعيل اشتراكك في الدورة وأصبحت متاحة الآن",
     subtitleMembership: "تم تفعيل اشتراكك في خطة العضوية",
     subtitleConsultation: "تم تأكيد حجز استشارتك، سنتواصل معك قريبًا لتأكيد الموعد",
     consultationLabel: "استشارة",
-    goToCourse: "اذهب إلى الكورس",
-    goToCourses: "كورساتي",
+    goToCourse: "اذهب إلى الدورة",
+    goToCourses: "دوراتي",
     goToMembership: "خطط الاشتراك",
-    backHome: "العودة للرئيسية",
+    backHome: "العودة إلى الرئيسية",
     receipt: "عرض الإيصال",
     loading: "جارِ التحميل...",
     error: "تعذّر تحميل تفاصيل الدفعة، لكن عملية الدفع تمت بنجاح",

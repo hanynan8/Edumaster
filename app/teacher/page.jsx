@@ -1,8 +1,8 @@
 "use client";
 
-// app/teacher/page.jsx — اليوم 10: صفحة "كورساتي"
+// app/teacher/page.jsx — اليوم 10: صفحة "دوراتي"
 //
-// بتجيب كورسات المدرس الحالي بس (GET /api/courses بيرجع كورسات صاحب
+// بتجيب دورات المدرس الحالي بس (GET /api/courses بيرجع دورات صاحب
 // السيشن تلقائيًا لو role=teacher — شوف app/api/courses/route.js).
 //
 // 🆕 كارت "الملف الشخصي" (صورة + اسم + إيميل + زرار تعديل) — نفس التصميم
@@ -70,20 +70,20 @@ const T = {
     zoomImage: "تكبير الصورة",
     close: "إغلاق",
     editProfile: "تعديل الملف الشخصي",
-    avatarLoadError: "حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني",
-    imageTypeError: "الصورة لازم تكون JPG أو GIF أو PNG",
+    avatarLoadError: "حدثت مشكلة في تحميل الصورة بعد الرفع، حاول مرة أخرى",
+    imageTypeError: "يجب أن تكون الصورة بصيغة JPG أو GIF أو PNG",
     imageSizeError: "حجم الصورة أكبر من المسموح (1MB)",
-    genericError: "حصل خطأ، حاول تاني",
-    genericErrorWithCode: (code) => `حصل خطأ، حاول تاني (${code})`,
-    nameLengthError: "الاسم لازم يكون بين 2 و60 حرف",
-    phoneFormatError: "رقم الهاتف مش بصيغة صحيحة",
+    genericError: "حدث خطأ، حاول مرة أخرى",
+    genericErrorWithCode: (code) => `حدث خطأ، حاول مرة أخرى (${code})`,
+    nameLengthError: "يجب أن يكون الاسم بين 2 و60 حرفًا",
+    phoneFormatError: "صيغة رقم الهاتف غير صحيحة",
     profileTitle: "الملف الشخصي",
     profileSubtitle: "عدّل بياناتك الشخصية",
     changeImage: "تغيير الصورة",
     maxSizeHint: "أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG",
     uploadingImage: "جارِ رفع الصورة...",
     currentEmail: "البريد الإلكتروني الحالي",
-    emailNotEditable: "الإيميل مش قابل للتعديل من هنا",
+    emailNotEditable: "لا يمكن تعديل البريد الإلكتروني من هنا",
     registeredName: "الاسم المسجّل به",
     namePlaceholder: "اكتب اسمك بالكامل",
     phoneLabel: "رقم الهاتف",
@@ -92,24 +92,24 @@ const T = {
     saving: "جارِ الحفظ...",
     saveChanges: "حفظ التعديلات",
     cancel: "إلغاء",
-    loadCoursesError: "تعذّر تحميل الكورسات",
-    courseHasStudents: (n) => `مينفعش تحذف الكورس ده — فيه ${n} طالب مسجل. أرشفه بدل الحذف.`,
-    forbiddenDelete: "مش معاك صلاحية تحذف الكورس ده (مش صاحبه).",
-    notFound: "الكورس ده مش موجود أصلاً (يمكن اتحذف قبل كده).",
-    unauthorized: "لازم تسجّل دخول تاني عشان تقدر تحذف.",
-    deleteFailed: "الحذف فشل من السيرفر — جرّب تاني، ولو استمرت المشكلة كلّم الدعم الفني.",
-    internalError: "حصل خطأ في السيرفر أثناء الحذف. جرّب تاني بعد شوية.",
-    confirmDelete: (title) => `متأكد إنك عايز تحذف "${title}"؟ الإجراء ده مينفعش يترجع.`,
-    deleteErrorWithCode: (code) => `حصل خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
-    deleteErrorNetwork: "حصل خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول تاني.",
-    myCourses: "كورساتي",
-    manageCourses: "إدارة الكورسات اللي إنت بتدرّسها",
+    loadCoursesError: "تعذّر تحميل الدورات",
+    courseHasStudents: (n) => `لا يمكن حذف هذه الدورة — يوجد ${n} طالب مسجّل فيها. قم بأرشفتها بدل حذفها.`,
+    forbiddenDelete: "لا تملك صلاحية حذف هذه الدورة (لست صاحبها).",
+    notFound: "هذه الدورة غير موجودة أصلًا (ربما تم حذفها سابقًا).",
+    unauthorized: "يجب إعادة تسجيل الدخول لتتمكن من الحذف.",
+    deleteFailed: "فشل الحذف من الخادم — حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع الدعم الفني.",
+    internalError: "حدث خطأ في الخادم أثناء الحذف. حاول مرة أخرى بعد قليل.",
+    confirmDelete: (title) => `هل أنت متأكد من حذف "${title}"؟ لا يمكن التراجع عن هذا الإجراء.`,
+    deleteErrorWithCode: (code) => `حدث خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
+    deleteErrorNetwork: "حدث خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
+    myCourses: "دوراتي",
+    manageCourses: "إدارة الدورات التي تدرّسها",
     performance: "الأداء والإحصائيات",
-    liveLectures: "المحاضرات اللايف",
+    liveLectures: "المحاضرات المباشرة",
     messages: "الرسائل",
-    newCourse: "كورس جديد",
-    noCoursesYet: "لسه معملتش أي كورس",
-    createFirstCourse: "ابدأ بإنشاء أول كورس",
+    newCourse: "دورة جديد",
+    noCoursesYet: "لم تنشئ أي دورة بعد",
+    createFirstCourse: "ابدأ بإنشاء أول دورة",
   },
   es: {
     zoomImage: "Ampliar imagen",
@@ -454,7 +454,7 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
           )}
         </div>
 
-        {/* الإيميل — للعرض بس */}
+        {/* البريد الإلكتروني — للعرض بس */}
         <div className="mb-4">
           <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
             <Mail size={12} /> {t.currentEmail}

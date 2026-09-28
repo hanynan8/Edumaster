@@ -2,12 +2,12 @@
 
 // app/admin/components/(editcomponents)/categories.jsx
 //
-// اليوم 14: لوحة إدارة كاملة لتصنيفات الكورسات (موديل Category الحقيقي في
-// الداتابيز — مش الـ CMS القديم بتاع تبويب "Courses"). الأدمن يقدر:
+// اليوم 14: لوحة إدارة كاملة لتصنيفات الدورات (موديل Category الحقيقي في
+// الداتابيز — مش الـ CMS القديم بتاع تبويب "Courses"). الإدارة يقدر:
 //   - يضيف تصنيف جديد (اسم + slug اختياري + وصف + أيقونة + ترتيب)
 //   - يعدّل أي تصنيف موجود (inline)
 //   - يفعّل/يعطّل تصنيف (isActive) من غير حذف فعلي
-//   - يحذف تصنيف — بس لو مفيش كورسات مربوطة بيه (الـ API بيرفض غير كده،
+//   - يحذف تصنيف — بس لو مفيش دورات مربوطة بيه (الـ API بيرفض غير كده،
 //     شوف app/api/categories/[id]/route.js)
 //
 // نفس نمط usersPanel.jsx: fetch عادي (مفيش React Query هنا)، loading/error
@@ -25,7 +25,7 @@ const EMPTY_FORM = {
 };
 
 // 🆕 التصنيف الرئيسي (parent) بيتبعت دلوقتي فعليًا للـ API (كان الحقل ده
-// موجود في EMPTY_FORM من زمان بس مالوش واجهة، فالأدمن ماكانش يقدر يعمل
+// موجود في EMPTY_FORM من زمان بس مالوش واجهة، فالإدارة ماكانش يقدر يعمل
 // ساب-تصنيف حقيقي من لوحة الإدارة خالص — كان لازم يتعمل يدوي بالداتابيز).
 // بيسمح بمستوى واحد بس (تصنيف رئيسي ← ساب-تصنيف)، زي ما الـ API بيفرضه.
 
@@ -49,7 +49,7 @@ export default function CategoriesAdmin() {
     setLoading(true);
     setError('');
     // ✅ نفس /api/categories العام، لكن بـ ?all=1 — بيرجّع كل التصنيفات
-    // (فعّالة ومعطّلة) لأن الأدمن محتاج يشوفها كلها عشان يقدر يفعّل تصنيف
+    // (فعّالة ومعطّلة) لأن الإدارة محتاج يشوفها كلها عشان يقدر يفعّل تصنيف
     // معطّل تاني. الـ API بيتحقق إن المستخدم أدمن فعلاً قبل ما يرجّع
     // المعطّلة (شوف app/api/categories/route.js).
     fetch('/api/categories?all=1')
@@ -121,7 +121,7 @@ export default function CategoriesAdmin() {
   async function handleCreate(e) {
     e.preventDefault();
     if (!createForm.name.trim()) {
-      setActionError('اكتب اسم التصنيف الأول');
+      setActionError('اكتب اسم التصنيف أولًا');
       return;
     }
     setActionError('');
@@ -144,12 +144,12 @@ export default function CategoriesAdmin() {
       if (!res.ok) {
         setActionError(
           data.error === 'slug_taken'
-            ? 'الرابط (slug) ده مستخدم بالفعل'
+            ? 'الرابط (slug) مستخدم بالفعل'
             : data.error === 'parent_not_found'
-            ? 'التصنيف الرئيسي المختار مش موجود'
+            ? 'التصنيف الرئيسي المختار غير موجود'
             : data.error === 'parent_must_be_top_level'
-            ? 'التصنيف اللي اخترته كـ "رئيسي" هو نفسه ساب-تصنيف — اختر تصنيف رئيسي أصلي بس'
-            : 'حصل خطأ أثناء الإضافة'
+            ? 'التصنيف الذي اخترته كـ "رئيسي" هو نفسه تصنيف فرعي — اختر تصنيفًا رئيسيًا أصليًا فقط'
+            : 'حدث خطأ أثناء الإضافة'
         );
         return;
       }
@@ -157,7 +157,7 @@ export default function CategoriesAdmin() {
       setCreating(false);
       loadCategories();
     } catch {
-      setActionError('حصل خطأ أثناء الإضافة');
+      setActionError('حدث خطأ أثناء الإضافة');
     } finally {
       setSavingId(null);
     }
@@ -184,23 +184,23 @@ export default function CategoriesAdmin() {
       if (!res.ok) {
         setActionError(
           data.error === 'slug_taken'
-            ? 'الرابط (slug) ده مستخدم بالفعل'
+            ? 'الرابط (slug) مستخدم بالفعل'
             : data.error === 'parent_not_found'
-            ? 'التصنيف الرئيسي المختار مش موجود'
+            ? 'التصنيف الرئيسي المختار غير موجود'
             : data.error === 'parent_must_be_top_level'
-            ? 'التصنيف اللي اخترته كـ "رئيسي" هو نفسه ساب-تصنيف — اختر تصنيف رئيسي أصلي بس'
+            ? 'التصنيف الذي اخترته كـ "رئيسي" هو نفسه تصنيف فرعي — اختر تصنيفًا رئيسيًا أصليًا فقط'
             : data.error === 'parent_cannot_be_self'
-            ? 'التصنيف مينفعش يبقى أب لنفسه'
+            ? 'لا يمكن أن يكون التصنيف أبًا لنفسه'
             : data.error === 'has_subcategories'
-            ? 'التصنيف ده ليه ساب-تصنيفات بالفعل، مينفعش يتحول لساب-تصنيف تاني'
-            : 'حصل خطأ أثناء الحفظ'
+            ? 'لهذا التصنيف تصنيفات فرعية بالفعل، لذا لا يمكن تحويله إلى تصنيف فرعي'
+            : 'حدث خطأ أثناء الحفظ'
         );
         return;
       }
       setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, ...data } : c)));
       cancelEdit();
     } catch {
-      setActionError('حصل خطأ أثناء الحفظ');
+      setActionError('حدث خطأ أثناء الحفظ');
     } finally {
       setSavingId(null);
     }
@@ -217,12 +217,12 @@ export default function CategoriesAdmin() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionError('حصل خطأ أثناء تحديث الحالة');
+        setActionError('حدث خطأ أثناء تحديث الحالة');
         return;
       }
       setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, ...data } : c)));
     } catch {
-      setActionError('حصل خطأ أثناء تحديث الحالة');
+      setActionError('حدث خطأ أثناء تحديث الحالة');
     } finally {
       setSavingId(null);
     }
@@ -237,15 +237,15 @@ export default function CategoriesAdmin() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.error === 'category_in_use') {
-          setActionError(`مينفعش تحذف التصنيف ده — فيه ${data.coursesCount} كورس مربوط بيه. انقلهم لتصنيف تاني الأول أو عطّل التصنيف بدل حذفه.`);
+          setActionError(`لا يمكن حذف هذا التصنيف — يوجد ${data.coursesCount} دورة مرتبطة به. انقلها إلى تصنيف آخر أولًا أو عطّل التصنيف بدل حذفه.`);
         } else {
-          setActionError('حصل خطأ أثناء الحذف');
+          setActionError('حدث خطأ أثناء الحذف');
         }
         return;
       }
       setCategories((prev) => prev.filter((c) => c.id !== catId));
     } catch {
-      setActionError('حصل خطأ أثناء الحذف');
+      setActionError('حدث خطأ أثناء الحذف');
     } finally {
       setSavingId(null);
     }
@@ -263,7 +263,7 @@ export default function CategoriesAdmin() {
     <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6 sm:p-8" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6 pb-4 border-b border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-          <Tags size={22} className="text-blue-500" /> تصنيفات الكورسات
+          <Tags size={22} className="text-blue-500" /> تصنيفات الدورات
         </h2>
         <button
           onClick={() => { setCreating((v) => !v); setActionError(''); }}
@@ -295,7 +295,7 @@ export default function CategoriesAdmin() {
           <input
             value={createForm.slug}
             onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
-            placeholder="slug (اختياري — بيتولد تلقائي)"
+            placeholder="slug (اختياري — يُنشأ تلقائيًا)"
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
           />
           <input
@@ -322,17 +322,17 @@ export default function CategoriesAdmin() {
             onChange={(e) => setCreateForm((f) => ({ ...f, parent: e.target.value }))}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 sm:col-span-2 bg-white"
           >
-            <option value="">تصنيف رئيسي (مش ساب-تصنيف)</option>
+            <option value="">تصنيف رئيسي (ليس تصنيفًا فرعيًا)</option>
             {topLevelCategories.map((c) => (
               <option key={c.id} value={c.id}>
-                ساب-تصنيف تابع لـ «{c.name}»
+                تصنيف فرعي تابع لـ «{c.name}»
               </option>
             ))}
           </select>
 
           <div className="sm:col-span-2 grid sm:grid-cols-3 gap-3 pt-1 border-t border-blue-100 mt-1">
             <p className="sm:col-span-3 text-xs font-semibold text-gray-500 -mb-1">
-              ترجمة اسم التصنيف (اختياري — لو فاضي بيترجع للاسم الأساسي فوق)
+              ترجمة اسم التصنيف (اختياري — إذا تُرك فارغًا يُستخدم الاسم الأساسي أعلاه)
             </p>
             {['ar', 'en', 'es'].map((lang) => (
               <input
@@ -344,7 +344,7 @@ export default function CategoriesAdmin() {
                     i18n: { ...f.i18n, [lang]: { name: e.target.value } },
                   }))
                 }
-                placeholder={`الاسم بال${LANG_LABELS[lang]}`}
+                placeholder={`الاسم بـ${LANG_LABELS[lang]}`}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
               />
             ))}
@@ -371,7 +371,7 @@ export default function CategoriesAdmin() {
       )}
 
       {categories.length === 0 ? (
-        <p className="text-center text-gray-400 py-12">لسه مفيش تصنيفات — ابدأ بإضافة واحد.</p>
+        <p className="text-center text-gray-400 py-12">لا توجد تصنيفات بعد — ابدأ بإضافة تصنيف.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

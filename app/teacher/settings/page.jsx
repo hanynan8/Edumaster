@@ -12,7 +12,7 @@ import { ArrowRight, Settings, BookOpen } from "lucide-react";
 import ProfileSettingsCard from "@/app/components/ProfileSettingsCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// 🆕 العنوان والوصف وزرار "كورساتي" كانوا عربي ثابت، والكارت نفسه كان
+// 🆕 العنوان والوصف وزرار "دوراتي" كانوا عربي ثابت، والكارت نفسه كان
 // مفروض عليه locale="ar" ثابت (متجاهل اللغة المختارة من الناف بار خالص).
 // دلوقتي الصفحة كلها بتتبع useLanguage().
 const T = {
@@ -23,8 +23,8 @@ const T = {
   },
   ar: {
     title: "إعدادات الحساب",
-    subtitle: "عدّل اسمك ورقم هاتفك وصورة البروفايل",
-    myCourses: "كورساتي",
+    subtitle: "عدّل اسمك ورقم هاتفك وصورتك الشخصية",
+    myCourses: "دوراتي",
   },
   es: {
     title: "Configuración de la cuenta",

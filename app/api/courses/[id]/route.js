@@ -305,8 +305,8 @@ export async function PUT(request, { params }) {
               createNotification({
                 user: adminId,
                 type: "course_pending_review",
-                title: "كورس جديد بينتظر المراجعة",
-                message: `المدرس "${populated.teacher?.name || ""}" طلب نشر الكورس "${populated.title}" — محتاج مراجعتك.`,
+                title: "دورة جديدة بانتظار المراجعة",
+                message: `المدرس "${populated.teacher?.name || ""}" طلب نشر الدورة "${populated.title}" — وهي بحاجة إلى مراجعتك.`,
                 link: "/admin",
                 course: populated._id,
               })

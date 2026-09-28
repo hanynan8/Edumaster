@@ -2,7 +2,7 @@
 
 // app/teacher/courses/[id]/assignments/page.jsx
 //
-// Phase 4 — اليوم 37-38: صفحة إدارة واجبات كورس معيّن.
+// Phase 4 — اليوم 37-38: صفحة إدارة واجبات دورة معيّن.
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
@@ -15,12 +15,12 @@ const STRINGS = {
   ar: {
     noDueDate: "بدون موعد نهائي",
     loadError: "تعذّر تحميل الواجبات",
-    confirmDelete: (title) => `حذف واجب "${title}"؟ هيتمسح معاه كل تسليمات الطلاب. متأكد؟`,
-    deleteError: "حصل خطأ أثناء الحذف",
-    backToContent: "رجوع لمحتوى الكورس",
+    confirmDelete: (title) => `حذف واجب "${title}"؟ سيتم مسح جميع تسليمات الطلاب معه. هل أنت متأكد؟`,
+    deleteError: "حدث خطأ أثناء الحذف",
+    backToContent: "الرجوع إلى محتوى الدورة",
     pageTitle: "الواجبات",
     newAssignment: "واجب جديد",
-    empty: "لسه مفيش واجبات لهذا الكورس",
+    empty: "لا توجد واجبات لهذه الدورة بعد",
     published: "منشور",
     draft: "مسودة",
     fullScore: "الدرجة الكاملة",

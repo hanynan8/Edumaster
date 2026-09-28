@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════
 //  app/(pages)/courses/[id]/page.jsx
 //
-//  اليوم 13: صفحة تفاصيل كورس عامة. بتجيب:
-//    - GET /api/courses/[id]           → بيانات الكورس (404 لو draft/مش موجود)
+//  اليوم 13: صفحة تفاصيل دورة عامة. بتجيب:
+//    - GET /api/courses/[id]           → بيانات الدورة (404 لو draft/مش موجود)
 //    - GET /api/courses/[id]/sections  → شجرة الأقسام/الدروس (السيرفر بيقرر
 //      يبعت رابط الفيديو الحقيقي ولا لأ حسب الوصول — شوف الـ route)
 //    - GET /api/enrollments?course=id  → { enrolled, hasAccess, accessSource }
@@ -10,7 +10,7 @@
 //
 //  الفيديو نفسه مقفول (بيظهر قفل بدل الزرار) لأي درس مش preview ومفيش
 //  videoUrl راجع من السيرفر — يعني الطالب لسه مالوش وصول. الزرار "اشترك"
-//  بيستخدم POST /api/enrollments (كورسات مجانية، أو كورس مدفوع لو عنده
+//  بيستخدم POST /api/enrollments (دورات مجانية، أو دورة مدفوع لو عنده
 //  membership نشطة بتغطيه — Phase 2 اليوم 18-19/22؛ غير كده بيوجّه لرسالة
 //  "قريبًا" لحد ما يتبني مسار الدفع المباشر).
 //
@@ -41,43 +41,43 @@ const LESSON_ICONS = { video: PlayCircle, pdf: FileType2, text: FileText, quiz: 
 
 const STRINGS = {
   ar: {
-    back: "كل الكورسات",
+    back: "كل الدورات",
     by: "بواسطة",
     free: "مجاني",
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
     lessonsCount: (n) => `${n} درس`,
     studentsCount: (n) => `${n} طالب`,
-    content: "محتوى الكورس",
+    content: "محتوى الدورة",
     requirements: "المتطلبات",
-    outcomes: "هتتعلم إيه",
-    enroll: "اشترك في الكورس",
+    outcomes: "ماذا ستتعلم",
+    enroll: "اشترك في الدورة",
     buyNow: "اشترِ الآن",
     enrolling: "جارِ التسجيل...",
-    redirecting: "جارِ التحويل لصفحة الدفع...",
-    enrolled: "أنت مسجّل في هذا الكورس",
+    redirecting: "جارِ التحويل إلى صفحة الدفع...",
+    enrolled: "أنت مسجّل في هذه الدورة",
     includedInMembership: "متضمّن في اشتراكك الحالي",
-    loginToEnroll: "سجّل دخولك للاشتراك في الكورس",
+    loginToEnroll: "سجّل دخولك للاشتراك في الدورة",
     login: "تسجيل الدخول",
     paymentSoon: "الدفع الإلكتروني غير متاح حاليًا — تواصل مع الإدارة للتسجيل اليدوي",
     paymentGatewayError: "تعذّر بدء عملية الدفع، حاول مرة أخرى",
-    ownCourse: "هذا كورسك — تقدر تدير محتواه من لوحة المدرس",
+    ownCourse: "هذه دورتك — يمكنك إدارة محتواها من لوحة المدرّس",
     manage: "إدارة المحتوى",
     locked: "مقفول",
     preview: "معاينة مجانية",
     loading: "جارِ التحميل...",
-    error: "تعذّر تحميل الكورس",
-    noSections: "لسه مفيش محتوى مضاف للكورس ده",
-    lockedHint: "اشترك في الكورس عشان تفتح الدرس ده",
-    takeQuiz: "افتح الكويز",
-    quizType: "كويز",
-    quizzesTitle: "كويزات الكورس",
-    assignmentsTitle: "واجبات الكورس",
+    error: "تعذّر تحميل الدورة",
+    noSections: "لا يوجد محتوى مضاف لهذه الدورة بعد",
+    lockedHint: "اشترك في الدورة لفتح هذا الدرس",
+    takeQuiz: "افتح الاختبار",
+    quizType: "اختبار",
+    quizzesTitle: "اختبارات الدورة",
+    assignmentsTitle: "واجبات الدورة",
     openAssignment: "افتح الواجب",
-    myGradesLink: "شوف درجاتك ونتائجك",
+    myGradesLink: "عرض درجاتك ونتائجك",
     completed: "تم إكمال هذا الدرس",
-    progressTitle: "نسبة إكمال الكورس",
+    progressTitle: "نسبة إكمال الدورة",
     levelTestTitle: "اختبر مستواك في اللغة",
-    levelTestDesc: "قبل ما تبدأ، اختبر مستواك الحالي في اللغة عشان تعرف تبدأ منين بالظبط.",
+    levelTestDesc: "قبل أن تبدأ، اختبر مستواك الحالي في اللغة لتعرف من أين تبدأ بالضبط.",
     levelTestCta: "ابدأ الاختبار",
     levelTestOpenNewTab: "فتح الاختبار في صفحة جديدة",
   },
@@ -227,7 +227,7 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
   // Phase 4 — اليوم 42: درس النوع "quiz" مالوش videoUrl/textContent/fileUrl
   // خالص — محتواه الفعلي (الأسئلة) في مستند Quiz منفصل ومحمي بفحصه الخاص
   // (شوف /api/quizzes/[id]). هنا بس بنقرر نعرض لينك يودّي لصفحة الحل ولا
-  // قفل، حسب وصول الطالب للكورس ده (hasAccess) أو preview.
+  // قفل، حسب وصول الطالب لهذه الدورة (hasAccess) أو preview.
   if (lesson.type === "quiz") {
     const canOpenQuiz = Boolean(lesson.quiz) && (lesson.isPreview || hasAccess);
     return (
@@ -340,8 +340,8 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
   );
 }
 
-// كل الكورسات دلوقتي حقيقية (Course model) — مفيش تفرقة "admin-" تاني.
-// الصفحة بتجيب الكورس من /api/courses/[id] وتعرض النسخة اللغوية المناسبة
+// كل الدورات دلوقتي حقيقية (Course model) — مفيش تفرقة "admin-" تاني.
+// الصفحة بتجيب الدورة من /api/courses/[id] وتعرض النسخة اللغوية المناسبة
 // من course.i18n حسب لغة الموقع الحالية.
 // 🆕 اختبار "قيّم مستواك" (ClassMarker): iframe مباشر لصفحة بدء الاختبار.
 // بنبعت بيانات الطالب (لو مسجّل دخول) عن طريق باراميترات ClassMarker
@@ -402,17 +402,17 @@ function RealCourseDetail({ id }) {
   const [openLessonId, setOpenLessonId] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState("");
-  // Phase 4 — اليوم 42: كويزات وواجبات الكورس المنشورة، بتتعرض تحت المحتوى
+  // Phase 4 — اليوم 42: اختبارات وواجبات الدورة المنشورة، بتتعرض تحت المحتوى
   // (روابط مباشرة لصفحات الحل/التسليم للطالب المسجّل).
   const [quizzes, setQuizzes] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("login");
-  // 🆕 المستخدم ضغط "اشترِ الآن" لكورس مدفوع — بننتظر تأكيده في
+  // 🆕 المستخدم ضغط "اشترِ الآن" لدورة مدفوع — بننتظر تأكيده في
   // PaymentGatewayModal قبل ما نبدأ checkout فعلي عند GetPayIn.
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   // تتبع تقدّم الطالب: أي درس (فيديو/PDF/نص) بيتحدد "مكتمل" لما الطالب
-  // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الكورس
+  // يضغط الزرار داخل LessonRow — ده اللي فعليًا بيحسب في نسبة إكمال الدورة
   // (progressPercent)، شوف app/lib/progressHelpers.js.
   const [markingLessonId, setMarkingLessonId] = useState(null);
 
@@ -519,7 +519,7 @@ function RealCourseDetail({ id }) {
       .catch(() => setEnrollment({ enrolled: false, hasAccess: false }));
   }, [id, session, sessionStatus]);
 
-  // 🆕 Phase 3 — اليوم 27-28 + GetPayIn: كورس مدفوع (مش متاح مجانًا وعضويتنا
+  // 🆕 Phase 3 — اليوم 27-28 + GetPayIn: دورة مدفوع (مش متاح مجانًا وعضويتنا
   // لو موجودة مش بتغطيه) → checkout عند GetPayIn (بعد تأكيد المستخدم في
   // PaymentGatewayModal) بدل POST /api/enrollments مباشرة. لو
   // enrollment.hasAccess=true (عن طريق membership) الزرار أصلاً بيظهر
@@ -557,7 +557,7 @@ function RealCourseDetail({ id }) {
   }
 
   async function handleEnroll() {
-    // كورس مدفوع فعليًا (isFree=false) والمستخدم مالوش وصول عن طريق
+    // دورة مدفوع فعليًا (isFree=false) والمستخدم مالوش وصول عن طريق
     // membership أصلاً → نفتح مودال تأكيد الدفع بدل محاولة enroll مباشر
     // هيرجع 402 أكيد.
     const coursePriceInfo = getPriceForCurrency(course.prices, language);
@@ -626,7 +626,7 @@ function RealCourseDetail({ id }) {
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
   // 🆕 النسخة المترجمة المناسبة للغة الموقع الحالية — لو مش متوفرة، بترجع
-  // للحقول الأساسية بتاعة الكورس (نسخة لغة الكورس الافتراضية).
+  // للحقول الأساسية بتاعة الدورة (نسخة لغة الدورة الافتراضية).
   const i18nEntry = course.i18n?.[language] || course.i18n?.en || null;
   const categoryI18nEntry = course.categoryI18n?.[language] || course.categoryI18n?.en || null;
   const loc = {
@@ -643,7 +643,7 @@ function RealCourseDetail({ id }) {
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#f7f7f7]">
       {/* Hero */}
       <section className="relative bg-[#0a0a0a] text-white overflow-hidden">
-        {/* 🆕 خلفية الهيرو بقت صورة الكورس نفسها (لو موجودة) مكبّرة ومضبّبة
+        {/* 🆕 خلفية الهيرو بقت صورة الدورة نفسها (لو موجودة) مكبّرة ومضبّبة
             شوية، مع طبقة تظليل غامقة فوقها عشان النص يفضل واضح ومقروء. لو
             مفيش thumbnail أصلاً بيرجع لنفس الخلفية السودا القديمة. */}
         {course.thumbnail && (
@@ -726,7 +726,7 @@ function RealCourseDetail({ id }) {
 
       {/* Body */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        {/* 🆕 بانر "محاضرة النهاردة" — بيظهر بس لصاحب الكورس أو طالب مسجّل
+        {/* 🆕 بانر "محاضرة النهاردة" — بيظهر بس لصاحب الدورة أو طالب مسجّل
             فعليًا (نفس شرط GET /api/courses/[id]/meetings)، وبيتخفي تلقائيًا
             لو مفيش محاضرة شغالة/قريبة (شوف CourseMeetingBanner). */}
         {(isOwner || isEnrolled) && (
@@ -772,8 +772,8 @@ function RealCourseDetail({ id }) {
           </div>
 
           <div className="space-y-6">
-            {/* نسبة إكمال الكورس — بتتحسب سيرفر-سايد في
-                recomputeEnrollmentProgress (دروس مكتملة + كويزات منجوحة)،
+            {/* نسبة إكمال الدورة — بتتحسب سيرفر-سايد في
+                recomputeEnrollmentProgress (دروس مكتملة + اختبارات منجوحة)،
                 هنا بس بنعرض القيمة الجاهزة من enrollment.progressPercent. */}
             {isEnrolled && !isOwner && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -792,11 +792,11 @@ function RealCourseDetail({ id }) {
               </div>
             )}
 
-            {/* Phase 6 — اليوم 46-47: إعلانات الكورس لصاحب الكورس/أدمن أو
+            {/* Phase 6 — اليوم 46-47: إعلانات الدورة لصاحب الدورة/أدمن أو
                 طالب مسجّل فعليًا — نفس شرط الوصول اللي الـ API بيفرضه. */}
             {(isOwner || isEnrolled) && <CourseAnnouncements courseId={id} />}
 
-            {/* 🔧 كان الشرط هنا isEnrolled بس — لكن enroll في كورس متاح لأي
+            {/* 🔧 كان الشرط هنا isEnrolled بس — لكن enroll في دورة متاح لأي
                 role (مفيش قيد في checkout/enroll API)، فمدرس أو أدمن ممكن
                 يبقوا isEnrolled=true. الروابط الجاية (quizzes/assignments/
                 grades) كلها تحت /student، والـ middleware بقى يرفض أي role
@@ -875,13 +875,13 @@ function RealCourseDetail({ id }) {
         </div>
 
         {/* 🆕 اختبار "قيّم مستواك" (ClassMarker) — بيظهر بس لو:
-            (1) الكورس تحت تصنيف "Language" فعليًا (categorySlug === "language"،
+            (1) الدورة تحت تصنيف "Language" فعليًا (categorySlug === "language"،
             زي ما ظاهر في فلتر التصنيفات في /courses)، و
-            (2) المدرس/الأدمن حط classMarkerQuizId لهذا الكورس بالذات
-            (كل كورس لغة عنده امتحان تحديد مستوى مختلف — إنجليزي مش زي
-            إسباني مثلًا — فمش منطقي نستخدم نفس الـ quiz لكل كورسات اللغة).
+            (2) المدرس/الإدارة حط classMarkerQuizId لهذه الدورة بالذات
+            (كل دورة لغة عنده امتحان تحديد مستوى مختلف — إنجليزي مش زي
+            إسباني مثلًا — فمش منطقي نستخدم نفس الـ quiz لكل دورات اللغة).
             ظاهر لأي زائر (مش لازم يكون مسجّل دخول أو مشترك) لأن الهدف إنه
-            يساعده يقرر يبدأ الكورس منين قبل حتى ما يشترك. */}
+            يساعده يقرر يبدأ الدورة منين قبل حتى ما يشترك. */}
         {course.categorySlug === "language" && course.classMarkerQuizId && (
           <LevelTestSection quizId={course.classMarkerQuizId} session={session} t={t} />
         )}

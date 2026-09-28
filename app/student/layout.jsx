@@ -21,7 +21,7 @@ import { Loader, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// 🆕 نصوص شاشة "مفيش صلاحية وصول" كانت عربي ثابت — دلوقتي بتتبع اللغة
+// 🆕 نصوص شاشة "لا تملك صلاحية الوصول" كانت عربي ثابت — دلوقتي بتتبع اللغة
 // المختارة من الناف بار.
 const T = {
   en: {
@@ -30,9 +30,9 @@ const T = {
     backHome: "Back to home",
   },
   ar: {
-    noAccess: "مفيش صلاحية وصول",
-    mustLogin: "لازم تسجّل دخولك الأول عشان تشوف كورساتك.",
-    backHome: "الرجوع للرئيسية",
+    noAccess: "لا تملك صلاحية الوصول",
+    mustLogin: "يجب تسجيل الدخول أولًا لعرض دوراتك.",
+    backHome: "العودة إلى الرئيسية",
   },
   es: {
     noAccess: "Acceso denegado",

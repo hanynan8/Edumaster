@@ -20,31 +20,31 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
-    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / غلط" },
-    accessError: "لازم يكون عندك وصول لهذا الكورس عشان تحل الكويز ده",
-    loadError: "تعذّر تحميل الكويز",
-    maxAttempts: "خلّصت كل المحاولات المسموحة لهذا الكويز",
-    duplicateAttempt: "في تسليم شغال بالفعل، حاول تاني",
-    submitError: "حصل خطأ أثناء التسليم، حاول تاني",
-    backToCourse: "رجوع للكورس",
+    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / خطأ" },
+    accessError: "يجب أن تملك صلاحية الوصول إلى هذه الدورة لحلّ هذا الاختبار",
+    loadError: "تعذّر تحميل الاختبار",
+    maxAttempts: "استنفدت جميع المحاولات المسموحة لهذا الاختبار",
+    duplicateAttempt: "يوجد تسليم جارٍ بالفعل، حاول مرة أخرى",
+    submitError: "حدث خطأ أثناء التسليم، حاول مرة أخرى",
+    backToCourse: "الرجوع إلى الدورة",
     outOfPoints: (p) => `من ${p} درجة`,
     passed: "ناجح ",
     failed: "راسب",
-    attemptsRemaining: (n) => `باقيلك ${n} محاولة تانية`,
+    attemptsRemaining: (n) => `تبقّى لك ${n} محاولة أخرى`,
     reviewAnswers: "مراجعة إجاباتك",
     youPicked: "← اخترته",
-    tryAgain: "حاول تاني",
+    tryAgain: "حاول مرة أخرى",
     questionsCount: (n) => `${n} سؤال`,
     passingScore: (p) => `نسبة النجاح ${p}%`,
     minutes: (m) => `${m} دقيقة`,
     lastAttempt: (pct, status, used, max) =>
-      `آخر محاولة: ${pct}% (${status}) · استخدمت ${used} من ${max} محاولة`,
-    noQuestions: "الكويز ده لسه مفيهوش أسئلة",
+      `آخر محاولة: ${pct}% (${status}) · استخدمت ${used} من ${max} محاولات`,
+    noQuestions: "لا توجد أسئلة في هذا الاختبار بعد",
     newAttempt: "محاولة جديدة",
-    startQuiz: "ابدأ الكويز",
+    startQuiz: "ابدأ الاختبار",
     questionOf: (i, n) => `سؤال ${i} من ${n}`,
-    answered: (a, n) => `جاوبت ${a} من ${n}`,
-    submitQuiz: "تسليم الكويز",
+    answered: (a, n) => `أجبت عن ${a} من ${n}`,
+    submitQuiz: "تسليم الاختبار",
   },
   en: {
     typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False" },
@@ -271,7 +271,7 @@ export default function TakeQuizPage({ params }) {
     );
   }
 
-  // ── شاشة "قبل البدء" (معلومات الكويز + نتيجة سابقة لو موجودة) ───────
+  // ── شاشة "قبل البدء" (معلومات الاختبار + نتيجة سابقة لو موجودة) ───────
   if (!started) {
     return (
       <div dir={isRTL ? "rtl" : "ltr"} className="max-w-lg mx-auto px-4 sm:px-6 py-16">

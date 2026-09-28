@@ -2,11 +2,11 @@
 
 // app/meet/page.jsx
 //
-// 🆕 صفحة "المحاضرات اللايف" — بتعرض روابط اجتماعات Daily (متولّدة تلقائيًا
+// 🆕 صفحة "المحاضرات المباشرة" — بتعرض روابط اجتماعات Daily (متولّدة تلقائيًا
 // أو يدوية، شوف تعليق app/lib/models/Meeting.js) لكل الأدوار الثلاثة بنفس
 // الصفحة:
-//   - مدرس: بيشوف اجتماعات كورساته، يقدر يضيف/يعدّل/يحذف.
-//   - طالب: بيشوف اجتماعات الكورسات المسجّل فيها بس، بزرار "دخول" للينك.
+//   - مدرس: بيشوف اجتماعات دوراته، يقدر يضيف/يعدّل/يحذف.
+//   - طالب: بيشوف اجتماعات الدورات المسجّل فيها بس، بزرار "دخول" للينك.
 //   - أدمن: بيشوف كل الاجتماعات (رقابة عامة)، وعنده صلاحية حذف/تعديل أي
 //     اجتماع زي أي owner (isOwnerOrAdmin في الـ API).
 //
@@ -101,61 +101,61 @@ const T = {
     noUpcoming: "No upcoming lectures scheduled.",
   },
   ar: {
-    noAccess: "مفيش صلاحية وصول",
-    mustLogin: "لازم تسجّل دخولك الأول عشان تشوف المحاضرات اللايف.",
-    backHome: "الرجوع للرئيسية",
+    noAccess: "لا تملك صلاحية الوصول",
+    mustLogin: "يجب تسجيل الدخول أولًا لعرض المحاضرات المباشرة.",
+    backHome: "العودة إلى الرئيسية",
     minutes: "دقيقة",
-    course: "كورس",
-    savedError: "حصل خطأ، حاول تاني",
-    loadError: "حصل خطأ في تحميل المحاضرات، حاول تاني",
-    deleteError: "حصل خطأ أثناء الحذف، حاول تاني",
-    confirmDelete: (title) => `متأكد إنك عايز تحذف محاضرة "${title}"؟`,
+    course: "دورة",
+    savedError: "حدث خطأ، حاول مرة أخرى",
+    loadError: "حدث خطأ أثناء تحميل المحاضرات، حاول مرة أخرى",
+    deleteError: "حدث خطأ أثناء الحذف، حاول مرة أخرى",
+    confirmDelete: (title) => `هل أنت متأكد من حذف محاضرة "${title}"؟`,
     editLecture: "تعديل المحاضرة",
-    newLecture: "محاضرة لايف جديدة",
-    courseLabel: "الكورس *",
-    chooseCourse: "اختر كورس...",
-    needCourseFirst: "لازم يكون عندك كورس واحد على الأقل الأول.",
+    newLecture: "محاضرة مباشرة جديدة",
+    courseLabel: "الدورة *",
+    chooseCourse: "اختر دورة...",
+    needCourseFirst: "يجب أن تملك دورة واحدة على الأقل أولًا.",
     titleLabel: "عنوان المحاضرة *",
     titlePlaceholder: "مثلاً: مراجعة الفصل الثالث",
     descLabel: "وصف مختصر (اختياري)",
     linkLabel: "رابط الاجتماع (اختياري)",
     linkPlaceholder: "https://your-team.daily.co/room-name",
-    linkHelper: "سيبه فاضي عشان يتولّد رابط اجتماع فيديو عن طريق Daily تلقائيًا، أو الزق رابط اجتماع جاهز بنفسك.",
-    scheduledLabel: "المعاد *",
+    linkHelper: "اتركه فارغًا ليتم إنشاء رابط اجتماع فيديو تلقائيًا عبر Daily، أو الصق رابط اجتماع جاهزًا بنفسك.",
+    scheduledLabel: "الموعد *",
     durationLabel: "المدة (دقيقة)",
     saveChanges: "حفظ التعديلات",
     addLecture: "إضافة المحاضرة",
     cancel: "إلغاء",
     titleRequired: "عنوان المحاضرة مطلوب",
-    scheduledRequired: "معاد المحاضرة مطلوب",
-    chooseCourseRequired: "اختر الكورس",
-    phaseLive: "شغالة دلوقتي",
-    phaseUpcoming: "لسه هتبدأ",
-    phaseEnded: "خلصت",
-    errInvalidLink: "رابط الاجتماع مش صالح — لازم يبدأ بـ http:// أو https://",
+    scheduledRequired: "موعد المحاضرة مطلوب",
+    chooseCourseRequired: "اختر الدورة",
+    phaseLive: "جارية الآن",
+    phaseUpcoming: "لم تبدأ بعد",
+    phaseEnded: "انتهت",
+    errInvalidLink: "رابط الاجتماع غير صالح — يجب أن يبدأ بـ http:// أو https://",
     errMissingTitle: "عنوان المحاضرة مطلوب",
-    errInvalidScheduledAt: "معاد المحاضرة مش صالح",
-    errForbidden: "مفيش صلاحية تعدّل/تضيف على الكورس ده",
-    errDailyFailed: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل.",
+    errInvalidScheduledAt: "موعد المحاضرة غير صالح",
+    errForbidden: "لا تملك صلاحية التعديل أو الإضافة على هذه الدورة",
+    errDailyFailed: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — أرسل رابطًا يدويًا كبديل.",
     watchRecording: "شاهد التسجيل",
-    noRecordingToday: "مفيش تسجيل متاح لمحاضرة النهاردة دي",
-    lectureEnded: "المحاضرة خلصت",
+    noRecordingToday: "لا يوجد تسجيل متاح لمحاضرة اليوم",
+    lectureEnded: "انتهت المحاضرة",
     joinMeeting: "انضم للاجتماع",
-    enterMeeting: "الدخول على الاجتماع",
+    enterMeeting: "الدخول إلى الاجتماع",
     editTitle: "تعديل",
     deleteTitle: "حذف",
-    recordingNotAvailable: "التسجيل مش متاح دلوقتي، جرّب تاني بعد شوية",
+    recordingNotAvailable: "التسجيل غير متاح حاليًا، حاول مرة أخرى بعد قليل",
     back: "الرجوع",
-    pageTitle: "المحاضرات اللايف",
-    pageSubtitle: "اجتماعات فيديو الكورسات (Daily)",
+    pageTitle: "المحاضرات المباشرة",
+    pageSubtitle: "اجتماعات فيديو الدورات (Daily)",
     newLectureBtn: "محاضرة جديدة",
-    noLecturesStudent: "مفيش محاضرات لايف مجدولة لكورساتك دلوقتي.",
-    noLecturesYet: "لسه مفيش محاضرات مضافة.",
-    liveNow: "شغالة دلوقتي",
+    noLecturesStudent: "لا توجد محاضرات مباشرة مجدولة لدوراتك حاليًا.",
+    noLecturesYet: "لا توجد محاضرات مضافة بعد.",
+    liveNow: "جارية الآن",
     upcoming: "قادمة",
-    ended: "خلصت",
-    noLiveNow: "مفيش محاضرة شغالة دلوقتي.",
-    noUpcoming: "مفيش محاضرات قادمة مجدولة.",
+    ended: "انتهت",
+    noLiveNow: "لا توجد محاضرة جارية الآن.",
+    noUpcoming: "لا توجد محاضرات قادمة مجدولة.",
   },
   es: {
     noAccess: "Sin acceso",
@@ -674,7 +674,7 @@ export default function MeetPage() {
   const [busyId, setBusyId] = useState(null);
   // 🆕 الاجتماع اللي المستخدم داخل عليه دلوقتي (مضمّن جوه الموقع) — null = مفيش.
   const [joinedMeeting, setJoinedMeeting] = useState(null);
-  // 🆕 tick بسيط كل 30 ثانية عشان شارة "شغالة دلوقتي/لسه هتبدأ/خلصت" تتحدث
+  // 🆕 tick بسيط كل 30 ثانية عشان شارة "جارية الآن/لم تبدأ بعد/خلصت" تتحدث
   // لوحدها وهي الصفحة مفتوحة (getPhase بيحسب من Date.now() وقت الـ render،
   // فمن غيره الشارة كانت بتفضل واقفة على أول حالة لحد ما اليوزر يعمل أي
   // حاجة تسبب re-render).
@@ -709,9 +709,9 @@ export default function MeetPage() {
   useEffect(() => {
     if (status !== "authenticated") return;
     if (role !== "teacher" && role !== "admin") return;
-    // 🆕 محتاجينها بس لملء dropdown "اختر كورس" في فورم الإضافة — GET
-    // /api/courses أصلاً بيرجّع كورسات المدرس نفسه (كل الحالات) أو كل
-    // الكورسات لو أدمن (شوف app/api/courses/route.js GET).
+    // 🆕 محتاجينها بس لملء dropdown "اختر دورة" في فورم الإضافة — GET
+    // /api/courses أصلاً بيرجّع دورات المدرس نفسه (كل الحالات) أو كل
+    // الدورات لو أدمن (شوف app/api/courses/route.js GET).
     fetch("/api/courses?limit=100")
       .then((r) => r.json())
       .then((data) => setCourses(Array.isArray(data?.courses) ? data.courses : []))

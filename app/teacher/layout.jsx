@@ -16,7 +16,7 @@ import { Loader, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// 🆕 "مفيش صلاحية وصول" وباقي نصوص الشاشة كانت عربي ثابت — دلوقتي بتتبع
+// 🆕 "لا تملك صلاحية الوصول" وباقي نصوص الشاشة كانت عربي ثابت — دلوقتي بتتبع
 // اللغة المختارة من الناف بار.
 const T = {
   en: {
@@ -25,9 +25,9 @@ const T = {
     backHome: "Back to home",
   },
   ar: {
-    noAccess: "مفيش صلاحية وصول",
-    teachersOnly: "الصفحة دي لمدرّسين الموقع بس.",
-    backHome: "الرجوع للرئيسية",
+    noAccess: "لا تملك صلاحية الوصول",
+    teachersOnly: "هذه الصفحة مخصصة لمدرّسي الموقع فقط.",
+    backHome: "العودة إلى الرئيسية",
   },
   es: {
     noAccess: "Acceso denegado",

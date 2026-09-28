@@ -34,9 +34,9 @@ const T = {
     idle: "Click to choose a file",
   },
   ar: {
-    notConfigured: "الرفع غير مفعّل حاليًا (لازم تظبط إعدادات Bunny.net في .env.local)",
-    uploadFailed: "فشل الرفع، حاول تاني",
-    uploading: (p) => `جاري الرفع... ${p}%`,
+    notConfigured: "الرفع غير مفعّل حاليًا (يجب ضبط إعدادات Bunny.net في .env.local)",
+    uploadFailed: "فشل الرفع، حاول مرة أخرى",
+    uploading: (p) => `جارٍ الرفع... ${p}%`,
     done: "تم الرفع بنجاح — اضغط للاستبدال",
     idle: "اضغط لاختيار الملف",
   },

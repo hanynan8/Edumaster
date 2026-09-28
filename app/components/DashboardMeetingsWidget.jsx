@@ -22,7 +22,7 @@ const T = {
     upcoming: (when) => `Upcoming lecture — ${when}`,
   },
   ar: {
-    liveNow: "محاضرة لايف شغالة دلوقتي",
+    liveNow: "محاضرة مباشرة جارية الآن",
     upcoming: (when) => `محاضرة قريبة — ${when}`,
   },
   es: {

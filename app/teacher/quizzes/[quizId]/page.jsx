@@ -2,9 +2,9 @@
 
 // app/teacher/quizzes/[quizId]/page.jsx
 //
-// Phase 4 — اليوم 33-34: إدارة أسئلة كويز معيّن (إضافة/تعديل/حذف). بيستخدم
+// Phase 4 — اليوم 33-34: إدارة أسئلة اختبار معيّن (إضافة/تعديل/حذف). بيستخدم
 // GET /api/quizzes/[id] اللي بيرجّع الأسئلة كاملة (مع isCorrect) للمدرس
-// صاحب الكورس بس.
+// صاحب الدورة بس.
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
@@ -16,17 +16,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STRINGS = {
   ar: {
     typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / غلط" },
-    loadError: "تعذّر تحميل الكويز",
-    confirmDelete: "حذف السؤال ده؟",
-    deleteError: "حصل خطأ أثناء الحذف",
-    backToQuizzes: "رجوع للكويزات",
-    draftNotice: "مسودة — مش ظاهر للطلاب لحد ما تنشره من صفحة الكويزات",
+    loadError: "تعذّر تحميل الاختبار",
+    confirmDelete: "هل تريد حذف هذا السؤال؟",
+    deleteError: "حدث خطأ أثناء الحذف",
+    backToQuizzes: "الرجوع إلى الاختبارات",
+    draftNotice: "مسودة — غير ظاهر للطلاب حتى تنشره من صفحة الاختبارات",
     questions: (n) => `الأسئلة (${n})`,
     newQuestion: "سؤال جديد",
     importPdf: "استيراد من PDF",
     question: (n) => `سؤال ${n}`,
     points: (p) => `${p} درجة`,
-    empty: "لسه مفيش أسئلة — الطلاب مش هيقدروا يحلّوا الكويز غير لما يكون فيه سؤال واحد على الأقل",
+    empty: "لا توجد أسئلة بعد — لن يتمكن الطلاب من حل الاختبار إلا بعد وجود سؤال واحد على الأقل",
   },
   en: {
     typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False" },

@@ -40,26 +40,26 @@ const I18N = {
     next: "التالي",
     finish: "إنهاء",
     stepOf: (n) => `الخطوة ${n} من 4`,
-    step1Hello: (name) => `أهلاً بيك يا ${name}!`,
+    step1Hello: (name) => `أهلاً بك يا ${name}!`,
     // 🆕 اتقسمت لسطرين — السؤال الأخير ("إيه هدفك؟") بقى في سطر لوحده تحت
-    step1SubtitleMain: "احكيلنا شوية عن نفسك عشان نقدر نديك أفضل الاقتراحات.",
-    step1Question: "الأول، إيه هدفك؟",
-    step2Title: "تمام! إيه هو دورك الحالي؟",
-    step2Search: "دوّر على دور",
-    step3Title: "اختار المهارات اللي عايز تطورها",
-    step3Subtitle: "دي مقترحة على حسب دورك (أدوارك)",
-    step3Search: "دوّر على مهارة",
-    step4Title: "تمام! إيه أعلى مؤهل دراسي عندك؟",
-    viewMoreRoles: "عرض أدوار أكتر",
-    somethingElse: "حاجة تانية",
+    step1SubtitleMain: "حدّثنا قليلًا عن نفسك لنتمكن من تقديم أفضل الاقتراحات لك.",
+    step1Question: "أولًا، ما هدفك؟",
+    step2Title: "حسنًا! ما دورك الحالي؟",
+    step2Search: "ابحث عن دور",
+    step3Title: "اختر المهارات التي تريد تطويرها",
+    step3Subtitle: "هذه مقترحة بحسب دورك (أدوارك)",
+    step3Search: "ابحث عن مهارة",
+    step4Title: "حسنًا! ما أعلى مؤهل دراسي لديك؟",
+    viewMoreRoles: "عرض المزيد من الأدوار",
+    somethingElse: "أمر آخر",
     somethingElsePlaceholder: "اكتب اسم دورك الحالي",
-    idk: "مش عارف",
-    errGeneric: "حصل خطأ، حاول تاني",
+    idk: "لا أعرف",
+    errGeneric: "حدث خطأ، حاول مرة أخرى",
     goals: [
       { key: "start_career", label: "بدء مسيرتي المهنية" },
       { key: "change_career", label: "تغيير مسيرتي المهنية" },
       { key: "grow_current_role", label: "التطور في دوري الحالي" },
-      { key: "explore_topics", label: "استكشاف مواضيع خارج شغلي" },
+      { key: "explore_topics", label: "استكشاف مواضيع خارج مجال عملي" },
     ],
     educationLevels: [
       { key: "less_than_high_school", label: "أقل من الثانوية العامة (أو ما يعادلها)" },
@@ -177,7 +177,7 @@ const STEP2_COLORS = [
   "#64748B", // navy فاتح (slate)
   "#60A5FA", // blue فاتح
 ];
-const STEP2_OTHER_COLOR = "#9CA3AF"; // لون "حاجة تانية" — رمادي فاتح متسق مع الباقي
+const STEP2_OTHER_COLOR = "#9CA3AF"; // لون "أمر آخر" — رمادي فاتح متسق مع الباقي
 
 /* ═══════════════════════════════════════════════════════
    ICONS (SVG بسيطة عشان منضيفش تبعية تانية)
@@ -351,7 +351,7 @@ export default function OnboardingPage() {
   const [roleSearch, setRoleSearch] = useState("");
   const [showAllRoles, setShowAllRoles] = useState(false);
   const [selectedRoleKey, setSelectedRoleKey] = useState(null); // مفتاح دور جاهز
-  const [customRole, setCustomRole] = useState(""); // نص "حاجة تانية"
+  const [customRole, setCustomRole] = useState(""); // نص "أمر آخر"
   const [customRoleActive, setCustomRoleActive] = useState(false);
 
   const [skillSearch, setSkillSearch] = useState("");

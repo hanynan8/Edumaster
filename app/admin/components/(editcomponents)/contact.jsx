@@ -180,7 +180,7 @@ export default function ContactAdmin() {
               <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-700 flex items-start gap-2">
                 <Lightbulb size={14} className="mt-0.5 shrink-0" />
                 <span>
-                  البيانات دي مشتركة في كل اللغات — الإيميل ورقم الواتساب بيظهروا في كل صفحة Contact بغض النظر عن اللغة.
+                  هذه البيانات مشتركة بين جميع اللغات — يظهر البريد الإلكتروني ورقم الواتساب في كل صفحة Contact بغض النظر عن اللغة.
                 </span>
               </div>
 
@@ -408,7 +408,7 @@ export default function ContactAdmin() {
                     <div className="mb-3 p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-700 flex items-start gap-2">
                       <Lightbulb size={13} className="mt-0.5 shrink-0" />
                       <span>
-                        <strong>Value</strong> هو الكود الداخلي (بالإنجليزي دايماً، مثل <code>study-spain</code>). <strong>Label</strong> هو اللي بيتعرض للزائر باللغة المناسبة.
+                        <strong>Value</strong> هو الكود الداخلي (بالإنجليزية دائمًا، مثل <code>study-spain</code>). <strong>Label</strong> هو النص الذي يُعرض للزائر باللغة المناسبة.
                       </span>
                     </div>
 

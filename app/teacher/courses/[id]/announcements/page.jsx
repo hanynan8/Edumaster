@@ -2,7 +2,7 @@
 
 // app/teacher/courses/[id]/announcements/page.jsx
 //
-// Phase 6 — اليوم 46-47: "Announcements: المدرس ينشر إعلان على الكورس،
+// Phase 6 — اليوم 46-47: "Announcements: المدرس ينشر إعلان على الدورة،
 // يظهر لكل الطلاب المسجلين". الـ API (GET/POST /api/courses/[id]/announcements،
 // DELETE /api/announcements/[id]) وموديل Announcement.js كانوا جاهزين
 // بالكامل — بما فيهم إرسال إشعار "announcement_new" لكل طالب مسجّل فعليًا
@@ -19,16 +19,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STRINGS = {
   ar: {
     loadError: "تعذّر تحميل الإعلانات",
-    publishError: "حصل خطأ أثناء نشر الإعلان",
+    publishError: "حدث خطأ أثناء نشر الإعلان",
     confirmDelete: "حذف هذا الإعلان؟",
-    deleteError: "حصل خطأ أثناء الحذف",
-    backToContent: "رجوع لمحتوى الكورس",
-    pageTitle: "إعلانات الكورس",
-    pageSubtitle: "أي إعلان تنشره هنا هيوصل فورًا كإشعار داخلي لكل طالب مسجّل فعليًا في الكورس ده.",
+    deleteError: "حدث خطأ أثناء الحذف",
+    backToContent: "الرجوع إلى محتوى الدورة",
+    pageTitle: "إعلانات الدورة",
+    pageSubtitle: "أي إعلان تنشره هنا سيصل فورًا كإشعار داخلي إلى كل طالب مسجّل فعليًا في هذه الدورة.",
     titlePlaceholder: "عنوان الإعلان",
     bodyPlaceholder: "نص الإعلان...",
     publish: "نشر الإعلان",
-    empty: "لسه مفيش إعلانات لهذا الكورس",
+    empty: "لا توجد إعلانات لهذه الدورة بعد",
   },
   en: {
     loadError: "Couldn't load announcements",

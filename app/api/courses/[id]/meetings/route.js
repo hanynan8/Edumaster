@@ -163,7 +163,7 @@ export async function POST(request, { params }) {
         console.error("[/api/courses/[id]/meetings] Daily auto-create failed, falling back:", err);
         if (!manualLink || !isValidHttpUrl(manualLink)) {
           return jsonResponse(
-            { error: "daily_meeting_failed", message: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — ابعت رابط يدوي كبديل." },
+            { error: "daily_meeting_failed", message: "فشل إنشاء الاجتماع تلقائيًا عبر Daily — أرسل رابطًا يدويًا كبديل." },
             502
           );
         }
@@ -195,7 +195,7 @@ export async function POST(request, { params }) {
     if (enrolledUserIds.length > 0) {
       await createNotificationsForUsers(enrolledUserIds, {
         type: "meeting_scheduled",
-        title: `محاضرة لايف جديدة على كورس ${course.title}`,
+        title: `محاضرة مباشرة جديدة في دورة ${course.title}`,
         message: `${title} — ${scheduledAt.toLocaleString("ar-EG")}`,
         link: "/meet",
         course: id,

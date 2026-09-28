@@ -306,7 +306,7 @@ const ATTACHMENT_STRINGS = {
   },
   ar: {
     label: "إرفاق ملف",
-    hint: "صور أو PDF أو Word — لغاية 5 ميجا",
+    hint: "صور أو PDF أو Word — حتى 5 ميغابايت",
     remove: "إزالة",
     tooLarge: "حجم الملف كبير جدًا (الأقصى 5 ميجا)",
     invalidType: "نوع الملف غير مدعوم",

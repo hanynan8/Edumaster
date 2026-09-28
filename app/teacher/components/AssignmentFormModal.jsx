@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STRINGS = {
   ar: {
     titleRequired: "عنوان الواجب مطلوب",
-    genericError: "حصل خطأ، حاول تاني",
+    genericError: "حدث خطأ، حاول مرة أخرى",
     editAssignment: "تعديل الواجب",
     newAssignment: "واجب جديد",
     assignmentTitle: "عنوان الواجب *",

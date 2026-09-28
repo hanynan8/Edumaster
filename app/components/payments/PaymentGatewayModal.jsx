@@ -35,7 +35,7 @@ const GETPAYIN_ENABLED = true;
 const STRINGS = {
   ar: {
     title: "تأكيد الدفع",
-    subtitle: "هتتحول لصفحة الدفع الآمنة بعد التأكيد",
+    subtitle: "سيتم تحويلك إلى صفحة الدفع الآمنة بعد التأكيد",
     total: "الإجمالي",
     confirm: "الدفع عبر GetPayIn",
     secure: "دفع آمن ببطاقتك أو محفظتك الإلكترونية",

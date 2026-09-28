@@ -29,18 +29,18 @@ const BANK_DETAILS = {
 const STRINGS = {
   ar: {
     title: "الدفع عن طريق تحويل بنكي",
-    subtitle: "الدفع الإلكتروني هيتفعّل قريبًا — دلوقتي التفعيل بيتم عن طريق تحويل بنكي يدوي",
+    subtitle: "سيتم تفعيل الدفع الإلكتروني قريبًا — حاليًا يتم التفعيل عن طريق تحويل بنكي يدوي",
     amountLabel: "المبلغ المطلوب",
     accountLabel: "رقم الحساب",
     bankLabel: "البنك",
     swiftLabel: "SWIFT/BIC",
     copy: "نسخ",
-    copied: "اتنسخ!",
+    copied: "تم النسخ!",
     steps: "خطوات التفعيل",
-    step1: "حوّل المبلغ المطلوب على رقم الحساب الموضّح فوق.",
-    step2: "خد سكرين شوت لإثبات التحويل.",
-    step3: "ابعت السكرين شوت على واتساب على الرقم اللي تحت.",
-    step4: "هيتم تفعيل الكورس/الاشتراك خلال وقت قصير بعد التأكيد.",
+    step1: "حوّل المبلغ المطلوب إلى رقم الحساب الموضّح أعلاه.",
+    step2: "التقط لقطة شاشة لإثبات التحويل.",
+    step3: "أرسل لقطة الشاشة عبر واتساب إلى الرقم الموضّح أدناه.",
+    step4: "سيتم تفعيل الدورة/الاشتراك خلال وقت قصير بعد التأكيد.",
     sendWhatsapp: "إرسال إشعار الدفع عبر واتساب",
   },
   en: {
@@ -108,7 +108,7 @@ export default function BankTransferInfo({ amount, currency }) {
 
   const waMessage = encodeURIComponent(
     language === "ar"
-      ? `مرحبًا، أنا بعتلكم إشعار تحويل بمبلغ ${formatPrice(amount, currency, language)} على منصة Edumaster.`
+      ? `مرحبًا، لقد أرسلت إليكم إشعار تحويل بمبلغ ${formatPrice(amount, currency, language)} على منصة Edumaster.`
       : `Hello, I'm sending you a payment transfer notice for ${formatPrice(amount, currency, language)} on Edumaster.`
   );
   const waLink = `https://wa.me/${BANK_DETAILS.whatsapp}?text=${waMessage}`;

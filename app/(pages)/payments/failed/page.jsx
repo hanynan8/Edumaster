@@ -17,12 +17,12 @@ const REASON_KEYS = {
   missing_reference: { ar: "بيانات الدفع ناقصة", en: "Missing payment data", es: "Faltan datos del pago" },
   not_found: { ar: "عملية الدفع غير موجودة", en: "Payment not found", es: "Pago no encontrado" },
   not_completed: { ar: "الدفع لم يكتمل", en: "The payment wasn't completed", es: "El pago no se completó" },
-  internal_error: { ar: "حصل خطأ غير متوقع", en: "An unexpected error occurred", es: "Ocurrió un error inesperado" },
-  too_many_requests: { ar: "محاولات كتير في وقت قصير، حاول تاني بعد شوية", en: "Too many attempts — please try again shortly", es: "Demasiados intentos — inténtalo de nuevo en unos momentos" },
+  internal_error: { ar: "حدث خطأ غير متوقع", en: "An unexpected error occurred", es: "Ocurrió un error inesperado" },
+  too_many_requests: { ar: "محاولات كثيرة في وقت قصير، حاول مرة أخرى بعد قليل", en: "Too many attempts — please try again shortly", es: "Demasiados intentos — inténtalo de nuevo en unos momentos" },
 };
 
 const STRINGS = {
-  ar: { title: "لم تكتمل عملية الدفع", browse: "تصفّح الكورسات", membership: "خطط الاشتراك" },
+  ar: { title: "لم تكتمل عملية الدفع", browse: "تصفّح الدورات", membership: "خطط الاشتراك" },
   en: { title: "Payment didn't go through", browse: "Browse Courses", membership: "Membership Plans" },
   es: { title: "El pago no se realizó", browse: "Explorar cursos", membership: "Planes de membresía" },
 };

@@ -124,7 +124,7 @@ export async function PATCH(request) {
     if (body.name !== undefined) {
       const name = String(body.name).trim();
       if (name.length < 2 || name.length > 60) {
-        return jsonResponse({ error: "invalid_name", message: "الاسم لازم يكون بين 2 و60 حرف" }, 400);
+        return jsonResponse({ error: "invalid_name", message: "يجب أن يكون الاسم بين 2 و60 حرفًا" }, 400);
       }
       user.name = name;
     }
@@ -135,7 +135,7 @@ export async function PATCH(request) {
       if (phone === "") {
         user.phone = "";
       } else if (!isValidPhone(phone)) {
-        return jsonResponse({ error: "invalid_phone", message: "رقم الهاتف مش بصيغة صحيحة" }, 400);
+        return jsonResponse({ error: "invalid_phone", message: "صيغة رقم الهاتف غير صحيحة" }, 400);
       } else {
         user.phone = phone;
       }

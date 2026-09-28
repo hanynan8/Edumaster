@@ -3,7 +3,7 @@
 // app/teacher/courses/[id]/performance/page.jsx
 //
 // Phase 4 — اليوم 41: "صفحة أداء الطلاب للمدرس" — جدول شامل لكل طالب مسجّل
-// في الكورس: نسبة إكماله، نتيجته في كل كويز، ودرجته في كل واجب. البيانات
+// في الدورة: نسبة إكماله، نتيجته في كل اختبار، ودرجته في كل واجب. البيانات
 // جاهزة بالكامل من GET /api/courses/[id]/performance.
 
 import { useEffect, useState, use as usePromise } from "react";
@@ -16,10 +16,10 @@ const STRINGS = {
   ar: {
     grading: "قيد التصحيح",
     loadError: "تعذّر تحميل بيانات الأداء",
-    backToContent: "رجوع لمحتوى الكورس",
+    backToContent: "الرجوع إلى محتوى الدورة",
     studentsPerformance: "أداء الطلاب",
     studentsCount: (n) => `${n} طالب`,
-    empty: "لسه محدش اشترك في الكورس ده",
+    empty: "لم يشترك أحد في هذه الدورة بعد",
     student: "الطالب",
     completion: "نسبة الإكمال",
   },

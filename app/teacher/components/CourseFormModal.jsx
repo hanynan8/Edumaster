@@ -2,7 +2,7 @@
 
 // app/teacher/components/CourseFormModal.jsx
 //
-// فورم إنشاء/تعديل كورس. بيستخدم POST /api/courses للإنشاء و
+// فورم إنشاء/تعديل دورة. بيستخدم POST /api/courses للإنشاء و
 // PUT /api/courses/[id] للتعديل. الغلاف (thumbnail) بيترفع بـ MediaUploader
 // (كـ "image") عن طريق /api/upload/file لـ Bunny Storage.
 //
@@ -11,32 +11,32 @@
 // اللغة من الناف بار مكانش بيغيّر حاجة في الفورم دي بالذات. اتصلحت هنا:
 // كل نص في الـ JSX بقى بياخد من t.* اللي بيتبع useLanguage().
 //
-// 🆕 كمان الفورم دلوقتي بتاخد محتوى الكورس (العنوان/الوصف/المتطلبات/
+// 🆕 كمان الفورم دلوقتي بتاخد محتوى الدورة (العنوان/الوصف/المتطلبات/
 // هيتعلم إيه/الشهادة) بالتلات لغات المدعومة (ar/en/es) بدل نسخة واحدة —
 // عن طريق تابات لغة جوه الفورم — وبتبعتها في body.i18n لـ API اللي أصلاً
 // بيدعم الحفظ ده (شوف app/lib/models/Course.js و app/lib/courseHelpers.js
 // sanitizeCourseI18n). النسخة العربية بتتخزن كمان في الحقول الأساسية
 // (title/shortDescription/description/requirements/outcomes) كـ "نسخة
 // افتراضية" للتوافق مع أي كود قديم لسه بيقرا course.title مباشرة وللبحث
-// النصي ($text index). الكورس بيتعرض للطالب حسب لغة الموقع تلقائيًا (شوف
+// النصي ($text index). الدورة بيتعرض للطالب حسب لغة الموقع تلقائيًا (شوف
 // app/(pages)/courses/page.jsx و app/(pages)/courses/[id]/page.jsx —
 // بيختاروا course.i18n[language] مع fallback لـ en وبعدين للحقول الأساسية).
 
 import { useEffect, useRef, useState } from "react";
-import { X, Loader, Check, RotateCcw, FileEdit, Send } from "lucide-react";
+import { X, Loader, Check, RotateCcw } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SUPPORTED_CURRENCIES, convertPrice } from "@/app/lib/currency";
 
 const LANGS = ["ar", "en", "es"];
 
-// 🆕 مسودة "كورس جديد" في localStorage: لو المدرس قفل المودال بالغلط
-// (زرار X، ضغط برّه المودال، أو حتى قفل التاب) قبل ما يضغط "إنشاء الكورس"،
+// 🆕 مسودة "دورة جديد" في localStorage: لو المدرس قفل المودال بالغلط
+// (زرار X، ضغط برّه المودال، أو حتى قفل التاب) قبل ما يضغط "إنشاء الدورة"،
 // البيانات اللي كتبها (كل اللغات + التصنيف/المستوى/السعر...) تفضل محفوظة
-// محليًا وترجع تلقائي أول ما يفتح فورم "كورس جديد" تاني. بتتمسح بس لما
-// الكورس يتحفظ فعليًا بنجاح (POST ناجح) — مش لما يقفل المودال عادي، عشان
-// كده بالظبط هي موجودة أصلاً. الفيتشر ده بيشتغل بس للكورس الجديد (مش
-// التعديل) لأن كورس بيتعدّل أصلاً بياناته محفوظة في الداتابيز مش محتاجة
+// محليًا وترجع تلقائي أول ما يفتح فورم "دورة جديد" تاني. بتتمسح بس لما
+// الدورة يتحفظ فعليًا بنجاح (POST ناجح) — مش لما يقفل المودال عادي، عشان
+// كده بالظبط هي موجودة أصلاً. الفيتشر ده بيشتغل بس للدورة الجديد (مش
+// التعديل) لأن دورة بيتعدّل أصلاً بياناته محفوظة في الداتابيز مش محتاجة
 // حفظ مؤقت. المودال يقدر يتفتح لأكتر من مدرس على نفس الجهاز نظريًا، فمفتاح
 // التخزين ثابت لكل الأجهزة (مفيش مقارنة بيانات مستخدم حساسة هنا أصلاً).
 const NEW_COURSE_DRAFT_KEY = "edumaster:newCourseDraft:v1";
@@ -123,10 +123,6 @@ const T = {
     certDesc: "Certificate description (optional)",
     tags: "Tags (comma-separated)",
     status: "Status",
-    statusDraftBtn: "Save as draft",
-    statusPublishBtn: "Publish",
-    statusPublishHint: "Needs admin approval before it appears to students.",
-    statusPendingHint: "Already sent to the admin — waiting for review.",
     classMarkerQuizId: "ClassMarker Test ID (optional)",
     classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
@@ -139,54 +135,50 @@ const T = {
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
     statuses: {
       draft: "مسودة",
-      published: "نشر (يحتاج موافقة الأدمن)",
-      pending: "قيد المراجعة (بانتظار الأدمن)",
+      published: "نشر (يحتاج موافقة الإدارة)",
+      pending: "قيد المراجعة (بانتظار الإدارة)",
       archived: "مؤرشف",
     },
     titleRequired: "العنوان مطلوب",
-    titleRequiredAllLangs: "من فضلك اكتب عنوان الكورس بالتلات لغات (عربي، إنجليزي، إسباني)",
-    chooseCategory: "اختر تصنيف",
-    submittedForReview: "تم إرسال الكورس للأدمن للمراجعة. هيظهر للطلاب بعد ما يوافق عليه.",
+    titleRequiredAllLangs: "من فضلك اكتب عنوان الدورة باللغات الثلاث (العربية والإنجليزية والإسبانية)",
+    chooseCategory: "اختر تصنيفًا",
+    submittedForReview: "تم إرسال الدورة إلى الإدارة للمراجعة. ستظهر للطلاب بعد موافقتها عليها.",
     savedAsDraft:
-      "تم حفظ الكورس كمسودة أول ما بتتعمل. عشان تبعته للأدمن للمراجعة، افتح الكورس وضيف المحتوى (الأقسام والدروس)، وبعدين اختار «نشر» تاني.",
-    slugTaken: "العنوان مستخدم بالفعل، جرّب عنوان مختلف",
-    genericError: "حصل خطأ، حاول تاني",
-    editCourse: "تعديل الكورس",
-    newCourse: "كورس جديد",
-    multilingualHint: "المحتوى ده بيتعرض للطالب حسب لغة الموقع الحالية. املا الثلاث لغات عشان الكورس يظهر صح لأي طالب أيًا كانت لغته.",
+      "تم حفظ الدورة كمسودة عند إنشائها. لإرسالها إلى الإدارة للمراجعة، افتح الدورة وأضف المحتوى (الأقسام والدروس)، ثم اختر «نشر» مرة أخرى.",
+    slugTaken: "العنوان مستخدم بالفعل، جرّب عنوانًا مختلفًا",
+    genericError: "حدث خطأ، حاول مرة أخرى",
+    editCourse: "تعديل الدورة",
+    newCourse: "دورة جديد",
+    multilingualHint: "يُعرض هذا المحتوى للطالب بحسب لغة الموقع الحالية. املأ اللغات الثلاث لتظهر الدورة بشكل صحيح لأي طالب أيًّا كانت لغته.",
     langTabs: { ar: "عربي", en: "إنجليزي", es: "إسباني" },
-    courseTitle: "عنوان الكورس *",
+    courseTitle: "عنوان الدورة *",
     shortDesc: "وصف قصير (يظهر في الكارت)",
     fullDesc: "الوصف الكامل",
     coverImage: "صورة الغلاف",
     category: "التصنيف *",
     choose: "اختر...",
-    subcategory: "الساب تصنيف *",
-    chooseSubcategory: "اختر الساب تصنيف",
+    subcategory: "التصنيف الفرعي *",
+    chooseSubcategory: "اختر التصنيف الفرعي",
     level: "المستوى",
     priceLabel: "السعر (لكل عملة)",
-    priceAutoHint: "اكتب سعر أي عملة وباقي العملتين يتحسبوا تلقائيًا (سعر تقريبي — تقدر تعدّلهم يدوي بعد كده).",
+    priceAutoHint: "اكتب السعر بأي عملة وسيتم حساب العملتين الأخريين تلقائيًا (سعر تقريبي — يمكنك تعديلهما يدويًا بعد ذلك).",
     free: "مجاني",
     egp: "جنيه (EGP)",
     usd: "دولار (USD)",
     eur: "يورو (EUR)",
     requirements: "المتطلبات المسبقة (سطر لكل عنصر)",
-    outcomes: "هيتعلم إيه (سطر لكل عنصر)",
+    outcomes: "ما سيتعلمه الطالب (سطر لكل عنصر)",
     certName: "اسم الشهادة (اختياري)",
     certDesc: "وصف الشهادة (اختياري)",
     tags: "Tags (مفصولة بفاصلة)",
     status: "الحالة",
-    statusDraftBtn: "حفظ كمسودة",
-    statusPublishBtn: "نشر",
-    statusPublishHint: "يحتاج موافقة الأدمن الأول قبل ما يظهر للطلاب.",
-    statusPendingHint: "الكورس ده اتبعت بالفعل للأدمن وبينتظر المراجعة.",
     classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
-    classMarkerQuizIdHint: "الصق الـ Quiz ID من رابط اختبار ClassMarker بتاعك (الجزء اللي بعد ?quiz= في رابط زي https://www.classmarker.com/online-test/start?quiz=...). لو اتحط، هيظهر قسم \"اختبر مستواك\" في صفحة الكورس. سيبه فاضي لو مش عايز اختبار.",
+    classMarkerQuizIdHint: "الصق معرّف الاختبار (Quiz ID) من رابط اختبار ClassMarker الخاص بك (الجزء الذي يلي ?quiz= في رابط مثل https://www.classmarker.com/online-test/start?quiz=...). إذا تم إدخاله، سيظهر قسم \"اختبر مستواك\" في صفحة الدورة. اتركه فارغًا إذا لم ترغب في اختبار.",
     saveChanges: "حفظ التعديلات",
-    createCourse: "إنشاء الكورس",
+    createCourse: "إنشاء الدورة",
     cancel: "إلغاء",
-    draftRestored: "رجّعنالك البيانات اللي كنت بتكتبها قبل كده ولسه محفوظة.",
-    discardDraft: "تجاهل المسودة وابدأ من جديد",
+    draftRestored: "تمت استعادة البيانات التي كنت تكتبها سابقًا وهي لا تزال محفوظة.",
+    discardDraft: "تجاهل المسودة والبدء من جديد",
   },
   es: {
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
@@ -229,10 +221,6 @@ const T = {
     certDesc: "Descripción del certificado (opcional)",
     tags: "Etiquetas (separadas por coma)",
     status: "Estado",
-    statusDraftBtn: "Guardar como borrador",
-    statusPublishBtn: "Publicar",
-    statusPublishHint: "Requiere aprobación del admin antes de mostrarse a los estudiantes.",
-    statusPendingHint: "Ya se envió al admin — esperando revisión.",
     classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
     classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
@@ -245,7 +233,7 @@ const T = {
 
 // بيبني محتوى لغة واحدة (تاب واحد) من i18n المخزن، مع fallback للحقول
 // الأساسية القديمة (title/shortDescription/description/requirements/outcomes)
-// لو مفيش نسخة i18n لسه للغة دي (كورس قديم اتعمل قبل الفيتشر ده مثلاً).
+// لو مفيش نسخة i18n لسه للغة دي (دورة قديم اتعمل قبل الفيتشر ده مثلاً).
 function langContentFrom(i18nLang, fallback) {
   return {
     title: i18nLang?.title ?? fallback?.title ?? "",
@@ -265,6 +253,12 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     { value: "beginner", label: t.levels.beginner },
     { value: "intermediate", label: t.levels.intermediate },
     { value: "advanced", label: t.levels.advanced },
+  ];
+  const STATUSES = [
+    { value: "draft", label: t.statuses.draft },
+    { value: "published", label: t.statuses.published },
+    { value: "pending", label: t.statuses.pending },
+    { value: "archived", label: t.statuses.archived },
   ];
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
@@ -315,8 +309,8 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       .catch(() => setCategories([]));
   }, []);
 
-  // 🆕 تحميل مسودة "كورس جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
-  // بس في وضع "كورس جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
+  // 🆕 تحميل مسودة "دورة جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
+  // بس في وضع "دورة جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
   useEffect(() => {
     if (isEdit) return; // مودال تعديل: مفيش مسودة تتحمّل
     const draft = loadNewCourseDraft();
@@ -330,7 +324,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   }, []);
 
   // 🆕 حفظ تلقائي في localStorage كل ما المدرس يعدّل أي حاجة في الفورم —
-  // بس في وضع "كورس جديد"، وبعد ما نخلّص محاولة تحميل مسودة قديمة (guard
+  // بس في وضع "دورة جديد"، وبعد ما نخلّص محاولة تحميل مسودة قديمة (guard
   // بـ draftHydrated فوق) عشان منمسحش مسودة موجودة بفورم فاضي للحظة.
   useEffect(() => {
     if (isEdit) return;
@@ -392,7 +386,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   }
 
   // 🆕 التصنيف المختار حاليًا هو "Language" ولا لأ — بيتحدد بالـ slug (مش
-  // الاسم) عشان يفضل شغال أيًا كانت لغة الموقع الحالية. لو الأدمن مغيّرش
+  // الاسم) عشان يفضل شغال أيًا كانت لغة الموقع الحالية. لو الإدارة مغيّرش
   // اسم/slug التصنيف ده من لوحة التصنيفات، الفحص ده هيفضل شغال زي ما هو.
   const isLanguageCategory = categories.find((c) => c.id === form.category)?.slug === "language";
 
@@ -475,24 +469,24 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       if (!res.ok) throw new Error(data?.error || "save_failed");
 
       // 🆕 لو المدرس اختار "نشر" بس الباك إند حوّل الحالة لـ "قيد المراجعة"
-      // (شوف تعليق app/api/courses/[id]/route.js PUT)، لازم يعرف إن الكورس
+      // (شوف تعليق app/api/courses/[id]/route.js PUT)، لازم يعرف إن الدورة
       // مش هيظهر للطلاب دلوقتي — الفورم بيتقفل فورًا (onSaved) فمفيش وقت
       // نعرض رسالة جوه المودال نفسه، فبنستخدم alert زي باقي رسائل الحالة
       // المشابهة في الصفحة (شوف teacher/page.jsx handleDelete).
       if (data?.submittedForReview) {
         alert(t.submittedForReview);
       } else if (!isEdit && form.status === "published") {
-        // 🩹 FIX: عند إنشاء كورس جديد (POST)، الباك إند بيحفظه دايمًا
+        // 🩹 FIX: عند إنشاء دورة جديد (POST)، الباك إند بيحفظه دايمًا
         // status="draft" بغض النظر عن اختيار المدرس (شوف app/api/courses/route.js
-        // POST — "كورس جديد دايمًا draft"). قبل الفيكس ده، لو المدرس اختار
-        // "نشر" وهو بيعمل الكورس لأول مرة، الاختيار كان بيتجاهل بصمت من
-        // غير أي تنبيه — المدرس يفضل فاكر إنه بعت الكورس للمراجعة وهو
-        // لسه مسودة. بنوضّح هنا إن لازم يفتح الكورس تاني ويختار "نشر" من
+        // POST — "دورة جديد دايمًا draft"). قبل الفيكس ده، لو المدرس اختار
+        // "نشر" وهو بيعمل الدورة لأول مرة، الاختيار كان بيتجاهل بصمت من
+        // غير أي تنبيه — المدرس يفضل فاكر إنه بعت الدورة للمراجعة وهو
+        // لسه مسودة. بنوضّح هنا إن لازم يفتح الدورة تاني ويختار "نشر" من
         // جديد بعد ما يخلّص إضافة المحتوى (أقسام/دروس) عشان يترسل فعليًا.
         alert(t.savedAsDraft);
       }
 
-      // 🆕 الكورس اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
+      // 🆕 الدورة اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
       if (!isEdit) clearNewCourseDraft();
 
       onSaved(data);
@@ -523,7 +517,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{error}</div>}
 
-          {/* 🆕 بانر مسودة مستردة — بيظهر بس لو فيه مسودة "كورس جديد" اتحمّلت
+          {/* 🆕 بانر مسودة مستردة — بيظهر بس لو فيه مسودة "دورة جديد" اتحمّلت
               فعليًا من localStorage عند فتح المودال. */}
           {!isEdit && draftRestored && (
             <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2.5 rounded-lg">
@@ -541,7 +535,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
           <div className="bg-[#EBEFF6] text-[#002E74] text-xs px-4 py-2.5 rounded-lg">{t.multilingualHint}</div>
 
-          {/* 🆕 تابات اللغة — كل تاب بيعبّي محتوى الكورس (عنوان/وصف/متطلبات/
+          {/* 🆕 تابات اللغة — كل تاب بيعبّي محتوى الدورة (عنوان/وصف/متطلبات/
               هيتعلم إيه/شهادة) للغة دي بالتحديد، بغض النظر عن لغة الناف بار
               الحالية (لغة الناف بار بتتحكم بس في نصوص الفورم نفسها). */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
@@ -677,7 +671,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
           {/* 🆕 ساب-تصنيف حقيقي — بيظهر بس لو التصنيف المختار فعلاً عنده
               ساب-تصنيفات متخزنة في الداتابيز (شوف hasSubcategories فوق).
-              لتصنيف "Language" دي هي اللي بتحدد لغة الكورس فعليًا دلوقتي
+              لتصنيف "Language" دي هي اللي بتحدد لغة الدورة فعليًا دلوقتي
               (بدل حقل ثابت مالوش واجهة زي الأول). */}
           {hasSubcategories && (
             <div>
@@ -710,7 +704,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             {/* 🆕 سعر منفصل يدوي لكل عملة (بدل تحويل تلقائي بسعر صرف) — العملة
                 اللي المستخدم بيدفع بيها بتتحدد حسب لغة الموقع وقت الشراء
                 (شوف app/lib/currency.js). لازم تتحط قيمة لكل العملات التلاتة
-                عشان الكورس يبقى قابل للشراء بأي لغة. */}
+                عشان الدورة يبقى قابل للشراء بأي لغة. */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">{t.egp}</label>
@@ -759,7 +753,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
           {/* 🆕 اختبار "قيّم مستواك" (ClassMarker) — الحقل ده بيظهر بس لو
               التصنيف المختار هو "Language" (categorySlug === "language")،
-              لأن الاختبار ده معناه بس لكورسات اللغة (اختبار تحديد مستوى في
+              لأن الاختبار ده معناه بس لدورات اللغة (اختبار تحديد مستوى في
               لغة معيّنة). لو المدرس بدّل التصنيف لحاجة تانية، الحقل بيختفي
               (لكن القيمة المحفوظة مش بتتمسح من الداتابيز، بترجع تظهر تاني
               لو رجّع اختار Language تاني). */}
@@ -776,52 +770,19 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             </div>
           )}
 
-          {/* 🆕 اتشال الـ <select> اللي كان بيدي المدرس 4 خيارات (draft/
-              published/pending/archived). "pending" حالة بيحطها النظام
-              تلقائيًا لما المدرس يختار "نشر" (مش حاجة المدرس يختارها هو
-              بنفسه — شوف app/api/courses/[id]/route.js PUT)، و"archived"
-              إجراء إداري مش متاح من الفورم ده أصلًا. المدرس دلوقتي قدامه
-              خياره الحقيقي بس: مسودة أو نشر — بزرارين واضحين بدل قايمة
-              منسدلة، وزرار "نشر" بارز أكتر (أكبر، ملوّن، وبعلامة صح لما
-              يبقى مختار) لأنه الهدف الأساسي من الفورم، والنشر الفعلي
-              للطلاب بيفضل يحتاج موافقة الأدمن زي ما هو موضّح تحت الزرار. */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => update("status", "draft")}
-                aria-pressed={form.status !== "published" && form.status !== "pending"}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-3 text-sm font-semibold transition ${
-                  form.status !== "published" && form.status !== "pending"
-                    ? "border-gray-500 bg-gray-100 text-gray-800"
-                    : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
-                }`}
-              >
-                <FileEdit size={16} />
-                {t.statusDraftBtn}
-              </button>
-              <button
-                type="button"
-                onClick={() => update("status", "published")}
-                aria-pressed={form.status === "published" || form.status === "pending"}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 px-3 text-base font-bold transition ${
-                  form.status === "published" || form.status === "pending"
-                    ? "border-[#003A91] bg-gradient-to-r from-[#003A91] to-[#5279B4] text-white shadow-md scale-[1.02]"
-                    : "border-gray-300 bg-white text-gray-700 hover:border-[#5279B4]"
-                }`}
-              >
-                {(form.status === "published" || form.status === "pending") ? (
-                  <Check size={18} />
-                ) : (
-                  <Send size={16} />
-                )}
-                {t.statusPublishBtn}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
-              {form.status === "pending" ? t.statusPendingHint : t.statusPublishHint}
-            </p>
+            <select
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+              value={form.status}
+              onChange={(e) => update("status", e.target.value)}
+            >
+              {STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-3 pt-2">

@@ -91,7 +91,7 @@ export async function POST(request, { params }) {
       user: comment.user,
       type: "comment_approved",
       title: "تمت الموافقة على تعليقك",
-      message: "تعليقك بقى ظاهر تحت الدرس دلوقتي.",
+      message: "أصبح تعليقك ظاهرًا أسفل الدرس الآن.",
       link: `/courses/${comment.course._id || comment.course}`,
       course: comment.course._id || comment.course,
     }).catch((err) => console.error("[/api/admin/comments/[id]/approve] notify error:", err));

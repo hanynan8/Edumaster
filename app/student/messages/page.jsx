@@ -2,8 +2,8 @@
 
 // app/student/messages/page.jsx
 //
-// 🆕 "رسائلي" — صندوق وارد الطالب لمراسلة مدرّسي كورساته. قايمة كورساته
-// (GET /api/student/messages) على اليسار/فوق، وفتح أي كورس بيحمّل المحادثة
+// 🆕 "رسائلي" — صندوق وارد الطالب لمراسلة مدرّسي دوراته. قايمة دوراته
+// (GET /api/student/messages) على اليسار/فوق، وفتح أي دورة بيحمّل المحادثة
 // بينه وبين مدرسه (GET/POST /api/courses/[id]/messages). الدخول من رابط
 // إشعار "message_new" (?course=xxx) بيفتح الخيط ده مباشرة.
 
@@ -18,22 +18,22 @@ import {
 const STRINGS = {
   ar: {
     title: "رسائلي",
-    subtitle: "راسل مدرّسين كورساتك واستلم ردودهم من هنا",
+    subtitle: "راسل مدرّسي دوراتك واستلم ردودهم من هنا",
     loading: "جارِ التحميل...",
     error: "تعذّر تحميل رسائلك",
-    empty: "لسه معملتش enroll في أي كورس عشان تراسل مدرّسه",
-    browse: "تصفّح الكورسات",
-    noMessages: "مفيش رسايل لسه — ابدأ المحادثة",
-    placeholder: "اكتب رسالتك لمدرّس الكورس...",
+    empty: "لم تسجّل في أي دورة بعد لتتمكن من مراسلة مدرّسها",
+    browse: "تصفّح الدورات",
+    noMessages: "لا توجد رسائل بعد — ابدأ المحادثة",
+    placeholder: "اكتب رسالتك لمدرّس الدورة...",
     send: "إرسال",
-    sending: "بيترسل...",
-    selectThread: "اختر كورس من القائمة عشان تفتح المحادثة",
-    you: "انت",
+    sending: "جارٍ الإرسال...",
+    selectThread: "اختر دورة من القائمة لفتح المحادثة",
+    you: "أنت",
     justNow: "الآن",
     minutesAgo: (n) => `منذ ${n} د`,
     hoursAgo: (n) => `منذ ${n} س`,
     daysAgo: (n) => `منذ ${n} يوم`,
-    noTeacher: "الكورس ده لسه من غير مدرّس معيّن",
+    noTeacher: "هذه الدورة لا يوجد لها مدرّس معيّن بعد",
   },
   en: {
     title: "My Messages",
@@ -312,7 +312,7 @@ function MessagesInner() {
     return () => clearInterval(interval);
   }, [loadThreads]);
 
-  // فتح كورس معيّن مباشرة لو جاي من رابط إشعار (?course=xxx)
+  // فتح دورة معيّن مباشرة لو جاي من رابط إشعار (?course=xxx)
   useEffect(() => {
     const courseParam = searchParams.get("course");
     if (courseParam) {

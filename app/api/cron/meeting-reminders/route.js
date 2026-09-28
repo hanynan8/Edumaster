@@ -106,12 +106,12 @@ export async function GET(request) {
       }
 
       const minutesLeft = Math.max(1, Math.round((new Date(meeting.scheduledAt).getTime() - now) / 60000));
-      const courseTitle = meeting.course?.title || "الكورس";
+      const courseTitle = meeting.course?.title || "الدورة";
 
       // إشعار داخلي (يظهر في NotificationBell فورًا).
       const created = await createNotificationsForUsers(enrolledUserIds, {
         type: "meeting_scheduled",
-        title: `محاضرة "${meeting.title}" هتبدأ بعد ${minutesLeft} دقيقة`,
+        title: `محاضرة "${meeting.title}" ستبدأ بعد ${minutesLeft} دقيقة`,
         message: `${courseTitle} — استعد للدخول`,
         link: "/meet",
         course: meeting.course?._id || meeting.course,

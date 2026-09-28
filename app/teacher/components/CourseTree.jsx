@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileText, quiz: FileText };
 
-// 🆕 كل النصوص (عدد الدروس، "معاينة"، "مفيش دروس لسه"، "إضافة قسم جديد")
+// 🆕 كل النصوص (عدد الدروس، "معاينة"، "لا توجد دروس بعد"، "إضافة قسم جديد")
 // كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
 const T = {
   en: {
@@ -19,7 +19,7 @@ const T = {
   ar: {
     lessonsCount: (n) => `${n} درس`,
     addLesson: "درس",
-    noLessonsYet: "مفيش دروس لسه",
+    noLessonsYet: "لا توجد دروس بعد",
     preview: "معاينة",
     addSection: "إضافة قسم جديد",
   },

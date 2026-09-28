@@ -115,7 +115,7 @@ export async function PUT(request, { params }) {
         await updateDailyRoom(meeting.dailyRoomName, { startDate: meeting.scheduledAt, endDate });
       } catch (err) {
         console.error("[/api/meetings/[id]] Daily room update failed:", err);
-        dailyWarning = "اتحفظ التعديل، لكن حصلت مشكلة في تحديث معاد الغرفة على Daily — لو الرابط رفض الدخول، احذف المحاضرة واعملها تاني.";
+        dailyWarning = "تم حفظ التعديل، لكن حدثت مشكلة في تحديث موعد الغرفة على Daily — إذا رفض الرابط الدخول، احذف المحاضرة وأنشئها من جديد.";
       }
     }
 

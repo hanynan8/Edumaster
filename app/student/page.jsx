@@ -3,8 +3,8 @@
 // app/student/page.jsx
 //
 // Phase 2 — اليوم 20-21: صفحة "My Courses". بتجيب:
-//   - GET /api/enrollments   → كورسات الطالب المسجل فيها (populated بعنوان/
-//     thumbnail الكورس) + progressPercent + source (free/membership/purchase/
+//   - GET /api/enrollments   → دورات الطالب المسجل فيها (populated بعنوان/
+//     thumbnail الدورة) + progressPercent + source (free/membership/purchase/
 //     admin_grant)
 //   - GET /api/membership    → حالة عضوية الطالب الحالية (لو موجودة)
 
@@ -21,35 +21,35 @@ import {
 
 const STRINGS = {
   ar: {
-    title: "كورساتي",
-    subtitle: "الكورسات اللي انت مسجل فيها",
-    empty: "لسه معملتش enroll في أي كورس",
-    browse: "تصفّح الكورسات",
+    title: "دوراتي",
+    subtitle: "الدورات التي سجّلت فيها",
+    empty: "لم تسجّل في أي دورة بعد",
+    browse: "تصفّح الدورات",
     loading: "جارِ التحميل...",
-    error: "تعذّر تحميل كورساتك",
+    error: "تعذّر تحميل دوراتك",
     lessons: (n) => `${n} درس`,
     progress: (p) => `${p}% مكتمل`,
     completed: "مكتمل",
     sourceLabels: { free: "مجاني", membership: "عن طريق اشتراكك", purchase: "شراء", admin_grant: "منحة من الإدارة" },
     membershipTitle: "اشتراكك الحالي",
-    noMembership: "معندكش اشتراك membership فعّال حاليًا",
+    noMembership: "لا يوجد لديك اشتراك فعّال حاليًا",
     viewPlans: "اطّلع على خطط الاشتراك",
     expiresOn: (d) => `ينتهي في ${d}`,
-    neverExpires: "من غير تاريخ انتهاء",
+    neverExpires: "بدون تاريخ انتهاء",
     statusLabels: { active: "فعّالة", inactive: "غير مفعّلة", expired: "منتهية", cancelled: "ملغاة" },
     continueLabel: "استكمال",
     myGrades: "درجاتي ونتائجي",
-    navCourses: "كورساتي",
+    navCourses: "دوراتي",
     navGrades: "درجاتي",
     navCertificates: "شهاداتي",
     navPayments: "مدفوعاتي",
-    navMeetings: "المحاضرات اللايف",
-    // Phase 7 — اليوم 57: ملخص شخصي (تقدمي/شهاداتي/كورساتي)
+    navMeetings: "المحاضرات المباشرة",
+    // Phase 7 — اليوم 57: ملخص شخصي (تقدمي/شهاداتي/دوراتي)
     summaryProgress: "متوسط تقدّمي",
-    summaryActive: "كورسات جارية",
-    summaryCompleted: "كورسات مكتملة",
+    summaryActive: "دورات جارية",
+    summaryCompleted: "دورات مكتملة",
     summaryCertificates: "شهاداتي",
-    viewCertificates: "شوف شهاداتي",
+    viewCertificates: "عرض شهاداتي",
     // Phase — الملف الشخصي (تعديل الاسم/الرقم/الصورة)
     editProfile: "تعديل الملف الشخصي",
     viewFullSize: "تكبير الصورة",
@@ -57,7 +57,7 @@ const STRINGS = {
     profileModalTitle: "الملف الشخصي",
     profileModalSubtitle: "عدّل بياناتك الشخصية",
     fieldEmail: "البريد الإلكتروني الحالي",
-    emailLockedNote: "الإيميل مش قابل للتعديل من هنا",
+    emailLockedNote: "لا يمكن تعديل البريد الإلكتروني من هنا",
     fieldName: "الاسم المسجّل به",
     fieldNamePlaceholder: "اكتب اسمك بالكامل",
     fieldPhone: "رقم الهاتف",
@@ -67,12 +67,12 @@ const STRINGS = {
     saving: "جارِ الحفظ...",
     cancel: "إلغاء",
     saveSuccess: "تم حفظ بياناتك بنجاح",
-    errNameLen: "الاسم لازم يكون بين 2 و60 حرف",
-    errPhoneInvalid: "رقم الهاتف مش بصيغة صحيحة",
-    errAvatarType: "الصورة لازم تكون JPG أو GIF أو PNG",
+    errNameLen: "يجب أن يكون الاسم بين 2 و60 حرفًا",
+    errPhoneInvalid: "صيغة رقم الهاتف غير صحيحة",
+    errAvatarType: "يجب أن تكون الصورة بصيغة JPG أو GIF أو PNG",
     errAvatarSize: "حجم الصورة أكبر من المسموح (1MB)",
-    errAvatarBroken: "حصلت مشكلة في تحميل الصورة بعد الرفع، جرّب تاني",
-    errGeneric: "حصل خطأ، حاول تاني",
+    errAvatarBroken: "حدثت مشكلة في تحميل الصورة بعد الرفع، حاول مرة أخرى",
+    errGeneric: "حدث خطأ، حاول مرة أخرى",
     uploadingPhoto: "جارِ رفع الصورة...",
     avatarHint: "أقصى حجم: 1MB. الصيغ المتاحة: JPG أو GIF أو PNG",
   },
@@ -303,7 +303,7 @@ function ProfileSummaryCard({ user, t, onEdit }) {
   );
 }
 
-/* ─── شريط تنقّل: كورساتي / درجاتي / شهاداتي / مدفوعاتي — كلهم جمب بعض ─── */
+/* ─── شريط تنقّل: دوراتي / درجاتي / شهاداتي / مدفوعاتي — كلهم جمب بعض ─── */
 function StudentQuickNav({ t }) {
   const items = [
     { href: "/student", label: t.navCourses, icon: BookOpen, active: true },
@@ -549,7 +549,7 @@ function ProfileEditModal({ initialUser, t, isRTL, onClose, onSaved }) {
           )}
         </div>
 
-        {/* الإيميل — للعرض بس */}
+        {/* البريد الإلكتروني — للعرض بس */}
         <div className="mb-4">
           <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-1.5">
             <Mail size={12} /> {t.fieldEmail}
@@ -662,8 +662,8 @@ export default function StudentMyCoursesPage() {
 
         <StudentQuickNav t={t} />
 
-        {/* 🆕 issue #1 — إشارة واضحة في الداشبورد لو فيه محاضرة لايف شغالة
-            أو قريبة على أي كورس من كورسات الطالب (شوف DashboardMeetingsWidget). */}
+        {/* 🆕 issue #1 — إشارة واضحة في الداشبورد لو فيه محاضرة مباشرة شغالة
+            أو قريبة على أي دورة من دورات الطالب (شوف DashboardMeetingsWidget). */}
         <DashboardMeetingsWidget />
 
         {profileUser && (

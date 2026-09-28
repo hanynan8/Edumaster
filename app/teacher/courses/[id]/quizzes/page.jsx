@@ -2,9 +2,9 @@
 
 // app/teacher/courses/[id]/quizzes/page.jsx
 //
-// Phase 4 — اليوم 33-34: صفحة إدارة كويزات كورس معيّن. نفس بالظبط نمط
+// Phase 4 — اليوم 33-34: صفحة إدارة اختبارات دورة معيّن. نفس بالظبط نمط
 // app/teacher/courses/[id]/assignments/page.jsx (تبويب مشابه في CourseTabs).
-// من هنا المدرس بيعمل كويز جديد (بيانات عامة بس) وبعدين يدخل صفحة الكويز
+// من هنا المدرس بيعمل اختبار جديد (بيانات عامة بس) وبعدين يدخل صفحة الاختبار
 // نفسه (app/teacher/quizzes/[quizId]) عشان يضيف الأسئلة.
 
 import { useEffect, useState, use as usePromise } from "react";
@@ -16,13 +16,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
-    loadError: "تعذّر تحميل الكويزات",
-    confirmDelete: (title) => `حذف كويز "${title}"؟ هيتمسح معاه كل الأسئلة ونتائج الطلاب. متأكد؟`,
-    deleteError: "حصل خطأ أثناء الحذف",
-    backToContent: "رجوع لمحتوى الكورس",
-    pageTitle: "الكويزات",
-    newQuiz: "كويز جديد",
-    empty: "لسه مفيش كويزات لهذا الكورس",
+    loadError: "تعذّر تحميل الاختبارات",
+    confirmDelete: (title) => `حذف اختبار "${title}"؟ سيتم مسح جميع الأسئلة ونتائج الطلاب معه. هل أنت متأكد؟`,
+    deleteError: "حدث خطأ أثناء الحذف",
+    backToContent: "الرجوع إلى محتوى الدورة",
+    pageTitle: "الاختبارات",
+    newQuiz: "اختبار جديد",
+    empty: "لا توجد اختبارات لهذه الدورة بعد",
     published: "منشور",
     draft: "مسودة",
     questionsCount: (n) => `${n} سؤال`,

@@ -20,7 +20,7 @@ const T = {
   },
   ar: {
     titleRequired: "العنوان مطلوب",
-    genericError: "حصل خطأ، حاول تاني",
+    genericError: "حدث خطأ، حاول مرة أخرى",
     editSection: "تعديل القسم",
     newSection: "قسم جديد",
     sectionTitle: "عنوان القسم *",

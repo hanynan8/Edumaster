@@ -2,7 +2,7 @@
 
 // app/teacher/quizzes/[quizId]/results/page.jsx
 //
-// Phase 4 — اليوم 41: نتائج الطلاب في كويز معيّن (آخر محاولة + أفضل نتيجة
+// Phase 4 — اليوم 41: نتائج الطلاب في اختبار معيّن (آخر محاولة + أفضل نتيجة
 // لكل طالب).
 
 import { useEffect, useState, use as usePromise } from "react";
@@ -13,11 +13,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STRINGS = {
   ar: {
     loadError: "تعذّر تحميل النتائج",
-    backToQuestions: "رجوع لأسئلة الكويز",
+    backToQuestions: "الرجوع إلى أسئلة الاختبار",
     resultsTitle: (title) => `نتائج: ${title}`,
-    studentsWhoTook: "طالب حل الكويز",
-    studentsWhoPassed: "طالب نجح فيه",
-    empty: "لسه محدش حل الكويز ده",
+    studentsWhoTook: "طالب أدّى الاختبار",
+    studentsWhoPassed: "طالب اجتازه",
+    empty: "لم يؤدِّ أحد هذا الاختبار بعد",
     student: "الطالب",
     attempts: "المحاولات",
     bestScore: "أفضل نتيجة",

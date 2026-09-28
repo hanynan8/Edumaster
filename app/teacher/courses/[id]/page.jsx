@@ -2,7 +2,7 @@
 
 // app/teacher/courses/[id]/page.jsx — اليوم 10
 //
-// صفحة إدارة محتوى كورس معيّن: بيانات الكورس + شجرة الأقسام والدروس.
+// صفحة إدارة محتوى دورة معيّن: بيانات الدورة + شجرة الأقسام والدروس.
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
@@ -16,13 +16,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
-    loadError: "تعذّر تحميل بيانات الكورس",
-    confirmDeleteSection: (title, count) => `حذف "${title}" هيمسح كل دروسه (${count}). متأكد؟`,
-    deleteError: "حصل خطأ أثناء الحذف",
+    loadError: "تعذّر تحميل بيانات الدورة",
+    confirmDeleteSection: (title, count) => `سيؤدي حذف "${title}" إلى مسح جميع دروسه (${count}). هل أنت متأكد؟`,
+    deleteError: "حدث خطأ أثناء الحذف",
     confirmDeleteLesson: (title) => `حذف الدرس "${title}"؟`,
-    backToCourses: "رجوع لكورساتي",
-    editCourseData: "تعديل بيانات الكورس",
-    courseContent: "محتوى الكورس",
+    backToCourses: "الرجوع إلى دوراتي",
+    editCourseData: "تعديل بيانات الدورة",
+    courseContent: "محتوى الدورة",
   },
   en: {
     loadError: "Couldn't load course data",

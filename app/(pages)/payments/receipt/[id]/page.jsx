@@ -29,10 +29,10 @@ const STRINGS = {
     status: "الحالة",
     provider: "بوابة الدفع",
     print: "طباعة / حفظ PDF",
-    back: "رجوع",
+    back: "العودة",
     loading: "جارِ التحميل...",
     error: "تعذّر تحميل تفاصيل الفاتورة",
-    course: "كورس",
+    course: "دورة",
     membership: "اشتراك",
     consultation: "استشارة",
   },
@@ -61,7 +61,7 @@ export default function ReceiptPage({ params }) {
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowLeft : ArrowRight;
   // 🔧 GET /api/payments/[id] بيسمح لصاحب الدفعة أو للأدمن — يعني ممكن
-  // مدرّس (صاحب دفعة) أو أدمن (بيشوف دفعة حد تاني) يوصلوا هنا. رابط "رجوع"
+  // مدرّس (صاحب دفعة) أو أدمن (بيشوف دفعة حد تاني) يوصلوا هنا. رابط "العودة"
   // كان "/student/payments" ثابت، واللي بيرفض دلوقتي أي role غير student.
   const { data: session } = useSession();
   const role = session?.user?.role;

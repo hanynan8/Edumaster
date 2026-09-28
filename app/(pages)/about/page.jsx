@@ -224,7 +224,7 @@ function WhyChooseUs({ data, t }) {
             {t.why.title}
           </h2>
           <ul className="flex flex-col divide-y divide-gray-100">
-            {t.why.points.map((point, i) => (
+            {(t.why.points || []).filter((pt) => pt?.title?.trim() || pt?.desc?.trim()).map((point, i) => (
               <li key={i}
                 className={`flex items-start gap-4 py-4 sm:py-5 transition-all duration-500 ${visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6"}`}
                 style={{ transitionDelay: `${150 + i * 80}ms` }}

@@ -68,6 +68,7 @@ function serializeCourse(c) {
     ratingCount: c.ratingCount,
     totalDurationSeconds: c.totalDurationSeconds,
     totalLessonsCount: c.totalLessonsCount,
+    displayOrder: typeof c.displayOrder === "number" ? c.displayOrder : null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };
@@ -130,7 +131,7 @@ export async function GET(request) {
         .populate("category", "name slug i18n")
         .populate("subcategory", "name slug i18n parent")
         .populate("teacher", "name")
-        .sort({ createdAt: -1 })
+        .sort({ displayOrder: 1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
@@ -194,6 +195,14 @@ export async function POST(request) {
       slug = await generateUniqueCourseSlug(title);
     }
 
+    // 🆕 الكورس الجديد يتحط في آخر الترتيب اللي الأدمن حدده (لو فيه ترتيب
+    // متحدد أصلاً) بدل ما يظهر في الأول لكل الزوار.
+    const lastOrdered = await Course.findOne({ displayOrder: { $type: "number" } })
+      .sort({ displayOrder: -1 })
+      .select("displayOrder")
+      .lean();
+    const nextDisplayOrder = lastOrdered ? lastOrdered.displayOrder + 1 : null;
+
     const isFree = Boolean(body?.isFree);
     const level = ["beginner", "intermediate", "advanced"].includes(body?.level)
       ? body.level
@@ -224,6 +233,7 @@ export async function POST(request) {
       outcomes: Array.isArray(body?.outcomes) ? body.outcomes.map(String) : [],
       tags: Array.isArray(body?.tags) ? body.tags.map(String) : [],
       classMarkerQuizId: String(body?.classMarkerQuizId || "").trim().slice(0, 100),
+      displayOrder: nextDisplayOrder,
       status: "draft", // 🔒 كورس جديد دايمًا draft — النشر إجراء منفصل وواعي
     });
 

@@ -104,7 +104,7 @@ export default function Footer() {
   // footer الموقع العادي) — زي تدفق Coursera بالظبط.
   if (pathname.startsWith("/onboarding")) return null;
 
-  if (!data) return null;
+  if (!data || !data.i18n) return null;
 
   const t    = data.i18n[language] ?? data.i18n["en"];
   const year = new Date().getFullYear();

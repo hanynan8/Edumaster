@@ -3,6 +3,12 @@
 // عشان كل الملفات اللي بتتعامل مع المستخدمين تستخدم نفس المنطق بدل ما يتكرر.
 
 import mongoose from "mongoose";
+import dns from "node:dns";
+
+// حل مشكلة querySrv EREFUSED / queryTxt ETIMEOUT: بعض الشبكات (زي الهوت سبوت)
+// بترفض طلبات SRV اللي بيعملها mongodb+srv://، فبنجبر Node يسأل DNS جوجل
+// وCloudflare مباشرة بدل DNS الشبكة.
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const MONGO_URI = process.env.MONGO_URI;
 

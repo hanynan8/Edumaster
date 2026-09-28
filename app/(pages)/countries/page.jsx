@@ -17,6 +17,27 @@ function useCountriesData() {
   return data;
 }
 
+// 🆕 يقرأ ?country=<id> (أو #<id>) من الرابط عند الدخول للصفحة، عشان لينك
+// الهوفر بتاع "Countries" في الناف بار يقدر يفتح الصفحة على دولة معيّنة
+// (مثلًا /countries?country=romania) بدل ما ترجع دايمًا لإسبانيا الافتراضية.
+// قراءة client-side بسيطة من window.location بدل useSearchParams عشان
+// نتجنب شرط الـ Suspense boundary اللي next.js بيطلبه مع الـ hook ده.
+function useRequestedCountryId() {
+  const [id, setId] = useState(null);
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("country");
+      if (fromQuery) { setId(fromQuery); return; }
+      const fromHash = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
+      if (fromHash) setId(fromHash);
+    } catch {
+      /* no-op — أي بيئة من غير window (SSR) بترجع من غير تحديد */
+    }
+  }, []);
+  return id;
+}
+
 function useReveal(threshold = 0.08) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -104,16 +125,17 @@ function getSectionKeys(country) {
 export default function CountriesPage() {
   const { language, isRTL } = useLanguage();
   const data = useCountriesData();
+  const requestedId = useRequestedCountryId();
   const [activeSection, setActiveSection] = useState(null);
   const [selectedId, setSelectedId] = useState("spain");
 
-  // 🆕 لو الدخول جاي من رابط زي /countries?country=romania (من هوفر
-  // "Countries" في النافبار)، نفتح تاب الدولة دي على طول بدل ما نفضل
-  // على "spain" الافتراضية دايمًا.
+  // لما الداتا توصل ولو الرابط كان بيطلب دولة معينة (?country=romania مثلًا)
+  // وهي فعلًا موجودة في الداتا، بنحدد selectedId عليها بدل الافتراضي.
   useEffect(() => {
-    const country = new URLSearchParams(window.location.search).get("country");
-    if (country) setSelectedId(country);
-  }, []);
+    if (!data || !requestedId) return;
+    const match = (data.countries || []).find((c) => c.id === requestedId);
+    if (match) setSelectedId(match.id);
+  }, [data, requestedId]);
 
   if (!data) {
     return (

@@ -142,6 +142,12 @@ const courseSchema = new mongoose.Schema(
     ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
     ratingCount: { type: Number, default: 0 },
 
+    // 🆕 ترتيب العرض اليدوي (بيحدده الأدمن بالسحب والإفلات في صفحة الكورسات
+    // والصفحة الرئيسية — شوف app/api/courses/reorder/route.js). الأرقام
+    // الأصغر بتظهر الأول. null = لسه اتضاف ومحدش رتّبه: بيظهر في الأول
+    // (الأحدث فوق) لحد ما الأدمن يحطه في مكانه.
+    displayOrder: { type: Number, default: null },
+
     // ✅ محسوبة تلقائيًا كل ما تتضاف/تتحذف Lesson (مش بيتحدث يدوي)
     totalDurationSeconds: { type: Number, default: 0 },
     totalLessonsCount: { type: Number, default: 0 },
@@ -153,6 +159,7 @@ const courseSchema = new mongoose.Schema(
 courseSchema.index({ status: 1, category: 1 });
 courseSchema.index({ teacher: 1 });
 courseSchema.index({ subcategory: 1 });
+courseSchema.index({ displayOrder: 1, createdAt: -1 });
 // 🔒 FIX: بدون language_override، MongoDB بتفترض إن أي حقل اسمه "language"
 // في الـ document هو "لغة الفهرسة" (للـ stemming)، وده بيتعارض مع حقل
 // "language" بتاعنا (ar/en - لغة الكورس نفسه). لغة "ar" مش من اللغات

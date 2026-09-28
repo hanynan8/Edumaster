@@ -5,7 +5,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones, ListOrdered,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -38,6 +38,8 @@ import RevenueAdmin from './components/revenuePanel';
 import OverviewAdmin from './components/overviewPanel';
 import CoursesReviewAdmin from './components/coursesReviewPanel';
 import AllCoursesAdmin from './components/allCoursesPanel';
+// 🆕 ترتيب عرض الكورسات (رقم أوردر لكل كورس) — بيتطبق على /courses والهوم لكل الزوار
+import CoursesOrderAdmin from './components/coursesOrderPanel';
 import CommentsReviewAdmin from './components/commentsReviewPanel';
 
 function NotFound() {
@@ -149,6 +151,8 @@ const SIDEBAR_GROUPS = [
       // classMarkerQuizId (وأي حاجة تانية لاحقًا) لأي كورس في أي وقت،
       // مش بس وقت ما يكون pending زي course_review تحت.
       { id: 'all_courses',      name: 'All Courses',      icon: BookOpen,       component: AllCoursesAdmin },
+      // 🆕 تحكم الأدمن في ترتيب ظهور الكورسات على الموقع (رقم أوردر لكل كورس)
+      { id: 'courses_order',    name: 'Courses Order',    icon: ListOrdered,    component: CoursesOrderAdmin },
       // 🆕 كورسات المدرسين المستنية موافقة/رفض الأدمن قبل ما تظهر على الموقع
       { id: 'course_review',    name: 'Course Review',    icon: ClipboardCheck, component: CoursesReviewAdmin },
       // 🆕 تعليقات/ردود الطلاب تحت الدروس المستنية موافقة/رفض الأدمن قبل ما تظهر

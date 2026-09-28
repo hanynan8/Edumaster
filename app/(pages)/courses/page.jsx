@@ -63,7 +63,7 @@ const STRINGS = {
     free: "Free",
     paid: "Paid",
     sortLabel: "Sort by",
-    sort: { popular: "Most Popular", rating: "Highest Rated", newest: "Newest", priceLow: "Price: Low to High", priceHigh: "Price: High to Low" },
+    sort: { custom: "Featured Order", popular: "Most Popular", rating: "Highest Rated", newest: "Newest", priceLow: "Price: Low to High", priceHigh: "Price: High to Low" },
     levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
     resultsCount: (n) => `${n} course${n === 1 ? "" : "s"}`,
     clearFilters: "Clear filters",
@@ -94,7 +94,7 @@ const STRINGS = {
     free: "مجاني",
     paid: "مدفوع",
     sortLabel: "ترتيب حسب",
-    sort: { popular: "الأكثر شعبية", rating: "الأعلى تقييمًا", newest: "الأحدث", priceLow: "السعر: من الأقل", priceHigh: "السعر: من الأعلى" },
+    sort: { custom: "الترتيب المميّز", popular: "الأكثر شعبية", rating: "الأعلى تقييمًا", newest: "الأحدث", priceLow: "السعر: من الأقل", priceHigh: "السعر: من الأعلى" },
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
     resultsCount: (n) => `${n} دورة`,
     clearFilters: "مسح الفلاتر",
@@ -125,7 +125,7 @@ const STRINGS = {
     free: "Gratis",
     paid: "De pago",
     sortLabel: "Ordenar por",
-    sort: { popular: "Más popular", rating: "Mejor valorado", newest: "Más reciente", priceLow: "Precio: menor a mayor", priceHigh: "Precio: mayor a menor" },
+    sort: { custom: "Orden destacado", popular: "Más popular", rating: "Mejor valorado", newest: "Más reciente", priceLow: "Precio: menor a mayor", priceHigh: "Precio: mayor a menor" },
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
     resultsCount: (n) => `${n} curso${n === 1 ? "" : "s"}`,
     clearFilters: "Borrar filtros",
@@ -320,7 +320,7 @@ export default function CoursesPage() {
   const [courseLanguage, setCourseLanguage] = useState("all");
   const [level, setLevel] = useState("all");
   const [price, setPrice] = useState("all");
-  const [sort, setSort] = useState("popular");
+  const [sort, setSort] = useState("custom");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
 
   const localized = useMemo(() => {
@@ -374,6 +374,7 @@ export default function CoursesPage() {
   ];
 
   const sortOptions = [
+    { value: "custom", label: t.sort.custom },
     { value: "popular", label: t.sort.popular },
     { value: "rating", label: t.sort.rating },
     { value: "newest", label: t.sort.newest },
@@ -406,8 +407,10 @@ export default function CoursesPage() {
         case "priceHigh":
           return (b.isFree ? 0 : b.price) - (a.isFree ? 0 : a.price);
         case "popular":
-        default:
           return b.studentsCount - a.studentsCount;
+        case "custom":
+        default:
+          return 0; // نفس ترتيب السيرفر (الترتيب اللي الأدمن حدده)
       }
     });
 

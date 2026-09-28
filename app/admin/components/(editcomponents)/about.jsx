@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   Save, RefreshCw, Loader, AlertCircle, CheckCircle,
   ChevronDown, ChevronUp, Globe, Languages, Image,
-  BookOpen, Star, BarChart2, Target, Eye, Lightbulb, Users
+  BookOpen, Star, BarChart2, Target, Eye, Lightbulb, Users, Plus, Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = '/api/data';
@@ -90,6 +90,33 @@ export default function AboutAdmin() {
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Add a new empty point to "Why Choose Us" in ALL languages (keeps them aligned by index)
+  const addWhyPoint = () => {
+    setConfig(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.i18n = next.i18n || {};
+      Object.keys(next.i18n).forEach(code => {
+        const lang = next.i18n[code];
+        lang.why = lang.why || {};
+        lang.why.points = [...(lang.why.points || []), { title: '', desc: '' }];
+      });
+      return next;
+    });
+  };
+
+  // Remove point at index from ALL languages
+  const removeWhyPoint = (index) => {
+    if (!window.confirm(`Delete point ${index + 1} from all languages?`)) return;
+    setConfig(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      Object.keys(next.i18n || {}).forEach(code => {
+        const pts = next.i18n[code]?.why?.points;
+        if (Array.isArray(pts)) next.i18n[code].why.points = pts.filter((_, i) => i !== index);
+      });
+      return next;
+    });
   };
 
   // Get all language codes from i18n keys
@@ -327,8 +354,17 @@ export default function AboutAdmin() {
                     <Field label="Title" value={t.why?.title || ''} onChange={v => updateConfig(`i18n.${langCode}.why.title`, v)} />
                     <Field label="Image Caption" value={t.why?.imageCaption || ''} onChange={v => updateConfig(`i18n.${langCode}.why.imageCaption`, v)} />
                     {(t.why?.points || []).map((point, idx) => (
-                      <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
-                        <p className="text-xs font-bold text-gray-500 uppercase">Point {idx + 1}</p>
+                      <div key={idx} className="col-span-1 md:col-span-2 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-gray-500 uppercase">Point {idx + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => removeWhyPoint(idx)}
+                            className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded"
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
                         <Field
                           label="Title"
                           value={point.title || ''}
@@ -350,6 +386,18 @@ export default function AboutAdmin() {
                         />
                       </div>
                     ))}
+                    <div className="col-span-1 md:col-span-2">
+                      <button
+                        type="button"
+                        onClick={addWhyPoint}
+                        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold"
+                      >
+                        <Plus size={16} /> Add Point
+                      </button>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Adds an empty point to every language — fill in the text for each language, then click Save All.
+                      </p>
+                    </div>
                   </Section>
 
                   {/* Stats */}

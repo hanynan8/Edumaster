@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // بار.
 const TABS = [
   { key: "content", label: { en: "Content", ar: "المحتوى", es: "Contenido" }, href: (id) => `/teacher/courses/${id}` },
-  { key: "quizzes", label: { en: "Quizzes", ar: "الكويزات", es: "Cuestionarios" }, href: (id) => `/teacher/courses/${id}/quizzes` },
+  { key: "quizzes", label: { en: "Quizzes", ar: "الاختبارات القصيرة", es: "Cuestionarios" }, href: (id) => `/teacher/courses/${id}/quizzes` },
   { key: "assignments", label: { en: "Assignments", ar: "الواجبات", es: "Tareas" }, href: (id) => `/teacher/courses/${id}/assignments` },
   { key: "announcements", label: { en: "Announcements", ar: "إعلانات", es: "Anuncios" }, href: (id) => `/teacher/courses/${id}/announcements` },
   { key: "performance", label: { en: "Student performance", ar: "أداء الطلاب", es: "Rendimiento de alumnos" }, href: (id) => `/teacher/courses/${id}/performance` },

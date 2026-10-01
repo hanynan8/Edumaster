@@ -430,7 +430,7 @@ row.height = Math.min(Math.max(24, Math.ceil(msgLen / 45) * 15), 120);
                   <td className="py-3 px-2 whitespace-nowrap">
                     <a
                       href={sub.email ? buildGmailComposeUrl({ to: sub.email, name: sub.name, originalMessage: sub.message }) : undefined}
-                      title="ابعت رد"
+                      title="إرسال رد"
                       className={`inline-flex items-center gap-1.5 font-medium text-left ${
                         sub.email
                           ? 'text-blue-600 hover:text-blue-800 hover:underline'

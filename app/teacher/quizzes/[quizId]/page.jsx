@@ -15,7 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
-    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / غلط" },
+    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / خطأ" },
     loadError: "تعذّر تحميل الاختبار",
     confirmDelete: "هل تريد حذف هذا السؤال؟",
     deleteError: "حدث خطأ أثناء الحذف",

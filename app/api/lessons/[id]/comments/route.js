@@ -177,7 +177,7 @@ export async function POST(request, { params }) {
     if (adminIds.length > 0) {
       await createNotificationsForUsers(adminIds, {
         type: "comment_pending_review",
-        title: parentDoc ? "رد جديد مستني موافقتك" : "سؤال جديد مستني موافقتك",
+        title: parentDoc ? "رد جديد بانتظار موافقتك" : "سؤال جديد بانتظار موافقتك",
         message: text.slice(0, 200),
         link: "/admin",
         course: course._id,

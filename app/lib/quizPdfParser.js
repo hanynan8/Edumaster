@@ -48,7 +48,7 @@ const LANG_DEFS = {
     answerRe: /^\s*(?:الإجابة\s*الصحيحة|الاجابة\s*الصحيحة|الإجابة|الاجابة|الحل)\s*[:\-–]\s*(.+?)\s*$/i,
     pointsRe: /^\s*(?:الدرجة|درجة\s*السؤال|النقاط)\s*[:\-–]\s*([\d٠-٩.]+)/i,
     trueLabel: "صح",
-    falseLabel: "غلط",
+    falseLabel: "خطأ",
   },
   en: {
     questionRe: /^\s*(?:question|q)\s*[\d]*\s*[:\-–.)]\s*(.*)$/i,

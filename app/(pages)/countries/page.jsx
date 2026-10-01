@@ -224,7 +224,7 @@ function HeroSection({ data, t }) {
 }
 const APPLY_BTN_LABELS = {
   en: { open: "Request a Consultation", close: "Close Form" },
-  ar: { open: "احجز استشارتك", close: "إغلاق الفورم" },
+  ar: { open: "احجز استشارتك", close: "إغلاق النموذج" },
   es: { open: "Solicitar una consulta", close: "Cerrar formulario" },
 };
 

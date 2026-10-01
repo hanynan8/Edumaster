@@ -14,14 +14,14 @@ const STRINGS = {
   ar: {
     types: [
       { value: "multiple_choice", label: "اختيار من متعدد" },
-      { value: "true_false", label: "صح / غلط" },
+      { value: "true_false", label: "صح / خطأ" },
     ],
     trueLabel: "صح",
-    falseLabel: "غلط",
+    falseLabel: "خطأ",
     textRequired: "نص السؤال مطلوب",
     optionsNeedText: "يجب أن يكون لكل الخيارات نص",
     needCorrectAnswer: "يجب تحديد إجابة صحيحة واحدة على الأقل",
-    trueFalseTwoOptions: "أسئلة صح/غلط يجب أن تحتوي على خيارين بالضبط",
+    trueFalseTwoOptions: "أسئلة صح/خطأ يجب أن تحتوي على خيارين بالضبط",
     genericError: "حدث خطأ، حاول مرة أخرى",
     editQuestion: "تعديل السؤال",
     newQuestion: "سؤال جديد",

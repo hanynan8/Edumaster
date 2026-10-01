@@ -210,7 +210,7 @@ export default function HomePageLoggedIn() {
         <WelcomeSection user={user} role={role} ui={ui} isRTL={isRTL} />
 
         {/* 2) SERVICES — shared component, same source as /services */}
-        <ServicesSection lang={lang} ui={ui} />
+        <ServicesSection lang={lang} ui={ui} consultationOnly />
 
         {/* 3) ALL COURSES — shared component */}
         <CoursesSection

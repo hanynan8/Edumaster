@@ -20,9 +20,10 @@
 // ═══════════════════════════════════════════════
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
@@ -357,18 +358,53 @@ function FilterSelect({ value, onChange, options }) {
   );
 }
 
+// 🆕 الناف بار (هوفر Courses) بيفتح الصفحة دي بفلاتر جاهزة عبر الـ query:
+//   /courses?category=language&lang=es   (لغات → إسباني)
+//   /courses?category=career             (Call Center)
+// القيم دي بتتحول لقيم state الفلاتر الفعلية (category = slug التصنيف،
+// courseLanguage = es/en/ar).
+const VALID_COURSE_LANGS = ["es", "en", "ar"];
+function readFiltersFromParams(params) {
+  const cat = (params?.get("category") || "").trim().toLowerCase();
+  const lang = (params?.get("lang") || "").trim().toLowerCase();
+  return {
+    category: cat || "all",
+    courseLanguage: cat === "language" && VALID_COURSE_LANGS.includes(lang) ? lang : "all",
+  };
+}
+
 export default function CoursesPage() {
+  // useSearchParams لازم يكون جوه Suspense في Next (عشان الـ prerender).
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <CoursesPageInner />
+    </Suspense>
+  );
+}
+
+function CoursesPageInner() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
   const { rawCourses, error } = useAllCourses();
+  const searchParams = useSearchParams();
+  const urlFilters = readFiltersFromParams(searchParams);
 
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [courseLanguage, setCourseLanguage] = useState("all");
+  const [category, setCategory] = useState(urlFilters.category);
+  const [courseLanguage, setCourseLanguage] = useState(urlFilters.courseLanguage);
   const [level, setLevel] = useState("all");
   const [price, setPrice] = useState("all");
   const [sort, setSort] = useState("custom");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+
+  // لما المستخدم يدوس على لينك تاني من هوفر Courses وهو أصلًا في /courses،
+  // الصفحة مبتتعملهاش remount — فبنزامن الفلاتر مع الـ query الجديد.
+  const urlCategory = urlFilters.category;
+  const urlCourseLanguage = urlFilters.courseLanguage;
+  useEffect(() => {
+    setCategory(urlCategory);
+    setCourseLanguage(urlCourseLanguage);
+  }, [urlCategory, urlCourseLanguage]);
 
   const localized = useMemo(() => {
     if (rawCourses === undefined) return null;
@@ -672,28 +708,7 @@ function CourseCard({ course, t }) {
           {course.title}
         </h3>
 
-        {course.teacherName && (
-          <p className="text-xs text-gray-400">
-            {t.by} {course.teacherName}
-          </p>
-        )}
 
-        <RatingStars rating={course.ratingAverage} count={course.ratingCount} t={t} />
-
-        <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
-          {course.durationLabel && (
-            <span className="inline-flex items-center gap-1">
-              <Clock size={11} />
-              {course.durationLabel}
-            </span>
-          )}
-          {course.studentsCount > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <Users size={11} />
-              {t.students(course.studentsCount)}
-            </span>
-          )}
-        </div>
 
         {showLevelTestBtn && (
           <button

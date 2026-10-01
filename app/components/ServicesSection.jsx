@@ -29,8 +29,8 @@ import CallCenterModal from "./callCenter/CallCenterModal";
 // نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
 // (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
 const CONSULT_STRINGS = {
-  en: { cta: "Book a Paid Consultation", badge: "45 min · 1300 EGP" },
-  ar: { cta: "احجز استشارة مدفوعة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه" },
+  en: { cta: "Book a Consultation", badge: "45 min · 1300 EGP" },
+  ar: { cta: "احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه" },
   es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP" },
 };
 
@@ -120,7 +120,10 @@ function ArrowRight({ size = 16, color = "currentColor" }) {
   );
 }
 
-export default function ServicesSection({ lang, ui }) {
+// 🆕 consultationOnly: بيخلي القسم يعرض زرار "Book a Consultation" بس
+// (من غير زراير الترجمة/برنامج الإنجليزي/قايمة "كل الاستمارات") — مستخدم في
+// الهوم بتاع المسجّل دخوله. أي استخدام تاني من غير الـ prop بيفضل زي ما هو.
+export default function ServicesSection({ lang, ui, consultationOnly = false }) {
   const data = useServicesData();
   const [ref, visible] = useReveal();
   const [consultOpen, setConsultOpen] = useState(false);
@@ -191,70 +194,74 @@ export default function ServicesSection({ lang, ui }) {
               {cs.cta}
               <span className="hidden sm:inline text-[10px] font-semibold bg-white/15 px-2 py-0.5 rounded-full">{cs.badge}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setTranslationOpen(true)}
-              className="inline-flex items-center gap-2 border-2 border-[#003A91] text-[#003A91] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#003A91] hover:text-white transition-all w-fit"
-            >
-              <Languages size={15} />
-              {qf.translationCta}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEnglishProgramOpen(true)}
-              className="inline-flex items-center gap-2 border-2 border-[#C9A227] text-[#8a6d10] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#C9A227] hover:text-white transition-all w-fit"
-            >
-              <GraduationCap size={15} />
-              {qf.englishCta}
-            </button>
-            <div className="relative w-fit" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setServicesMenuOpen((v) => !v)}
-                aria-haspopup="true"
-                aria-expanded={servicesMenuOpen}
-                className={`inline-flex items-center gap-2 border-2 border-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm transition-all w-fit ${
-                  servicesMenuOpen ? "bg-[#0a0a0a] text-white" : "text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
-                }`}
-              >
-                {ui.servicesCta}
-                <ChevronDown
-                  size={15}
-                  className={`transition-transform duration-200 ${servicesMenuOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {servicesMenuOpen && (
-                <div className="absolute top-full mt-2 end-0 z-50 w-[19rem] max-w-[calc(100vw-2.5rem)] bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 p-3 flex flex-col gap-2">
+            {!consultationOnly && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTranslationOpen(true)}
+                  className="inline-flex items-center gap-2 border-2 border-[#003A91] text-[#003A91] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#003A91] hover:text-white transition-all w-fit"
+                >
+                  <Languages size={15} />
+                  {qf.translationCta}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnglishProgramOpen(true)}
+                  className="inline-flex items-center gap-2 border-2 border-[#C9A227] text-[#8a6d10] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm hover:bg-[#C9A227] hover:text-white transition-all w-fit"
+                >
+                  <GraduationCap size={15} />
+                  {qf.englishCta}
+                </button>
+                <div className="relative w-fit" ref={menuRef}>
                   <button
                     type="button"
-                    onClick={() => { setScholarshipOpen(true); setServicesMenuOpen(false); }}
-                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#10b981] text-[#0d7a5f] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#10b981] hover:text-white transition-all"
+                    onClick={() => setServicesMenuOpen((v) => !v)}
+                    aria-haspopup="true"
+                    aria-expanded={servicesMenuOpen}
+                    className={`inline-flex items-center gap-2 border-2 border-[#0a0a0a] font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm transition-all w-fit ${
+                      servicesMenuOpen ? "bg-[#0a0a0a] text-white" : "text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                    }`}
                   >
-                    <Award size={15} />
-                    {qf.scholarshipCta}
+                    {ui.servicesCta}
+                    <ChevronDown
+                      size={15}
+                      className={`transition-transform duration-200 ${servicesMenuOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => { setCallCenterOpen(true); setServicesMenuOpen(false); }}
-                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#3b82f6] text-[#1d4ed8] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#3b82f6] hover:text-white transition-all"
-                  >
-                    <Headphones size={15} />
-                    {qf.callCenterCta}
-                  </button>
+                  {servicesMenuOpen && (
+                    <div className="absolute top-full mt-2 end-0 z-50 w-[19rem] max-w-[calc(100vw-2.5rem)] bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 p-3 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setScholarshipOpen(true); setServicesMenuOpen(false); }}
+                        className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#10b981] text-[#0d7a5f] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#10b981] hover:text-white transition-all"
+                      >
+                        <Award size={15} />
+                        {qf.scholarshipCta}
+                      </button>
 
-                  <Link
-                    href="/services"
-                    onClick={() => setServicesMenuOpen(false)}
-                    className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all"
-                  >
-                    {qf.browseAllCta}
-                    <ArrowRight size={13} />
-                  </Link>
+                      <button
+                        type="button"
+                        onClick={() => { setCallCenterOpen(true); setServicesMenuOpen(false); }}
+                        className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#3b82f6] text-[#1d4ed8] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#3b82f6] hover:text-white transition-all"
+                      >
+                        <Headphones size={15} />
+                        {qf.callCenterCta}
+                      </button>
+
+                      <Link
+                        href="/services"
+                        onClick={() => setServicesMenuOpen(false)}
+                        className="w-full inline-flex items-center justify-center gap-2 border-2 border-[#0a0a0a] text-[#0a0a0a] font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#0a0a0a] hover:text-white transition-all"
+                      >
+                        {qf.browseAllCta}
+                        <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -299,10 +306,14 @@ export default function ServicesSection({ lang, ui }) {
       </div>
 
       <ConsultationModal open={consultOpen} onClose={() => setConsultOpen(false)} />
-      <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
-      <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
-      <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
-      <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />
+      {!consultationOnly && (
+        <>
+          <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
+          <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
+          <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
+          <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />
+        </>
+      )}
     </section>
   );
 }

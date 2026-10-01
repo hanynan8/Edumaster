@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import {
   BookOpen, Loader, AlertCircle, CheckCircle2, Search, User, Tag,
-  Link2, Save, ChevronLeft, ChevronRight,
+  Link2, Save, ChevronLeft, ChevronRight, Trash2,
 } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -123,6 +123,42 @@ export default function AllCoursesPanel() {
     );
   }
 
+  // 🆕 حذف كورس (الأدمن يقدر يحذف أي كورس). بيستخدم نفس DELETE /api/courses/[id]
+  // اللي بيستخدمه المدرس لكورساته — الـ API بيسمح للأدمن أو صاحب الكورس بس،
+  // وبيرفض (409) أي كورس فيه طلاب مسجلين عشان نحمي الطلاب الدافعين.
+  const [deletingId, setDeletingId] = useState(null);
+
+  const DELETE_ERRORS = {
+    forbidden: "You don't have permission to delete this course.",
+    not_found: 'Course not found (it may already be deleted).',
+    unauthorized: 'Your session expired — please log in again.',
+    delete_failed: 'Delete failed. Please try again.',
+    internal_error: 'Server error while deleting. Please try again.',
+  };
+
+  async function handleDelete(course) {
+    if (!confirm(`Delete "${course.title}" permanently?\n\nAll its sections and lessons will be deleted too. This cannot be undone.`)) return;
+    setDeletingId(course.id);
+    try {
+      const res = await fetch(`/api/courses/${course.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.error === 'course_has_students') {
+          alert(`Can't delete: ${data.studentsCount} student(s) are enrolled in this course. Archive it instead.`);
+        } else {
+          alert(DELETE_ERRORS[data?.error] || `Delete failed (${data?.error || res.status}).`);
+        }
+        return;
+      }
+      setCourses((prev) => (prev ? prev.filter((c) => c.id !== course.id) : prev));
+      setPagination((prev) => (prev ? { ...prev, total: Math.max(0, (prev.total || 1) - 1) } : prev));
+    } catch {
+      alert('Network error while deleting. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function handleSearchSubmit(e) {
     e.preventDefault();
     setPage(1);
@@ -210,6 +246,14 @@ export default function AllCoursesPanel() {
                   <div className="mt-auto pt-2 border-t border-gray-100">
                     <QuizIdEditor course={c} onSaved={handleQuizSaved} />
                   </div>
+                  <button
+                    onClick={() => handleDelete(c)}
+                    disabled={deletingId === c.id}
+                    className="flex items-center justify-center gap-1.5 text-xs font-semibold border border-red-200 text-red-600 rounded-lg py-1.5 hover:bg-red-50 disabled:opacity-60 transition-colors"
+                  >
+                    {deletingId === c.id ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    Delete course
+                  </button>
                 </div>
               </div>
             ))}

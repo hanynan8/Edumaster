@@ -92,7 +92,9 @@ const courseSchema = new mongoose.Schema(
       default: "beginner",
     },
 
-    language: { type: String, default: "ar" },
+    // 🔄 الافتراضي بقى إسباني (es) بدل عربي — الكورسات الإنجليزي/العربي بتتحدد صراحةً
+    // من الساب-تصنيف (en/ar)، وأي كورس تاني تحت Language بيفضل إسباني.
+    language: { type: String, default: "es" },
 
     // 🆕 اعتماد كلي على GetPayIn + عملة الدفع بقت مربوطة بلغة الموقع (شوف
     // app/lib/currency.js). التسعير يدوي بالكامل: المدرس بيحط سعر منفصل لكل

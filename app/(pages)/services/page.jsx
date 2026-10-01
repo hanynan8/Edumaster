@@ -1,3 +1,4 @@
+// PATH: app/(pages)/services/page.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -590,6 +591,33 @@ function isCallCenterServiceId(id) {
   return key === "career" || key.includes("callcenter");
 }
 
+// 🆕 زرار "Quick Inquiry" — بيفتح صفحة /quick-inquiry (فيها الفورم البسيط بس).
+// بيحل مكان زرار الـ CTA القديم (اللي كان بيودّي لـ /contact) في: Study in Spain،
+// Study in Romania، University Admissions، Visa & Documentation، وبيتضاف كزرار
+// تاني في Scholarships. باقي الخدمات (Language / Translation) زي ما هي، وCall Center
+// اتشال منه زرار الـ CTA القديم خالص.
+const QUICK_INQUIRY_STRINGS = {
+  en: { cta: "Quick Inquiry" },
+  ar: { cta: "استفسار سريع" },
+  es: { cta: "Consulta rápida" },
+};
+
+// بيحدد قيمة الخدمة اللي هتتبعت لصفحة /quick-inquiry (?service=...). بنعتمد على
+// الـ id الأول (مش على الترتيب)، وكاحتياط على العنوان بالـ 3 لغات لو الـ id في
+// الداتابيز مكتوب بشكل غير متوقع. بيرجّع null للخدمات اللي مش مشمولة.
+function getQuickInquiryService(service) {
+  const id = String(service?.id ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const title = String(service?.title ?? "");
+  const has = (idPart, titleRe) => id.includes(idPart) || titleRe.test(title);
+
+  if (SCHOLARSHIP_SERVICE_IDS.has(service?.id) || has("scholarship", /scholarship|منح|beca/i)) return "scholarships";
+  if (has("romania", /romania|رومانيا|rumanía|rumania/i)) return "study-romania";
+  if (has("spain", /spain|إسبانيا|اسبانيا|españa/i)) return "study-spain";
+  if (has("admission", /admission|القبول|admisi/i)) return "admissions";
+  if (has("visa", /visa|تأشيرة|visado/i)) return "visa";
+  return null;
+}
+
 function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter }) {
   const { language } = useLanguage();
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
@@ -609,6 +637,12 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   // 🆕 الـ anchor id بتاع الخدمة — ده اللي بيتوصله من كارت الهوم
   // (/services#<id>) عشان الصفحة تعمل scroll للخدمة المطلوبة بالظبط.
   const anchorId = slugifyServiceId(service.id);
+  // 🆕 Quick Inquiry (شوف getQuickInquiryService فوق). Language / Translation /
+  // Call Center مالهمش Quick Inquiry (Call Center بتتشال منه الـ CTA القديم).
+  const qi = QUICK_INQUIRY_STRINGS[language] ?? QUICK_INQUIRY_STRINGS.en;
+  const quickService =
+    isLanguageService || isTranslationService || isCallCenterService ? null : getQuickInquiryService(service);
+  const quickHref = quickService ? `/quick-inquiry?service=${quickService}` : null;
   return (
     <div
       ref={ref}
@@ -636,7 +670,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
           ))}
         </ul>
         <div className="flex flex-wrap items-center gap-3">
-          {isScholarshipService ? (
+          {isCallCenterService ? null : isScholarshipService ? (
             <button
               type="button"
               onClick={() => onOpenScholarship?.()}
@@ -645,6 +679,12 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
             >
               <Award size={15} /> {service.cta || qf.scholarshipCta}
             </button>
+          ) : quickHref ? (
+            <Link href={quickHref}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
+              style={{ background: service.color }}>
+              {qi.cta} <ArrowRight size={13} />
+            </Link>
           ) : (
             <Link href={service.ctaHref}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
@@ -652,7 +692,14 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
               {service.cta} <ArrowRight size={13} />
             </Link>
           )}
-          {isScholarshipService || isTranslationService ? null : isCallCenterService ? (
+          {isScholarshipService ? (
+            <Link
+              href={quickHref}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              {qi.cta} <ArrowRight size={13} />
+            </Link>
+          ) : isTranslationService ? null : isCallCenterService ? (
             <button
               type="button"
               onClick={() => onOpenCallCenter?.()}

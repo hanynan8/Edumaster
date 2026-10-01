@@ -359,11 +359,20 @@ function useServicesForDropdown(language) {
   if (!raw || !Array.isArray(raw.services) || !raw.i18n) return [];
   const t = raw.i18n[language] ?? raw.i18n.en;
   if (!t?.services) return [];
-  return raw.services.map((svc) => {
-    const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
-    const title = t.services[i18nKey]?.title ?? svc.title ?? svc.id;
-    return { anchorId: slugifyServiceId(svc.id), title };
-  });
+  return raw.services
+    // 🔄 "Language Courses" و"Call Center" اتنقلوا من هوفر Services لهوفر Courses
+    .filter((svc) => !isMovedToCoursesService(svc.id))
+    .map((svc) => {
+      const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
+      const title = t.services[i18nKey]?.title ?? svc.title ?? svc.id;
+      return { anchorId: slugifyServiceId(svc.id), title };
+    });
+}
+
+// الخدمتين اللي اتشالوا من هوفر Services (ids نفس اللي بتتعرف بيها صفحة /services)
+function isMovedToCoursesService(id) {
+  const key = String(id ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return key === "language" || key === "languagecourses" || key === "career" || key.includes("callcenter");
 }
 
 /* ─────────────────────────────────────────
@@ -408,6 +417,89 @@ function CountriesNavItem({ label, href, language }) {
               {c.titles[language] ?? c.titles.en}
             </Link>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   COURSES HOVER DROPDOWN (نافبار → Courses)
+   🆕 Language Courses (+ تحتها الـ 3 لغات: إسباني/إنجليزي/عربي) و Call Center.
+   كل لينك بيفتح /courses والفلاتر متحددة من الـ query:
+     ?category=<slug التصنيف>&lang=<es|en|ar>
+   (صفحة الكورسات بتقرأهم وتظبط الفلاتر تلقائيًا).
+───────────────────────────────────────── */
+const COURSES_DROPDOWN = {
+  languageCourses: { en: "Language Courses", ar: "دورات اللغات", es: "Cursos de idiomas" },
+  callCenter: { en: "Call Center", ar: "كول سنتر", es: "Call Center" },
+  languages: {
+    es: { en: "Spanish", ar: "الإسبانية", es: "Español" },
+    en: { en: "English", ar: "الإنجليزية", es: "Inglés" },
+    ar: { en: "Arabic", ar: "العربية", es: "Árabe" },
+  },
+};
+
+function buildCoursesMenu(href, language) {
+  const L = (o) => o[language] ?? o.en;
+  return {
+    language: {
+      label: L(COURSES_DROPDOWN.languageCourses),
+      href: `${href}?category=language`,
+      children: ["es", "en", "ar"].map((code) => ({
+        code,
+        label: L(COURSES_DROPDOWN.languages[code]),
+        href: `${href}?category=language&lang=${code}`,
+      })),
+    },
+    callCenter: {
+      label: L(COURSES_DROPDOWN.callCenter),
+      href: `${href}?category=career`,
+    },
+  };
+}
+
+function CoursesNavItem({ label, href, language }) {
+  const menu = buildCoursesMenu(href, language);
+  return (
+    <div className="relative group">
+      <Link
+        href={href}
+        className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
+      >
+        {label}
+        <span className="text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-[#0a0a0a]">
+          <ChevronDown size={12} />
+        </span>
+        <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#C9A227] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
+      </Link>
+
+      <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
+        <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
+          <Link
+            href={menu.language.href}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+          >
+            {menu.language.label}
+          </Link>
+          {/* اللغات التلاتة تحت Language Courses */}
+          {menu.language.children.map((c) => (
+            <Link
+              key={c.code}
+              href={c.href}
+              className="flex items-center gap-2 ps-8 pe-4 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+            >
+              <span className="w-1 h-1 rounded-full bg-[#C9A227] shrink-0" />
+              {c.label}
+            </Link>
+          ))}
+          <div className="my-1 border-t border-gray-100" />
+          <Link
+            href={menu.callCenter.href}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+          >
+            {menu.callCenter.label}
+          </Link>
         </div>
       </div>
     </div>
@@ -620,6 +712,13 @@ export default function Navbar() {
                     href={link.href}
                     language={language}
                   />
+                ) : link.id === "courses" || link.href === "/courses" ? (
+                  <CoursesNavItem
+                    key={link.id}
+                    label={t.links[link.id]}
+                    href={link.href}
+                    language={language}
+                  />
                 ) : link.id === "services" ? (
                   <ServicesNavItem
                     key={link.id}
@@ -666,19 +765,52 @@ export default function Navbar() {
           <div className="bg-white border-t border-gray-100 px-5 sm:px-6 py-4 sm:py-5 flex flex-col gap-1">
             {data.links
               .filter((_, i) => i !== 4 && i !== 5)
-              .map((link) => (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-between py-3 px-2 text-base font-medium text-gray-700 hover:text-[#C9A227] border-b border-gray-50 last:border-0 transition-colors group"
-                >
-                  {t.links[link.id]}
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ArrowRight size={13} />
-                  </span>
-                </Link>
-              ))}
+              .map((link) => {
+                const isCourses = link.id === "courses" || link.href === "/courses";
+                const coursesMenu = isCourses ? buildCoursesMenu(link.href, language) : null;
+                return (
+                  <div key={link.id}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center justify-between py-3 px-2 text-base font-medium text-gray-700 hover:text-[#C9A227] border-b border-gray-50 last:border-0 transition-colors group"
+                    >
+                      {t.links[link.id]}
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowRight size={13} />
+                      </span>
+                    </Link>
+                    {coursesMenu && (
+                      <div className="ps-4 pb-1 flex flex-col">
+                        <Link
+                          href={coursesMenu.language.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
+                        >
+                          {coursesMenu.language.label}
+                        </Link>
+                        {coursesMenu.language.children.map((c) => (
+                          <Link
+                            key={c.code}
+                            href={c.href}
+                            onClick={() => setMenuOpen(false)}
+                            className="py-1.5 ps-6 pe-2 text-sm text-gray-500 hover:text-[#C9A227] transition-colors"
+                          >
+                            {c.label}
+                          </Link>
+                        ))}
+                        <Link
+                          href={coursesMenu.callCenter.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
+                        >
+                          {coursesMenu.callCenter.label}
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             <MobileAuthControls />
           </div>
         </div>

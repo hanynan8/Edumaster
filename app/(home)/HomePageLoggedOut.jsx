@@ -229,7 +229,7 @@ export default function HomePageLoggedOut() {
         <Hero data={homeData} t={tHome} />
 
         {/* 2) SERVICES — same source as /services, 4-per-row grid */}
-        <ServicesSection lang={lang} ui={ui} />
+        <ServicesSection lang={lang} ui={ui} consultationOnly />
 
         {/* 3) ALL COURSES — shared component, same source as /courses */}
         <CoursesSection

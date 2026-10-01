@@ -224,8 +224,8 @@ export async function POST(request) {
       level,
       // 🆕 لو فيه subcategory حقيقي تابع لتصنيف "Language"، الـ language
       // القديم بيتعبّي تلقائيًا من الـ slug بتاعه (backward-compat) — وإلا
-      // بيرجع للقيمة اللي المدرس بعتها يدوي أو "ar" افتراضيًا.
-      language: subRes.provided && subRes.autoLanguage ? subRes.autoLanguage : body?.language || "ar",
+      // بيرجع للقيمة اللي المدرس بعتها يدوي أو "es" (إسباني) افتراضيًا.
+      language: subRes.provided && subRes.autoLanguage ? subRes.autoLanguage : body?.language || "es",
       subcategory: subRes.provided ? subRes.id : null,
       prices: isFree ? emptyPrices() : sanitizePrices(body?.prices),
       isFree,

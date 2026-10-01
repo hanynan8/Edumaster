@@ -30,6 +30,18 @@ const CONSULTATION_DURATION_MIN = 45;
    جلب الخدمات الحالية من /services (نفس كولكشن الموقع)
    عشان المستخدم يختار الاستشارة عن أنهي خدمة بالظبط
 ───────────────────────────────────────── */
+// الخدمات اللي اتشالت من قايمة "Which service is this consultation about?":
+//   - Language Courses  (id: "language" / "language Courses")
+//   - Certified Translation (id: "translation")
+// بنتحقق بالـ id (المفتاح) وكمان بالعنوان (بالـ 3 لغات) احتياطًا لو الـ id اتغيّر من الأدمن.
+const EXCLUDED_SERVICE_KEYS = new Set(["language", "languagecourses", "translation", "certifiedtranslation"]);
+const EXCLUDED_SERVICE_TITLE_RE =
+  /language courses|certified translation|دورات اللغات|دورات اللغة|الترجمة المعتمدة|ترجمة معتمدة|cursos de idiomas|traducci[oó]n certificada/i;
+function isExcludedConsultationService(key, title) {
+  const k = String(key ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return EXCLUDED_SERVICE_KEYS.has(k) || EXCLUDED_SERVICE_TITLE_RE.test(String(title ?? ""));
+}
+
 function useCurrentServices(language) {
   const [names, setNames] = useState([]);
   useEffect(() => {
@@ -38,8 +50,14 @@ function useCurrentServices(language) {
       .then((res) => {
         const doc = Array.isArray(res) ? res[0] : res;
         const t = doc?.i18n?.[language] ?? doc?.i18n?.en;
-        const list = t?.services ? Object.values(t.services) : [];
-        setNames(list.map((s) => s?.title).filter(Boolean));
+        const entries = t?.services ? Object.entries(t.services) : [];
+        setNames(
+          entries
+            // 🔄 "Language Courses" و"Certified Translation" مش بيظهروا في قايمة الاستشارة
+            .filter(([key, s]) => !isExcludedConsultationService(key, s?.title))
+            .map(([, s]) => s?.title)
+            .filter(Boolean)
+        );
       })
       .catch(() => setNames([]));
   }, [language]);

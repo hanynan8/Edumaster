@@ -6,9 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import StudentConsultationForm from "@/app/components/consultation/ConsultationForm";
-import TranslationRequestForm from "@/app/components/translation/TranslationForm";
-import EnglishProgramRequestForm from "@/app/components/englishProgram/EnglishProgramForm";
 import SimpleInquiryForm from "@/app/components/contact/SimpleInquiryForm";
 
 // 🆕 قايمة الخدمات "الكانونيكال" (ثابتة في الكود) اللي بنضمن بيها إن كل
@@ -22,6 +19,8 @@ const CANONICAL_SERVICES = [
   { value: "study-romania", en: "Study in Romania", ar: "الدراسة في رومانيا", es: "Estudiar en Rumanía" },
   { value: "admissions", en: "University Admissions", ar: "القبول الجامعي", es: "Admisiones Universitarias" },
   { value: "visa", en: "Student Visa & Documentation", ar: "التأشيرة والوثائق", es: "Visado y Documentación" },
+  { value: "scholarships", en: "Scholarships", ar: "المنح الدراسية", es: "Becas" },
+  { value: "courses", en: "Courses", ar: "الكورسات", es: "Cursos" },
   { value: "language", en: "Languages Courses", ar: "دورات اللغات", es: "Cursos de Idiomas" },
   { value: "career", en: "Call Center & Career Training", ar: "تدريب مراكز الاتصال والمهن", es: "Call Center y Formación Profesional" },
   { value: "translation", en: "Certified Translation", ar: "الترجمة المعتمدة", es: "Traducción Certificada" },
@@ -41,10 +40,6 @@ function buildServiceOptions(adminOptions, lang) {
     label: byValue.get(svc.value) || svc[lang] || svc.en,
   }));
 }
-
-// الخدمات اللي بتاخد "نموذج بيانات الطالب وطلب الاستشارة" العام (نفس اللي
-// في صفحة Services تحت زرار "طلب استشارة عن الخدمة دي")
-const CONSULTATION_SERVICE_VALUES = new Set(["study-spain", "study-romania", "admissions", "visa", "career"]);
 
 function useContactData() {
   const [data, setData] = useState(null);
@@ -193,7 +188,8 @@ function InfoCard({ icon, label, value, href, isExternal, accent, visible, delay
 
 // 🆕 الفورم الديناميكي بتاع صفحة الكونتاكت:
 // - في الأعلى دايمًا فيه اختيار "Service of Interest" (نفس مكان الفورم القديم بالظبط).
-// - أول ما المستخدم يختار خدمة، "باقي" الفورم بيتغيّر ويظهر نفس الفورم
+// - الفورم البسيط ظاهر دايمًا (مفتوح ديفولت) ومش لازم تختار خدمة، وبيظهر لأي خدمة (الاسم + الإيميل + الهاتف + رسالة).
+// - (قديمًا: كان الفورم بيتغيّر حسب الخدمة ويظهر نفس الفورم
 //   المخصص لنفس الخدمة دي في صفحة Services (بنفس الأقسام والحقول):
 //     • Study in Spain / Study in Romania / University Admissions /
 //       Visa & Documentation / Career Training → "نموذج بيانات الطالب
@@ -206,33 +202,10 @@ function InfoCard({ icon, label, value, href, isExternal, accent, visible, delay
 // - لو اختار "Other / General Inquiry" (أو محددش خدمة أصلاً)، الفورم
 //   يفضل بسيط زي ما كان: الاسم + الإيميل + الهاتف + رسالة، وبيتبعت لنفس
 //   /api/data?collection=form زي الأول بالظبط.
-// 🆕 نصوص بادچ "مطلوب" ورسالة توضيحية تحت اختيار الخدمة — بنفس أسلوب
-// REQUIRED_LABELS/opt جوه SimpleInquiryForm، لكن هنا مستقلة لأن
-// DynamicContactForm منفصل عن SimpleInquiryForm.
-const SERVICE_FIELD_STRINGS = {
-  en: { required: "Required", hint: "Please select a service above to continue" },
-  ar: { required: "مطلوب", hint: "من فضلك اختر خدمة من الأعلى للمتابعة" },
-  es: { required: "Obligatorio", hint: "Selecciona un servicio arriba para continuar" },
-};
-
 function DynamicContactForm({ data, t, lang, visible }) {
   const [selectedService, setSelectedService] = useState("");
-  const [serviceTouched, setServiceTouched] = useState(false);
-  const sf = SERVICE_FIELD_STRINGS[lang] ?? SERVICE_FIELD_STRINGS.en;
 
   const serviceOptions = buildServiceOptions(t.form.serviceOptions, lang);
-  const selectedLabel = serviceOptions.find((o) => o.value === selectedService)?.label || "";
-
-  // 🆕 "Service of Interest" بقى حقل مطلوب فعليًا: من غير ما المستخدم
-  // يختار خدمة (حتى لو "Other / General Inquiry")، مفيش أي فورم بيظهر
-  // تحته خالص — عكس الوضع القديم اللي كان بيعرض الفورم البسيط تلقائيًا
-  // من غير ما حد يختار حاجة.
-  const hasSelectedService = selectedService !== "";
-  const showConsultationForm = CONSULTATION_SERVICE_VALUES.has(selectedService);
-  const showEnglishForm = selectedService === "language";
-  const showTranslationForm = selectedService === "translation";
-  const showSimpleForm = hasSelectedService && !showConsultationForm && !showEnglishForm && !showTranslationForm;
-  const showRequiredError = serviceTouched && !hasSelectedService;
 
   return (
     <div id="form" className={`transition-all duration-700 delay-200 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
@@ -240,51 +213,21 @@ function DynamicContactForm({ data, t, lang, visible }) {
 
       {/* الاختيار الرئيسي: الخدمة المطلوبة — دايمًا ظاهر فوق، وهو اللي بيتحكم في باقي الفورم */}
       <div className="flex flex-col gap-1.5 mb-4 sm:mb-5">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${showRequiredError ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-100"}`}>
-            {sf.required}
-          </span>
-        </div>
+        <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.service}</label>
         <select
           value={selectedService}
           onChange={(e) => setSelectedService(e.target.value)}
-          onBlur={() => setServiceTouched(true)}
-          className={`w-full bg-[#f7f7f7] border rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none transition-colors ${showRequiredError ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#003A91]"}`}
+          className="w-full bg-[#f7f7f7] border border-gray-200 focus:border-[#003A91] rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] focus:outline-none transition-colors"
         >
           <option value="">{t.form.fields.servicePlaceholder}</option>
           {serviceOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        {showRequiredError ? (
-          <span className="text-red-500 text-xs font-medium">{sf.required}</span>
-        ) : !hasSelectedService ? (
-          <span className="text-gray-400 text-xs font-medium">{sf.hint}</span>
-        ) : null}
       </div>
 
-      {showConsultationForm && (
-        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
-          <StudentConsultationForm key={selectedService} initialService={selectedLabel} onSuccess={() => {}} />
-        </div>
-      )}
-
-      {showEnglishForm && (
-        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
-          <EnglishProgramRequestForm onSuccess={() => {}} />
-        </div>
-      )}
-
-      {showTranslationForm && (
-        <div className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white">
-          <TranslationRequestForm onSuccess={() => {}} />
-        </div>
-      )}
-
-      {showSimpleForm && (
-        <SimpleInquiryForm t={t} lang={lang} selectedService={selectedService} />
-      )}
+      {/* الفورم مفتوح دايمًا — لو محدش اختار خدمة بيتسجّل "other" */}
+      <SimpleInquiryForm t={t} lang={lang} selectedService={selectedService || "other"} />
     </div>
   );
 }

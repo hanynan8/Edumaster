@@ -5,7 +5,7 @@
 // 🆕 صفحة مخصصة لفورم "Quick Inquiry" (نفس الفورم البسيط بتاع صفحة /contact
 // لما نختار Other / General Inquiry) — مفيهاش غير الفورم ده وبس.
 // بتتفتح من أزرار صفحة الخدمات، ومعاها query param اسمه ?service=<قيمة الخدمة>
-// (study-spain / study-romania / admissions / visa / scholarships) عشان
+// (study-spain / study-romania / admissions / visa / scholarships / courses ...) عشان
 // الخدمة تتسجّل مع الرسالة في الداتابيز. لو مفيش param بتتسجّل "other".
 
 import { Suspense, useEffect, useState } from "react";
@@ -32,6 +32,7 @@ const ALLOWED_SERVICES = new Set([
   "admissions",
   "visa",
   "scholarships",
+  "courses",
   "career",
   "language",
   "translation",

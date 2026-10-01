@@ -35,7 +35,7 @@ const FALLBACK_IMAGE =
 const LEVEL_COLORS = {
   beginner: "#10b981",
   intermediate: "#f59e0b",
-  advanced: "#ef4444",
+  advanced: "#003A91",
 };
 
 // 🆕 Pagination بالصفوف: الشبكة عندها 4 أعمدة على الشاشات الكبيرة (xl:grid-cols-4)،

@@ -610,6 +610,7 @@ function getQuickInquiryService(service) {
   const title = String(service?.title ?? "");
   const has = (idPart, titleRe) => id.includes(idPart) || titleRe.test(title);
 
+  if (service?.id === TRANSLATION_SERVICE_ID) return "translation";
   if (SCHOLARSHIP_SERVICE_IDS.has(service?.id) || has("scholarship", /scholarship|منح|beca/i)) return "scholarships";
   if (has("romania", /romania|رومانيا|rumanía|rumania/i)) return "study-romania";
   if (has("spain", /spain|إسبانيا|اسبانيا|españa/i)) return "study-spain";
@@ -637,11 +638,11 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   // 🆕 الـ anchor id بتاع الخدمة — ده اللي بيتوصله من كارت الهوم
   // (/services#<id>) عشان الصفحة تعمل scroll للخدمة المطلوبة بالظبط.
   const anchorId = slugifyServiceId(service.id);
-  // 🆕 Quick Inquiry (شوف getQuickInquiryService فوق). Language / Translation /
-  // Call Center مالهمش Quick Inquiry (Call Center بتتشال منه الـ CTA القديم).
+  // 🆕 Quick Inquiry (شوف getQuickInquiryService فوق). Language /
+  // Call Center مالهمش Quick Inquiry (الترجمة بقت ليها Quick Inquiry بدل زرار /contact) (Call Center بتتشال منه الـ CTA القديم).
   const qi = QUICK_INQUIRY_STRINGS[language] ?? QUICK_INQUIRY_STRINGS.en;
   const quickService =
-    isLanguageService || isTranslationService || isCallCenterService ? null : getQuickInquiryService(service);
+    isLanguageService || isCallCenterService ? null : getQuickInquiryService(service);
   const quickHref = quickService ? `/quick-inquiry?service=${quickService}` : null;
   return (
     <div

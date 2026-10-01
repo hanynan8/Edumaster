@@ -43,7 +43,7 @@ const LEVEL_TEST_BTN_LABEL = {
 const LEVEL_COLORS = {
   beginner: "#10b981",
   intermediate: "#f59e0b",
-  advanced: "#ef4444",
+  advanced: "#003A91",
 };
 
 const FALLBACK_COURSE_IMAGE =

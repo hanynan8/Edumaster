@@ -202,7 +202,7 @@ export default function MembershipSection() {
 
         {plans === null && (
           <div className="flex justify-center py-16">
-            <Loader className="animate-spin text-[#003A91]" size={28} />
+            <span aria-hidden="true" className="block" style={{ height: 28 }} />
           </div>
         )}
 

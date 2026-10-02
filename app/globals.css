@@ -1,1 +1,13 @@
 @import "tailwindcss";
+/* ───────── ⚡ Navigation UX ───────── */
+/* انتقال سلس بين الصفحات (View Transitions) — fade خفيف بدل "وميض" الصفحة */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation-duration: 120ms; }
+}
+
+/* content-visibility: المتصفح بيتخطى رسم السكاشن اللي تحت الشاشة لحد ما تقرب */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}

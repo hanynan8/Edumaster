@@ -1,20 +1,28 @@
-import { Cairo, Geist_Mono } from "next/font/google";
+import { Cairo } from "next/font/google";
+import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
 import "./globals.css";
+import { authOptions } from "./lib/authOptions";
+import { getSeedData } from "./lib/publicData";
 import Providers from "./components/Providers";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
 import CookieConsent from "./components/CookieConsent";
 
+// ⚡ PERFORMANCE: Cairo متاح كـ variable font — من غير تحديد weight بيتحمّل
+// ملف واحد لكل subset بدل 7 ملفات منفصلة. وشلنا Geist_Mono (مكنش مستخدم
+// في أي مكان) = طلب خطوط أقل وCSS أخف.
 const cairo = Cairo({
   variable: "--font-cairo",
   subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#ffffff",
+};
 
 /* ─────────────────────────────────────────
    SEO METADATA
@@ -118,16 +126,29 @@ export const metadata = {
 /* ─────────────────────────────────────────
    ROOT LAYOUT
 ───────────────────────────────────────── */
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // ⚡ PERFORMANCE: بنقرا اللغة (كوكي) + الـ session + بيانات النافبار/الفوتر
+  // على السيرفر بالتوازي، فأول HTML يوصل جاهز (بدون flash لغة/اتجاه، وبدون
+  // حالة "loading" في useSession، والنافبار مش بيستنى fetch).
+  const cookieStore = await cookies();
+  const savedLang = cookieStore.get("language")?.value;
+  const language = ["en", "ar", "es"].includes(savedLang) ? savedLang : "en";
+
+  const [session, seed] = await Promise.all([
+    getServerSession(authOptions).catch(() => null),
+    getSeedData().catch(() => ({})),
+  ]);
+
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body
-        className={`${cairo.className} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning
-      >
-        <Providers>
+    <html
+      lang={language}
+      dir={language === "ar" ? "rtl" : "ltr"}
+      suppressHydrationWarning
+    >
+      <body className={`${cairo.className} antialiased`} suppressHydrationWarning>
+        <Providers session={session} initialLanguage={language} seed={seed}>
           <Navbar />
-          <main>{children}</main>
+          <main id="main-content">{children}</main>
           <Footer />
           <CookieConsent />
         </Providers>

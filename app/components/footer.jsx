@@ -4,22 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCollectionDoc } from "@/app/lib/useCollection";
 
 /* ─────────────────────────────────────────
    FETCH HOOK
 ───────────────────────────────────────── */
 function useFooterData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    fetch("/api/data?collection=footer")
-      .then((r) => r.json())
-      .then((res) => {
-        const doc = Array.isArray(res) ? res[0] : res;
-        setData(doc);
-      })
-      .catch(console.error);
-  }, []);
-  return data;
+  return useCollectionDoc("footer");
 }
 
 /* ─────────────────────────────────────────
@@ -142,7 +133,7 @@ export default function Footer() {
 
             {/* Brand + About + Socials */}
             <div className="sm:col-span-2 lg:col-span-1">
-              <Link href="/" className="inline-block text-2xl font-black tracking-tighter text-white mb-4 hover:opacity-80 transition-opacity">
+              <Link prefetch={true} href="/" className="inline-block text-2xl font-black tracking-tighter text-white mb-4 hover:opacity-80 transition-opacity">
                 {t.brand}
               </Link>
               <p className="text-gray-400 text-sm leading-relaxed mb-5">{t.about}</p>
@@ -162,7 +153,7 @@ export default function Footer() {
               <ul className="flex flex-col gap-2.5">
                 {data.quickLinks.map((link) => (
                   <li key={link.id}>
-                    <Link href={link.href}
+                    <Link prefetch={true} href={link.href}
                       className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
                       <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                         <ArrowRight size={11} />
@@ -172,7 +163,7 @@ export default function Footer() {
                   </li>
                 ))}
                 <li>
-                  <Link href="/privacy"
+                  <Link prefetch={true} href="/privacy"
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
                     <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                       <ArrowRight size={11} />
@@ -181,7 +172,7 @@ export default function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms"
+                  <Link prefetch={true} href="/terms"
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
                     <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                       <ArrowRight size={11} />
@@ -190,7 +181,7 @@ export default function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/refund"
+                  <Link prefetch={true} href="/refund"
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-white group transition-colors duration-150">
                     <span className="w-0 group-hover:w-3 overflow-hidden transition-all duration-200 text-[#C9A227]">
                       <ArrowRight size={11} />

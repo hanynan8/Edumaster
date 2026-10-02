@@ -173,7 +173,7 @@ export default function MembershipPage() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
         {plans === null && !error && (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#003A91]" size={32} />
+            <span aria-hidden="true" className="block" style={{ height: 32 }} />
           </div>
         )}
 

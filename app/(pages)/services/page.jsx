@@ -3,21 +3,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import AuthModal from "@/app/components/auth/authModel";
+const AuthModal = dynamic(() => import("@/app/components/auth/authModel"), { ssr: false });
 import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award, Headphones } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import ConsultationModal from "@/app/components/consultation/ConsultationModal";
-import TranslationModal from "@/app/components/translation/TranslationModal";
-import EnglishProgramModal from "@/app/components/englishProgram/EnglishProgramModal";
+const ConsultationModal = dynamic(() => import("@/app/components/consultation/ConsultationModal"), { ssr: false });
+const TranslationModal = dynamic(() => import("@/app/components/translation/TranslationModal"), { ssr: false });
+const EnglishProgramModal = dynamic(() => import("@/app/components/englishProgram/EnglishProgramModal"), { ssr: false });
 // 🆕 نموذج "طلب تقييم فرص المنح الدراسية" — بيتفتح من خدمة المنح الدراسية
-import ScholarshipModal from "@/app/components/scholarship/ScholarshipModal";
+const ScholarshipModal = dynamic(() => import("@/app/components/scholarship/ScholarshipModal"), { ssr: false });
 // 🆕 استمارة "التسجيل في دورة Call Center Operations – Level 1" — بتتفتح من خدمة الـ Call Center
-import CallCenterModal from "@/app/components/callCenter/CallCenterModal";
-import SpanishCurriculum from "@/app/components/languageCourses/SpanishCurriculum";
+const CallCenterModal = dynamic(() => import("@/app/components/callCenter/CallCenterModal"), { ssr: false });
+const SpanishCurriculum = dynamic(() => import("@/app/components/languageCourses/SpanishCurriculum"), { ssr: true });
+import { useCollectionDoc, useCachedJson } from "@/app/lib/useCollection";
 
 const CONSULT_STRINGS = {
   en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
@@ -34,32 +36,14 @@ const QUICK_FORM_STRINGS = {
 };
 
 function useServicesData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-fetch("/api/data?collection=services")
-  .then((r) => r.json())
-  .then((res) => {
-    console.log("API response:", res); // ← شوف الشكل هنا
-    const doc = Array.isArray(res) ? res[0] : res;
-    setData(doc);
-  })
-      .catch(console.error);
-  }, []);
-  return data;
+  return useCollectionDoc("services");
 }
 
 // خطط الاشتراك (membership) — عامة، بتتعرض لأي زائر بدون تسجيل دخول.
 // نفس الـ API المستخدم في /membership: GET /api/membership-plans
 function useMembershipPlans() {
-  const [plans, setPlans] = useState(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    fetch("/api/membership-plans")
-      .then((r) => r.json())
-      .then((res) => setPlans(Array.isArray(res) ? res : []))
-      .catch(() => setError(true));
-  }, []);
-  return { plans, error };
+  const { data, error } = useCachedJson("/api/membership-plans");
+  return { plans: data == null ? null : Array.isArray(data) ? data : [], error };
 }
 
 function useReveal(threshold = 0.1) {

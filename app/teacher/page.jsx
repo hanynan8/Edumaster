@@ -651,7 +651,7 @@ export default function TeacherCoursesPage() {
 
       {courses === null && !error && (
         <div className="flex justify-center py-20">
-          <Loader className="animate-spin text-[#003A91]" size={36} />
+          <span aria-hidden="true" className="block" style={{ height: 36 }} />
         </div>
       )}
 

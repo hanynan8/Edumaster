@@ -614,7 +614,7 @@ function RealCourseDetail({ id }) {
   if (!course || !sections) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-32">
-        <Loader className="animate-spin text-[#003A91]" size={32} />
+        <span aria-hidden="true" className="block" style={{ height: 32 }} />
         <span className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">{t.loading}</span>
       </div>
     );

@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { connectToMongo } from "@/app/lib/mongodb";
+import { clearPublicDataCache } from "@/app/lib/publicData";
 
 if (!globalThis._mongoModels) globalThis._mongoModels = {};
 
@@ -44,15 +45,37 @@ function getModelForCollection(collectionName) {
   return Model;
 }
 
-async function listCollections() {
-  await connectToMongo();
-  const cols = await mongoose.connection.db.listCollections().toArray();
-  return cols
-    .map((c) => c.name)
-    .filter((n) => !n.startsWith("system."));
+// ⚡ PERFORMANCE: listCollections() كان بيتنفذ (round-trip كامل للداتابيز) في
+// كل GET قبل ما نقرا الداتا الفعلية. دلوقتي بنكاشيه الأسماء 60 ثانية في الذاكرة
+// وبنصفّرها مع أي POST/PUT/DELETE (ممكن ينشئ كولكشن جديد).
+if (!globalThis._dataColNames) globalThis._dataColNames = { names: null, ts: 0 };
+if (!globalThis._dataReadCache) globalThis._dataReadCache = new Map();
+const COLNAMES_TTL = 60_000;
+const READ_TTL = 15_000;
+
+function invalidateReadCache() {
+  globalThis._dataColNames = { names: null, ts: 0 };
+  globalThis._dataReadCache.clear();
+  clearPublicDataCache();
 }
 
-function jsonResponse(data, status = 200) {
+async function listCollections() {
+  const c = globalThis._dataColNames;
+  if (c.names && Date.now() - c.ts < COLNAMES_TTL) return c.names;
+  await connectToMongo();
+  const cols = await mongoose.connection.db.listCollections().toArray();
+  const names = cols
+    .map((x) => x.name)
+    .filter((n) => !n.startsWith("system."));
+  globalThis._dataColNames = { names, ts: Date.now() };
+  return names;
+}
+
+const PUBLIC_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=0, s-maxage=30, stale-while-revalidate=300",
+};
+
+function jsonResponse(data, status = 200, extraHeaders = {}) {
   // 🔒 SECURITY: هيدرز أساسية بتقلل مخاطر MIME sniffing / caching حساس.
   return new Response(JSON.stringify(data), {
     status,
@@ -60,6 +83,7 @@ function jsonResponse(data, status = 200) {
       "Content-Type": "application/json",
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "no-store",
+      ...extraHeaders,
     },
   });
 }
@@ -942,15 +966,32 @@ export async function GET(request) {
     // أي كولكشن يكبر بالغلط مستقبلًا (ومفيش سبب نجيب Mongoose documents
     // كاملة لبيانات هترجع كـ JSON مباشرة على طول).
     const MAX_DOCS_RETURNED = 5000;
+
+    // ⚡ PERFORMANCE: الكولكشنز العامة (محتوى الموقع) نفس الرد لكل الزوار →
+    // كاش في الذاكرة 15ث + هيدرز بتخلي الـ CDN/المتصفح يقدّم النسخة المخزنة
+    // فورًا ويحدّثها في الخلفية (stale-while-revalidate). الكولكشنز الحساسة
+    // (admin-only) فضلت no-store زي ما هي.
+    const cacheable = isPublicReadCollection(colName) && !isAdminReadCollection(colName);
+    if (cacheable) {
+      const hit = globalThis._dataReadCache.get(colName);
+      if (hit && Date.now() - hit.ts < READ_TTL) {
+        return jsonResponse(hit.docs, 200, PUBLIC_CACHE_HEADERS);
+      }
+    }
     const docs = await Model.find({}).limit(MAX_DOCS_RETURNED).lean();
+    if (cacheable) {
+      globalThis._dataReadCache.set(colName, { docs, ts: Date.now() });
+      return jsonResponse(docs, 200, PUBLIC_CACHE_HEADERS);
+    }
     return jsonResponse(docs, 200);
   } catch (err) {
     return handleError(err, "GET");
   }
 }
 
-export async function POST(request) {
+async function POST_impl(request) {
   try {
+    invalidateReadCache();
     await connectToMongo();
     const { collection } = getSearchParams(request);
     if (!collection) return jsonResponse({ error: "Collection is required" }, 400);
@@ -1165,8 +1206,9 @@ export async function POST(request) {
   }
 }
 
-export async function PUT(request) {
+async function PUT_impl(request) {
   try {
+    invalidateReadCache();
     await connectToMongo();
     const { collection, id } = getSearchParams(request);
     if (!collection) return jsonResponse({ error: "Collection is required" }, 400);
@@ -1225,8 +1267,9 @@ export async function PUT(request) {
   }
 }
 
-export async function DELETE(request) {
+async function DELETE_impl(request) {
   try {
+    invalidateReadCache();
     await connectToMongo();
     const { collection, id } = getSearchParams(request);
     if (!collection) return jsonResponse({ error: "Collection is required" }, 400);
@@ -1261,3 +1304,16 @@ export async function DELETE(request) {
     return handleError(err, "DELETE");
   }
 }
+
+// ⚡ بنصفّر الكاش *بعد* انتهاء الكتابة كمان (مش بس قبلها) — عشان أي GET
+// متزامن ما يعيدش تخزين نسخة قديمة بعد التعديل.
+async function withInvalidate(fn, request) {
+  try {
+    return await fn(request);
+  } finally {
+    invalidateReadCache();
+  }
+}
+export const POST = (request) => withInvalidate(POST_impl, request);
+export const PUT = (request) => withInvalidate(PUT_impl, request);
+export const DELETE = (request) => withInvalidate(DELETE_impl, request);

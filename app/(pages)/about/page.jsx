@@ -4,16 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import { useCollectionDoc } from "@/app/lib/useCollection";
 
 function useAboutData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    fetch("/api/data?collection=about")
-      .then((r) => r.json())
-      .then((res) => { const doc = Array.isArray(res) ? res[0] : res; setData(doc); })
-      .catch(console.error);
-  }, []);
-  return data;
+  return useCollectionDoc("about");
 }
 
 function useReveal(threshold = 0.1) {

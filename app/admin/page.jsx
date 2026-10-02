@@ -200,7 +200,7 @@ export default function AdminDashboard() {
         justifyContent: 'center',
         background: '#f9fafb',
       }}>
-        <Loader className="animate-spin text-blue-500" size={44} />
+        <span aria-hidden="true" className="block" style={{ height: 44 }} />
       </div>
     );
   }

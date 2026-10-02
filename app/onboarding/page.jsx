@@ -20,12 +20,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Cairo } from "next/font/google";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // 🆕 فونت Cairo لصفحة الـ onboarding بس (بيدعم عربي/إنجليزي مع بعض بخط
 // واحد متسق، بدل ما نبدّل الفونت حسب اللغة زي باقي الموقع).
-const cairo = Cairo({ subsets: ["arabic", "latin"], weight: ["400", "500", "600", "700", "800"] });
+// ⚡ الخط (Cairo) بيتورّث من <body> في app/layout.jsx — تحميله هنا تاني كان
+// بيضيف طلبات خطوط مكررة (5 أوزان) بدون أي فايدة.
 
 /* ═══════════════════════════════════════════════════════
    i18n
@@ -504,7 +504,7 @@ export default function OnboardingPage() {
   return (
     <div
       dir={isRTL ? "rtl" : "ltr"}
-      className={`${cairo.className} min-h-screen bg-white flex flex-col`}
+      className={`min-h-screen bg-white flex flex-col`}
     >
       {/* ── Header ── */}
       <header className="border-b border-gray-100">

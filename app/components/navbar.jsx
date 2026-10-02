@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { signOut, useSession } from "next-auth/react";
-import AuthModal from "./auth/authModel";
+const AuthModal = dynamic(() => import("./auth/authModel"), { ssr: false });
 import NotificationBell from "./NotificationBell";
+import { useCollectionDoc } from "@/app/lib/useCollection";
 
 /* ═══════════════════════════════════════════════════════
    هذا الملف ناتج عن دمج navbar.jsx + NavUi.jsx في ملف واحد:
@@ -261,7 +263,7 @@ function UserDropdown({ user }) {
 
       {open && (
         <div className="absolute right-0 rtl:right-auto rtl:left-0 top-[calc(100%+8px)] w-52 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden z-50 animate-dropdown">
-          <Link
+          <Link prefetch={true}
             href={profileHref}
             onClick={() => setOpen(false)}
             className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -278,7 +280,7 @@ function UserDropdown({ user }) {
           </Link>
           <div className="py-1 border-b border-gray-100">
             {links.map((link) => (
-              <Link
+              <Link prefetch={true}
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
@@ -307,17 +309,7 @@ function UserDropdown({ user }) {
    FETCH HOOK  (كان في navbar.jsx)
 ───────────────────────────────────────── */
 function useNavbarData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    fetch("/api/data?collection=navbar")
-      .then((r) => r.json())
-      .then((res) => {
-        const doc = Array.isArray(res) ? res[0] : res;
-        setData(doc);
-      })
-      .catch(console.error);
-  }, []);
-  return data;
+  return useCollectionDoc("navbar");
 }
 
 /* ─────────────────────────────────────────
@@ -330,14 +322,7 @@ function useNavbarData() {
    توصل بالظبط لنفس مكان الخدمة في الصفحة (/services#<anchor>).
 ───────────────────────────────────────── */
 function useServicesDropdownData() {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    fetch("/api/data?collection=services")
-      .then((r) => r.json())
-      .then((res) => setData(Array.isArray(res) ? res[0] : res))
-      .catch(console.error);
-  }, []);
-  return data;
+  return useCollectionDoc("services");
 }
 
 const SERVICE_ID_MAP = {
@@ -395,7 +380,7 @@ const COUNTRY_DROPDOWN_ITEMS = [
 function CountriesNavItem({ label, href, language }) {
   return (
     <div className="relative group">
-      <Link
+      <Link prefetch={true}
         href={href}
         className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
       >
@@ -409,7 +394,7 @@ function CountriesNavItem({ label, href, language }) {
       <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
         <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2">
           {COUNTRY_DROPDOWN_ITEMS.map((c) => (
-            <Link
+            <Link prefetch={true}
               key={c.id}
               href={`${href}?country=${c.id}`}
               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
@@ -463,7 +448,7 @@ function CoursesNavItem({ label, href, language }) {
   const menu = buildCoursesMenu(href, language);
   return (
     <div className="relative group">
-      <Link
+      <Link prefetch={true}
         href={href}
         className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
       >
@@ -476,7 +461,7 @@ function CoursesNavItem({ label, href, language }) {
 
       <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
         <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
-          <Link
+          <Link prefetch={true}
             href={menu.language.href}
             className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
           >
@@ -484,7 +469,7 @@ function CoursesNavItem({ label, href, language }) {
           </Link>
           {/* اللغات التلاتة تحت Language Courses */}
           {menu.language.children.map((c) => (
-            <Link
+            <Link prefetch={true}
               key={c.code}
               href={c.href}
               className="flex items-center gap-2 ps-8 pe-4 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
@@ -494,7 +479,7 @@ function CoursesNavItem({ label, href, language }) {
             </Link>
           ))}
           <div className="my-1 border-t border-gray-100" />
-          <Link
+          <Link prefetch={true}
             href={menu.callCenter.href}
             className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
           >
@@ -510,7 +495,7 @@ function ServicesNavItem({ label, href, services }) {
   if (!services.length) {
     // مفيش خدمات لسه اتحمّلت (أو مفيش خدمات أصلًا) — نفس اللينك العادي
     return (
-      <Link
+      <Link prefetch={true}
         href={href}
         className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
       >
@@ -522,7 +507,7 @@ function ServicesNavItem({ label, href, services }) {
 
   return (
     <div className="relative group">
-      <Link
+      <Link prefetch={true}
         href={href}
         className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide flex items-center gap-1"
       >
@@ -538,7 +523,7 @@ function ServicesNavItem({ label, href, services }) {
       <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
         <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
           {services.map((svc) => (
-            <Link
+            <Link prefetch={true}
               key={svc.anchorId}
               href={`${href}#${svc.anchorId}`}
               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
@@ -626,7 +611,7 @@ export default function Navbar() {
       return (
         <>
           <div className="flex items-center justify-between gap-3 py-3 px-2 border-b border-gray-100">
-            <Link
+            <Link prefetch={true}
               href={profileHref}
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3 -m-1 p-1 rounded-lg hover:bg-gray-50 transition-colors"
@@ -687,7 +672,7 @@ export default function Navbar() {
         <div className="mx-auto px-5 sm:px-8 md:px-16 h-[60px] sm:h-[68px] flex items-center justify-between gap-4">
 
           {/* Logo */}
-          <Link href="/" className="shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Link prefetch={true} href="/" className="shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity">
             {data.logoHref && (
               <img
                 src={data.logoHref}
@@ -727,7 +712,7 @@ export default function Navbar() {
                     services={servicesForDropdown}
                   />
                 ) : (
-                  <Link
+                  <Link prefetch={true}
                     key={link.id}
                     href={link.href}
                     className="relative px-3 py-2 text-lg font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors tracking-wide group"
@@ -770,7 +755,7 @@ export default function Navbar() {
                 const coursesMenu = isCourses ? buildCoursesMenu(link.href, language) : null;
                 return (
                   <div key={link.id}>
-                    <Link
+                    <Link prefetch={true}
                       href={link.href}
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center justify-between py-3 px-2 text-base font-medium text-gray-700 hover:text-[#C9A227] border-b border-gray-50 last:border-0 transition-colors group"
@@ -782,7 +767,7 @@ export default function Navbar() {
                     </Link>
                     {coursesMenu && (
                       <div className="ps-4 pb-1 flex flex-col">
-                        <Link
+                        <Link prefetch={true}
                           href={coursesMenu.language.href}
                           onClick={() => setMenuOpen(false)}
                           className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
@@ -790,7 +775,7 @@ export default function Navbar() {
                           {coursesMenu.language.label}
                         </Link>
                         {coursesMenu.language.children.map((c) => (
-                          <Link
+                          <Link prefetch={true}
                             key={c.code}
                             href={c.href}
                             onClick={() => setMenuOpen(false)}
@@ -799,7 +784,7 @@ export default function Navbar() {
                             {c.label}
                           </Link>
                         ))}
-                        <Link
+                        <Link prefetch={true}
                           href={coursesMenu.callCenter.href}
                           onClick={() => setMenuOpen(false)}
                           className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
@@ -820,8 +805,6 @@ export default function Navbar() {
 }
 
 const NAV_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Tajawal:wght@400;700;800&display=swap');
-
   @keyframes dropdown {
     from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: translateY(0); }

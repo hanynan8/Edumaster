@@ -59,7 +59,7 @@ export default function TeacherLayout({ children }) {
   if (status === "loading") {
     return (
       <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
-        <Loader className="animate-spin text-[#003A91]" size={40} />
+        <span aria-hidden="true" className="block" style={{ height: 40 }} />
       </div>
     );
   }

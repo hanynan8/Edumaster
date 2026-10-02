@@ -764,7 +764,7 @@ export default function MeetPage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader className="animate-spin text-[#2456A1]" size={40} />
+        <span aria-hidden="true" className="block" style={{ height: 40 }} />
       </div>
     );
   }
@@ -816,7 +816,7 @@ export default function MeetPage() {
 
         {meetings === null && !error ? (
           <div className="flex justify-center py-20">
-            <Loader className="animate-spin text-[#2456A1]" size={36} />
+            <span aria-hidden="true" className="block" style={{ height: 36 }} />
           </div>
         ) : meetings?.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 py-20 text-center">

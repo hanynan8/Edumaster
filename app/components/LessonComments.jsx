@@ -193,7 +193,7 @@ export default function LessonComments({ lessonId }) {
 
       {!comments ? (
         <div className="flex justify-center py-6">
-          <Loader className="animate-spin text-gray-300" size={20} />
+          <span aria-hidden="true" className="block" style={{ height: 20 }} />
         </div>
       ) : comments.length === 0 ? (
         <p className="text-xs text-gray-400 text-center py-4">{t.empty}</p>

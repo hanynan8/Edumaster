@@ -1,3 +1,4 @@
+// PATH: app/components/scholarship/ScholarshipForm.jsx
 "use client";
 
 // app/components/scholarship/ScholarshipForm.jsx
@@ -26,7 +27,7 @@ const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 const STRINGS = {
   ar: {
-    formTitle: "طلب تقييم فرص المنح الدراسية",
+    formTitle: "احجز استشارة",
     formSubtitle:
       "يرجى استكمال هذه الاستمارة، وسيقوم فريقنا بمراجعة ملفك لتحديد المنح الدراسية والمساعدات المالية وفرص التمويل التي قد تناسب دراستك.",
     submit: "إرسال الطلب",
@@ -73,7 +74,7 @@ const STRINGS = {
     },
   },
   en: {
-    formTitle: "Paid Consultation Form",
+    formTitle: "Book a consultation",
     formSubtitle:
       "Please complete this form and our team will review your profile to identify the scholarships, financial aid, and funding opportunities that may suit your studies.",
     submit: "Submit request",
@@ -120,7 +121,7 @@ const STRINGS = {
     },
   },
   es: {
-    formTitle: "Formulario de consulta de pago",
+    formTitle: "Reserva una consulta",
     formSubtitle:
       "Completa este formulario y nuestro equipo revisará tu perfil para identificar las becas, ayudas económicas y oportunidades de financiación que puedan adaptarse a tus estudios.",
     submit: "Enviar solicitud",

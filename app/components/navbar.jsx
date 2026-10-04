@@ -1,3 +1,4 @@
+// PATH: app/components/navbar.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -350,8 +351,27 @@ function useServicesForDropdown(language) {
     .map((svc) => {
       const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
       const title = t.services[i18nKey]?.title ?? svc.title ?? svc.id;
-      return { anchorId: slugifyServiceId(svc.id), title };
+      // 🆕 Study in Spain / Study in Romania في هوفر Services بيتصرفوا زي هوفر
+      // Countries بالظبط: نفس الاسم ونفس اللينك (/countries/<id>)
+      const countryId = getCountryIdForService(svc, title);
+      const countryItem = COUNTRY_DROPDOWN_ITEMS.find((c) => c.id === countryId);
+      return {
+        anchorId: slugifyServiceId(svc.id),
+        title: countryItem ? (countryItem.titles[language] ?? countryItem.titles.en) : title,
+        pageHref: countryItem ? `/countries/${countryItem.id}` : null,
+      };
     });
+}
+
+// 🆕 تحديد خدمتي Study in Spain / Study in Romania (بالـ id الأول وكاحتياط
+// على العنوان بالـ 3 لغات) — نفس منطق getQuickInquiryService في صفحة الخدمات.
+// بيرجّع id الدولة ("spain" / "romania") المطابق لعناصر هوفر Countries.
+function getCountryIdForService(svc, title) {
+  const id = String(svc?.id ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const text = `${svc?.title ?? ""} ${title ?? ""}`;
+  if (id.includes("romania") || /romania|رومانيا|rumanía|rumania/i.test(text)) return "romania";
+  if (id.includes("spain") || /spain|إسبانيا|اسبانيا|españa/i.test(text)) return "spain";
+  return null;
 }
 
 // الخدمتين اللي اتشالوا من هوفر Services (ids نفس اللي بتتعرف بيها صفحة /services)
@@ -363,8 +383,7 @@ function isMovedToCoursesService(id) {
 /* ─────────────────────────────────────────
    COUNTRIES HOVER DROPDOWN (نافبار → Countries)
    اتنين ثابتين: Study in Spain / Study in Romania
-   كل واحد بيفتح /countries على الدولة المختارة (?country=<id>)
-   (صفحة الدول بتقرأ الـ query param دي وتفتح على الدولة المطلوبة)
+   كل واحد بيفتح صفحته المخصصة /countries/<id> (مثلًا /countries/spain)
 ───────────────────────────────────────── */
 const COUNTRY_DROPDOWN_ITEMS = [
   {
@@ -396,7 +415,7 @@ function CountriesNavItem({ label, href, language }) {
           {COUNTRY_DROPDOWN_ITEMS.map((c) => (
             <Link prefetch={true}
               key={c.id}
-              href={`${href}?country=${c.id}`}
+              href={`${href}/${c.id}`}
               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
             >
               {c.titles[language] ?? c.titles.en}
@@ -525,7 +544,7 @@ function ServicesNavItem({ label, href, services }) {
           {services.map((svc) => (
             <Link prefetch={true}
               key={svc.anchorId}
-              href={`${href}#${svc.anchorId}`}
+              href={svc.pageHref ?? `${href}#${svc.anchorId}`}
               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
             >
               {svc.title}

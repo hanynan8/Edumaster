@@ -1,4 +1,4 @@
-// app/api/data/route.js
+// PATH: app/api/data/route.js
 //
 // ==========================================================================
 // نسخة مؤمّنة (Hardened) — كل التعديلات موضّحة بتعليقات تبدأ بـ "🔒 SECURITY:"
@@ -201,13 +201,13 @@ function isProtectedCollection(name) {
 // "consultations": بيانات جايه من زوار الموقع نفسهم بدون تسجيل دخول.
 // 🆕 "scholarshipRequests": نموذج طلب تقييم فرص المنح الدراسية (خدمة المنح).
 // 🆕 "callCenterRequests": استمارة التسجيل في دورة Call Center Operations – Level 1.
-const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests", "callCenterRequests"]);
+const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "spanishProgramRequests", "arabicProgramRequests", "scholarshipRequests", "callCenterRequests"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
 // "form" فيها رسائل زوار الموقع (اسم/إيميل/رقم تليفون)، بيانات شخصية مش المفروض
 // تكون متاحة للعامة حتى لو حد عرف اسم الكولكشن. الكتابة (POST) فيها لسه مسموحة
 // للعامة عشان فورم التواصل يشتغل، لكن القراءة admin بس.
-const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "scholarshipRequests", "callCenterRequests"]);
+const ADMIN_READ_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "spanishProgramRequests", "arabicProgramRequests", "scholarshipRequests", "callCenterRequests"]);
 
 function isAdminReadCollection(name) {
   return ADMIN_READ_COLLECTIONS.has(String(name));
@@ -1051,7 +1051,7 @@ async function POST_impl(request) {
         ? validateConsultationPayload(sanitizedBody)
         : colName === "translationRequests"
         ? validateTranslationRequestPayload(sanitizedBody)
-        : colName === "englishProgramRequests"
+        : colName === "englishProgramRequests" || colName === "spanishProgramRequests" || colName === "arabicProgramRequests"
         ? validateEnglishProgramRequestPayload(sanitizedBody)
         : colName === "scholarshipRequests"
         ? validateScholarshipRequestPayload(sanitizedBody)
@@ -1132,7 +1132,11 @@ async function POST_impl(request) {
       }
 
       // 🆕 طلب تسجيل جديد في برنامج اللغة الإنجليزية — إشعار إيميل بنفس قالب "form"
-      if (colName === "englishProgramRequests") {
+      if (colName === "englishProgramRequests" || colName === "spanishProgramRequests" || colName === "arabicProgramRequests") {
+        const programServiceName =
+          colName === "spanishProgramRequests" ? "Spanish Program Enrollment"
+          : colName === "arabicProgramRequests" ? "Arabic Program Enrollment"
+          : "English Program Enrollment";
         const summaryLines = [
           created.desiredProgram ? `Desired program: ${created.desiredProgram}` : null,
           created.currentLevel ? `Current level: ${created.currentLevel}` : null,
@@ -1146,7 +1150,7 @@ async function POST_impl(request) {
           name: created.fullName,
           email: created.email,
           phone: created.phone,
-          service: "English Program Enrollment",
+          service: programServiceName,
           message: summaryLines.join("\n"),
           createdAt: created.createdAt,
         });

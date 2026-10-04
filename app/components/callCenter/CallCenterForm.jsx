@@ -1,3 +1,4 @@
+// PATH: app/components/callCenter/CallCenterForm.jsx
 "use client";
 
 // app/components/callCenter/CallCenterForm.jsx
@@ -30,7 +31,7 @@ const OPTION_IDS = {
 
 const STRINGS = {
   ar: {
-    title: "CALL CENTER OPERATIONS – LEVEL 1",
+    title: "احجز استشارة",
     subtitle: "استمارة التسجيل | Edumaster365",
     submit: "إرسال الطلب",
     submitting: "جارِ الإرسال...",
@@ -74,7 +75,7 @@ const STRINGS = {
     },
   },
   en: {
-    title: "CALL CENTER OPERATIONS – LEVEL 1",
+    title: "Book a consultation",
     subtitle: "Registration Form | Edumaster365",
     submit: "SUBMIT APPLICATION",
     submitting: "Submitting...",
@@ -118,7 +119,7 @@ const STRINGS = {
     },
   },
   es: {
-    title: "CALL CENTER OPERATIONS – LEVEL 1",
+    title: "Reserva una consulta",
     subtitle: "Formulario de inscripción | Edumaster365",
     submit: "ENVIAR SOLICITUD",
     submitting: "Enviando...",

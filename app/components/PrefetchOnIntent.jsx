@@ -1,3 +1,4 @@
+// PATH: app/components/PrefetchOnIntent.jsx
 "use client";
 // ⚡ بمجرد ما المستخدم يعدّي بالماوس (أو يلمس) على لينك داخلي، بنسخّن بيانات
 // الصفحة دي في كاش الكلاينت — فلحظة الضغط تكون الداتا جاهزة والصفحة بتتعرض
@@ -28,7 +29,8 @@ export default function PrefetchOnIntent() {
       const a = e.target?.closest?.("a[href^='/']");
       if (!a) return;
       const path = a.getAttribute("href").split(/[?#]/)[0].replace(/\/$/, "") || "/";
-      ROUTE_DATA[path]?.forEach(prefetchData);
+      const key = path.startsWith("/countries/") ? "/countries" : path;
+      ROUTE_DATA[key]?.forEach(prefetchData);
     };
 
     document.addEventListener("pointerover", onIntent, { passive: true });

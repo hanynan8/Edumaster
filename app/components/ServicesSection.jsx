@@ -40,7 +40,7 @@ const QUICK_FORM_STRINGS = {
   en: {
     translationCta: "Translation Request Form",
     englishCta: "Join English Program",
-    scholarshipCta: "Request a Scholarship Assessment",
+    scholarshipCta: "Book a consultation",
     callCenterCta: "Register for Call Center Operations",
     browseAllCta: "Browse full services page",
     menuLabel: "All service forms",
@@ -48,7 +48,7 @@ const QUICK_FORM_STRINGS = {
   ar: {
     translationCta: "نموذج طلب ترجمة",
     englishCta: "التسجيل في برنامج الإنجليزية",
-    scholarshipCta: "طلب تقييم فرص المنح الدراسية",
+    scholarshipCta: "احجز استشارة",
     callCenterCta: "التسجيل في دورة الـ Call Center",
     browseAllCta: "تصفح صفحة الخدمات كاملة",
     menuLabel: "كل استمارات الخدمات",
@@ -56,7 +56,7 @@ const QUICK_FORM_STRINGS = {
   es: {
     translationCta: "Solicitud de traducción",
     englishCta: "Únete al programa de inglés",
-    scholarshipCta: "Solicitar evaluación de becas",
+    scholarshipCta: "Reserva una consulta",
     callCenterCta: "Inscribirse en Call Center Operations",
     browseAllCta: "Ver la página completa de servicios",
     menuLabel: "Todos los formularios",

@@ -18,21 +18,23 @@ const EnglishProgramModal = dynamic(() => import("@/app/components/englishProgra
 const ScholarshipModal = dynamic(() => import("@/app/components/scholarship/ScholarshipModal"), { ssr: false });
 // 🆕 استمارة "التسجيل في دورة Call Center Operations – Level 1" — بتتفتح من خدمة الـ Call Center
 const CallCenterModal = dynamic(() => import("@/app/components/callCenter/CallCenterModal"), { ssr: false });
+// 🆕 فورمات التسجيل في برنامج اللغة الإسبانية والعربية — بتتفتح من خدمة Language Courses جنب فورم الإنجليزي
+const LanguageProgramModal = dynamic(() => import("@/app/components/languageCourses/LanguageProgramModal"), { ssr: false });
 const SpanishCurriculum = dynamic(() => import("@/app/components/languageCourses/SpanishCurriculum"), { ssr: true });
 import { useCollectionDoc, useCachedJson } from "@/app/lib/useCollection";
 
 const CONSULT_STRINGS = {
-  en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Consultation about this service" },
-  ar: { cta: "ادرس بالخارج - احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "استشارة عن هذه الخدمة" },
-  es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Consulta sobre este servicio" },
+  en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Book a consultation" },
+  ar: { cta: "ادرس بالخارج - احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "احجز استشارة" },
+  es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Reserva una consulta" },
 };
 
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join languages courses", englishBadge: "A1 → B2", scholarshipCta: "Request a Scholarship Assessment", callCenterCta: "Register for Call Center Operations", callCenterBadge: "Level 1", contactCta: "Contact us" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في دورات اللغات", englishBadge: "A1 → B2", scholarshipCta: "طلب تقييم فرص المنح الدراسية", callCenterCta: "التسجيل في دورة الـ Call Center", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
-  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de idiomas", englishBadge: "A1 → B2", scholarshipCta: "Solicitar evaluación de becas", callCenterCta: "Inscribirse en Call Center Operations", callCenterBadge: "Nivel 1", contactCta: "Contáctanos" },
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join English courses", englishBadge: "A1 → B2", spanishCta: "Join Spanish courses", arabicCta: "Join Arabic courses", scholarshipCta: "Book a consultation", callCenterCta: "Book a consultation", callCenterBadge: "Level 1", contactCta: "Contact us" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في دورات اللغة الانجليزية", englishBadge: "A1 → B2", spanishCta: "التسجيل في دورات الإسبانية", arabicCta: "التسجيل في دورات العربية", scholarshipCta: "احجز استشارة", callCenterCta: "احجز استشارة", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de inglés", englishBadge: "A1 → B2", spanishCta: "Inscribirse en cursos de español", arabicCta: "Inscribirse en cursos de árabe", scholarshipCta: "Reserva una consulta", callCenterCta: "Reserva una consulta", callCenterBadge: "Nivel 1", contactCta: "Contáctanos" },
 };
 
 function useServicesData() {
@@ -97,6 +99,8 @@ export default function ServicesPage() {
   const [englishProgramOpen, setEnglishProgramOpen] = useState(false);
   const [scholarshipOpen, setScholarshipOpen] = useState(false);
   const [callCenterOpen, setCallCenterOpen] = useState(false);
+  const [spanishProgramOpen, setSpanishProgramOpen] = useState(false);
+  const [arabicProgramOpen, setArabicProgramOpen] = useState(false);
 
   // 🆕 لو الصفحة اتفتحت بلينك فيه #id لخدمة معينة (زي اللي جاي من كارت
   // الخدمة في الهوم)، نعمل scroll تلقائي للخدمة دي بمجرد ما البيانات توصل.
@@ -137,6 +141,8 @@ export default function ServicesPage() {
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
           onOpenScholarship={() => setScholarshipOpen(true)}
           onOpenCallCenter={() => setCallCenterOpen(true)}
+          onOpenSpanishProgram={() => setSpanishProgramOpen(true)}
+          onOpenArabicProgram={() => setArabicProgramOpen(true)}
         />
         {/* <MembershipSection isRTL={isRTL} /> */}
         <StatsStrip data={data} t={t} />
@@ -150,6 +156,8 @@ export default function ServicesPage() {
       <EnglishProgramModal open={englishProgramOpen} onClose={() => setEnglishProgramOpen(false)} />
       <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
       <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />
+      <LanguageProgramModal program="spanish" open={spanishProgramOpen} onClose={() => setSpanishProgramOpen(false)} />
+      <LanguageProgramModal program="arabic" open={arabicProgramOpen} onClose={() => setArabicProgramOpen(false)} />
     </>
   );
 }
@@ -531,7 +539,7 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter }) {
+function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter, onOpenSpanishProgram, onOpenArabicProgram }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
     return { ...svc, ...(t.services[i18nKey] ?? {}) };
@@ -550,6 +558,8 @@ function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpe
             onOpenEnglishProgram={onOpenEnglishProgram}
             onOpenScholarship={onOpenScholarship}
             onOpenCallCenter={onOpenCallCenter}
+            onOpenSpanishProgram={onOpenSpanishProgram}
+            onOpenArabicProgram={onOpenArabicProgram}
           />
         ))}
       </div>
@@ -603,7 +613,7 @@ function getQuickInquiryService(service) {
   return null;
 }
 
-function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter }) {
+function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter, onOpenSpanishProgram, onOpenArabicProgram }) {
   const { language } = useLanguage();
   const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
   const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
@@ -662,7 +672,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
               style={{ background: service.color }}
             >
-              <Award size={15} /> {service.cta || qf.scholarshipCta}
+              <Award size={15} /> {qf.scholarshipCta}
             </button>
           ) : quickHref ? (
             <Link href={quickHref}
@@ -708,6 +718,24 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
             >
               <CalendarClock size={15} /> {cs.forService}
             </button>
+          )}
+          {isLanguageService && (
+            <>
+              <button
+                type="button"
+                onClick={() => onOpenSpanishProgram?.()}
+                className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+              >
+                <GraduationCap size={15} /> {qf.spanishCta}
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenArabicProgram?.()}
+                className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+              >
+                <GraduationCap size={15} /> {qf.arabicCta}
+              </button>
+            </>
           )}
         </div>
 

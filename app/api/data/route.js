@@ -201,7 +201,7 @@ function isProtectedCollection(name) {
 // اللغة الإنجليزية (English Program Enrollment Form) — نفس فلسفة "form" و
 // "consultations": بيانات جايه من زوار الموقع نفسهم بدون تسجيل دخول.
 // 🆕 "scholarshipRequests": نموذج طلب تقييم فرص المنح الدراسية (خدمة المنح).
-// 🆕 "callCenterRequests": استمارة التسجيل في دورة Call Center Operations – Level 1.
+// 🆕 "callCenterRequests": استمارة التسجيل في دورة Call Center Operations course.
 const PUBLIC_WRITE_COLLECTIONS = new Set(["form", "consultations", "translationRequests", "englishProgramRequests", "spanishProgramRequests", "arabicProgramRequests", "scholarshipRequests", "callCenterRequests"]);
 
 // ⚠️ الكولكشنز اللي ممنوع حد يقراها (GET) غير الأدمن —
@@ -617,13 +617,15 @@ const CALL_CENTER_FIELD_MAX_LENGTHS = {
   hasExperience: 10,
   lastPosition: 30,
   englishLevel: 20,
+  courseLanguage: 20,
   objective: 40,
   course: 100,
 };
-const CALL_CENTER_REQUIRED_FIELDS = ["fullName", "age", "phone", "email", "hasExperience", "englishLevel", "objective"];
+const CALL_CENTER_REQUIRED_FIELDS = ["fullName", "age", "phone", "email", "hasExperience", "courseLanguage", "englishLevel", "objective"];
 const CALL_CENTER_ALLOWED_VALUES = {
   hasExperience: ["yes", "no"],
   lastPosition: ["agent", "senior_agent", "team_leader", "supervisor", "other", "none"],
+  courseLanguage: ["english", "spanish", "arabic", "french", "german", "other"],
   englishLevel: ["basic", "intermediate", "advanced", "native"],
   objective: ["start_career", "improve_performance", "prepare_leadership", "develop_operations", "other"],
 };
@@ -1203,7 +1205,8 @@ async function POST_impl(request) {
           created.age ? `Age: ${created.age}` : null,
           created.hasExperience ? `Call Center experience: ${labelize(created.hasExperience)}` : null,
           created.lastPosition ? `Last position: ${labelize(created.lastPosition)}` : null,
-          created.englishLevel ? `English level: ${labelize(created.englishLevel)}` : null,
+          created.courseLanguage ? `Language: ${labelize(created.courseLanguage)}` : null,
+          created.englishLevel ? `Language level: ${labelize(created.englishLevel)}` : null,
           created.objective ? `Main objective: ${labelize(created.objective)}` : null,
         ].filter(Boolean);
         await notifyViaResend({

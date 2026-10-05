@@ -86,3 +86,21 @@ export function mergeService(svc, t) {
   const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
   return { ...svc, ...(t?.services?.[i18nKey] ?? {}) };
 }
+
+// 🆕 لون موحّد لكل الخدمات: بناخد لون خدمة Study in Spain كمرجع (الزرار الأساسي
+// وشريط الصورة) وبنطبّقه على باقي الخدمات. لو مفيش Spain بنرجع للأزرق الأساسي.
+export const BRAND_COLOR = "#003A91";
+export function getUnifiedServiceColor(services = []) {
+  const spain = (services || []).find((s) => getCountryIdForService(s) === "spain");
+  return spain?.color || BRAND_COLOR;
+}
+
+// 🆕 وصف خدمة اللغات: "professional English" → "professional language skills"
+// (بدل ما يتكلم عن الإنجليزي بس). بيتطبّق وقت العرض عشان يشتغل حتى لو النص
+// القديم لسه متخزّن في الداتابيز.
+export function fixLanguageDesc(desc, lang) {
+  if (typeof desc !== "string") return desc;
+  if (lang === "ar") return desc.replace(/اللغة الإنجليزية المهنية|الإنجليزية المهنية|إنجليزيتك المهنية/g, "مهاراتك اللغوية المهنية");
+  if (lang === "es") return desc.replace(/tu inglés profesional|el inglés profesional|inglés profesional/gi, "tus habilidades lingüísticas profesionales");
+  return desc.replace(/professional English/gi, "professional language skills");
+}

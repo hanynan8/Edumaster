@@ -1,3 +1,4 @@
+// PATH: app/admin/components/(editcomponents)/services.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -148,7 +149,7 @@ if (data) {
             'language': {
               category: 'Language Training',
               title: 'Language Courses',
-              desc: 'Language skills open every door. Whether you are starting from zero or polishing your professional English, we have the right course for you.',
+              desc: 'Language skills open every door. Whether you are starting from zero or polishing your professional language skills, we have the right course for you.',
               features: ['Spanish for beginners to advanced', 'English for study & work', 'Academic & professional focus', 'Online & offline options'],
               cta: 'Explore Language Courses'
             },

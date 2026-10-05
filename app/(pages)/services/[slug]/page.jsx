@@ -19,7 +19,7 @@ import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, notFound } from "next/navigation";
-import { CalendarClock, GraduationCap, Award, Headphones } from "lucide-react";
+import { CalendarClock, GraduationCap, Award, Headphones, Languages } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { useCollectionDoc } from "@/app/lib/useCollection";
@@ -29,6 +29,8 @@ import {
   mergeService,
   getServiceKind,
   getQuickInquiryService,
+  getUnifiedServiceColor,
+  fixLanguageDesc,
 } from "@/app/lib/serviceUtils";
 
 const ConsultationModal = dynamic(() => import("@/app/components/consultation/ConsultationModal"), { ssr: false });
@@ -36,7 +38,7 @@ const EnglishProgramModal = dynamic(() => import("@/app/components/englishProgra
 const ScholarshipModal = dynamic(() => import("@/app/components/scholarship/ScholarshipModal"), { ssr: false });
 const CallCenterModal = dynamic(() => import("@/app/components/callCenter/CallCenterModal"), { ssr: false });
 const LanguageProgramModal = dynamic(() => import("@/app/components/languageCourses/LanguageProgramModal"), { ssr: false });
-const SpanishCurriculum = dynamic(() => import("@/app/components/languageCourses/SpanishCurriculum"), { ssr: true });
+const TranslationModal = dynamic(() => import("@/app/components/translation/TranslationModal"), { ssr: false });
 
 const STRINGS = {
   en: {
@@ -50,7 +52,8 @@ const STRINGS = {
     english: "Join English courses",
     spanish: "Join Spanish courses",
     arabic: "Join Arabic courses",
-    callCenter: "Register for Call Center Operations",
+    callCenter: "Register for Call Center Operations Course",
+    translationForm: "Translation Request Form",
   },
   ar: {
     crumb: "الخدمات",
@@ -63,7 +66,8 @@ const STRINGS = {
     english: "التسجيل في دورات اللغة الانجليزية",
     spanish: "التسجيل في دورات الإسبانية",
     arabic: "التسجيل في دورات العربية",
-    callCenter: "التسجيل في دورة الـ Call Center",
+    callCenter: "التسجيل في دورة Call Center Operations",
+    translationForm: "نموذج طلب ترجمة",
   },
   es: {
     crumb: "Servicios",
@@ -76,7 +80,8 @@ const STRINGS = {
     english: "Inscribirse en cursos de inglés",
     spanish: "Inscribirse en cursos de español",
     arabic: "Inscribirse en cursos de árabe",
-    callCenter: "Inscribirse en Call Center Operations",
+    callCenter: "Inscribirse en el curso Call Center Operations",
+    translationForm: "Solicitud de traducción",
   },
 };
 
@@ -131,6 +136,7 @@ export default function ServiceDetailPage() {
   const [englishOpen, setEnglishOpen] = useState(false);
   const [scholarshipOpen, setScholarshipOpen] = useState(false);
   const [callCenterOpen, setCallCenterOpen] = useState(false);
+  const [translationOpen, setTranslationOpen] = useState(false);
   const [spanishOpen, setSpanishOpen] = useState(false);
   const [arabicOpen, setArabicOpen] = useState(false);
   const [heroRef, heroVisible] = useReveal(0.05);
@@ -141,10 +147,17 @@ export default function ServiceDetailPage() {
   const base = (data.services || []).find((s) => slugifyServiceId(s.id) === slug);
   if (!base || !t) notFound();
 
-  const service = mergeService(base, t);
-  const kind = getServiceKind(service);
+  const unifiedColor = getUnifiedServiceColor(data.services || []);
+  const merged = mergeService(base, t);
+  const kind = getServiceKind(merged);
+  // لون موحّد لكل الخدمات + وصف اللغات بكلمة "language" بدل English
+  const service = {
+    ...merged,
+    color: unifiedColor,
+    desc: kind === "language" ? fixLanguageDesc(merged.desc, language) : merged.desc,
+  };
   const s = STRINGS[language] ?? STRINGS.en;
-  const quickService = kind === "language" || kind === "callcenter" ? null : getQuickInquiryService(service);
+  const quickService = kind === "language" || kind === "callcenter" ? null : getQuickInquiryService(service) ?? "other";
   const quickHref = quickService ? `/quick-inquiry?service=${quickService}` : null;
   const others = (data.services || [])
     .filter((x) => x.id !== base.id)
@@ -219,9 +232,6 @@ export default function ServiceDetailPage() {
                     {service.cta} <ArrowRight size={13} />
                   </Link>
                 )}
-                <button type="button" onClick={() => setEnglishOpen(true)} className={OUTLINE_BTN}>
-                  <GraduationCap size={15} /> {s.english}
-                </button>
                 <button type="button" onClick={() => setSpanishOpen(true)} className={OUTLINE_BTN}>
                   <GraduationCap size={15} /> {s.spanish}
                 </button>
@@ -231,10 +241,17 @@ export default function ServiceDetailPage() {
               </>
             )}
 
-            {kind === "translation" && quickHref && (
-              <Link href={quickHref} className={PRIMARY_BTN} style={{ background: service.color }}>
-                {s.quick} <ArrowRight size={13} />
-              </Link>
+            {kind === "translation" && (
+              <>
+                {quickHref && (
+                  <Link href={quickHref} className={PRIMARY_BTN} style={{ background: service.color }}>
+                    {s.quick} <ArrowRight size={13} />
+                  </Link>
+                )}
+                <button type="button" onClick={() => setTranslationOpen(true)} className={OUTLINE_BTN}>
+                  <Languages size={15} /> {s.translationForm}
+                </button>
+              </>
             )}
 
             {kind === "standard" && (
@@ -255,7 +272,6 @@ export default function ServiceDetailPage() {
             )}
           </div>
 
-          {kind === "language" && <SpanishCurriculum lang={language} />}
         </div>
       </section>
 
@@ -297,6 +313,7 @@ export default function ServiceDetailPage() {
       )}
 
       <ConsultationModal open={consultOpen} onClose={() => setConsultOpen(false)} initialService={service.title || ""} />
+      <TranslationModal open={translationOpen} onClose={() => setTranslationOpen(false)} />
       <EnglishProgramModal open={englishOpen} onClose={() => setEnglishOpen(false)} />
       <ScholarshipModal open={scholarshipOpen} onClose={() => setScholarshipOpen(false)} />
       <CallCenterModal open={callCenterOpen} onClose={() => setCallCenterOpen(false)} />

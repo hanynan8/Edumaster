@@ -25,19 +25,20 @@ const COURSE_ID = "call-center-operations-level-1";
 const OPTION_IDS = {
   hasExperience: ["yes", "no"],
   lastPosition: ["agent", "senior_agent", "team_leader", "supervisor", "other", "none"],
+  courseLanguage: ["english", "spanish", "arabic", "french", "german", "other"],
   englishLevel: ["basic", "intermediate", "advanced", "native"],
   objective: ["start_career", "improve_performance", "prepare_leadership", "develop_operations", "other"],
 };
 
 const STRINGS = {
   ar: {
-    title: "احجز استشارة",
+    title: "التسجيل في دورة Call Center Operations",
     subtitle: "استمارة التسجيل | Edumaster365",
     submit: "إرسال الطلب",
     submitting: "جارِ الإرسال...",
     required: "* من فضلك املأ الحقول المطلوبة ووافق على سياسة الخصوصية",
     successTitle: "تم استلام طلبك بنجاح!",
-    successDesc: "سيتواصل معك فريق Edumaster365 قريبًا لتأكيد تسجيلك في دورة Call Center Operations – Level 1.",
+    successDesc: "سيتواصل معك فريق Edumaster365 قريبًا لتأكيد تسجيلك في دورة Call Center Operations.",
     error: "حدث خطأ أثناء إرسال الطلب، من فضلك حاول مرة أخرى.",
     questions: {
       fullName: "الاسم الكامل",
@@ -46,7 +47,8 @@ const STRINGS = {
       email: "البريد الإلكتروني",
       hasExperience: "هل لديك خبرة سابقة في مجال الـ Call Center؟",
       lastPosition: "إذا كانت لديك خبرة، ما هو آخر منصب شغلته؟",
-      englishLevel: "ما هو مستوى اللغة الإنجليزية لديك؟",
+      courseLanguage: "ما هي اللغة؟",
+      englishLevel: "ما هو مستواك في هذه اللغة؟",
       objective: "ما هو هدفك الرئيسي من الالتحاق بهذه الدورة؟",
     },
     options: {
@@ -59,6 +61,7 @@ const STRINGS = {
         other: "أخرى",
         none: "بدون خبرة",
       },
+      courseLanguage: { english: "الإنجليزية", spanish: "الإسبانية", arabic: "العربية", french: "الفرنسية", german: "الألمانية", other: "لغة أخرى" },
       englishLevel: { basic: "مبتدئ", intermediate: "متوسط", advanced: "متقدم", native: "لغة أم" },
       objective: {
         start_career: "بدء مسيرتي المهنية في مجال الـ Call Center",
@@ -75,13 +78,13 @@ const STRINGS = {
     },
   },
   en: {
-    title: "Book a consultation",
+    title: "Register for Call Center Operations Course",
     subtitle: "Registration Form | Edumaster365",
     submit: "SUBMIT APPLICATION",
     submitting: "Submitting...",
     required: "* Please fill in the required fields and accept the Privacy Policy",
     successTitle: "Application received!",
-    successDesc: "The Edumaster365 team will contact you soon to confirm your registration for Call Center Operations – Level 1.",
+    successDesc: "The Edumaster365 team will contact you soon to confirm your registration for Call Center Operations.",
     error: "Something went wrong submitting your application, please try again.",
     questions: {
       fullName: "Full Name",
@@ -90,7 +93,8 @@ const STRINGS = {
       email: "Email",
       hasExperience: "Do you have Call Center experience?",
       lastPosition: "If you have experience, what was your last position?",
-      englishLevel: "What is your English level?",
+      courseLanguage: "Which language?",
+      englishLevel: "What is your level in this language?",
       objective: "What is your main objective for taking this course?",
     },
     options: {
@@ -103,6 +107,7 @@ const STRINGS = {
         other: "Other",
         none: "No experience",
       },
+      courseLanguage: { english: "English", spanish: "Spanish", arabic: "Arabic", french: "French", german: "German", other: "Other language" },
       englishLevel: { basic: "Basic", intermediate: "Intermediate", advanced: "Advanced", native: "Native" },
       objective: {
         start_career: "Start a career in the Call Center industry",
@@ -119,13 +124,13 @@ const STRINGS = {
     },
   },
   es: {
-    title: "Reserva una consulta",
+    title: "Inscripción al curso Call Center Operations",
     subtitle: "Formulario de inscripción | Edumaster365",
     submit: "ENVIAR SOLICITUD",
     submitting: "Enviando...",
     required: "* Por favor completa los campos obligatorios y acepta la política de privacidad",
     successTitle: "¡Solicitud recibida!",
-    successDesc: "El equipo de Edumaster365 se pondrá en contacto contigo pronto para confirmar tu inscripción en Call Center Operations – Level 1.",
+    successDesc: "El equipo de Edumaster365 se pondrá en contacto contigo pronto para confirmar tu inscripción en Call Center Operations.",
     error: "Ocurrió un error al enviar tu solicitud, por favor intenta de nuevo.",
     questions: {
       fullName: "Nombre completo",
@@ -134,7 +139,8 @@ const STRINGS = {
       email: "Correo electrónico",
       hasExperience: "¿Tienes experiencia en Call Center?",
       lastPosition: "Si tienes experiencia, ¿cuál es tu último puesto?",
-      englishLevel: "¿Cuál es tu nivel de inglés?",
+      courseLanguage: "¿Qué idioma?",
+      englishLevel: "¿Cuál es tu nivel en este idioma?",
       objective: "¿Cuál es tu principal objetivo con este curso?",
     },
     options: {
@@ -147,6 +153,7 @@ const STRINGS = {
         other: "Otro",
         none: "Sin experiencia",
       },
+      courseLanguage: { english: "Inglés", spanish: "Español", arabic: "Árabe", french: "Francés", german: "Alemán", other: "Otro idioma" },
       englishLevel: { basic: "Básico", intermediate: "Intermedio", advanced: "Avanzado", native: "Nativo" },
       objective: {
         start_career: "Entrar en el sector Call Center",
@@ -171,6 +178,7 @@ const initialFormState = {
   email: "",
   hasExperience: "",
   lastPosition: "",
+  courseLanguage: "",
   englishLevel: "",
   objective: "",
   privacyConsent: false,
@@ -292,7 +300,7 @@ export default function CallCenterForm({ onSuccess }) {
     const age = form.age.trim();
     const phone = form.phone.trim();
     const email = form.email.trim();
-    if (!fullName || !age || !phone || !email || !form.hasExperience || !form.englishLevel || !form.objective) {
+    if (!fullName || !age || !phone || !email || !form.hasExperience || !form.courseLanguage || !form.englishLevel || !form.objective) {
       setError(t.required);
       return;
     }
@@ -413,6 +421,17 @@ export default function CallCenterForm({ onSuccess }) {
 
       <ChoiceQuestion
         number={7}
+        text={t.questions.courseLanguage}
+        required
+        name="courseLanguage"
+        columns="sm:grid-cols-3"
+        options={optionList("courseLanguage")}
+        value={form.courseLanguage}
+        onChange={(v) => set("courseLanguage", v)}
+      />
+
+      <ChoiceQuestion
+        number={8}
         text={t.questions.englishLevel}
         required
         name="englishLevel"
@@ -422,7 +441,7 @@ export default function CallCenterForm({ onSuccess }) {
       />
 
       <ChoiceQuestion
-        number={8}
+        number={9}
         text={t.questions.objective}
         required
         name="objective"

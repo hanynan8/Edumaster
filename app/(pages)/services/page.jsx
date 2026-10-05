@@ -20,8 +20,8 @@ const ScholarshipModal = dynamic(() => import("@/app/components/scholarship/Scho
 const CallCenterModal = dynamic(() => import("@/app/components/callCenter/CallCenterModal"), { ssr: false });
 // 🆕 فورمات التسجيل في برنامج اللغة الإسبانية والعربية — بتتفتح من خدمة Language Courses جنب فورم الإنجليزي
 const LanguageProgramModal = dynamic(() => import("@/app/components/languageCourses/LanguageProgramModal"), { ssr: false });
-const SpanishCurriculum = dynamic(() => import("@/app/components/languageCourses/SpanishCurriculum"), { ssr: true });
 import { useCollectionDoc, useCachedJson } from "@/app/lib/useCollection";
+import { getUnifiedServiceColor, fixLanguageDesc } from "@/app/lib/serviceUtils";
 
 const CONSULT_STRINGS = {
   en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Book a consultation" },
@@ -32,9 +32,9 @@ const CONSULT_STRINGS = {
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
 // في صفحة الخدمات — نفس فلسفة CONSULT_STRINGS.
 const QUICK_FORM_STRINGS = {
-  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join English courses", englishBadge: "A1 → B2", spanishCta: "Join Spanish courses", arabicCta: "Join Arabic courses", scholarshipCta: "Book a consultation", callCenterCta: "Book a consultation", callCenterBadge: "Level 1", contactCta: "Contact us" },
-  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في دورات اللغة الانجليزية", englishBadge: "A1 → B2", spanishCta: "التسجيل في دورات الإسبانية", arabicCta: "التسجيل في دورات العربية", scholarshipCta: "احجز استشارة", callCenterCta: "احجز استشارة", callCenterBadge: "المستوى الأول", contactCta: "تواصل معنا" },
-  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de inglés", englishBadge: "A1 → B2", spanishCta: "Inscribirse en cursos de español", arabicCta: "Inscribirse en cursos de árabe", scholarshipCta: "Reserva una consulta", callCenterCta: "Reserva una consulta", callCenterBadge: "Nivel 1", contactCta: "Contáctanos" },
+  en: { translationCta: "Translation Request Form", translationBadge: "Get a quote", englishCta: "Join English courses", englishBadge: "A1 → B2", spanishCta: "Join Spanish courses", arabicCta: "Join Arabic courses", scholarshipCta: "Book a consultation", callCenterCta: "Register for Call Center Operations Course", callCenterBadge: "Course", contactCta: "Contact us" },
+  ar: { translationCta: "نموذج طلب ترجمة", translationBadge: "احصل على عرض سعر", englishCta: "التسجيل في دورات اللغة الانجليزية", englishBadge: "A1 → B2", spanishCta: "التسجيل في دورات الإسبانية", arabicCta: "التسجيل في دورات العربية", scholarshipCta: "احجز استشارة", callCenterCta: "التسجيل في دورة Call Center Operations", callCenterBadge: "دورة", contactCta: "تواصل معنا" },
+  es: { translationCta: "Solicitud de traducción", translationBadge: "Pide un presupuesto", englishCta: "Inscribirse en cursos de inglés", englishBadge: "A1 → B2", spanishCta: "Inscribirse en cursos de español", arabicCta: "Inscribirse en cursos de árabe", scholarshipCta: "Reserva una consulta", callCenterCta: "Inscribirse en el curso Call Center Operations", callCenterBadge: "Curso", contactCta: "Contáctanos" },
 };
 
 function useServicesData() {
@@ -136,6 +136,7 @@ export default function ServicesPage() {
         <ServicesList
           data={data}
           t={t}
+          language={language}
           onRequestConsultation={(name) => setConsultService(name)}
           onOpenTranslation={() => setTranslationOpen(true)}
           onOpenEnglishProgram={() => setEnglishProgramOpen(true)}
@@ -539,11 +540,16 @@ const ID_MAP = {
   "language Courses": "language",
 };
 
-function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter, onOpenSpanishProgram, onOpenArabicProgram }) {
+function ServicesList({ data, t, language, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter, onOpenSpanishProgram, onOpenArabicProgram }) {
   const merged = data.services.map((svc) => {
     const i18nKey = ID_MAP[svc.id] ?? svc.id;
-    return { ...svc, ...(t.services[i18nKey] ?? {}) };
+    const m = { ...svc, ...(t.services[i18nKey] ?? {}) };
+    // وصف خدمة اللغات: "language" بدل "English"
+    if (LANGUAGE_SERVICE_IDS.has(svc.id)) m.desc = fixLanguageDesc(m.desc, language);
+    return m;
   });
+  // 🆕 لون موحّد (لون Study in Spain) لكل الخدمات
+  const unifiedColor = getUnifiedServiceColor(merged);
 
   return (
     <section className="py-14 sm:py-16 md:py-20 bg-white">
@@ -551,7 +557,7 @@ function ServicesList({ data, t, onRequestConsultation, onOpenTranslation, onOpe
         {merged.map((svc, i) => (
           <ServiceRow
             key={svc.id}
-            service={svc}
+            service={{ ...svc, color: unifiedColor }}
             index={i}
             onRequestConsultation={onRequestConsultation}
             onOpenTranslation={onOpenTranslation}
@@ -636,7 +642,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
   // Call Center مالهمش Quick Inquiry (الترجمة بقت ليها Quick Inquiry بدل زرار /contact) (Call Center بتتشال منه الـ CTA القديم).
   const qi = QUICK_INQUIRY_STRINGS[language] ?? QUICK_INQUIRY_STRINGS.en;
   const quickService =
-    isLanguageService || isCallCenterService ? null : getQuickInquiryService(service);
+    isLanguageService || isCallCenterService ? null : getQuickInquiryService(service) ?? "other";
   const quickHref = quickService ? `/quick-inquiry?service=${quickService}` : null;
   return (
     <div
@@ -694,7 +700,15 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
             >
               {qi.cta} <ArrowRight size={13} />
             </Link>
-          ) : isTranslationService ? null : isCallCenterService ? (
+          ) : isTranslationService ? (
+            <button
+              type="button"
+              onClick={() => onOpenTranslation?.()}
+              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+            >
+              <Languages size={15} /> {qf.translationCta}
+            </button>
+          ) : isCallCenterService ? (
             <button
               type="button"
               onClick={() => onOpenCallCenter?.()}
@@ -702,15 +716,7 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
             >
               <Headphones size={15} /> {qf.callCenterCta}
             </button>
-          ) : isLanguageService ? (
-            <button
-              type="button"
-              onClick={() => onOpenEnglishProgram?.()}
-              className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
-            >
-              <GraduationCap size={15} /> {qf.englishCta}
-            </button>
-          ) : (
+          ) : isLanguageService ? null : (
             <button
               type="button"
               onClick={() => onRequestConsultation?.(service.title)}
@@ -739,7 +745,6 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
           )}
         </div>
 
-        {isLanguageService && <SpanishCurriculum lang={language} />}
       </div>
     </div>
   );

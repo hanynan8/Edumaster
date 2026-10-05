@@ -1,3 +1,4 @@
+// PATH: app/admin/components/callCenterRequestsPanel.jsx
 'use client';
 
 // app/admin/components/callCenterRequestsPanel.jsx
@@ -35,6 +36,7 @@ const LAST_POSITION_LABELS = {
   other: 'Other',
   none: 'No experience',
 };
+const COURSE_LANGUAGE_LABELS = { english: 'English', spanish: 'Spanish', arabic: 'Arabic', french: 'French', german: 'German', other: 'Other language' };
 const ENGLISH_LEVEL_LABELS = { basic: 'Basic', intermediate: 'Intermediate', advanced: 'Advanced', native: 'Native' };
 const OBJECTIVE_LABELS = {
   start_career: 'Start a career in the Call Center industry',
@@ -173,7 +175,8 @@ function CallCenterRequestsAdmin() {
         { header: 'Age', key: 'age', width: 8 },
         { header: 'Has Experience', key: 'hasExperience', width: 16 },
         { header: 'Last Position', key: 'lastPosition', width: 20 },
-        { header: 'English Level', key: 'englishLevel', width: 16 },
+        { header: 'Language', key: 'courseLanguage', width: 16 },
+        { header: 'Language Level', key: 'englishLevel', width: 16 },
         { header: 'Main Objective', key: 'objective', width: 46 },
         { header: 'Status', key: 'status', width: 16 },
         { header: 'Form Language', key: 'language', width: 14 },
@@ -199,6 +202,7 @@ function CallCenterRequestsAdmin() {
           age: sub.age || '—',
           hasExperience: optionLabel(EXPERIENCE_LABELS, sub.hasExperience),
           lastPosition: optionLabel(LAST_POSITION_LABELS, sub.lastPosition),
+          courseLanguage: optionLabel(COURSE_LANGUAGE_LABELS, sub.courseLanguage),
           englishLevel: optionLabel(ENGLISH_LEVEL_LABELS, sub.englishLevel),
           objective: optionLabel(OBJECTIVE_LABELS, sub.objective),
           status: labelize(sub.status || 'pending'),
@@ -329,7 +333,8 @@ function CallCenterRequestsAdmin() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mb-6">
               <DetailField label="Call Center Experience" value={optionLabel(EXPERIENCE_LABELS, selected.hasExperience)} />
               <DetailField label="Last Position" value={optionLabel(LAST_POSITION_LABELS, selected.lastPosition)} />
-              <DetailField label="English Level" value={optionLabel(ENGLISH_LEVEL_LABELS, selected.englishLevel)} />
+              <DetailField label="Language" value={optionLabel(COURSE_LANGUAGE_LABELS, selected.courseLanguage)} />
+              <DetailField label="Language Level" value={optionLabel(ENGLISH_LEVEL_LABELS, selected.englishLevel)} />
               <DetailField label="Form Language" value={optionLabel(LANGUAGE_LABELS, selected.language)} />
             </div>
 

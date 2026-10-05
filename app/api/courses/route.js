@@ -22,6 +22,7 @@ import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
+import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -208,6 +209,8 @@ export async function POST(request) {
       ? body.level
       : "beginner";
 
+    const requestedStatus = body?.status === "archived" ? "archived" : "pending";
+
     const created = await Course.create({
       title,
       slug,
@@ -234,7 +237,10 @@ export async function POST(request) {
       tags: Array.isArray(body?.tags) ? body.tags.map(String) : [],
       classMarkerQuizId: String(body?.classMarkerQuizId || "").trim().slice(0, 100),
       displayOrder: nextDisplayOrder,
-      status: "draft", // 🔒 كورس جديد دايمًا draft — النشر إجراء منفصل وواعي
+      // 🆕 المدرس بيختار وهو بيرفع الكورس: "pending" (رفع وانتظار موافقة
+      // الأدمن — ده الافتراضي) أو "archived" (أرشفة فقط). مفيش "published"
+      // مباشرة أبدًا: النشر بموافقة أدمن صريحة بس.
+      status: requestedStatus,
     });
 
     const populated = await created.populate([
@@ -243,7 +249,27 @@ export async function POST(request) {
       { path: "teacher", select: "name" },
     ]);
 
-    return jsonResponse(serializeCourse(populated), 201);
+    const submittedForReview = requestedStatus === "pending";
+    if (submittedForReview) {
+      getAdminUserIds()
+        .then((adminIds) =>
+          Promise.all(
+            adminIds.map((adminId) =>
+              createNotification({
+                user: adminId,
+                type: "course_pending_review",
+                title: "دورة جديدة بانتظار المراجعة",
+                message: `المدرس "${populated.teacher?.name || ""}" طلب نشر الدورة "${populated.title}" — وهي بحاجة إلى مراجعتك.`,
+                link: "/admin",
+                course: populated._id,
+              })
+            )
+          )
+        )
+        .catch((err) => console.error("[/api/courses] POST notify admins error:", err));
+    }
+
+    return jsonResponse({ ...serializeCourse(populated), submittedForReview }, 201);
   } catch (err) {
     console.error("[/api/courses] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

@@ -1,0 +1,16 @@
+{
+  "fromEmail": "admin@gmail.com",
+  "toEmail": "info@edumaster365.com",
+  "fromId": "69ec028669b25c751f981b3d",
+  "toId": "6ac2e6bd4ebea64e490e41ed",
+  "courseIds": [
+    "6a8226068ed198db4af41073",
+    "6a8226078ed198db4af41074",
+    "6a8226088ed198db4af41075",
+    "6a8226098ed198db4af41076",
+    "6a82260a8ed198db4af41077",
+    "6a82260b8ed198db4af41078",
+    "6a82260c8ed198db4af41079"
+  ],
+  "createdAt": "2026-10-04T23:59:30.647Z"
+}

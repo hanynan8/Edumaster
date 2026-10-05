@@ -86,10 +86,12 @@ const T = {
     levels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
     statuses: {
       draft: "Draft",
-      published: "Publish (needs admin approval)",
-      pending: "Pending review (waiting for admin)",
-      archived: "Archived",
+      published: "Published (live for students)",
+      pending: "Submit course & wait for admin approval",
+      archived: "Archive only (hidden)",
     },
+    submitForApproval: "Submit for admin approval",
+    archiveOnly: "Archive only",
     titleRequired: "Title is required",
     titleRequiredAllLangs: "Please add a course title in all 3 languages (Arabic, English, Spanish)",
     chooseCategory: "Choose a category",
@@ -135,10 +137,12 @@ const T = {
     levels: { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" },
     statuses: {
       draft: "مسودة",
-      published: "نشر (يحتاج موافقة الإدارة)",
-      pending: "قيد المراجعة (بانتظار الإدارة)",
-      archived: "مؤرشف",
+      published: "منشور (ظاهر للطلاب)",
+      pending: "رفع الكورس وانتظار موافقة الإدارة",
+      archived: "أرشفة الكورس فقط (مخفي)",
     },
+    submitForApproval: "رفع الكورس وانتظار موافقة الأدمن",
+    archiveOnly: "أرشفة فقط",
     titleRequired: "العنوان مطلوب",
     titleRequiredAllLangs: "من فضلك اكتب عنوان الدورة باللغات الثلاث (العربية والإنجليزية والإسبانية)",
     chooseCategory: "اختر تصنيفًا",
@@ -184,10 +188,12 @@ const T = {
     levels: { beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado" },
     statuses: {
       draft: "Borrador",
-      published: "Publicar (requiere aprobación del admin)",
-      pending: "En revisión (esperando al admin)",
-      archived: "Archivado",
+      published: "Publicado (visible para estudiantes)",
+      pending: "Enviar curso y esperar aprobación del admin",
+      archived: "Solo archivar (oculto)",
     },
+    submitForApproval: "Enviar para aprobación del admin",
+    archiveOnly: "Solo archivar",
     titleRequired: "El título es obligatorio",
     titleRequiredAllLangs: "Agrega un título del curso en los 3 idiomas (árabe, inglés, español)",
     chooseCategory: "Elige una categoría",
@@ -254,12 +260,11 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     { value: "intermediate", label: t.levels.intermediate },
     { value: "advanced", label: t.levels.advanced },
   ];
-  const STATUSES = [
-    { value: "draft", label: t.statuses.draft },
-    { value: "published", label: t.statuses.published },
-    { value: "pending", label: t.statuses.pending },
-    { value: "archived", label: t.statuses.archived },
-  ];
+  // 🆕 المدرّس قدامه خيارين بس: (1) رفع الكورس وانتظار موافقة الأدمن، أو
+  // (2) أرشفة الكورس فقط. لو الكورس منشور فعلاً، الخيار الأول بيبقى "منشور"
+  // (من غير ما نرجّعه للمراجعة ونخفيه عن الطلاب) والتاني الأرشفة.
+  const primaryStatus = course?.status === "published" ? "published" : "pending";
+  const submitStatusRef = useRef(null);
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -297,7 +302,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       EUR: course?.prices?.EUR ?? 0,
     },
     isFree: course?.isFree ?? false,
-    status: course?.status || "draft",
+    status: course?.status === "published" || course?.status === "archived" ? course.status : "pending",
     tags: (course?.tags || []).join(", "),
     classMarkerQuizId: course?.classMarkerQuizId || "",
   });
@@ -316,7 +321,15 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     const draft = loadNewCourseDraft();
     if (draft && draftHasContent(draft)) {
       if (draft.langContent) setLangContent((c) => ({ ...c, ...draft.langContent }));
-      if (draft.form) setForm((f) => ({ ...f, ...draft.form }));
+      if (draft.form) {
+        setForm((f) => ({
+          ...f,
+          ...draft.form,
+          // مسودة قديمة ممكن تكون محفوظة بحالة "draft"/"published" — الخيارين
+          // المسموحين دلوقتي pending أو archived بس.
+          status: draft.form.status === "archived" ? "archived" : "pending",
+        }));
+      }
       setDraftRestored(true);
     }
     draftHydrated.current = true;
@@ -347,7 +360,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       language: "ar",
       prices: { EGP: 0, USD: 0, EUR: 0 },
       isFree: false,
-      status: "draft",
+      status: "pending",
       tags: "",
       classMarkerQuizId: "",
     });
@@ -406,6 +419,10 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // الزرار اللي اتداس هو اللي بيحدد الحالة: "رفع/حفظ" (الافتراضي، وبيشتغل
+    // كمان لو داس Enter) أو "أرشفة فقط".
+    const chosenStatus = submitStatusRef.current || primaryStatus;
+    submitStatusRef.current = null;
     setError("");
 
     const missingLang = LANGS.find((lang) => !langContent[lang].title.trim());
@@ -453,7 +470,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
           EUR: Number(form.prices.EUR) || 0,
         },
         isFree: form.isFree,
-        status: form.status,
+        status: chosenStatus,
         requirements: base.requirements,
         outcomes: base.outcomes,
         tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
@@ -475,15 +492,6 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       // المشابهة في الصفحة (شوف teacher/page.jsx handleDelete).
       if (data?.submittedForReview) {
         alert(t.submittedForReview);
-      } else if (!isEdit && form.status === "published") {
-        // 🩹 FIX: عند إنشاء دورة جديد (POST)، الباك إند بيحفظه دايمًا
-        // status="draft" بغض النظر عن اختيار المدرس (شوف app/api/courses/route.js
-        // POST — "دورة جديد دايمًا draft"). قبل الفيكس ده، لو المدرس اختار
-        // "نشر" وهو بيعمل الدورة لأول مرة، الاختيار كان بيتجاهل بصمت من
-        // غير أي تنبيه — المدرس يفضل فاكر إنه بعت الدورة للمراجعة وهو
-        // لسه مسودة. بنوضّح هنا إن لازم يفتح الدورة تاني ويختار "نشر" من
-        // جديد بعد ما يخلّص إضافة المحتوى (أقسام/دروس) عشان يترسل فعليًا.
-        alert(t.savedAsDraft);
       }
 
       // 🆕 الدورة اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
@@ -770,37 +778,33 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.status}</label>
-            <select
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
-              value={form.status}
-              onChange={(e) => update("status", e.target.value)}
-            >
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-3 pt-2">
+          <div className="space-y-3 pt-2">
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              onClick={() => { submitStatusRef.current = primaryStatus; }}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}
-              {isEdit ? t.saveChanges : t.createCourse}
+              {primaryStatus === "published" ? t.saveChanges : t.submitForApproval}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50"
-            >
-              {t.cancel}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                onClick={() => { submitStatusRef.current = "archived"; }}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium hover:bg-gray-200 hover:text-gray-700 disabled:opacity-60"
+              >
+                {t.archiveOnly}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+              >
+                {t.cancel}
+              </button>
+            </div>
           </div>
         </form>
       </div>

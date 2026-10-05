@@ -65,6 +65,9 @@ const T = {
     newCourse: "New course",
     noCoursesYet: "You haven't created any course yet",
     createFirstCourse: "Create your first course",
+    loadMore: "Show more",
+    loadingMore: "Loading...",
+    showingCount: (shown, total) => `Showing ${shown} of ${total} courses`,
   },
   ar: {
     zoomImage: "تكبير الصورة",
@@ -110,6 +113,9 @@ const T = {
     newCourse: "دورة جديد",
     noCoursesYet: "لم تنشئ أي دورة بعد",
     createFirstCourse: "ابدأ بإنشاء أول دورة",
+    loadMore: "عرض المزيد",
+    loadingMore: "جارِ التحميل...",
+    showingCount: (shown, total) => `عرض ${shown} من ${total} دورة`,
   },
   es: {
     zoomImage: "Ampliar imagen",
@@ -155,8 +161,14 @@ const T = {
     newCourse: "Nuevo curso",
     noCoursesYet: "Aún no has creado ningún curso",
     createFirstCourse: "Crea tu primer curso",
+    loadMore: "Ver más",
+    loadingMore: "Cargando...",
+    showingCount: (shown, total) => `Mostrando ${shown} de ${total} cursos`,
   },
 };
+
+// 🆕 عدد الدورات في كل دفعة (12 بيتقسم صح على أعمدة الجريد 2/3/4)
+const PAGE_SIZE = 12;
 
 const AVATAR_MAX_BYTES = 1 * 1024 * 1024; // 1MB
 const AVATAR_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif"];
@@ -526,18 +538,80 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
 export default function TeacherCoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = T[language] || T.en;
+  const { data: session, status: sessionStatus } = useSession();
   const [courses, setCourses] = useState(null);
+  // 🆕 ترقيم الصفحات: "عرض المزيد" بيجيب الصفحة اللي بعدها ويضيفها للقايمة
+  // لحد ما كل دورات المدرّس تظهر (total جاي من الـ API).
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [modalCourse, setModalCourse] = useState(undefined); // undefined=closed, null=new, object=edit
   const [profileUser, setProfileUser] = useState(null); // { name, email, phone, avatar, role }
   const [showProfileModal, setShowProfileModal] = useState(false);
 
+  async function fetchCoursesPage(p) {
+    // 🆕 الأدمن بيشوف كل الكورسات في GET /api/courses، فصفحة "دوراتي" كانت
+    // بتعرض كل كورسات الموقع لو الحساب أدمن. بنبعت ?teacher=<id الأدمن> عشان
+    // تعرض كورساته هو بس (الـ API بيدعم الفلتر ده للأدمن).
+    const teacherParam =
+      session?.user?.role === "admin" && session?.user?.id
+        ? `&teacher=${encodeURIComponent(session.user.id)}`
+        : "";
+    const res = await fetch(`/api/courses?page=${p}&limit=${PAGE_SIZE}${teacherParam}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error);
+    return data;
+  }
+
+  // أول تحميل (أو تغيير اللغة): بيبدأ من الصفحة الأولى.
   async function loadCourses() {
     try {
-      const res = await fetch("/api/courses");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error);
+      const data = await fetchCoursesPage(1);
       setCourses(data.courses);
+      setPage(1);
+      setTotal(data.pagination?.total ?? data.courses.length);
+      setError("");
+    } catch {
+      setError(t.loadCoursesError);
+    }
+  }
+
+  // زرار "عرض المزيد": بيجيب الصفحة التالية ويضيفها (مع تجاهل أي كورس
+  // متكرر عشان لو حصل تغيير في الترتيب بين الطلبين).
+  async function handleLoadMore() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const data = await fetchCoursesPage(next);
+      setCourses((prev) => {
+        const seen = new Set((prev || []).map((c) => c.id));
+        return [...(prev || []), ...data.courses.filter((c) => !seen.has(c.id))];
+      });
+      setPage(next);
+      setTotal(data.pagination?.total ?? total);
+    } catch {
+      setError(t.loadCoursesError);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  // بعد الحذف: الدورات اللي بعدها بتتحرك لورا، فلو كملنا بـ page+1 على طول
+  // ممكن دورة تتفوّت. فبنعيد تحميل الصفحات اللي كانت ظاهرة من الأول.
+  async function reloadLoadedPages(upToPage) {
+    try {
+      let all = [];
+      let lastTotal = 0;
+      for (let p = 1; p <= upToPage; p++) {
+        const data = await fetchCoursesPage(p);
+        all = all.concat(data.courses);
+        lastTotal = data.pagination?.total ?? all.length;
+        if (data.courses.length < PAGE_SIZE) break;
+      }
+      setCourses(all);
+      setTotal(lastTotal);
     } catch {
       setError(t.loadCoursesError);
     }
@@ -554,16 +628,19 @@ export default function TeacherCoursesPage() {
   }
 
   useEffect(() => {
+    // نستنى الـ session تتحمّل عشان نعرف الدور (أدمن/مدرّس) قبل أول طلب.
+    if (sessionStatus === "loading") return;
     loadCourses();
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
+  }, [language, sessionStatus]);
 
   function handleSaved(saved) {
     setModalCourse(undefined);
     setCourses((prev) => {
       if (!prev) return [saved];
       const exists = prev.some((c) => c.id === saved.id);
+      if (!exists) setTotal((n) => n + 1);
       return exists ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev];
     });
   }
@@ -593,6 +670,8 @@ export default function TeacherCoursesPage() {
         return;
       }
       setCourses((prev) => prev.filter((c) => c.id !== course.id));
+      setTotal((n) => Math.max(0, n - 1));
+      reloadLoadedPages(page);
     } catch {
       alert(t.deleteErrorNetwork);
     }
@@ -675,6 +754,20 @@ export default function TeacherCoursesPage() {
           {courses.map((c) => (
             <CourseCard key={c.id} course={c} onEdit={setModalCourse} onDelete={handleDelete} />
           ))}
+        </div>
+      )}
+
+      {courses?.length > 0 && courses.length < total && (
+        <div className="flex flex-col items-center gap-2 mt-8">
+          <p className="text-xs text-gray-400">{t.showingCount(courses.length, total)}</p>
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-6 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors disabled:opacity-60"
+          >
+            {loadingMore && <Loader size={15} className="animate-spin" />}
+            {loadingMore ? t.loadingMore : t.loadMore}
+          </button>
         </div>
       )}
 

@@ -203,14 +203,23 @@ export async function PUT(request, { params }) {
     // مراجعة. لو الكورس أصلاً published ومحدّش غيّر status (لسه published
     // في الـ body)، ده مش "نشر جديد" فمنعملش حاجة (تعديل عادي مش لازم
     // مراجعة تانية).
+    //
+    // 🆕 المدرس (مش أدمن) ليه خيارين بس: "pending" (رفع الكورس وانتظار
+    // الأدمن) أو "archived" (أرشفة فقط). "published" من مدرس بيتحوّل pending
+    // (توافق مع أي واجهة قديمة)، و"draft" بيتتجاهل (الحالة بتفضل زي ما هي).
+    // ولو الكورس منشور فعلاً، طلب "pending" مابيشيلوش من الطلاب (بيتتجاهل).
     let submittedForReview = false;
-    if (
-      updates.status === "published" &&
-      existing.status !== "published" &&
-      session.user.role !== "admin"
-    ) {
-      updates.status = "pending";
-      submittedForReview = true;
+    if (session.user.role !== "admin" && updates.status !== undefined) {
+      if (updates.status === "published" || updates.status === "pending") {
+        if (existing.status === "published" || existing.status === "pending") {
+          delete updates.status; // مفيش تغيير: منشور فعلاً أو مستني مراجعة
+        } else {
+          updates.status = "pending";
+          submittedForReview = true; // draft/archived → طلب مراجعة جديد
+        }
+      } else if (updates.status === "draft") {
+        delete updates.status;
+      }
     }
     if (updates.prices !== undefined) {
       updates.prices = sanitizePrices(updates.prices);

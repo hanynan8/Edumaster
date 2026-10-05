@@ -1197,7 +1197,7 @@ async function POST_impl(request) {
         });
       }
 
-      // 🆕 طلب تسجيل جديد في دورة Call Center Operations – Level 1 — إشعار إيميل
+      // 🆕 طلب تسجيل جديد في دورة Call Center Operations — إشعار إيميل
       // بنفس قالب "form". القيم بتتحول من ids لنصوص مقروءة للأدمن.
       if (colName === "callCenterRequests") {
         const labelize = (v) => String(v || "").replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -1213,7 +1213,7 @@ async function POST_impl(request) {
           name: created.fullName,
           email: created.email,
           phone: created.phone,
-          service: "Call Center Operations – Level 1 Registration",
+          service: "Call Center Operations Course Registration",
           message: summaryLines.join("\n"),
           createdAt: created.createdAt,
         });

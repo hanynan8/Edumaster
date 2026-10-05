@@ -686,13 +686,13 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
               style={{ background: service.color }}>
               {qi.cta} <ArrowRight size={13} />
             </Link>
-          ) : (
+          ) : service.ctaHref ? (
             <Link href={service.ctaHref}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
               style={{ background: service.color }}>
               {service.cta} <ArrowRight size={13} />
             </Link>
-          )}
+          ) : null}
           {isScholarshipService ? (
             <Link
               href={quickHref}

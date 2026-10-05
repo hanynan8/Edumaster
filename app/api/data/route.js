@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { clearPublicDataCache } from "@/app/lib/publicData";
+import { CONSULTATION_REQUIRED_FIELDS } from "@/app/lib/consultationFields";
 
 if (!globalThis._mongoModels) globalThis._mongoModels = {};
 
@@ -354,6 +355,10 @@ function validateFormPayload(body) {
   if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
     return "Invalid email format";
   }
+  // 🆕 الرسالة حقل إجباري (Quick Inquiry) — بنتحقق منها في السيرفر كمان مش بس في الواجهة
+  if (typeof body.message !== "string" || !body.message.trim()) {
+    return "Field 'message' is required";
+  }
   if (body.attachmentUrl && !isValidHttpsUrl(body.attachmentUrl)) {
     return "Invalid attachment URL";
   }
@@ -398,8 +403,11 @@ const CONSULTATION_FIELD_MAX_LENGTHS = {
   preferredTimeSlot: 60,
   howDidYouHear: 40,
   notes: 3000,
+  // 🆕 مرفق اختياري (اترفع قبلها عبر /api/upload/contact-attachment)
+  attachmentUrl: 500,
+  attachmentName: 150,
 };
-const CONSULTATION_REQUIRED_FIELDS = ["firstName", "lastName", "email", "phone"];
+// الحقول الإجبارية مشتركة مع الواجهة في app/lib/consultationFields.js (كل الحقول ما عدا "المعلومات الإضافية")
 
 function validateConsultationPayload(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -422,6 +430,9 @@ function validateConsultationPayload(body) {
   }
   if (body.email && !SIMPLE_EMAIL_REGEX.test(body.email)) {
     return "Invalid email format";
+  }
+  if (body.attachmentUrl && !isValidHttpsUrl(body.attachmentUrl)) {
+    return "Invalid attachment URL";
   }
   if (body.requestedServices !== undefined) {
     if (!Array.isArray(body.requestedServices) || body.requestedServices.length > 30) {
@@ -1106,6 +1117,8 @@ async function POST_impl(request) {
           phone: created.whatsapp || created.phone,
           service: created.service || (created.requestedServices || []).join(", "),
           message: summaryLines.join("\n"),
+          attachmentUrl: created.attachmentUrl,
+          attachmentName: created.attachmentName,
           createdAt: created.createdAt,
         });
       }

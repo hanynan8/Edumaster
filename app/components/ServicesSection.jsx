@@ -25,6 +25,7 @@ import EnglishProgramModal from "./englishProgram/EnglishProgramModal";
 // قائمة منسدلة تحت زرار "View All Services" بدل ما يودّي لصفحة تانية.
 import ScholarshipModal from "./scholarship/ScholarshipModal";
 import CallCenterModal from "./callCenter/CallCenterModal";
+import { serviceCardHref, mergeService } from "@/app/lib/serviceUtils";
 
 // نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
 // (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
@@ -63,22 +64,8 @@ const QUICK_FORM_STRINGS = {
   },
 };
 
-const SERVICE_ID_MAP = {
-  "Study in Spain": "study-spain",
-  "Visa Services": "visa",
-  "language Courses": "language",
-};
-
-// 🆕 بنحوّل الـ id الحقيقي بتاع الخدمة (الجاي من الـ API) لصيغة صالحة كـ
-// HTML id، بالظبط زي الـ function الموجودة في app/(pages)/services/page.jsx،
-// عشان اللينك #<id> اللي بنولّده هنا يطابق الـ anchor id الموجود هناك.
-function slugifyServiceId(id) {
-  return String(id ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+// 🆕 كل كارت خدمة في الهوم بيودّي لصفحته المخصصة /services/<slug>
+// (الـ slug والـ ID_MAP في app/lib/serviceUtils.js — مشتركين مع صفحة الخدمة).
 
 /* same as /services page: collection=services */
 function useServicesData() {
@@ -162,8 +149,7 @@ export default function ServicesSection({ lang, ui, consultationOnly = false }) 
   const t = data && data.i18n ? (data.i18n[lang] ?? data.i18n.en) : null;
   const merged = t
     ? (data.services || []).map((svc) => {
-        const i18nKey = SERVICE_ID_MAP[svc.id] ?? svc.id;
-        return { ...svc, ...(t.services?.[i18nKey] ?? {}) };
+        return mergeService(svc, t);
       })
     : [];
 
@@ -278,7 +264,7 @@ export default function ServicesSection({ lang, ui, consultationOnly = false }) 
             {merged.map((s, i) => (
               <Link
                 key={s.id}
-                href={`/services#${slugifyServiceId(s.id)}`}
+                href={serviceCardHref(s)}
                 className={`group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-[#C9A227]/30 hover:shadow-xl hover:shadow-amber-900/5 transition-all duration-300 ${
                   visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 }`}

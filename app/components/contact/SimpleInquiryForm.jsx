@@ -114,6 +114,8 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
       name:  !form.name,
       email: !form.email ? "empty" : !isValidEmail(form.email) ? "invalid" : false,
       phone: !form.phone,
+      // 🆕 الرسالة بقت حقل إجباري (مسافات بس = فاضية)
+      message: !form.message.trim(),
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
@@ -179,13 +181,15 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
       </div>
       <Field label={t.form.fields.phone} name="phone" type="tel" value={form.phone} onChange={handleChange} badge={req} error={errors.phone} errorMsg={req} />
 
+      {/* 🆕 الرسالة حقل إجباري — نفس شكل باقي الحقول الإجبارية (badge + حدود حمرا + رسالة خطأ) */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.form.fields.message}</label>
-          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${errors.message ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-100"}`}>{req}</span>
         </div>
         <textarea name="message" value={form.message} onChange={handleChange} rows={4} placeholder={t.form.fields.messagePlaceholder}
-          className="w-full bg-[#f7f7f7] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none focus:border-[#003A91] transition-colors resize-none" />
+          className={`w-full bg-[#f7f7f7] border rounded-xl px-4 py-3 text-sm font-medium text-[#0a0a0a] placeholder-gray-400 focus:outline-none transition-colors resize-none ${errors.message ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#003A91]"}`} />
+        {errors.message && <span className="text-red-500 text-xs font-medium">{req}</span>}
       </div>
 
       {/* 🆕 مرفق اختياري */}

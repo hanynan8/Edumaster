@@ -1,3 +1,4 @@
+// PATH: app/admin/components/(editcomponents)/success-stories.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -125,7 +126,9 @@ export default function SuccessStoriesAdmin() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        // storyVideos بتتحكم فيها تاب "Success Videos" لوحدها — منبعتهاش من هنا
+        // عشان حفظ الصفحة دي ميستبدلش الفيديوهات بنسخة قديمة.
+        body: JSON.stringify((({ storyVideos, ...rest }) => rest)(config))
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       showMessage('✓ Configuration saved successfully');

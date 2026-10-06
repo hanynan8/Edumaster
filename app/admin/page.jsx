@@ -1,3 +1,4 @@
+// PATH: app/admin/page.jsx
 'use client';
 
 import { useState } from 'react';
@@ -5,7 +6,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones, ListOrdered,
+  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones, ListOrdered, Video,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -19,6 +20,7 @@ import AboutAdmin from './components/(editcomponents)/about';
 import ServicesAdmin from './components/(editcomponents)/services';
 import CountriesAdmin from './components/(editcomponents)/countries';
 import SuccessStoriesAdmin from './components/(editcomponents)/success-stories';
+import SuccessVideosAdmin from './components/(editcomponents)/success-videos';
 import BlogAdmin from './components/(editcomponents)/blogs';
 import ContactAdmin from './components/(editcomponents)/contact';
 import UsersAdmin from './components/usersPanel';
@@ -109,6 +111,7 @@ const SIDEBAR_GROUPS = [
       { id: 'services',name: 'Services',icon: Star,       component: ServicesAdmin },
       { id: 'countries',       name: 'Countries',        icon: Globe,         component: CountriesAdmin },
       { id: 'success_stories', name: 'Success Stories',  icon: MessageSquare, component: SuccessStoriesAdmin },
+      { id: 'success_videos',  name: 'Success Videos',   icon: Video,         component: SuccessVideosAdmin },
       { id: 'blog',            name: 'Blog',              icon: FileText,      component: BlogAdmin },
       { id: 'contact',         name: 'Contact',           icon: Phone,         component: ContactAdmin },
     ],

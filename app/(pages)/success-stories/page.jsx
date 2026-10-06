@@ -1,3 +1,4 @@
+// PATH: app/(pages)/success-stories/page.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -5,27 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import { useSuccessVideos } from "@/app/lib/useSuccessVideos";
 
-// 🆕 فيديو قصص النجاح: مرفوع على Bunny Stream (videoId ثابت بمكتبتنا، مش
-// جاي من الداتابيز — الصفحة دي أصلاً بتاخد باقي المحتوى من successStories
-// document لكن الفيديو ده عنصر ثابت في التصميم مش بيتغير من لوحة الأدمن).
-//
-// 🔒 التصحيح: مكتبة الفيديو عندنا شغّالة بـ Token Authentication مفعّل من
-// لوحة Bunny (BUNNY_STREAM_TOKEN_AUTH_KEY في .env)، فأي رابط embed مش
-// موقّع بيترفض بـ 403 من Bunny مباشرة. التوقيع محتاج المفتاح السري ده،
-// ومينفعش يتحط في client component. فبدل ما نبني الرابط هنا، بنجيبه جاهز
-// وموقّع من /api/success-video (شوف الراوت ده لو محتاج تغيّر الـ videoId).
-function useSuccessVideoUrl() {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    fetch("/api/success-video")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUrl(data?.url || null))
-      .catch(() => setUrl(null));
-  }, []);
-  return url;
-}
-
+// 🆕 فيديوهات قصص النجاح: الأدمن بيضيفها من تاب "Success Videos"، وبتتجاب
+// موقّعة من /api/success-video (التوقيع محتاج مفتاح سري سيرفر-سايد). نفس
+// القايمة بتظهر في الهوم (أول 4).
 function useStoriesData() {
   const [data, setData] = useState(null);
   useEffect(() => {
@@ -150,12 +135,15 @@ const VIDEO_DEFAULTS = {
 
 function VideoShowcase({ t, language }) {
   const [ref, visible] = useReveal();
-  const videoUrl = useSuccessVideoUrl();
+  const { loading, videos } = useSuccessVideos();
   const defaults = VIDEO_DEFAULTS[language] || VIDEO_DEFAULTS.en;
   const ts = t.video || {};
+  // مفيش فيديوهات (الأدمن مسحهم كلهم) → منعرضش السكشن فاضي
+  if (!loading && videos.length === 0) return null;
+  const single = videos.length <= 1;
   return (
     <section ref={ref} className="py-16 sm:py-20 md:py-24 px-5 sm:px-8 md:px-6 bg-white">
-      <div className="max-w-5xl mx-auto">
+      <div className={single ? "max-w-5xl mx-auto" : "max-w-7xl mx-auto"}>
         <div className={`text-center mb-8 sm:mb-10 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">
             {ts.title || defaults.title}
@@ -164,22 +152,34 @@ function VideoShowcase({ t, language }) {
             <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-[15px] leading-relaxed">{ts.desc || defaults.desc}</p>
           )}
         </div>
-        <div
-          className={`relative w-full aspect-video rounded-2xl overflow-hidden shadow-xl border border-gray-100 bg-black transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
-        >
-          {videoUrl ? (
-            <iframe
-              src={videoUrl}
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; autoplay"
-              allowFullScreen
-            />
-          ) : (
+        {loading ? (
+          <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-xl border border-gray-100 bg-black">
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={single ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6"}>
+            {videos.map((v, i) => (
+              <div key={v.id}>
+                <div
+                  className={`relative w-full aspect-video rounded-2xl overflow-hidden shadow-xl border border-gray-100 bg-black transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+                  style={{ transitionDelay: `${i * 80}ms` }}
+                >
+                  <iframe
+                    src={v.url}
+                    loading="lazy"
+                    title={v.title || `video-${i + 1}`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; autoplay"
+                    allowFullScreen
+                  />
+                </div>
+                {v.title && <p className="mt-3 text-center text-sm font-semibold text-gray-700">{v.title}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

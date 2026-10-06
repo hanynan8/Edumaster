@@ -1,33 +1,67 @@
-// app/api/success-video/route.js
+// PATH: app/api/success-video/route.js
 //
-// 🔒 السبب اللي خلّانا نحتاج الراوت ده: صفحة قصص النجاح
-// (app/(pages)/success-stories/page.jsx) بتعرض فيديو Bunny Stream ثابت،
-// لكنها client component — ومكتبة الفيديو عندنا شغّالة بـ Token
-// Authentication مفعّل من لوحة Bunny (BUNNY_STREAM_TOKEN_AUTH_KEY موجود في
-// .env)، يعني أي رابط embed مش موقّع بيترفض بـ 403 مباشرة من Bunny نفسها.
+// بيرجّع فيديوهات قصص النجاح (اللي الأدمن بيتحكم فيها من تاب "Success Videos")
+// برابط embed موقّع لكل فيديو. نفس القايمة بتتعرض في:
+//   - الصفحة المخصصة /success-stories (كل الفيديوهات)
+//   - الهوم (أول 4 فيديوهات)
 //
-// التوقيع (buildSecureStreamPlaybackUrl) بيحتاج المفتاح السري ده، ومينفعش
-// يتحط في client component (هيبان في المتصفح). فالحل: راوت GET بسيط هنا
-// بيولّد رابط موقّع صالح لمدة قصيرة (نفس مدة SIGNED_URL_EXPIRE_SECONDS في
-// app/lib/bunny.js) ويرجّعه للـ client، اللي بيحطه في src بتاع الـ iframe.
+// 🔒 ليه راوت: مكتبة الفيديو شغّالة بـ Token Authentication
+// (BUNNY_STREAM_TOKEN_AUTH_KEY)، والتوقيع محتاج المفتاح السري ده، ومينفعش
+// يتحط في client component. فالتوقيع بيحصل هنا بس.
 //
-// الفيديو ده تسويقي عام (مش محتوى درس محمي) فمفيش داعي لأي auth/session
-// check هنا — أي زائر للصفحة العامة المفروض يقدر يتفرج عليه.
+// الفيديوهات متخزّنة في حقل storyVideos جوه document الـ successStories:
+//   [{ id, videoId, title, thumbnail }]  (الترتيب = ترتيب العرض)
+// لو الحقل ده عمره ما اتضبط (أو الداتابيز فشلت)، بنرجع للفيديو القديم الثابت
+// عشان الصفحة متتكسرش. لو الأدمن مسح كل الفيديوهات (array فاضية)، بنرجّع
+// قايمة فاضية.
+//
+// الفيديو ده تسويقي عام (مش محتوى درس محمي) فمفيش auth هنا.
 
+import mongoose from "mongoose";
+import { connectToMongo } from "@/app/lib/mongodb";
 import { buildSecureStreamPlaybackUrl } from "@/app/lib/bunny";
 
-// videoId ثابت لفيديو صفحة "قصص النجاح" — لو حبيت تغيّره لاحقًا، غيّره هنا بس.
-const SUCCESS_STORIES_VIDEO_ID = "f2743013-e4ea-4a68-951a-e89337e46d53";
+// الفيديو القديم الثابت — fallback بس لو الأدمن لسه ماضافش فيديوهات.
+const LEGACY_VIDEO_ID = "f2743013-e4ea-4a68-951a-e89337e46d53";
+const VIDEO_ID_RE = /^[0-9a-fA-F-]{8,64}$/;
 
-export async function GET() {
-  const url = buildSecureStreamPlaybackUrl(SUCCESS_STORIES_VIDEO_ID);
-  return new Response(JSON.stringify({ url }), {
+function json(data) {
+  return new Response(JSON.stringify(data), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      // كاش قصير جدًا بس (الرابط نفسه بينتهي بعد ساعات، والـ CDN/المتصفح
-      // ميستحقش يفضل شايل رابط ممكن يبقى منتهي قريب).
-      "Cache-Control": "private, max-age=60",
+      // كاش قصير: الفيديو الجديد يظهر خلال نص دقيقة، ورابط التوقيع بينتهي
+      // بعد ساعات فمينفعش نكاشيه كتير.
+      "Cache-Control": "private, max-age=30",
     },
   });
+}
+
+async function readStoryVideos() {
+  try {
+    await connectToMongo();
+    const doc = await mongoose.connection.db.collection("successStories").findOne({});
+    if (!doc || !Array.isArray(doc.storyVideos)) return null; // عمره ما اتضبط → legacy
+    return doc.storyVideos;
+  } catch (err) {
+    console.error("[/api/success-video] GET error:", err);
+    return null;
+  }
+}
+
+export async function GET() {
+  const stored = await readStoryVideos();
+  const source = stored ?? [{ id: "legacy", videoId: LEGACY_VIDEO_ID, title: "", thumbnail: "" }];
+
+  const videos = source
+    .filter((v) => v && typeof v.videoId === "string" && VIDEO_ID_RE.test(v.videoId))
+    .map((v, i) => ({
+      id: String(v.id || `v${i + 1}`),
+      title: typeof v.title === "string" ? v.title.slice(0, 200) : "",
+      thumbnail: typeof v.thumbnail === "string" && /^https:\/\//i.test(v.thumbnail) ? v.thumbnail : "",
+      url: buildSecureStreamPlaybackUrl(v.videoId),
+    }));
+
+  // url = أول فيديو (للتوافق مع أي كود قديم كان بيقرا { url })
+  return json({ videos, url: videos[0]?.url ?? null });
 }

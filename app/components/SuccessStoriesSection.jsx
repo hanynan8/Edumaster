@@ -6,20 +6,17 @@
    Shared "Success Stories" section — used on BOTH the guest home page
    and the logged-in home page, right under the Courses section.
 
-   FULLY STATIC — no API call, no admin panel collection, no i18n
-   fetch. All text lives right here in the STATIC_TEXT object below,
-   per language. To add a real video, just fill in its
-   "bunnyLibraryId" and "bunnyVideoId" (and optionally a "thumbnail"
-   URL) in the VIDEOS array further down.
+   النصوص ثابتة هنا (STATIC_TEXT)، لكن الفيديوهات بتتحكم فيها من لوحة
+   الأدمن (تاب "Success Videos") — إضافة واحدة بتظهر في الهوم (أول 4)
+   وفي صفحة /success-stories (كلهم).
 
-   Empty slots (bunnyVideoId: null) render a "Coming soon" placeholder
-   card instead of crashing or hiding the whole section — so you can
-   drop this in now and fill videos in one by one later.
+   الخانات الفاضية بتعرض كارت "Coming soon" بدل ما السكشن يبوظ.
 ════════════════════════════════════════════════════════════════════ */
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSuccessVideos } from "@/app/lib/useSuccessVideos";
 
 /* ─────────────────────────────────────────
    1) STATIC TEXT — edit directly here, no CMS/API involved
@@ -46,39 +43,11 @@ const STATIC_TEXT = {
 };
 
 /* ─────────────────────────────────────────
-   2) VIDEOS — exactly 4 slots, fill in as you add them via Bunny.
-   Leave bunnyLibraryId/bunnyVideoId as null for an empty placeholder.
+   2) VIDEOS — بتيجي من الأدمن (تاب "Success Videos") عن طريق
+   /api/success-video، ونفس الفيديوهات بتظهر في صفحة /success-stories.
+   الهوم بيعرض أول 4 بس؛ لو أقل من 4 الباقي بيبان "Coming soon".
 ───────────────────────────────────────── */
-const VIDEOS = [
-  {
-    id: "story-1",
-    title: "", // optional caption shown on the card
-    bunnyLibraryId: null, // e.g. "123456"
-    bunnyVideoId: null, // e.g. "abcd-1234-efgh-5678"
-    thumbnail: null, // optional custom thumbnail URL
-  },
-  {
-    id: "story-2",
-    title: "",
-    bunnyLibraryId: null,
-    bunnyVideoId: null,
-    thumbnail: null,
-  },
-  {
-    id: "story-3",
-    title: "",
-    bunnyLibraryId: null,
-    bunnyVideoId: null,
-    thumbnail: null,
-  },
-  {
-    id: "story-4",
-    title: "",
-    bunnyLibraryId: null,
-    bunnyVideoId: null,
-    thumbnail: null,
-  },
-];
+const SLOTS = 4;
 
 /* ─────────────────────────────────────────
    SCROLL REVEAL HOOK
@@ -103,9 +72,10 @@ function useReveal(threshold = 0.1) {
   return [ref, visible];
 }
 
-function bunnyEmbedUrl(video) {
-  if (!video?.bunnyLibraryId || !video?.bunnyVideoId) return null;
-  return `https://iframe.mediadelivery.net/embed/${video.bunnyLibraryId}/${video.bunnyVideoId}?autoplay=true`;
+// الرابط جاي موقّع من السيرفر (فيه ?token=...) فبنزوّد autoplay بس.
+function embedUrlWithAutoplay(url) {
+  if (!url) return null;
+  return `${url}${url.includes("?") ? "&" : "?"}autoplay=true`;
 }
 
 /* ═══════════════════════════════════════
@@ -120,6 +90,14 @@ export default function SuccessStoriesSection({
   const [playingId, setPlayingId] = useState(null);
 
   const t = STATIC_TEXT[lang] ?? STATIC_TEXT.en;
+  const { videos } = useSuccessVideos();
+  // أول 4 فيديوهات + placeholders للباقي
+  const VIDEOS = Array.from({ length: SLOTS }, (_, i) => {
+    const v = videos[i];
+    return v
+      ? { id: v.id, title: v.title, thumbnail: v.thumbnail || null, url: v.url }
+      : { id: `empty-${i}`, title: "", thumbnail: null, url: null };
+  });
 
   return (
     <section ref={ref} className={`${paddingClassName} ${bgClassName}`}>
@@ -148,7 +126,7 @@ export default function SuccessStoriesSection({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {VIDEOS.map((v, i) => {
-            const embedUrl = bunnyEmbedUrl(v);
+            const embedUrl = embedUrlWithAutoplay(v.url);
             const isPlaying = playingId === v.id && embedUrl;
             const isEmpty = !embedUrl;
 

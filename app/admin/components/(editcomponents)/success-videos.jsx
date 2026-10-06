@@ -9,12 +9,30 @@
 // الحقل ده بس (PUT جزئي)، فمفيش أي تأثير على باقي محتوى الصفحة.
 
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Loader, AlertCircle, CheckCircle, Plus, Trash2, ArrowUp, ArrowDown, Video } from 'lucide-react';
+import { Save, RefreshCw, Loader, AlertCircle, CheckCircle, Plus, Trash2, ArrowUp, ArrowDown, Video, Clock, FileVideo } from 'lucide-react';
 import MediaUploader from '@/app/teacher/components/MediaUploader';
 
 const API = '/api/data?collection=successStories';
 const UUID_RE = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 const MAX_VIDEOS = 24;
+
+// بيتولّد تلقائيًا عشان كل فيديو يبقى له "ملامح" في الأدمن حتى لو ملوش عنوان
+const fmtDuration = (sec) => {
+  const s = Math.round(Number(sec) || 0);
+  if (!s) return '';
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+const fmtSize = (bytes) => {
+  const b = Number(bytes) || 0;
+  if (!b) return '';
+  return b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
+};
+const fmtDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+};
+const shortId = (id) => String(id || '').slice(-6).toUpperCase();
 
 // بياخد videoId من: ID لوحده، أو رابط embed/play/directplay من Bunny
 function extractVideoId(input) {
@@ -32,8 +50,21 @@ export default function SuccessVideosAdmin() {
   const [newInput, setNewInput] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [uploaderKey, setUploaderKey] = useState(0);
+  const [urls, setUrls] = useState({});       // id -> رابط تشغيل موقّع (للمعاينة بس)
 
-  useEffect(() => { fetchVideos(); }, []);
+  useEffect(() => { fetchVideos(); loadPreviewUrls(); }, []);
+
+  // نفس الراوت العام اللي بيستخدمه الموقع — بيرجّع روابط موقّعة نعرضها كمعاينة
+  const loadPreviewUrls = async () => {
+    try {
+      const res = await fetch('/api/success-video', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const map = {};
+      (data?.videos || []).forEach((v) => { if (v?.id && v?.url) map[v.id] = v.url; });
+      setUrls((prev) => ({ ...prev, ...map }));
+    } catch { /* المعاينة اختيارية */ }
+  };
 
   const flash = (msg, type = 'success') => {
     setSuccess(type === 'success' ? msg : '');
@@ -73,6 +104,7 @@ export default function SuccessVideosAdmin() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setDirty(false);
+      loadPreviewUrls();
       flash('✓ Videos saved — they now show on the Home page (first 4) and the Success Stories page');
     } catch (err) {
       flash('Error saving: ' + err.message, 'error');
@@ -82,10 +114,19 @@ export default function SuccessVideosAdmin() {
 
   const mutate = (next) => { setVideos(next); setDirty(true); };
 
-  const addVideo = (videoId, title = '') => {
+  const addVideo = (videoId, title = '', meta = {}) => {
+    const newId = `v${Date.now()}`;
     if (videos.length >= MAX_VIDEOS) return flash(`Maximum ${MAX_VIDEOS} videos`, 'error');
     if (videos.some((v) => v.videoId === videoId)) return flash('This video is already in the list', 'error');
-    mutate([...videos, { id: `v${Date.now()}`, videoId, title: title.trim(), thumbnail: '' }]);
+    mutate([...videos, {
+      id: newId, videoId, title: title.trim(), thumbnail: '',
+      // بيانات تعريفية للأدمن بس (مش بتظهر للزوار)
+      addedAt: new Date().toISOString(),
+      fileName: meta.fileName || '',
+      durationSeconds: meta.durationSeconds || 0,
+      bytes: meta.bytes || 0,
+    }]);
+    if (meta.previewUrl) setUrls((u) => ({ ...u, [newId]: meta.previewUrl }));
     setNewInput('');
     setNewTitle('');
     setUploaderKey((k) => k + 1);
@@ -98,10 +139,10 @@ export default function SuccessVideosAdmin() {
   };
 
   // بعد الرفع المباشر: الرد فيه رابط التشغيل → بنطلّع منه الـ videoId
-  const handleUploaded = ({ url }) => {
+  const handleUploaded = ({ url, fileName, durationSeconds, bytes }) => {
     const id = extractVideoId(url);
     if (!id) return flash('Upload finished but the video ID could not be read', 'error');
-    addVideo(id, newTitle);
+    addVideo(id, newTitle, { fileName, durationSeconds, bytes, previewUrl: url });
   };
 
   const update = (idx, patch) => mutate(videos.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
@@ -180,13 +221,36 @@ export default function SuccessVideosAdmin() {
         <div className="space-y-3">
           {videos.map((v, i) => (
             <div key={v.id || i} className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-3">
-              <div className="flex items-center gap-3 md:w-56 shrink-0">
-                <span className="w-8 h-8 rounded-full bg-[#003A91]/10 text-[#003A91] text-sm font-black flex items-center justify-center">{i + 1}</span>
-                <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${i < 4 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {i < 4 ? 'Home + Page' : 'Page only'}
-                </span>
+              <div className="flex flex-col gap-2 md:w-72 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-[#003A91]/10 text-[#003A91] text-sm font-black flex items-center justify-center">{i + 1}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${i < 4 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {i < 4 ? 'Home + Page' : 'Page only'}
+                  </span>
+                </div>
+                {/* الفيديو نفسه ظاهر دايمًا عشان تفرّق بين الفيديوهات */}
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-900">
+                  {urls[v.id] ? (
+                    <iframe src={urls[v.id]} title={v.title || `video-${i + 1}`} loading="lazy"
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-white/60 text-xs text-center px-3">
+                      <FileVideo size={22} />
+                      <span>Press Save to load the player</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex-1 min-w-0 grid sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                  <span className="font-bold text-gray-800 text-sm">{v.title?.trim() || `Video #${i + 1}`}</span>
+                  <span className="font-mono bg-gray-100 rounded px-1.5 py-0.5">ID …{shortId(v.videoId)}</span>
+                  {v.fileName && <span className="inline-flex items-center gap-1 truncate max-w-[16rem]" dir="ltr"><FileVideo size={12} /> {v.fileName}</span>}
+                  {fmtDuration(v.durationSeconds) && <span className="inline-flex items-center gap-1"><Clock size={12} /> {fmtDuration(v.durationSeconds)}</span>}
+                  {fmtSize(v.bytes) && <span>{fmtSize(v.bytes)}</span>}
+                  {fmtDate(v.addedAt) && <span>Added {fmtDate(v.addedAt)}</span>}
+                </div>
                 <input value={v.title || ''} onChange={(e) => update(i, { title: e.target.value })} placeholder="Title (optional)" maxLength={200}
                   className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm focus:outline-none focus:border-[#003A91]" />
                 <input value={v.videoId || ''} readOnly dir="ltr"

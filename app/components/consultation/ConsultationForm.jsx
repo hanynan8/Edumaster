@@ -30,7 +30,7 @@ const CONSULTATION_FEE = 1300; // جنيه مصري (السعر الأساسي �
 const CONSULTATION_CURRENCY = "EGP";
 const CONSULTATION_DURATION_MIN = 45;
 
-// 🆕 مرفق اختياري — بيتحمّل عبر نفس راوت فورم الكونتاكت العام
+// 🆕 مرفق إجباري — بيتحمّل عبر نفس راوت فورم الكونتاكت العام
 // (/api/upload/contact-attachment: صور/PDF/Word حتى 5MB) وقت الإرسال، والرابط
 // الجاهز بيتبعت مع الطلب في attachmentUrl/attachmentName.
 const ATTACHMENT_ACCEPT =
@@ -40,7 +40,7 @@ const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // لازم يطابق MAX_BYTES �
 const ATTACHMENT_STRINGS = {
   en: {
     label: "Attach files",
-    optional: "Optional",
+    required: "Required",
     pick: "Choose file",
     hint: "Images, PDF or Word — up to 5MB",
     remove: "Remove",
@@ -50,7 +50,7 @@ const ATTACHMENT_STRINGS = {
   },
   ar: {
     label: "إرفاق ملفات",
-    optional: "اختياري",
+    required: "مطلوب",
     pick: "اختر ملف",
     hint: "صور أو PDF أو Word — حتى 5 ميغابايت",
     remove: "إزالة",
@@ -384,6 +384,7 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
     }
     setFileError("");
     setFile(picked);
+    setErrors((prev) => (prev.attachment ? { ...prev, attachment: false } : prev));
   }
 
   function handleRemoveFile() {
@@ -449,6 +450,8 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
     }
     if (form.email.trim() && !SIMPLE_EMAIL_REGEX.test(form.email.trim())) missing.email = true;
     if (!form.privacyConsent) missing.privacyConsent = true;
+    // 🆕 المرفق إجباري
+    if (!file) missing.attachment = true;
     setErrors(missing);
     const firstMissing = Object.keys(missing)[0];
     if (firstMissing) {
@@ -750,13 +753,13 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
           <textarea rows={3} className={inputCls} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
         </Field>
 
-        {/* 🆕 شريط إرفاق ملف اختياري */}
-        <div className="flex flex-col gap-1.5">
+        {/* 🆕 شريط إرفاق ملف (إجباري) */}
+        <div id="field-attachment" className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">{at.label}</span>
-            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{at.optional}</span>
+            <span className="text-xs font-bold text-gray-500">{at.label}<span className="text-red-500 ms-0.5">*</span></span>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${errors.attachment ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-100"}`}>{at.required}</span>
           </div>
-          <div className={`w-full flex items-center gap-3 rounded-xl border px-3.5 py-2.5 ${fileError ? "border-red-400" : "border-gray-200"}`}>
+          <div className={`w-full flex items-center gap-3 rounded-xl border px-3.5 py-2.5 ${fileError || errors.attachment ? "border-red-400" : "border-gray-200"}`}>
             <label className="shrink-0 flex items-center gap-1.5 cursor-pointer text-[#003A91] font-bold text-xs hover:underline">
               <span>📎</span>
               {at.pick}
@@ -769,6 +772,7 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
               </button>
             )}
           </div>
+          {errors.attachment && !file && <span className="text-red-500 text-xs font-medium">{at.required}</span>}
           {fileError && <span className="text-red-500 text-xs font-medium">{fileError}</span>}
         </div>
 

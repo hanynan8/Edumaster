@@ -9,13 +9,16 @@
 // يقدر يكمّل أو ينهي) → عند الإنهاء الإجابات بتتبعت للسيرفر (POST /api/placement-tests)
 // وبيتصحح هناك ويتسجّل للأدمن → رسالة "انتهى الاختبار" + دفع رسوم الاختبار (5$ بعملة
 // لغة الموقع) بنفس نظام GetPayIn بتاع الكورسات → النتيجة بتظهر في صفحة النجاح بعد الدفع.
-// 🔒 الدرجة مش بتوصل المتصفح قبل الدفع، ومفتاح الإجابات على السيرفر بس.
+// 🆓 الاختبار الحالي مجاني (PLACEMENT_TEST_IS_FREE في lib/spanishPlacementTest.js): النتيجة بتظهر
+// لحظيًا أول ما الطالب يخلّص ومن غير دفع. لو اتغيّرت لـ false بيرجع التدفق المدفوع.
+// 🔒 في الاختبار المدفوع الدرجة مش بتوصل المتصفح قبل الدفع، ومفتاح الإجابات على السيرفر بس.
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   PLACEMENT_STAGES,
   PLACEMENT_TEST_FEE_USD,
+  PLACEMENT_TEST_IS_FREE,
   PLACEMENT_TEST_TITLE,
   getVisibleBlocks,
 } from "@/app/lib/spanishPlacementTest";
@@ -27,7 +30,6 @@ const STRINGS = {
   en: {
     title: "Spanish Level Test",
     name: "Full name",
-    studentNumber: "Student number",
     email: "Email",
     start: "Start the test",
     required: "Please fill in all fields with a valid email",
@@ -40,6 +42,9 @@ const STRINGS = {
     submitting: "Submitting your answers...",
     doneTitle: "The test has been completed successfully",
     doneBody: "To receive your result, you need to pay the test fee:",
+    resultTitle: "Your result",
+    resultBody: "Your Spanish level test has been scored:",
+    yourScore: "Your score",
     pay: "Pay & get my result",
     paying: "Redirecting to payment...",
     newTest: "Start a new test",
@@ -49,7 +54,6 @@ const STRINGS = {
   ar: {
     title: "اختبار تحديد المستوى في الإسبانية",
     name: "الاسم بالكامل",
-    studentNumber: "رقم الطالب",
     email: "البريد الإلكتروني",
     start: "ابدأ الاختبار",
     required: "من فضلك املأ كل الحقول وأدخل بريدًا إلكترونيًا صحيحًا",
@@ -62,6 +66,9 @@ const STRINGS = {
     submitting: "جارٍ إرسال إجاباتك...",
     doneTitle: "تم انتهاء الاختبار بنجاح",
     doneBody: "لاستلام نتيجتك يجب دفع رسوم الاختبار:",
+    resultTitle: "نتيجتك",
+    resultBody: "تم تصحيح اختبار تحديد المستوى في الإسبانية:",
+    yourScore: "درجتك",
     pay: "ادفع واستلم نتيجتي",
     paying: "جارٍ التحويل لصفحة الدفع...",
     newTest: "ابدأ اختبارًا جديدًا",
@@ -71,7 +78,6 @@ const STRINGS = {
   es: {
     title: "Prueba de nivel de español",
     name: "Nombre completo",
-    studentNumber: "Número del estudiante",
     email: "Correo electrónico",
     start: "Empezar la prueba",
     required: "Completa todos los campos con un correo válido",
@@ -84,6 +90,9 @@ const STRINGS = {
     submitting: "Enviando tus respuestas...",
     doneTitle: "La prueba se ha completado con éxito",
     doneBody: "Para recibir tu resultado debes pagar la tarifa de la prueba:",
+    resultTitle: "Tu resultado",
+    resultBody: "Tu prueba de nivel de español ha sido corregida:",
+    yourScore: "Tu puntuación",
     pay: "Pagar y recibir mi resultado",
     paying: "Redirigiendo al pago...",
     newTest: "Empezar una nueva prueba",
@@ -98,12 +107,13 @@ export default function SpanishTestPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
 
-  const [step, setStep] = useState("intro"); // intro | quiz | submitting | pay
-  const [info, setInfo] = useState({ name: "", number: "", email: "" });
+  const [step, setStep] = useState("intro"); // intro | quiz | submitting | result (مجاني) | pay (مدفوع)
+  const [info, setInfo] = useState({ name: "", email: "" });
   const [infoError, setInfoError] = useState(false);
   const [stageIdx, setStageIdx] = useState(0);
   const [answers, setAnswers] = useState({}); // { [n]: optionIndex | -1 (no sé) }
   const [testId, setTestId] = useState(null);
+  const [result, setResult] = useState(null); // اختبار مجاني: النتيجة اللحظية
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
 
@@ -112,7 +122,7 @@ export default function SpanishTestPage() {
   useEffect(() => {
     try {
       const pending = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
-      if (pending?.id) {
+      if (!PLACEMENT_TEST_IS_FREE && pending?.id) {
         setTestId(pending.id);
         setStep("pay");
       }
@@ -131,7 +141,7 @@ export default function SpanishTestPage() {
   const feeLabel = formatPrice(convertPrice(PLACEMENT_TEST_FEE_USD, "USD", currency), currency, language);
 
   function start() {
-    if (!info.name.trim() || !info.number.trim() || !EMAIL_RE.test(info.email.trim())) {
+    if (!info.name.trim() || !EMAIL_RE.test(info.email.trim())) {
       return setInfoError(true);
     }
     setInfoError(false);
@@ -148,7 +158,6 @@ export default function SpanishTestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: info.name.trim(),
-          studentNumber: info.number.trim(),
           email: info.email.trim(),
           language,
           answers,
@@ -156,8 +165,15 @@ export default function SpanishTestPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.id) throw new Error("submit_failed");
-      try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: data.id })); } catch {}
       setTestId(data.id);
+      // 🆓 اختبار مجاني: النتيجة بتظهر فورًا من غير دفع
+      if (PLACEMENT_TEST_IS_FREE && data.free && Number.isFinite(data.score)) {
+        try { localStorage.removeItem(PENDING_KEY); } catch {}
+        setResult({ score: data.score, maxScore: data.maxScore });
+        setStep("result");
+        return;
+      }
+      try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: data.id })); } catch {}
       setStep("pay");
     } catch {
       setError(t.submitError);
@@ -188,6 +204,7 @@ export default function SpanishTestPage() {
     setAnswers({});
     setStageIdx(0);
     setTestId(null);
+    setResult(null);
     setError("");
     setStep("intro");
   }
@@ -212,10 +229,6 @@ export default function SpanishTestPage() {
             <label className="block">
               <span className="text-sm font-semibold text-gray-700">{t.name}</span>
               <input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} className={input} />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-gray-700">{t.studentNumber}</span>
-              <input value={info.number} onChange={(e) => setInfo({ ...info, number: e.target.value })} className={input} />
             </label>
             <label className="block">
               <span className="text-sm font-semibold text-gray-700">{t.email}</span>
@@ -310,6 +323,23 @@ export default function SpanishTestPage() {
         {step === "submitting" && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-500">
             {t.submitting}
+          </div>
+        )}
+
+        {step === "result" && result && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 text-center space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900">{t.resultTitle}</h2>
+            <p className="text-sm text-gray-600">{t.resultBody}</p>
+            <div className="bg-[#003A91]/5 rounded-xl py-5 px-3">
+              <p className="text-xs text-gray-500 mb-1">{t.yourScore}</p>
+              <p className="text-5xl font-black text-[#003A91]" dir="ltr">
+                {result.score}
+                <span className="text-lg font-bold text-gray-400"> / {result.maxScore}</span>
+              </p>
+            </div>
+            <button onClick={startNew} className={`${btn} border border-gray-300 text-gray-700`}>
+              {t.newTest}
+            </button>
           </div>
         )}
 

@@ -19,6 +19,11 @@ export const PLACEMENT_TEST_POINTS = 90;
 // (نفس منطق رسوم الاستشارة). غيّر الرقم هنا بس لتغيير السعر في الواجهة والسيرفر.
 export const PLACEMENT_TEST_FEE_USD = 5;
 
+// 🆓 نوع الاختبار: true = مجاني والنتيجة بتظهر لحظيًا أول ما الطالب يخلّص (من غير دفع)،
+// false = مدفوع والنتيجة مش بتظهر غير بعد نجاح الدفع. الاختبار الإسباني الحالي مجاني.
+// (بتتقرأ في الواجهة والسيرفر — غيّرها هنا بس.)
+export const PLACEMENT_TEST_IS_FREE = true;
+
 export const PLACEMENT_STAGES = [
   {
     id: "A1",

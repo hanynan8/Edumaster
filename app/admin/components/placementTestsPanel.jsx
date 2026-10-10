@@ -15,6 +15,7 @@ import { Loader, AlertCircle, GraduationCap, Trash2, Download } from 'lucide-rea
 const PAY_STYLES = {
   paid: 'bg-green-100 text-green-700',
   unpaid: 'bg-amber-100 text-amber-700',
+  free: 'bg-blue-100 text-blue-700',
 };
 
 function formatDate(value) {
@@ -135,6 +136,7 @@ function PlacementTestsAdmin() {
             <option value="all">All</option>
             <option value="paid">Paid</option>
             <option value="unpaid">Unpaid</option>
+            <option value="free">Free</option>
           </select>
           <button
             onClick={exportToExcel}

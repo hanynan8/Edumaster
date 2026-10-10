@@ -56,7 +56,7 @@ const ATTACHMENT_STRINGS = {
 // الفورم البسيط الافتراضي (الاسم، الإيميل، الهاتف، الرسالة) — نفس الشكل
 // القديم بالظبط، بيتبعت لـ /api/data?collection=form. بيتعرض لما محدش
 // اختار خدمة، أو لما يختار "Other / General Inquiry".
-// requireAttachment: لما تكون true المرفق بيبقى إجباري (بتتفعّل في صفحة /quick-inquiry بس).
+// requireAttachment: لما تكون true المرفق بيبقى إجباري (الافتراضي false — المرفق اختياري في كل الصفحات، including /quick-inquiry).
 export default function SimpleInquiryForm({ t, lang, selectedService, requireAttachment = false }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");

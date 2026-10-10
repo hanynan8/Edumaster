@@ -115,6 +115,9 @@ const HERO_COPY_EN = {
   },
 };
 
+// لون كارت الهيرو الموحّد لكل الدول (نفس أزرق الموقع الأساسي)
+const HERO_ACCENT = "#003A91";
+
 // نفس نصوص وأزرار صفحة الخدمات (app/(pages)/services/[slug]/page.jsx)
 const BTN_STRINGS = {
   en: { quick: "Quick Inquiry", consult: "Book a consultation" },
@@ -135,6 +138,11 @@ export function CountryDetail({ country: baseCountry, t, activeSection, setActiv
   const heroOverride = language === "en" ? HERO_COPY_EN[baseCountry.id] : null;
   const country = heroOverride ? { ...baseCountry, ...heroOverride } : baseCountry;
   const sectionKeys = getSectionKeys(country);
+  // لون موحّد (أزرق) لكارت الهيرو في كل الدول — إسبانيا بقت زي رومانيا
+  const heroAccent = HERO_ACCENT;
+  // العلم (country.flag) لو رابط صورة، وإلا الصورة الأساسية للدولة
+  const isImageUrl = (v) => typeof v === "string" && /^(https?:)?\/\/|^\//.test(v.trim());
+  const heroImageSrc = isImageUrl(country.flag) ? country.flag.trim() : country.image;
 
   return (
     <div>
@@ -143,25 +151,28 @@ export function CountryDetail({ country: baseCountry, t, activeSection, setActiv
           + الوصف) في بلوك منفصل تحت الصورة على خلفية بيضاء كاملة — مش متراكبة
           على الصورة ولا بتقصّها. */}
       <section className="relative overflow-hidden bg-white">
-        <div className="relative w-full h-75 sm:h-90 md:h-105">
-          <Image src={country.image} alt={country.name} fill className="object-cover object-center" priority unoptimized />
-        </div>
-        <div className="absolute top-0 inset-x-0 h-0.75 z-10" style={{ background: country.color }} />
-        {/* الكارت الأبيض بيقعد فوق الصورة (overlay) في كل مقاسات الشاشات
-            بدون استثناء — مش بيتحول لبلوك تحت الصورة في الموبايل. */}
-        <div dir="ltr" className="absolute inset-0 z-10 flex items-center justify-end pl-4 sm:pl-8 md:pl-12 pr-6 sm:pr-36 md:pr-64 lg:pr-96">
-          <div dir={isRTL ? "rtl" : "ltr"} className="bg-white/90 rounded-md shadow-xl w-full sm:max-w-md md:max-w-lg px-5 sm:px-8 py-5 sm:py-8 text-center animate-fadein-up">
-            <h2 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2">{country.name}</h2>
-            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3" style={{ color: country.color }}>{country.tagline}</p>
-            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{country.desc}</p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-              <Link href={`/quick-inquiry?service=study-${country.id}`} className={PRIMARY_BTN} style={{ background: country.color }}>
-                {btnStrings.quick} <ArrowRight size={13} />
-              </Link>
-              <button type="button" onClick={() => setConsultOpen(true)} className={OUTLINE_BTN}>
-                <CalendarClock size={15} /> {btnStrings.consult}
-              </button>
+        <div className="absolute top-0 inset-x-0 h-0.75 z-10" style={{ background: heroAccent }} />
+        {/* عامودين بالتساوي: الشمال خلفية بيضاء فيها الكارت، واليمين العلم/الصورة
+            كاملة بنسبتها الأصلية (من غير قص). dir="ltr" عشان الترتيب يفضل ثابت
+            في كل اللغات (حتى العربي). على الموبايل الصورة فوق والكارت تحتها. */}
+        <div dir="ltr" className="grid md:grid-cols-2 items-stretch">
+          <div className="order-2 md:order-1 flex items-center justify-center bg-white px-4 sm:px-8 py-8 md:py-10">
+            <div dir={isRTL ? "rtl" : "ltr"} className="bg-white/90 rounded-md shadow-xl w-full sm:max-w-md md:max-w-lg px-5 sm:px-8 py-5 sm:py-8 text-center animate-fadein-up">
+              <h2 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2">{country.name}</h2>
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3" style={{ color: heroAccent }}>{country.tagline}</p>
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{country.desc}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                <Link href={`/quick-inquiry?service=study-${country.id}`} className={PRIMARY_BTN} style={{ background: heroAccent }}>
+                  {btnStrings.quick} <ArrowRight size={13} />
+                </Link>
+                <button type="button" onClick={() => setConsultOpen(true)} className={OUTLINE_BTN}>
+                  <CalendarClock size={15} /> {btnStrings.consult}
+                </button>
+              </div>
             </div>
+          </div>
+          <div className="order-1 md:order-2 relative bg-white">
+            <Image src={heroImageSrc} alt={country.name} width={0} height={0} sizes="(min-width: 768px) 50vw, 100vw" className="block w-full h-auto" priority unoptimized />
           </div>
         </div>
       </section>

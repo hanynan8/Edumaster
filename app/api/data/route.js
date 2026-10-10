@@ -421,6 +421,10 @@ function validateConsultationPayload(body) {
   if (!body.privacyConsent) {
     return "Privacy policy consent is required";
   }
+  // 🆕 المرفق إجباري في فورم الاستشارة
+  if (!body.attachmentUrl || typeof body.attachmentUrl !== "string" || !body.attachmentUrl.trim()) {
+    return "Attachment is required";
+  }
   for (const [field, maxLen] of Object.entries(CONSULTATION_FIELD_MAX_LENGTHS)) {
     const val = body[field];
     if (val !== undefined && val !== null) {

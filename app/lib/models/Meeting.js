@@ -18,7 +18,8 @@ import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
 
 const meetingSchema = new mongoose.Schema(
   {
-    course: { type: mongoose.Schema.Types.ObjectId, ref: "Model_course", required: true },
+    // 🆕 course = null → جلسة عامة (General session) برا أي كورس، ظاهرة لكل المستخدمين المسجّلين على المنصة.
+    course: { type: mongoose.Schema.Types.ObjectId, ref: "Model_course", default: null },
 
     // 🔒 صاحب الاجتماع — بنخزنه مباشرة هنا (زي Announcement.teacher) بدل ما
     // نرجع نجيب course.teacher في كل فحص صلاحية؛ وبيفضل يوضّح "مين المفروض

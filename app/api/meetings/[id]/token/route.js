@@ -63,7 +63,8 @@ export async function GET(request, { params }) {
     if (rl) return rl;
 
     const isManager = isOwnerOrAdmin(session, meeting.teacher);
-    if (!isManager) {
+    // 🆕 جلسة عامة (من غير كورس): متاحة لأي مستخدم مسجّل دخول.
+    if (!isManager && meeting.course) {
       // طالب: لازم وصول فعلي على كورس الاجتماع ده تحديدًا.
       const Course = getCourseModel();
       const course = await Course.findById(meeting.course, "_id").lean();

@@ -672,14 +672,11 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
         </ul>
         <div className="flex flex-wrap items-center gap-3">
           {isCallCenterService ? null : isScholarshipService ? (
-            <button
-              type="button"
-              onClick={() => onOpenScholarship?.()}
+            <Link href={quickHref}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
-              style={{ background: service.color }}
-            >
-              <Award size={15} /> {qf.scholarshipCta}
-            </button>
+              style={{ background: service.color }}>
+              {qi.cta} <ArrowRight size={13} />
+            </Link>
           ) : quickHref ? (
             <Link href={quickHref}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm"
@@ -694,12 +691,13 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
             </Link>
           ) : null}
           {isScholarshipService ? (
-            <Link
-              href={quickHref}
+            <button
+              type="button"
+              onClick={() => onOpenScholarship?.()}
               className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
             >
-              {qi.cta} <ArrowRight size={13} />
-            </Link>
+              <Award size={15} /> {qf.scholarshipCta}
+            </button>
           ) : isTranslationService ? (
             <button
               type="button"
@@ -727,6 +725,13 @@ function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, 
           )}
           {isLanguageService && (
             <>
+              <button
+                type="button"
+                onClick={() => onOpenEnglishProgram?.()}
+                className="inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white"
+              >
+                <GraduationCap size={15} /> {qf.englishCta}
+              </button>
               <button
                 type="button"
                 onClick={() => onOpenSpanishProgram?.()}

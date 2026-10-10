@@ -49,7 +49,8 @@ export async function GET(request, { params }) {
     const { session } = auth;
 
     const isManager = isOwnerOrAdmin(session, meeting.teacher);
-    if (!isManager) {
+    // 🆕 جلسة عامة (من غير كورس): متاحة لأي مستخدم مسجّل دخول.
+    if (!isManager && meeting.course) {
       const Course = getCourseModel();
       const course = await Course.findById(meeting.course, "_id").lean();
       if (!course) return jsonResponse({ error: "not_found" }, 404);

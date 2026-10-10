@@ -68,6 +68,21 @@ export async function getEnrolledUserIds(courseId) {
 }
 
 /**
+ * 🆕 كل المستخدمين المسجّلين على المنصة — مستخدمة لإشعار الجلسات العامة
+ * (محاضرة لايف برا الكورسات). بترجع array من strings.
+ */
+export async function getAllUserIds() {
+  try {
+    const Auth = getAuthModel();
+    const users = await Auth.find({}, "_id").lean();
+    return users.map((u) => u._id.toString());
+  } catch (err) {
+    console.error("[getAllUserIds] error:", err);
+    return [];
+  }
+}
+
+/**
  * 🆕 كل الـ IDs بتاعة الأدمنز الحاليين — مستخدمة لإشعار كل الأدمنز لما مدرس
  * يبعت كورس للمراجعة (course_pending_review)، بدل ما نختار أدمن واحد
  * بالصدفة. بترجع array من strings.

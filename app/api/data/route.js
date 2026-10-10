@@ -656,6 +656,24 @@ function validateCallCenterRequestPayload(body) {
       return `Invalid '${field}'`;
     }
   }
+  // 🆕 languages: قائمة اللغات المختارة، كل واحدة بمستواها (اختياري للتوافق مع الطلبات القديمة)
+  if (body.languages !== undefined && body.languages !== null) {
+    if (!Array.isArray(body.languages) || body.languages.length === 0 || body.languages.length > CALL_CENTER_ALLOWED_VALUES.courseLanguage.length) {
+      return "Invalid 'languages'";
+    }
+    const seen = new Set();
+    for (const item of body.languages) {
+      if (
+        !item || typeof item !== "object" ||
+        !CALL_CENTER_ALLOWED_VALUES.courseLanguage.includes(item.language) ||
+        !CALL_CENTER_ALLOWED_VALUES.englishLevel.includes(item.level) ||
+        seen.has(item.language)
+      ) {
+        return "Invalid 'languages'";
+      }
+      seen.add(item.language);
+    }
+  }
   const ageNum = Number(body.age);
   if (!Number.isFinite(ageNum) || ageNum < 10 || ageNum > 100) {
     return "Invalid 'age'";
@@ -1205,8 +1223,11 @@ async function POST_impl(request) {
           created.age ? `Age: ${created.age}` : null,
           created.hasExperience ? `Call Center experience: ${labelize(created.hasExperience)}` : null,
           created.lastPosition ? `Last position: ${labelize(created.lastPosition)}` : null,
-          created.courseLanguage ? `Language: ${labelize(created.courseLanguage)}` : null,
-          created.englishLevel ? `Language level: ${labelize(created.englishLevel)}` : null,
+          Array.isArray(created.languages) && created.languages.length > 0
+            ? `Languages: ${created.languages.map((l) => `${labelize(l.language)} (${labelize(l.level)})`).join(", ")}`
+            : null,
+          !(Array.isArray(created.languages) && created.languages.length > 0) && created.courseLanguage ? `Language: ${labelize(created.courseLanguage)}` : null,
+          !(Array.isArray(created.languages) && created.languages.length > 0) && created.englishLevel ? `Language level: ${labelize(created.englishLevel)}` : null,
           created.objective ? `Main objective: ${labelize(created.objective)}` : null,
         ].filter(Boolean);
         await notifyViaResend({

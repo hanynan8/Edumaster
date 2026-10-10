@@ -47,7 +47,7 @@ const STRINGS = {
       email: "البريد الإلكتروني",
       hasExperience: "هل لديك خبرة سابقة في مجال الـ Call Center؟",
       lastPosition: "إذا كانت لديك خبرة، ما هو آخر منصب شغلته؟",
-      courseLanguage: "ما هي اللغة؟",
+      courseLanguage: "ما هي اللغة؟ (يمكنك اختيار أكثر من لغة)",
       englishLevel: "ما هو مستواك في هذه اللغة؟",
       objective: "ما هو هدفك الرئيسي من الالتحاق بهذه الدورة؟",
     },
@@ -93,7 +93,7 @@ const STRINGS = {
       email: "Email",
       hasExperience: "Do you have Call Center experience?",
       lastPosition: "If you have experience, what was your last position?",
-      courseLanguage: "Which language?",
+      courseLanguage: "Which language(s)? (you can choose more than one)",
       englishLevel: "What is your level in this language?",
       objective: "What is your main objective for taking this course?",
     },
@@ -139,7 +139,7 @@ const STRINGS = {
       email: "Correo electrónico",
       hasExperience: "¿Tienes experiencia en Call Center?",
       lastPosition: "Si tienes experiencia, ¿cuál es tu último puesto?",
-      courseLanguage: "¿Qué idioma?",
+      courseLanguage: "¿Qué idioma(s)? (puedes elegir más de uno)",
       englishLevel: "¿Cuál es tu nivel en este idioma?",
       objective: "¿Cuál es tu principal objetivo con este curso?",
     },
@@ -178,8 +178,6 @@ const initialFormState = {
   email: "",
   hasExperience: "",
   lastPosition: "",
-  courseLanguage: "",
-  englishLevel: "",
   objective: "",
   privacyConsent: false,
 };
@@ -252,11 +250,48 @@ function ChoiceQuestion({ number, text, required, name, options, value, onChange
   );
 }
 
+// سؤال اختيار متعدد (checkboxes) — بيتستخدم لاختيار أكتر من لغة
+function MultiChoiceQuestion({ number, text, required, options, selected, onToggle, columns = "sm:grid-cols-2" }) {
+  const labelId = `cc-q${number}-label`;
+  return (
+    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-2.5">
+      <QuestionLabel id={labelId} number={number} text={text} required={required} />
+      <div className={`grid grid-cols-1 ${columns} gap-2`}>
+        {options.map(({ id, label }) => {
+          const isSelected = selected.includes(id);
+          return (
+            <label
+              key={id}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-sm transition-colors focus-within:ring-2 focus-within:ring-[#003A91]/30 cursor-pointer ${
+                isSelected
+                  ? "border-[#003A91] bg-[#003A91]/5 text-[#003A91] font-semibold"
+                  : "border-gray-200 text-gray-700 hover:border-[#003A91]"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggle(id)}
+                className="w-4 h-4 shrink-0 accent-[#003A91]"
+              />
+              <span>{label}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CallCenterForm({ onSuccess }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
 
   const [form, setForm] = useState(initialFormState);
+  // اللغات المختارة ومستوى كل لغة: { english: "basic", spanish: "advanced" }
+  // (قيمة "" = لغة متحددة ولسه مستواها ما اتحددش). كل لغة ليها مستواها المستقل
+  // وممكن يتغيّر في أي وقت حتى بعد إضافة لغات تانية.
+  const [languageLevels, setLanguageLevels] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -290,6 +325,23 @@ export default function CallCenterForm({ onSuccess }) {
       ? ["none"]
       : [];
 
+  function toggleLanguage(id) {
+    setLanguageLevels((prev) => {
+      if (id in prev) {
+        const { [id]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [id]: "" };
+    });
+  }
+
+  function setLanguageLevel(id, level) {
+    setLanguageLevels((prev) => ({ ...prev, [id]: level }));
+  }
+
+  // اللغات المختارة بترتيب الاختيارات الأصلي (مش ترتيب الضغط)
+  const selectedLanguages = OPTION_IDS.courseLanguage.filter((id) => id in languageLevels);
+
   const optionList = (group) =>
     OPTION_IDS[group].map((id) => ({ id, label: t.options[group][id] }));
 
@@ -300,7 +352,7 @@ export default function CallCenterForm({ onSuccess }) {
     const age = form.age.trim();
     const phone = form.phone.trim();
     const email = form.email.trim();
-    if (!fullName || !age || !phone || !email || !form.hasExperience || !form.courseLanguage || !form.englishLevel || !form.objective) {
+    if (!fullName || !age || !phone || !email || !form.hasExperience || selectedLanguages.length === 0 || selectedLanguages.some((id) => !languageLevels[id]) || !form.objective) {
       setError(t.required);
       return;
     }
@@ -315,6 +367,11 @@ export default function CallCenterForm({ onSuccess }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          // أول لغة ومستواها بيتبعتوا في الحقول القديمة (توافق مع الأدمن والسيرفر)،
+          // وكل اللغات بمستوياتها في languages.
+          courseLanguage: selectedLanguages[0],
+          englishLevel: languageLevels[selectedLanguages[0]],
+          languages: selectedLanguages.map((id) => ({ language: id, level: languageLevels[id] })),
           fullName,
           age,
           phone,
@@ -419,26 +476,34 @@ export default function CallCenterForm({ onSuccess }) {
         disabledValues={lastPositionDisabled}
       />
 
-      <ChoiceQuestion
+      <MultiChoiceQuestion
         number={7}
         text={t.questions.courseLanguage}
         required
-        name="courseLanguage"
         columns="sm:grid-cols-3"
         options={optionList("courseLanguage")}
-        value={form.courseLanguage}
-        onChange={(v) => set("courseLanguage", v)}
+        selected={selectedLanguages}
+        onToggle={toggleLanguage}
       />
 
-      <ChoiceQuestion
-        number={8}
-        text={t.questions.englishLevel}
-        required
-        name="englishLevel"
-        options={optionList("englishLevel")}
-        value={form.englishLevel}
-        onChange={(v) => set("englishLevel", v)}
-      />
+      {/* مستوى كل لغة مختارة — كل لغة ليها اختيارها المستقل وممكن يتعدّل في أي وقت */}
+      {selectedLanguages.length > 0 && (
+        <div className="flex flex-col gap-4">
+          {selectedLanguages.map((id, idx) => (
+            <div key={id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
+              <ChoiceQuestion
+                number={idx === 0 ? 8 : `8.${idx + 1}`}
+                text={`${t.options.courseLanguage[id]} — ${t.questions.englishLevel}`}
+                required
+                name={`level-${id}`}
+                options={optionList("englishLevel")}
+                value={languageLevels[id]}
+                onChange={(v) => setLanguageLevel(id, v)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <ChoiceQuestion
         number={9}

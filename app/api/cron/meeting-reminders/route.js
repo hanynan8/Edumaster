@@ -19,7 +19,7 @@
 
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
+import { createNotificationsForUsers, getEnrolledUserIds, getAllUserIds } from "@/app/lib/notificationHelpers";
 import { sendMeetingReminderEmail } from "@/app/lib/emailHelpers";
 
 // 🆕 PERFORMANCE + RELIABILITY: كان الإيميل بيتبعت واحد واحد بالتتابع
@@ -99,6 +99,21 @@ export async function GET(request) {
     let emailed = 0;
 
     for (const meeting of meetings) {
+      // 🆕 جلسة عامة (من غير كورس): تذكير داخل الموقع لكل المستخدمين، من غير إيميل جماعي.
+      if (!meeting.course) {
+        const allUserIds = await getAllUserIds();
+        const minutesLeftGeneral = Math.max(1, Math.round((new Date(meeting.scheduledAt).getTime() - now) / 60000));
+        const createdGeneral = await createNotificationsForUsers(allUserIds, {
+          type: "meeting_scheduled",
+          title: `محاضرة "${meeting.title}" ستبدأ بعد ${minutesLeftGeneral} دقيقة`,
+          message: "جلسة مباشرة للجميع — استعد للدخول",
+          link: "/meet",
+        });
+        notified += createdGeneral.length;
+        await Meeting.updateOne({ _id: meeting._id }, { reminderSentAt: new Date() });
+        continue;
+      }
+
       const enrolledUserIds = await getEnrolledUserIds(meeting.course?._id || meeting.course);
       if (enrolledUserIds.length === 0) {
         await Meeting.updateOne({ _id: meeting._id }, { reminderSentAt: new Date() });

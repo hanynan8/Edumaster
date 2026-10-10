@@ -56,7 +56,8 @@ const ATTACHMENT_STRINGS = {
 // الفورم البسيط الافتراضي (الاسم، الإيميل، الهاتف، الرسالة) — نفس الشكل
 // القديم بالظبط، بيتبعت لـ /api/data?collection=form. بيتعرض لما محدش
 // اختار خدمة، أو لما يختار "Other / General Inquiry".
-export default function SimpleInquiryForm({ t, lang, selectedService }) {
+// requireAttachment: لما تكون true المرفق بيبقى إجباري (بتتفعّل في صفحة /quick-inquiry بس).
+export default function SimpleInquiryForm({ t, lang, selectedService, requireAttachment = false }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [errors, setErrors] = useState({});
@@ -88,6 +89,7 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
     }
     setFileError("");
     setFile(picked);
+    setErrors((prev) => (prev.attachment ? { ...prev, attachment: false } : prev));
   }
 
   function handleRemoveFile() {
@@ -116,6 +118,8 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
       phone: !form.phone,
       // 🆕 الرسالة بقت حقل إجباري (مسافات بس = فاضية)
       message: !form.message.trim(),
+      // المرفق إجباري في /quick-inquiry
+      attachment: requireAttachment && !file,
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
@@ -192,13 +196,17 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
         {errors.message && <span className="text-red-500 text-xs font-medium">{req}</span>}
       </div>
 
-      {/* 🆕 مرفق اختياري */}
+      {/* 🆕 مرفق (اختياري، وإجباري في /quick-inquiry) */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold uppercase tracking-widest text-gray-400">{at.label}</label>
-          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
+          {requireAttachment ? (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${errors.attachment ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-100"}`}>{req}</span>
+          ) : (
+            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{opt}</span>
+          )}
         </div>
-        <div className={`w-full flex items-center gap-3 bg-[#f7f7f7] border rounded-xl px-4 py-3 transition-colors ${fileError ? "border-red-400" : "border-gray-200"}`}>
+        <div className={`w-full flex items-center gap-3 bg-[#f7f7f7] border rounded-xl px-4 py-3 transition-colors ${fileError || errors.attachment ? "border-red-400" : "border-gray-200"}`}>
           <label className="shrink-0 flex items-center gap-1.5 cursor-pointer text-[#003A91] font-bold text-xs hover:underline">
             <span>📎</span>
             {at.label}
@@ -221,6 +229,7 @@ export default function SimpleInquiryForm({ t, lang, selectedService }) {
             </button>
           )}
         </div>
+        {errors.attachment && !file && <span className="text-red-500 text-xs font-medium">{req}</span>}
         {fileError && <span className="text-red-500 text-xs font-medium">{fileError}</span>}
       </div>
 

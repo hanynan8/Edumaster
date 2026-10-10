@@ -210,12 +210,14 @@ export default function ServiceDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             {kind === "scholarship" && (
               <>
-                <button type="button" onClick={() => setScholarshipOpen(true)} className={PRIMARY_BTN} style={{ background: service.color }}>
+                {quickHref && (
+                  <Link href={quickHref} className={PRIMARY_BTN} style={{ background: service.color }}>
+                    {s.quick} <ArrowRight size={13} />
+                  </Link>
+                )}
+                <button type="button" onClick={() => setScholarshipOpen(true)} className={OUTLINE_BTN}>
                   <Award size={15} /> {s.consult}
                 </button>
-                {quickHref && (
-                  <Link href={quickHref} className={OUTLINE_BTN}>{s.quick} <ArrowRight size={13} /></Link>
-                )}
               </>
             )}
 
@@ -232,6 +234,9 @@ export default function ServiceDetailPage() {
                     {service.cta} <ArrowRight size={13} />
                   </Link>
                 )}
+                <button type="button" onClick={() => setEnglishOpen(true)} className={OUTLINE_BTN}>
+                  <GraduationCap size={15} /> {s.english}
+                </button>
                 <button type="button" onClick={() => setSpanishOpen(true)} className={OUTLINE_BTN}>
                   <GraduationCap size={15} /> {s.spanish}
                 </button>

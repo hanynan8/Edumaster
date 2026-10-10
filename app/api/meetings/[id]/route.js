@@ -20,7 +20,8 @@ function jsonResponse(data, status = 200) {
 function serializeMeeting(m) {
   return {
     id: m._id.toString(),
-    course: m.course.toString(),
+    course: m.course ? m.course.toString() : null,
+    isGeneral: !m.course,
     teacher: m.teacher.toString(),
     title: m.title,
     description: m.description || "",

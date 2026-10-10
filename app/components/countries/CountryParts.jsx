@@ -9,8 +9,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
-import ConsultationForm from "@/app/components/consultation/ConsultationForm";
+const ConsultationModal = dynamic(() => import("@/app/components/consultation/ConsultationModal"), { ssr: false });
 
 function useReveal(threshold = 0.08) {
   const ref = useRef(null);
@@ -32,6 +34,9 @@ function ArrowRight({ size = 14 }) {
 }
 function Check({ size = 11, color = "#003A91" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>;
+}
+function CalendarClock({ size = 15 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 7.5V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h3.5" /><path d="M16 2v4M8 2v4M3 10h5" /><circle cx="16" cy="16" r="6" /><path d="M16 14v2l1 1" /></svg>;
 }
 function BookOpen({ size = 15 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" /><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" /></svg>;
@@ -96,16 +101,39 @@ function getSectionKeys(country) {
   return [...ordered, ...extra];
 }
 
-const APPLY_BTN_LABELS = {
-  en: { open: "Request a Consultation", close: "Close Form" },
-  ar: { open: "احجز استشارتك", close: "إغلاق النموذج" },
-  es: { open: "Solicitar una consulta", close: "Cerrar formulario" },
+// نصوص الهيرو الإنجليزي لإسبانيا ورومانيا (بتغلب على اللي جاي من الداتا)
+const HERO_COPY_EN = {
+  spain: {
+    name: "Study in Spain",
+    tagline: "World-Class Education in the Heart of Europe",
+    desc: "Spain combines academic excellence, rich culture, and an affordable lifestyle — making it one of the top destinations for international students worldwide.",
+  },
+  romania: {
+    name: "Study in Romania",
+    tagline: "Affordable European Education with EU Recognition",
+    desc: "Romania offers EU-accredited degrees, low tuition and living costs, and a growing international student community — making it an increasingly popular gateway to European higher education.",
+  },
 };
 
-export function CountryDetail({ country, t, activeSection, setActiveSection, standalone = false }) {
-  const { language } = useLanguage();
-  const [formOpen, setFormOpen] = useState(false);
-  const btnLabels = APPLY_BTN_LABELS[language] ?? APPLY_BTN_LABELS.en;
+// نفس نصوص وأزرار صفحة الخدمات (app/(pages)/services/[slug]/page.jsx)
+const BTN_STRINGS = {
+  en: { quick: "Quick Inquiry", consult: "Book a consultation" },
+  ar: { quick: "استفسار سريع", consult: "احجز استشارة" },
+  es: { quick: "Consulta rápida", consult: "Reserva una consulta" },
+};
+
+// نفس ستايل أزرار صفحة الخدمات
+const PRIMARY_BTN =
+  "inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm text-white transition-all active:scale-95 shadow-sm";
+const OUTLINE_BTN =
+  "inline-flex items-center gap-2 font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm border-2 border-[#003A91] text-[#003A91] transition-all active:scale-95 hover:bg-[#003A91] hover:text-white";
+
+export function CountryDetail({ country: baseCountry, t, activeSection, setActiveSection, standalone = false }) {
+  const { language, isRTL } = useLanguage();
+  const [consultOpen, setConsultOpen] = useState(false);
+  const btnStrings = BTN_STRINGS[language] ?? BTN_STRINGS.en;
+  const heroOverride = language === "en" ? HERO_COPY_EN[baseCountry.id] : null;
+  const country = heroOverride ? { ...baseCountry, ...heroOverride } : baseCountry;
   const sectionKeys = getSectionKeys(country);
 
   return (
@@ -121,33 +149,25 @@ export function CountryDetail({ country, t, activeSection, setActiveSection, sta
         <div className="absolute top-0 inset-x-0 h-0.75 z-10" style={{ background: country.color }} />
         {/* الكارت الأبيض بيقعد فوق الصورة (overlay) في كل مقاسات الشاشات
             بدون استثناء — مش بيتحول لبلوك تحت الصورة في الموبايل. */}
-        <div className="absolute inset-x-0 bottom-0 z-10 px-4 sm:px-8 md:px-12 pb-4 sm:pb-8 md:pb-10">
-          <div className="bg-white rounded-md shadow-xl w-full sm:max-w-md md:max-w-lg px-5 sm:px-8 py-5 sm:py-8 animate-fadein-up">
+        <div dir="ltr" className="absolute inset-0 z-10 flex items-center justify-end pl-4 sm:pl-8 md:pl-12 pr-6 sm:pr-36 md:pr-64 lg:pr-96">
+          <div dir={isRTL ? "rtl" : "ltr"} className="bg-white/90 rounded-md shadow-xl w-full sm:max-w-md md:max-w-lg px-5 sm:px-8 py-5 sm:py-8 text-center animate-fadein-up">
             <h2 className="font-semibold tracking-tight text-[#1c1d1f] text-xl sm:text-2xl md:text-3xl leading-tight mb-2">{country.name}</h2>
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3" style={{ color: country.color }}>{country.tagline}</p>
             <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{country.desc}</p>
-            <button
-              type="button"
-              onClick={() => setFormOpen((v) => !v)}
-              aria-expanded={formOpen}
-              className="mt-4 inline-flex items-center gap-2 text-white text-xs sm:text-sm font-bold px-5 sm:px-6 py-2.5 rounded-full shadow-sm hover:opacity-90 transition-opacity"
-              style={{ background: country.color }}
-            >
-              {formOpen ? btnLabels.close : btnLabels.open}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+              <Link href={`/quick-inquiry?service=study-${country.id}`} className={PRIMARY_BTN} style={{ background: country.color }}>
+                {btnStrings.quick} <ArrowRight size={13} />
+              </Link>
+              <button type="button" onClick={() => setConsultOpen(true)} className={OUTLINE_BTN}>
+                <CalendarClock size={15} /> {btnStrings.consult}
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* الفورم بتفتح تحت الهيرو لما المستخدم يدوس الزرار اللي جوه الكارت
-          (الدولة بتتحدد تلقائيًا جواها). */}
-      {formOpen && (
-        <div className="bg-white px-4 sm:px-8 md:px-12 py-6 sm:py-8">
-          <div className="max-w-3xl bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8">
-            <ConsultationForm initialCountry={country.id} />
-          </div>
-        </div>
-      )}
+      {/* نفس سلوك صفحة الخدمات: Book a consultation بيفتح مودال الاستشارة (الدولة متحددة تلقائيًا) */}
+      <ConsultationModal open={consultOpen} onClose={() => setConsultOpen(false)} initialCountry={country.id} />
 
       <SectionNav sectionKeys={sectionKeys} t={t} activeSection={activeSection} setActiveSection={setActiveSection} country={country} standalone={standalone} />
 

@@ -51,6 +51,17 @@ function labelize(s) {
   return String(s || '').replace(/_/g, ' ').replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// كل اللغات ومستوياتها كنص واحد: "English (Basic), Spanish (Advanced)"
+// (للطلبات القديمة اللي من غير languages بنرجع للحقلين القديمين)
+function languagesSummary(sub) {
+  if (Array.isArray(sub?.languages) && sub.languages.length > 0) {
+    return sub.languages
+      .map((l) => `${optionLabel(COURSE_LANGUAGE_LABELS, l.language)} (${optionLabel(ENGLISH_LEVEL_LABELS, l.level)})`)
+      .join(', ');
+  }
+  return `${optionLabel(COURSE_LANGUAGE_LABELS, sub?.courseLanguage)} (${optionLabel(ENGLISH_LEVEL_LABELS, sub?.englishLevel)})`;
+}
+
 function optionLabel(map, value) {
   if (!value) return '—';
   return map[value] || labelize(value);
@@ -202,8 +213,8 @@ function CallCenterRequestsAdmin() {
           age: sub.age || '—',
           hasExperience: optionLabel(EXPERIENCE_LABELS, sub.hasExperience),
           lastPosition: optionLabel(LAST_POSITION_LABELS, sub.lastPosition),
-          courseLanguage: optionLabel(COURSE_LANGUAGE_LABELS, sub.courseLanguage),
-          englishLevel: optionLabel(ENGLISH_LEVEL_LABELS, sub.englishLevel),
+          courseLanguage: Array.isArray(sub.languages) && sub.languages.length > 0 ? sub.languages.map((l) => optionLabel(COURSE_LANGUAGE_LABELS, l.language)).join(', ') : optionLabel(COURSE_LANGUAGE_LABELS, sub.courseLanguage),
+          englishLevel: Array.isArray(sub.languages) && sub.languages.length > 0 ? sub.languages.map((l) => optionLabel(ENGLISH_LEVEL_LABELS, l.level)).join(', ') : optionLabel(ENGLISH_LEVEL_LABELS, sub.englishLevel),
           objective: optionLabel(OBJECTIVE_LABELS, sub.objective),
           status: labelize(sub.status || 'pending'),
           language: optionLabel(LANGUAGE_LABELS, sub.language),
@@ -333,8 +344,7 @@ function CallCenterRequestsAdmin() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mb-6">
               <DetailField label="Call Center Experience" value={optionLabel(EXPERIENCE_LABELS, selected.hasExperience)} />
               <DetailField label="Last Position" value={optionLabel(LAST_POSITION_LABELS, selected.lastPosition)} />
-              <DetailField label="Language" value={optionLabel(COURSE_LANGUAGE_LABELS, selected.courseLanguage)} />
-              <DetailField label="Language Level" value={optionLabel(ENGLISH_LEVEL_LABELS, selected.englishLevel)} />
+              <DetailField label="Languages & Levels" value={languagesSummary(selected)} />
               <DetailField label="Form Language" value={optionLabel(LANGUAGE_LABELS, selected.language)} />
             </div>
 
@@ -397,7 +407,7 @@ function CallCenterRequestsAdmin() {
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Contact</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Age</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Experience</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">English</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Languages</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Status</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-500 whitespace-nowrap">Details</th>
               </tr>
@@ -430,8 +440,8 @@ function CallCenterRequestsAdmin() {
                       <span className="block text-[10px] text-gray-400 mt-0.5">{optionLabel(LAST_POSITION_LABELS, sub.lastPosition)}</span>
                     )}
                   </td>
-                  <td className="py-3 px-2 text-gray-600 whitespace-nowrap text-xs">
-                    {optionLabel(ENGLISH_LEVEL_LABELS, sub.englishLevel)}
+                  <td className="py-3 px-2 text-gray-600 text-xs max-w-[200px]">
+                    {languagesSummary(sub)}
                   </td>
                   <td className="py-3 px-2 whitespace-nowrap">
                     <select

@@ -57,6 +57,8 @@ const T = {
     newLecture: "New live lecture",
     courseLabel: "Course *",
     chooseCourse: "Choose a course...",
+    generalSession: "General session (outside courses) — visible to everyone on the platform",
+    generalBadge: "General session",
     needCourseFirst: "You need at least one course first.",
     titleLabel: "Lecture title *",
     titlePlaceholder: "e.g. Chapter 3 review",
@@ -114,6 +116,8 @@ const T = {
     newLecture: "محاضرة مباشرة جديدة",
     courseLabel: "الدورة *",
     chooseCourse: "اختر دورة...",
+    generalSession: "جلسة عامة (خارج الدورات) — تظهر لكل المسجّلين على المنصة",
+    generalBadge: "جلسة عامة",
     needCourseFirst: "يجب أن تملك دورة واحدة على الأقل أولًا.",
     titleLabel: "عنوان المحاضرة *",
     titlePlaceholder: "مثلاً: مراجعة الفصل الثالث",
@@ -171,6 +175,8 @@ const T = {
     newLecture: "Nueva clase en vivo",
     courseLabel: "Curso *",
     chooseCourse: "Elige un curso...",
+    generalSession: "Sesión general (fuera de los cursos) — visible para todos en la plataforma",
+    generalBadge: "Sesión general",
     needCourseFirst: "Necesitas al menos un curso primero.",
     titleLabel: "Título de la clase *",
     titlePlaceholder: "ej.: Repaso del capítulo 3",
@@ -319,6 +325,8 @@ function getSaveErrorMessages(t) {
   };
 }
 
+const GENERAL_COURSE_VALUE = "general";
+
 function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
   const SAVE_ERROR_MESSAGES = getSaveErrorMessages(t);
   const isEdit = Boolean(meeting);
@@ -358,7 +366,12 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
         durationMinutes: Number(form.durationMinutes) || 60,
       };
 
-      const url = isEdit ? `/api/meetings/${meeting.id}` : `/api/courses/${form.course}/meetings`;
+      // 🆕 "general" = جلسة عامة برا الكورسات (بتظهر لكل المسجّلين على المنصة)
+      const url = isEdit
+        ? `/api/meetings/${meeting.id}`
+        : form.course === GENERAL_COURSE_VALUE
+        ? "/api/meetings"
+        : `/api/courses/${form.course}/meetings`;
       const res = await fetch(url, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -407,14 +420,15 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
                 required
               >
                 <option value="">{t.chooseCourse}</option>
+                <option value={GENERAL_COURSE_VALUE}>{t.generalSession}</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title}
                   </option>
                 ))}
               </select>
-              {courses.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1.5">{t.needCourseFirst}</p>
+              {form.course === GENERAL_COURSE_VALUE && (
+                <p className="text-xs text-[#5279B4] mt-1.5">{t.generalSession}</p>
               )}
             </div>
           )}
@@ -527,7 +541,7 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
     <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-[#003A91] bg-[#EBEFF6] px-2.5 py-1 rounded-full">
-          <BookOpen size={12} /> {meeting.courseTitle || t.course}
+          <BookOpen size={12} /> {meeting.isGeneral ? t.generalBadge : meeting.courseTitle || t.course}
         </div>
         <span className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${meta.className}`}>
           {phase === "live" && <Radio size={11} className="animate-pulse" />}

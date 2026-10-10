@@ -65,7 +65,7 @@ function QuickInquiryInner() {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-[70vh] bg-white text-[#0a0a0a] flex items-start justify-center px-5 sm:px-8 py-12 sm:py-20">
       <div className="w-full max-w-xl p-5 sm:p-8 rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <SimpleInquiryForm t={t} lang={lang} selectedService={service} />
+        <SimpleInquiryForm t={t} lang={lang} selectedService={service} requireAttachment />
       </div>
     </div>
   );

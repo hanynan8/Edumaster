@@ -59,6 +59,46 @@ export async function findUnregisteredEmails(emails) {
   return emails.filter((e) => !found.has(e));
 }
 
+// 🕐 مسموح بهامش بسيط في الماضي (فرق ساعة الجهاز / وقت كتابة الفورم) — أكتر من كده
+// نعتبر الموعد "في الماضي" ونرفضه بدل ما نعمل غرفة Daily منتهية أصلًا.
+export const PAST_GRACE_MS = 5 * 60 * 1000;
+const MAX_MEETING_MS = 480 * 60 * 1000; // أقصى مدة محاضرة (شوف Meeting.durationMinutes)
+
+export function isInPast(date, now = Date.now()) {
+  return date.getTime() < now - PAST_GRACE_MS;
+}
+
+/**
+ * 🆕 تعارض المواعيد: المدرس مايقدرش يبقى في محاضرتين متداخلتين في نفس الوقت.
+ * بيدوّر على أي محاضرة تانية لنفس المدرس بتتقاطع مع واحدة من الفترات المطلوبة.
+ * @param {object} params
+ * @param {string} params.teacherId
+ * @param {{start: Date, durationMinutes: number}[]} params.slots - الفترات الجديدة/المعدّلة
+ * @param {string[]} [params.excludeIds] - محاضرات مستبعدة (اللي بتتعدّل نفسها)
+ * @returns {Promise<{title:string, scheduledAt:Date}|null>} أول تعارض، أو null
+ */
+export async function findTeacherConflict({ teacherId, slots, excludeIds = [] }) {
+  if (!slots || slots.length === 0) return null;
+  const starts = slots.map((s) => s.start.getTime());
+  const ends = slots.map((s) => s.start.getTime() + s.durationMinutes * 60_000);
+  const windowStart = new Date(Math.min(...starts) - MAX_MEETING_MS);
+  const windowEnd = new Date(Math.max(...ends));
+
+  const Meeting = getMeetingModel();
+  const query = { teacher: teacherId, scheduledAt: { $gte: windowStart, $lt: windowEnd } };
+  if (excludeIds.length > 0) query._id = { $nin: excludeIds };
+  const existing = await Meeting.find(query, "title scheduledAt durationMinutes").lean();
+
+  for (let i = 0; i < slots.length; i++) {
+    for (const m of existing) {
+      const mStart = new Date(m.scheduledAt).getTime();
+      const mEnd = mStart + (m.durationMinutes || 60) * 60_000;
+      if (starts[i] < mEnd && mStart < ends[i]) return { title: m.title, scheduledAt: m.scheduledAt };
+    }
+  }
+  return null;
+}
+
 // بينشئ غرف Daily لكل المواعيد (بحد أقصى 5 في نفس الوقت). لو أي غرفة فشلت،
 // بنمسح اللي اتعمل منها ونرمي الخطأ (كله أو مفيش — مفيش سلسلة نص مكتملة).
 async function createRoomsForDates(dates, durationMinutes) {
@@ -105,6 +145,9 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) durationMinutes = 60;
   durationMinutes = Math.min(480, Math.max(5, Math.round(durationMinutes)));
 
+  // 🕐 مفيش إنشاء محاضرة في الماضي.
+  if (isInPast(scheduledAt)) return fail(400, { error: "scheduled_in_past" });
+
   // 📧 المدعوين بالإيميل
   const { emails: invitedEmails, invalid } = parseInvitedEmails(body?.invitedEmails);
   if (invalid.length > 0) return fail(400, { error: "invalid_emails", invalid });
@@ -125,6 +168,13 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
     dates = expanded.dates;
     recurrenceRule = { ...norm.value, timeZone };
   }
+
+  // ⚔️ تعارض مواعيد المدرس (قبل ما ننشئ أي غرفة Daily — عشان مانسيبش غرف معلّقة).
+  const conflict = await findTeacherConflict({
+    teacherId,
+    slots: dates.map((start) => ({ start, durationMinutes })),
+  });
+  if (conflict) return fail(409, { error: "schedule_conflict", conflict });
 
   // 🔗 الروابط: Daily أولًا (غرفة لكل محاضرة)، وإلا الرابط اليدوي لكل المحاضرات.
   let links; // [{ link, source, dailyRoomName }]

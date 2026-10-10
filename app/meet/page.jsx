@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DailyMeetingModal from "@/app/components/DailyMeetingModal";
-import { resolvePhase, isPresenceCheckCandidate } from "@/app/lib/meetingPhase";
+import { resolvePhase, isPresenceCheckCandidate, canJoinNow, getJoinOpensAt } from "@/app/lib/meetingPhase";
 import { expandRecurrence, MAX_OCCURRENCES } from "@/app/lib/meetingRecurrence";
 import {
   Video,
@@ -90,6 +90,7 @@ const T = {
     noRecordingToday: "No recording available for today's lecture",
     lectureEnded: "The lecture has ended",
     joinMeeting: "Join meeting",
+    joinOpensAt: (when) => `Opens at ${when}`,
     enterMeeting: "Enter meeting",
     editTitle: "Edit",
     deleteTitle: "Delete",
@@ -145,6 +146,8 @@ const T = {
     errInvalidEmails: (list) => `Invalid email address: ${list}`,
     errInvalidRecurrence: "The repeat settings are not valid",
     errTooManyOccurrences: `Too many lectures — the maximum is ${MAX_OCCURRENCES}, within one year`,
+    errScheduledInPast: "The lecture time is in the past — choose a future date and time",
+    errScheduleConflict: (title, when) => `This overlaps with your lecture "${title}" (${when}). Choose a different time.`,
   },
   ar: {
     noAccess: "لا تملك صلاحية الوصول",
@@ -189,6 +192,7 @@ const T = {
     noRecordingToday: "لا يوجد تسجيل متاح لمحاضرة اليوم",
     lectureEnded: "انتهت المحاضرة",
     joinMeeting: "انضم للاجتماع",
+    joinOpensAt: (when) => `يفتح الدخول ${when}`,
     enterMeeting: "الدخول إلى الاجتماع",
     editTitle: "تعديل",
     deleteTitle: "حذف",
@@ -244,6 +248,8 @@ const T = {
     errInvalidEmails: (list) => `عنوان بريد إلكتروني غير صالح: ${list}`,
     errInvalidRecurrence: "إعدادات التكرار غير صالحة",
     errTooManyOccurrences: `عدد المحاضرات كبير جدًا — الحد الأقصى ${MAX_OCCURRENCES} خلال سنة واحدة`,
+    errScheduledInPast: "موعد المحاضرة في الماضي — اختر تاريخًا ووقتًا قادمًا",
+    errScheduleConflict: (title, when) => `يتعارض مع محاضرتك "${title}" (${when}). اختر وقتًا آخر.`,
   },
   es: {
     noAccess: "Sin acceso",
@@ -288,6 +294,7 @@ const T = {
     noRecordingToday: "No hay grabación disponible para la clase de hoy",
     lectureEnded: "La clase ha finalizado",
     joinMeeting: "Unirse a la reunión",
+    joinOpensAt: (when) => `Se abre ${when}`,
     enterMeeting: "Entrar a la reunión",
     editTitle: "Editar",
     deleteTitle: "Eliminar",
@@ -343,6 +350,8 @@ const T = {
     errInvalidEmails: (list) => `Correo electrónico no válido: ${list}`,
     errInvalidRecurrence: "La configuración de repetición no es válida",
     errTooManyOccurrences: `Demasiadas clases — el máximo es ${MAX_OCCURRENCES}, dentro de un año`,
+    errScheduledInPast: "La hora de la clase ya pasó — elige una fecha y hora futuras",
+    errScheduleConflict: (title, when) => `Se solapa con tu clase "${title}" (${when}). Elige otra hora.`,
   },
 };
 
@@ -393,8 +402,12 @@ function toLocalInputValue(dateStr) {
  * بنسأل السيرفر (GET /api/meetings/[id]/presence) هل فيه حد داخل الغرفة
  * فعليًا دلوقتي. لو آه، بنعاملها كـ"live" برضه رغم إن الوقت المكتوب عدّى.
  */
-function usePresenceOverrides(meetings) {
+function usePresenceOverrides(meetings, tick = 0) {
   const [overrides, setOverrides] = useState({}); // { [meetingId]: boolean }
+  // 🔁 إعادة الفحص كل ~60 ثانية (كل tickين) — قبل كده كان بيتفحص مرة واحدة بس مع تحميل
+  // القائمة، فمحاضرة بتخلص والصفحة مفتوحة ماكانتش بتتفحص للتمديد، وواحدة اتمدت
+  // ماكانتش بتتقفل لما الناس تخرج.
+  const recheck = Math.floor(tick / 2);
 
   useEffect(() => {
     if (!meetings || meetings.length === 0) return;
@@ -421,10 +434,9 @@ function usePresenceOverrides(meetings) {
     return () => {
       cancelled = true;
     };
-    // بنعيد الفحص كل ما قائمة الاجتماعات تتغيّر (تحميل جديد أو الـ tick
-    // الدوري بتاع الصفحة) — مش بحاجة تانية.
+    // بنعيد الفحص كل ما قائمة الاجتماعات تتغيّر (تحميل جديد) أو كل ~60 ثانية (recheck).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetings]);
+  }, [meetings, recheck]);
 
   return overrides;
 }
@@ -448,6 +460,7 @@ function getSaveErrorMessages(t) {
     daily_meeting_failed: t.errDailyFailed,
     invalid_recurrence: t.errInvalidRecurrence,
     too_many_occurrences: t.errTooManyOccurrences,
+    scheduled_in_past: t.errScheduledInPast,
   };
 }
 
@@ -727,6 +740,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
       if (!res.ok) {
         const err = new Error(data?.error || "save_failed");
         err.invalid = data?.invalid;
+        err.conflict = data?.conflict;
         throw err;
       }
 
@@ -740,6 +754,8 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
       ) {
         const list = err.invalid.slice(0, 5).join(", ") + (err.invalid.length > 5 ? ` +${err.invalid.length - 5}` : "");
         setError(err.message === "unknown_emails" ? t.errUnknownEmails(list) : t.errInvalidEmails(list));
+      } else if (err.message === "schedule_conflict" && err.conflict?.title) {
+        setError(t.errScheduleConflict(err.conflict.title, formatDateTime(err.conflict.scheduledAt, language)));
       } else {
         setError(SAVE_ERROR_MESSAGES[err.message] || t.savedError);
       }
@@ -1153,13 +1169,21 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
         ) : isDaily ? (
           // 🆕 اجتماع Daily — بيتشغّل مضمّن جوه الموقع (شوف DailyMeetingModal)
           // بدل ما يفتح تاب خارجي.
-          <button
-            type="button"
-            onClick={() => onJoinEmbedded(meeting)}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
-          >
-            <PlayCircle size={15} /> {t.joinMeeting}
-          </button>
+          // 🕐 الغرفة بتفتح قبل المعاد بربع ساعة (شوف canJoinNow) — قبلها نوري الوقت بدل
+          // زرار بيطلع بخطأ.
+          canJoinNow(meeting) || phase === "live" ? (
+            <button
+              type="button"
+              onClick={() => onJoinEmbedded(meeting)}
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90"
+            >
+              <PlayCircle size={15} /> {t.joinMeeting}
+            </button>
+          ) : (
+            <div className="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-500 text-sm font-semibold py-2.5 rounded-xl cursor-not-allowed">
+              <Clock size={15} /> {t.joinOpensAt(formatDateTime(getJoinOpensAt(meeting), language))}
+            </div>
+          )
         ) : (
           // 🆕 لينك يدوي (منصة تانية غير Daily) — مفيش SDK نضمّنه بيه، فبيفتح
           // في تاب جديد عادي.
@@ -1251,9 +1275,9 @@ export default function MeetPage() {
   // لوحدها وهي الصفحة مفتوحة (getPhase بيحسب من Date.now() وقت الـ render،
   // فمن غيره الشارة كانت بتفضل واقفة على أول حالة لحد ما اليوزر يعمل أي
   // حاجة تسبب re-render).
-  const [, forceTick] = useState(0);
+  const [tick, forceTick] = useState(0);
   useEffect(() => {
-    const interval = setInterval(() => forceTick((t) => t + 1), 30_000);
+    const interval = setInterval(() => forceTick((n) => n + 1), 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1333,7 +1357,7 @@ export default function MeetPage() {
   // فعدد الـ Hooks بيتغيّر بين الرندرين وده اللي بيكسر React ("Rendered
   // more hooks than during the previous render"). الحل: ننقل النداء لفوق
   // قبل أي return، عشان يتنادي دايمًا بغض النظر عن status.
-  const presenceOverrides = usePresenceOverrides(meetings);
+  const presenceOverrides = usePresenceOverrides(meetings, tick);
   const getMeetingPhase = (m) => resolvePhase(m, presenceOverrides);
 
   // 🆕 PERFORMANCE: نفس مبدأ الفيكس فوق — useMemo لازم يتنادي دايمًا قبل أي
@@ -1347,7 +1371,10 @@ export default function MeetPage() {
     (meetings || []).forEach((m) => g[resolvePhase(m, presenceOverrides)].push(m));
     g.ended.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
     return g;
-  }, [meetings, presenceOverrides]);
+    // 🔧 FIX: الـ tick لازم يكون dependency — الحالة بتتحسب من Date.now()، ومن غيره كانت
+    // المحاضرة بتفضل في قسم "قادمة" بعد ما تبدأ، وفي "جارية" بعد ما تخلص، لحد ريلود.
+    // التكلفة صغيرة (فلترة + ترتيب كل 30 ثانية بس).
+  }, [meetings, presenceOverrides, tick]);
 
   if (status === "loading") {
     return (

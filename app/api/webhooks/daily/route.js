@@ -8,10 +8,13 @@
 // بعدين من /meet (شوف app/meet/page.jsx).
 //
 // 🔒 SECURITY: لازم نتأكد إن الطلب فعلًا جاي من Daily مش من أي حد عارف
-// الرابط — Daily بتوقّع كل webhook بـ HMAC-SHA256 على الـ body باستخدام
-// secret بيتحدد وقت إنشاء الـ webhook من Daily Dashboard (Developers →
-// Webhooks)، وبتبعته في هيدر X-Webhook-Signature. لازم نضبطه في env
-// DAILY_WEBHOOK_SECRET. لو مش متظبط، بنرفض الطلب في production (نفس
+// الرابط. صيغة توقيع Daily (حسب docs.daily.co/reference/rest-api/webhooks):
+//   - هيدرين: X-Webhook-Signature و X-Webhook-Timestamp.
+//   - signature = base64( HMAC-SHA256( base64Decode(hmac), `${timestamp}.${body}` ) )
+//   - الـ hmac secret بتاع الـ webhook (base64) بيتخزّن في env DAILY_WEBHOOK_SECRET.
+// 🔧 النسخة القديمة هنا كانت بتتوقع صيغة Stripe ("t=..,v1=<hex>") وبتستخدم الـ
+// secret كنص خام — فكل webhook حقيقي كان بيتحسب "توقيع غير صالح" (401) وفضل
+// ماحدش يربط التسجيلات بالمحاضرات. لو مش متظبط، بنرفض الطلب في production (نفس
 // أسلوب CRON_SECRET في app/api/cron/membership-expiry) بدل قبول أي حاجة.
 //
 // 📋 إعداد الـ webhook (مرة واحدة، من حساب أدمن المنصة على Daily):
@@ -20,9 +23,9 @@
 //   Event: recording.ready-to-download
 //   → انسخ الـ HMAC secret اللي Daily بتديهولك في DAILY_WEBHOOK_SECRET.
 
-import crypto from "crypto";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel } from "@/app/lib/models";
+import { isValidDailySignature } from "@/app/lib/dailyWebhook";
 
 const WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
 
@@ -33,33 +36,27 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// Daily بتوقّع بصيغة "t,v1=<hex_hmac>" — v1 هو HMAC-SHA256(timestamp + "." + rawBody).
-function isValidSignature(rawBody, signatureHeader) {
-  if (!WEBHOOK_SECRET || !signatureHeader) return false;
-  try {
-    const parts = Object.fromEntries(
-      signatureHeader.split(",").map((p) => {
-        const [k, v] = p.split("=");
-        return [k.trim(), v];
-      })
-    );
-    const timestamp = signatureHeader.split(",")[0];
-    if (!parts.v1) return false;
-    const signedPayload = `${timestamp}.${rawBody}`;
-    const expected = crypto.createHmac("sha256", WEBHOOK_SECRET).update(signedPayload).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(request) {
   try {
     const rawBody = await request.text();
 
+    // 🧪 طلب التحقق اللي Daily بتبعته وقت إنشاء/تفعيل الـ webhook ({"test":"test"}):
+    // لازم يرجّع 200 خلال 8 ثواني وإلا الإنشاء بيفشل (400). لو الـ secret لسه مش
+    // معروف (Daily بتولّده وبترجّعه في رد الإنشاء بس) ماينفعش نرفضه بالتوقيع —
+    // ومفيش أي تأثير جانبي له، فبنرد 200 مباشرة قبل أي فحص.
+    try {
+      const probe = JSON.parse(rawBody || "{}");
+      if (probe && Object.keys(probe).length === 1 && probe.test === "test") {
+        return jsonResponse({ ok: true });
+      }
+    } catch {
+      // مش JSON — هيتعامل معاه الفحص العادي تحت.
+    }
+
     if (WEBHOOK_SECRET) {
-      const signature = request.headers.get("x-webhook-signature") || request.headers.get("X-Webhook-Signature");
-      if (!isValidSignature(rawBody, signature)) {
+      const signature = request.headers.get("x-webhook-signature");
+      const timestamp = request.headers.get("x-webhook-timestamp");
+      if (!isValidDailySignature(rawBody, signature, timestamp, WEBHOOK_SECRET)) {
         return jsonResponse({ error: "invalid_signature" }, 401);
       }
     } else if (process.env.NODE_ENV === "production") {

@@ -35,7 +35,11 @@ export const PRESENCE_CHECK_WINDOW_MS = 2 * 60 * 60 * 1000;
  */
 export function resolvePhase(meeting, presenceOverrides = {}, now = Date.now()) {
   const staticPhase = getPhase(meeting, now);
-  if (staticPhase === "ended" && presenceOverrides[meeting.id]) return "live";
+  // 🔒 الـ override بيتحترم بس جوه شباك الفحص (isPresenceCheckCandidate) — وإلا آخر نتيجة
+  // "true" كانت ممكن تفضل عالقة للأبد بعد ما الغرفة تتقفل ومحدش يعيد الفحص.
+  if (staticPhase === "ended" && presenceOverrides[meeting.id] && isPresenceCheckCandidate(meeting, now)) {
+    return "live";
+  }
   return staticPhase;
 }
 
@@ -48,4 +52,24 @@ export function isPresenceCheckCandidate(meeting, now = Date.now()) {
   const start = new Date(meeting.scheduledAt).getTime();
   const end = start + (meeting.durationMinutes || 60) * 60 * 1000;
   return now > end && now - end < PRESENCE_CHECK_WINDOW_MS;
+}
+// 🕐 غرفة Daily بتفتح للدخول ربع ساعة قبل المعاد (nbf = start - 15 دقيقة، شوف
+// app/lib/daily.js createDailyRoom/createMeetingToken). قبل كده زرار "انضم" كان ظاهر
+// ومفعّل لأي محاضرة قادمة حتى لو بعد أيام، والضغط عليه كان بيفتح مودال بيطلع بخطأ
+// عام من Daily. الواجهة دلوقتي بتقفله لحد ما الغرفة تفتح فعلًا.
+export const JOIN_OPEN_BEFORE_MS = 15 * 60 * 1000;
+
+/** وقت فتح الدخول (Date) لمحاضرة معيّنة. */
+export function getJoinOpensAt(meeting) {
+  return new Date(new Date(meeting.scheduledAt).getTime() - JOIN_OPEN_BEFORE_MS);
+}
+
+/**
+ * هل نقدر نعرض زرار الدخول فعّال دلوقتي؟ بس لمحاضرات Daily (الغرفة الخاصة ليها
+ * nbf)؛ اللينك اليدوي (منصة تانية) مالناش سلطة على مواعيد فتحه فبيفضل متاح دايمًا.
+ * بعد النهاية الدخول بيقفل بالـ phase (ended) مش هنا.
+ */
+export function canJoinNow(meeting, now = Date.now()) {
+  if (meeting.source !== "daily") return true;
+  return now >= getJoinOpensAt(meeting).getTime();
 }

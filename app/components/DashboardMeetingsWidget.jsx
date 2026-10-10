@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Radio, Clock, ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+// 🔧 نفس حساب الحالة المشترك (كان متكرر هنا نسخة ثالثة منفصلة).
+import { getPhase } from "@/app/lib/meetingPhase";
 
 // 🆕 نفس مشكلة CourseMeetingBanner: النصوص كانت عربي ثابت وتنسيق التاريخ
 // مربوط بـ "ar-EG" دايمًا. دلوقتي كل حاجة بتتبع اللغة المختارة من الناف بار.
@@ -37,15 +39,6 @@ function formatDateTime(dateStr, language) {
   } catch {
     return dateStr;
   }
-}
-
-function getPhase(meeting) {
-  const start = new Date(meeting.scheduledAt).getTime();
-  const end = start + (meeting.durationMinutes || 60) * 60 * 1000;
-  const now = Date.now();
-  if (now < start) return "upcoming";
-  if (now <= end) return "live";
-  return "ended";
 }
 
 function pickHighlight(meetings) {

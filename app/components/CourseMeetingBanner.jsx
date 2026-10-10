@@ -15,6 +15,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Video, Radio, Clock, ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+// 🔧 نفس حساب الحالة المشترك (كان متكرر هنا نسخة ثالثة منفصلة).
+import { getPhase } from "@/app/lib/meetingPhase";
 
 // 🆕 كل النصوص في البانر كانت عربي ثابت، وكمان تنسيق التاريخ كان مربوط
 // بـ locale "ar-EG" دايمًا. دلوقتي كل حاجة بتتبع اللغة المختارة من الناف بار.
@@ -53,15 +55,6 @@ function formatDateTime(dateStr, language) {
   } catch {
     return dateStr;
   }
-}
-
-function getPhase(meeting) {
-  const start = new Date(meeting.scheduledAt).getTime();
-  const end = start + (meeting.durationMinutes || 60) * 60 * 1000;
-  const now = Date.now();
-  if (now < start) return "upcoming";
-  if (now <= end) return "live";
-  return "ended";
 }
 
 // أقرب محاضرة "تستاهل" بانر — شغالة دلوقتي (أولوية قصوى)، أو جاية خلال

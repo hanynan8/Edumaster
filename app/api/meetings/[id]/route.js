@@ -25,7 +25,14 @@ import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { deleteDailyRoom, updateDailyRoom } from "@/app/lib/daily";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
-import { isValidHttpUrl, sendInvitations, findUnregisteredEmails } from "@/app/lib/meetingCreate";
+import { notifyMeetingChange } from "@/app/lib/meetingNotify";
+import {
+  isValidHttpUrl,
+  sendInvitations,
+  findUnregisteredEmails,
+  findTeacherConflict,
+  isInPast,
+} from "@/app/lib/meetingCreate";
 import { parseInvitedEmails, diffInvitedEmails } from "@/app/lib/meetingInvites";
 import { shiftWallClock, getZonedParts, localDayDiff, normalizeTimeZone } from "@/app/lib/meetingRecurrence";
 
@@ -94,6 +101,11 @@ export async function PUT(request, { params }) {
     if (body.scheduledAt !== undefined) {
       newScheduledAt = new Date(body.scheduledAt);
       if (Number.isNaN(newScheduledAt.getTime())) return jsonResponse({ error: "invalid_scheduled_at" }, 400);
+      // 🕐 الواجهة بتبعت scheduledAt دايمًا (حتى لو المدرس عدّل العنوان بس) — فالرفض
+      // بيتم بس لو الموعد اتغيّر فعلًا لوقت في الماضي، مش لمجرد إن المحاضرة قديمة.
+      if (newScheduledAt.getTime() !== meeting.scheduledAt.getTime() && isInPast(newScheduledAt)) {
+        return jsonResponse({ error: "scheduled_in_past" }, 400);
+      }
     }
 
     let newDuration;
@@ -133,6 +145,34 @@ export async function PUT(request, { params }) {
 
     const originalId = meeting._id.toString();
     let dailyWarning = null;
+    let dateChanged = false;
+
+    // الموعد الجديد المخطَّط لكل محاضرة مستهدفة (null = من غير تغيير).
+    const plannedDate = (target) => {
+      if (!newScheduledAt) return null;
+      const isEdited = target._id.toString() === originalId;
+      return isEdited ? newScheduledAt : shift ? shiftWallClock(target.scheduledAt, shift, shift.tz) : null;
+    };
+
+    // ⚔️ تعارض مواعيد المدرس — بنفحص قبل ما نحفظ أي حاجة (كله أو مفيش)، وبنستبعد
+    // المحاضرات اللي بتتعدّل نفسها. بنفحص بس اللي موعده أو مدته اتغيّر فعلًا.
+    const changedSlots = [];
+    for (const target of targets) {
+      const nextDate = plannedDate(target);
+      const start = nextDate || target.scheduledAt;
+      const duration = newDuration !== undefined ? newDuration : target.durationMinutes;
+      const slotDateChanged = nextDate && target.scheduledAt.getTime() !== nextDate.getTime();
+      const durationChanged = newDuration !== undefined && target.durationMinutes !== newDuration;
+      if (slotDateChanged || durationChanged) changedSlots.push({ start, durationMinutes: duration });
+    }
+    if (changedSlots.length > 0) {
+      const conflict = await findTeacherConflict({
+        teacherId: meeting.teacher,
+        slots: changedSlots,
+        excludeIds: targets.map((t) => t._id),
+      });
+      if (conflict) return jsonResponse({ error: "schedule_conflict", conflict }, 409);
+    }
 
     for (const target of targets) {
       let scheduleChanged = false;
@@ -154,11 +194,14 @@ export async function PUT(request, { params }) {
       }
 
       if (newScheduledAt) {
-        const isEdited = target._id.toString() === originalId;
-        const nextDate = isEdited ? newScheduledAt : shift ? shiftWallClock(target.scheduledAt, shift, shift.tz) : null;
+        const nextDate = plannedDate(target);
         if (nextDate && target.scheduledAt.getTime() !== nextDate.getTime()) {
           scheduleChanged = true;
+          dateChanged = true;
           target.scheduledAt = nextDate;
+          // 🔔 الموعد اتغيّر → التذكير اللي اتبعت (لو اتبعت) كان للموعد القديم؛ نصفّره
+          // عشان الـ cron يبعت تذكير جديد قبل الموعد الجديد بـ10 دقايق.
+          target.reminderSentAt = null;
         }
       }
 
@@ -186,6 +229,21 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // ⚠️ في تعديل "هذه والتالية" الـ targets بتتجاب بـ find() جديد، فالـ doc اللي في
+    // `meeting` فوق مش هو اللي اتحفظ (قيمه قديمة). بنستخدم النسخة المحفوظة فعلًا
+    // للإشعار والدعوات والرد.
+    const edited = targets.find((t) => t._id.toString() === originalId) || meeting;
+
+    // 🔔 إبلاغ المسجّلين والمدعوين بتغيير الموعد (إشعار داخل الموقع، best-effort).
+    if (dateChanged) {
+      await notifyMeetingChange({
+        meeting: edited,
+        kind: "rescheduled",
+        actorId: session.user.id,
+        count: targets.length,
+      });
+    }
+
     // 📧 دعوات للإيميلات المضافة حديثًا بس (مرة واحدة، على المحاضرة المعدّلة).
     let invitesSent = 0;
     if (addedEmails.length > 0) {
@@ -199,15 +257,17 @@ export async function PUT(request, { params }) {
         emails: addedEmails,
         inviterId: session.user.id,
         inviterName: session.user.name,
-        firstMeeting: meeting,
+        firstMeeting: edited,
         courseTitle,
-        occurrences: 1,
+        // 🔁 تعديل "هذه والتالية": الدعوة بتوصف السلسلة المتأثرة كلها (بتتبعت مرة واحدة).
+        occurrences: targets.length,
+        recurrenceRule: targets.length > 1 ? edited.recurrence : null,
       });
       invitesSent = invites.emailed;
     }
 
     return jsonResponse({
-      ...serializeMeeting(meeting, { includeInvitees: true }),
+      ...serializeMeeting(edited, { includeInvitees: true }),
       updated: targets.length,
       invitesSent,
       ...(dailyWarning ? { warning: dailyWarning } : {}),
@@ -246,6 +306,18 @@ export async function DELETE(request, { params }) {
 
     const ids = targets.map((t) => t._id.toString());
     await Meeting.deleteMany({ _id: { $in: targets.map((t) => t._id) } });
+
+    // 🔔 إبلاغ المتأثرين بالإلغاء — بس للمحاضرات اللي لسه ماحصلتش (حذف محاضرة قديمة
+    // لتنظيف القائمة مايستاهلش إشعار). المستند اتحذف بس لسه object في الذاكرة.
+    const upcoming = targets.filter((t) => t.scheduledAt.getTime() > Date.now());
+    if (upcoming.length > 0) {
+      await notifyMeetingChange({
+        meeting: upcoming[0],
+        kind: "cancelled",
+        actorId: session.user.id,
+        count: upcoming.length,
+      });
+    }
     return jsonResponse({ success: true, deleted: ids.length, ids });
   } catch (err) {
     console.error("[/api/meetings/[id]] DELETE error:", err);

@@ -1,7 +1,8 @@
 // app/api/cron/meeting-reminders/route.js
 //
 // 🆕 GET /api/cron/meeting-reminders — بيبعت تذكير (إشعار داخلي + إيميل)
-// لكل طالب مسجّل في كورس عنده محاضرة لايف هتبدأ خلال ~10 دقايق. قبل كده
+// لكل طالب مسجّل في كورس عنده محاضرة لايف هتبدأ خلال ~10 دقايق —
+// 🆕 ومعاهم المدعوين بالإيميل (Meeting.invitedEmails) حتى لو مش مسجّلين في الكورس. قبل كده
 // الإشعار الوحيد كان بيتبعت مرة واحدة وقت *إنشاء* المحاضرة — لو الطالب
 // نسي، مفيش أي حاجة تفكّره قريب من الميعاد.
 //
@@ -43,6 +44,14 @@ async function sendEmailsInBatches(users, buildPayload) {
     emailed += results.filter(Boolean).length;
   }
   return emailed;
+}
+
+// 🆕 المدعوين بالإيميل (مستخدمين مسجّلين في الموقع) — كانوا بياخدوا الدعوة وقت
+// الإنشاء بس ومفيش أي تذكير قبل الميعاد لو مش طلاب في الكورس.
+async function getInvitedUsers(AuthModel, invitedEmails) {
+  const emails = (invitedEmails || []).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+  if (emails.length === 0) return [];
+  return AuthModel.find({ email: { $in: emails } }, "name email").lean();
 }
 
 // 🆕 PERFORMANCE: بيرفع الحد الأقصى لوقت تنفيذ الـ function على Vercel (لو
@@ -99,7 +108,8 @@ export async function GET(request) {
     let emailed = 0;
 
     for (const meeting of meetings) {
-      // 🆕 جلسة عامة (من غير كورس): تذكير داخل الموقع لكل المستخدمين، من غير إيميل جماعي.
+      // 🆕 جلسة عامة (من غير كورس): تذكير داخل الموقع لكل المستخدمين، من غير إيميل جماعي —
+      // لكن المدعوين صراحةً بياخدوا إيميل تذكير كمان (قايمتهم محدودة بالدعوة).
       if (!meeting.course) {
         const allUserIds = await getAllUserIds();
         const minutesLeftGeneral = Math.max(1, Math.round((new Date(meeting.scheduledAt).getTime() - now) / 60000));
@@ -110,12 +120,26 @@ export async function GET(request) {
           link: "/meet",
         });
         notified += createdGeneral.length;
+
+        const invitedGeneral = (await getInvitedUsers(AuthModel, meeting.invitedEmails)).filter((u) => u.email);
+        emailed += await sendEmailsInBatches(invitedGeneral, (user) => ({
+          toEmail: user.email,
+          name: user.name || "Student",
+          courseTitle: "Live session",
+          meetingTitle: meeting.title,
+          scheduledAt: meeting.scheduledAt,
+          minutesLeft: minutesLeftGeneral,
+        }));
+
         await Meeting.updateOne({ _id: meeting._id }, { reminderSentAt: new Date() });
         continue;
       }
 
       const enrolledUserIds = await getEnrolledUserIds(meeting.course?._id || meeting.course);
-      if (enrolledUserIds.length === 0) {
+      // 🆕 المستلمين = المسجّلين في الكورس + المدعوين بالإيميل (من غير تكرار).
+      const invitedUsers = await getInvitedUsers(AuthModel, meeting.invitedEmails);
+      const recipientIds = [...new Set([...enrolledUserIds.map(String), ...invitedUsers.map((u) => String(u._id))])];
+      if (recipientIds.length === 0) {
         await Meeting.updateOne({ _id: meeting._id }, { reminderSentAt: new Date() });
         continue;
       }
@@ -124,7 +148,7 @@ export async function GET(request) {
       const courseTitle = meeting.course?.title || "الدورة";
 
       // إشعار داخلي (يظهر في NotificationBell فورًا).
-      const created = await createNotificationsForUsers(enrolledUserIds, {
+      const created = await createNotificationsForUsers(recipientIds, {
         type: "meeting_scheduled",
         title: `محاضرة "${meeting.title}" ستبدأ بعد ${minutesLeft} دقيقة`,
         message: `${courseTitle} — استعد للدخول`,
@@ -134,7 +158,7 @@ export async function GET(request) {
       notified += created.length;
 
       // إيميل — best-effort، بيوصل حتى لو الطالب مش فاتح الموقع أصلًا.
-      const users = await AuthModel.find({ _id: { $in: enrolledUserIds } }, "name email").lean();
+      const users = await AuthModel.find({ _id: { $in: recipientIds } }, "name email").lean();
       const usersWithEmail = users.filter((u) => u.email);
       emailed += await sendEmailsInBatches(usersWithEmail, (user) => ({
         toEmail: user.email,

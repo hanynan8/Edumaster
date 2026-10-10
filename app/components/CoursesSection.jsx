@@ -304,8 +304,17 @@ function CourseCard({ course, ui, lang, visible, delay }) {
   // 🆕 نفس فكرة زرار "اختبر مستواك" في /courses، بس هنا (كارت الصفحة
   // الرئيسية): بيظهر لو الكورس عنده classMarkerQuizId، وبيفتح رابط
   // ClassMarker في تاب جديد من غير ما يودّي لصفحة تفاصيل الكورس.
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId);
+  // 🆕 كورسات الإسباني (Language + es): اختبار المستوى الداخلي (/spanish-test) جمب السعر
+  // بدل زرار ClassMarker القديم.
+  const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
   const levelTestLabel = LEVEL_TEST_BTN_LABEL[lang] || LEVEL_TEST_BTN_LABEL.en;
+
+  function handleSpanishTestClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open("/spanish-test", "_blank", "noopener,noreferrer");
+  }
 
   function handleLevelTestClick(e) {
     e.preventDefault();
@@ -375,6 +384,16 @@ function CourseCard({ course, ui, lang, visible, delay }) {
           <span className="text-sm font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
             {course.isFree || !course.price ? ui.free : `${course.price} ${course.currency}`}
           </span>
+          {isSpanishCourse && (
+            <button
+              type="button"
+              onClick={handleSpanishTestClick}
+              className="inline-flex items-center gap-1.5 border border-[#C9A227]/40 text-[#8a6d10] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#C9A227] hover:text-white hover:border-[#C9A227] transition-colors"
+            >
+              <GraduationCapIcon size={13} />
+              {levelTestLabel}
+            </button>
+          )}
           {course.studentsCount > 0 && (
             <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
               <UsersIcon size={11} /> {ui.students(course.studentsCount)}

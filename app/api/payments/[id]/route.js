@@ -45,7 +45,7 @@ export async function GET(request, { params }) {
     // session نتحقق منها هنا أصلاً. الوصول بقى محمي بمعرفة Payment._id
     // نفسه بس (نفس فلسفة صفحة success/receipt العامة لأي حد معاه الرابط —
     // ده بالظبط نفس Payment._id اللي المستخدم رجع بيه من GetPayIn توًا).
-    if (payment.type === "consultation") {
+    if (payment.type === "consultation" || payment.type === "placement_test") {
       return jsonResponse({
         id: payment._id.toString(),
         type: payment.type,

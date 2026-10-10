@@ -35,6 +35,7 @@ const STRINGS = {
     course: "دورة",
     membership: "اشتراك",
     consultation: "استشارة",
+    placementTest: "اختبار تحديد المستوى (إسباني)",
   },
   en: {
     title: "Payment Receipt",
@@ -52,6 +53,7 @@ const STRINGS = {
     course: "Course",
     membership: "Membership",
     consultation: "Consultation",
+    placementTest: "Spanish level test",
   },
 };
 
@@ -100,6 +102,8 @@ export default function ReceiptPage({ params }) {
       ? payment.courseTitle
       : payment.type === "consultation"
       ? t.consultation
+      : payment.type === "placement_test"
+      ? t.placementTest
       : payment.membershipPlanName;
 
   return (
@@ -169,7 +173,7 @@ export default function ReceiptPage({ params }) {
                 <td className="py-3">
                   <p className="font-semibold text-gray-800">{itemLabel || "—"}</p>
                   <p className="text-xs text-gray-400">
-                    {payment.type === "course" ? t.course : payment.type === "consultation" ? t.consultation : t.membership}
+                    {payment.type === "course" ? t.course : payment.type === "consultation" ? t.consultation : payment.type === "placement_test" ? t.placementTest : t.membership}
                   </p>
                 </td>
                 <td className="py-3 text-end font-bold text-gray-800">

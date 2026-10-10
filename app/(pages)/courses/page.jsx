@@ -667,7 +667,16 @@ function CourseCard({ course, t }) {
   // بيظهر بس لو الكورس عنده classMarkerQuizId (نفس شرط ظهور الاختبار في
   // صفحة التفاصيل). بيفتح رابط ClassMarker مباشرة في تاب جديد، وبيوقف
   // انتشار الضغطة (stopPropagation) عشان ميودّيش لصفحة تفاصيل الكورس.
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId);
+  // 🆕 كورسات الإسباني (تصنيف Language + لغة es) ليها اختبار تحديد المستوى الداخلي
+  // (/spanish-test) جمب السعر، فبنخفي زرار ClassMarker القديم عنها عشان ميبقاش فيه اختبارين.
+  const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
+
+  function handleSpanishTestClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open("/spanish-test", "_blank", "noopener,noreferrer");
+  }
 
   function handleLevelTestClick(e) {
     e.preventDefault();
@@ -725,6 +734,16 @@ function CourseCard({ course, t }) {
           <span className="text-base font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
             {course.isFree || !course.price ? t.free : `${course.price} ${course.currency}`}
           </span>
+          {isSpanishCourse && (
+            <button
+              type="button"
+              onClick={handleSpanishTestClick}
+              className="inline-flex items-center gap-1.5 border border-[#003A91]/30 text-[#003A91] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
+            >
+              <GraduationCapIcon size={13} />
+              {t.levelTestBtn}
+            </button>
+          )}
         </div>
       </div>
     </Link>

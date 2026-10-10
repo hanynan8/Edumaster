@@ -16,7 +16,7 @@ const paymentSchema = new mongoose.Schema(
     // لسه لازم لها user زي ما هي (بتتطلب تسجيل دخول أصلاً في checkout/route.js).
     user: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, default: null },
 
-    type: { type: String, enum: ["course", "membership", "consultation"], required: true },
+    type: { type: String, enum: ["course", "membership", "consultation", "placement_test"], required: true },
 
     // واحد من التلاتة بيتملى حسب type، مش أكتر من واحد مع بعض
     course: { type: mongoose.Schema.Types.ObjectId, ref: "Model_course", default: null },
@@ -29,6 +29,11 @@ const paymentSchema = new mongoose.Schema(
     // مرنة، شوف app/api/data/route.js — مفيش موديل mongoose ثابت ليه، فمفيش
     // "ref" هنا، بس الـ ObjectId بيتخزن عشان الربط والتحديث بعد نجاح الدفع).
     consultation: { type: mongoose.Schema.Types.ObjectId, default: null },
+
+    // 🆕 مرجع لمستند نتيجة اختبار تحديد المستوى في كولكشن "placement_tests"
+    // (كولكشن عام بسكيمة مرنة — شوف app/lib/placementTest.js). دفعات النوع
+    // "placement_test" ضيف (user=null) زي الاستشارة: رسوم استلام النتيجة.
+    placementTest: { type: mongoose.Schema.Types.ObjectId, default: null },
 
     // 🆕 بيانات ضيف (Guest) للدفعات اللي مالهاش user مسجّل (النوع
     // "consultation" حاليًا) — مأخوذة من فورم الاستشارة نفسه (firstName+

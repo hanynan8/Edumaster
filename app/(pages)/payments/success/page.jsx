@@ -22,6 +22,12 @@ const STRINGS = {
     subtitleMembership: "تم تفعيل اشتراكك في خطة العضوية",
     subtitleConsultation: "تم تأكيد حجز استشارتك، سنتواصل معك قريبًا لتأكيد الموعد",
     consultationLabel: "استشارة",
+    subtitlePlacement: "تم الدفع بنجاح، وهذه نتيجة اختبار تحديد المستوى",
+    placementLabel: "اختبار تحديد المستوى (إسباني)",
+    yourScore: "درجتك",
+    outOf: "من",
+    answered: "عدد الأسئلة المُجاب عنها",
+    resultError: "تعذّر تحميل النتيجة الآن، حاول تحديث الصفحة",
     goToCourse: "اذهب إلى الدورة",
     goToCourses: "دوراتي",
     goToMembership: "خطط الاشتراك",
@@ -37,6 +43,12 @@ const STRINGS = {
     subtitleMembership: "Your membership plan has been activated",
     subtitleConsultation: "Your consultation booking is confirmed — we'll contact you soon",
     consultationLabel: "Consultation",
+    subtitlePlacement: "Payment received — here is your level test result",
+    placementLabel: "Spanish level test",
+    yourScore: "Your score",
+    outOf: "out of",
+    answered: "Questions answered",
+    resultError: "Couldn't load your result right now, please refresh the page",
     goToCourse: "Go to course",
     goToCourses: "My Courses",
     goToMembership: "Membership Plans",
@@ -65,6 +77,8 @@ export default function PaymentSuccessPage({ searchParams }) {
 
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");
+  const [placementResult, setPlacementResult] = useState(null);
+  const [placementResultError, setPlacementResultError] = useState(false);
 
   useEffect(() => {
     if (!paymentId) return;
@@ -77,6 +91,18 @@ export default function PaymentSuccessPage({ searchParams }) {
 
   const isMembership = payment?.type === "membership";
   const isConsultation = payment?.type === "consultation";
+  const isPlacement = payment?.type === "placement_test";
+
+  // 🆕 اختبار تحديد المستوى: النتيجة بتتسلّم هنا بعد نجاح الدفع بس
+  // (GET /api/placement-tests/result بيرفض لو الدفعة مش succeeded).
+  useEffect(() => {
+    if (!isPlacement || !paymentId) return;
+    try { localStorage.removeItem("spanishTestPending"); } catch {}
+    fetch(`/api/placement-tests/result?payment=${paymentId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => (data ? setPlacementResult(data) : setPlacementResultError(true)))
+      .catch(() => setPlacementResultError(true));
+  }, [isPlacement, paymentId]);
 
   return (
     <div
@@ -100,11 +126,31 @@ export default function PaymentSuccessPage({ searchParams }) {
         {payment && (
           <>
             <p className="text-sm text-gray-400 mb-1">
-              {isConsultation ? t.subtitleConsultation : isMembership ? t.subtitleMembership : t.subtitleCourse}
+              {isPlacement ? t.subtitlePlacement : isConsultation ? t.subtitleConsultation : isMembership ? t.subtitleMembership : t.subtitleCourse}
             </p>
             <p className="text-sm font-bold text-gray-700 mb-5">
-              {isConsultation ? t.consultationLabel : payment.courseTitle || payment.membershipPlanName}
+              {isPlacement ? t.placementLabel : isConsultation ? t.consultationLabel : payment.courseTitle || payment.membershipPlanName}
             </p>
+            {isPlacement && (
+              <div className="bg-[#003A91]/5 rounded-xl py-4 px-3 mb-5">
+                {placementResult ? (
+                  <>
+                    <p className="text-xs text-gray-500 mb-1">{t.yourScore}</p>
+                    <p className="text-4xl font-black text-[#003A91]">
+                      {placementResult.score}
+                      <span className="text-base text-gray-400 font-bold"> {t.outOf} {placementResult.maxScore}</span>
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      {t.answered}: {placementResult.answeredCount}/{placementResult.totalQuestions}
+                    </p>
+                  </>
+                ) : placementResultError ? (
+                  <p className="text-xs text-red-500">{t.resultError}</p>
+                ) : (
+                  <Loader className="animate-spin text-[#003A91] mx-auto" size={20} />
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-xl py-3 mb-6">
               <span className="text-xs text-gray-400">{t.amount}</span>
               <span className="text-sm font-bold text-gray-800">
@@ -116,7 +162,7 @@ export default function PaymentSuccessPage({ searchParams }) {
 
         <div className="flex flex-col gap-2.5">
           {payment && (
-            isConsultation ? (
+            isConsultation || isPlacement ? (
               <Link
                 href="/"
                 className="flex items-center justify-center gap-2 bg-[#0a0a0a] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"

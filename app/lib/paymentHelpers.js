@@ -22,6 +22,7 @@ import {
 } from "@/app/lib/models";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { sendPaymentSucceededEmail } from "@/app/lib/emailHelpers";
+import { getPlacementTestsCollection } from "@/app/lib/placementTest";
 
 export function generateInvoiceNumber(paymentId) {
   const now = new Date();
@@ -136,6 +137,11 @@ export async function markPaymentSucceededAndGrantAccess(paymentId, { providerPa
     // مستند الاستشارة بحالة الدفع (best-effort، زي notifyPaymentSucceeded
     // تحت — فشلها مبيبوظش نجاح الدفعة نفسها).
     await markConsultationPaidBestEffort(updated);
+  } else if (updated.type === "placement_test") {
+    // 🆕 رسوم نتيجة اختبار تحديد المستوى — مفيش "وصول" يتفعّل، النتيجة بتتسلّم
+    // من app/api/placement-tests/result بعد ما الدفعة تبقى succeeded. بنعلّم
+    // مستند النتيجة بحالة الدفع عشان تظهر في لوحة الأدمن (best-effort).
+    await markPlacementTestPaidBestEffort(updated);
   }
 
   // 🔔 Phase 6 — اليوم 52 (اختياري): إشعار داخلي + إيميل "نجاح دفع".
@@ -175,11 +181,32 @@ async function markConsultationPaidBestEffort(payment) {
   }
 }
 
+// 🆕 تعليم مستند نتيجة الاختبار (كولكشن placement_tests) إنه اتدفع.
+async function markPlacementTestPaidBestEffort(payment) {
+  if (!payment.placementTest) return;
+  try {
+    await getPlacementTestsCollection().updateOne(
+      { _id: payment.placementTest },
+      {
+        $set: {
+          paymentStatus: "paid",
+          paymentId: payment._id,
+          paidAmount: payment.amount,
+          paidCurrency: payment.currency,
+          paidAt: payment.paidAt || new Date(),
+        },
+      }
+    );
+  } catch (err) {
+    console.error("[markPlacementTestPaidBestEffort] update error:", err);
+  }
+}
+
 async function notifyPaymentSucceeded(payment) {
   // 🆕 دفعات "consultation" مالهاش user مسجّل (guest checkout) — بنستخدم
   // guestName/guestEmail المخزّنة على الدفعة نفسها (شوف Payment.js) بدل
   // AuthModel.findById اللي هيرجع null دايمًا هنا.
-  const isGuest = payment.type === "consultation" && !payment.user;
+  const isGuest = (payment.type === "consultation" || payment.type === "placement_test") && !payment.user;
   const user = isGuest
     ? { name: payment.guestName, email: payment.guestEmail }
     : await getAuthModel().findById(payment.user, "name email").lean();
@@ -196,6 +223,8 @@ async function notifyPaymentSucceeded(payment) {
     itemLabel = plan?.name || "your membership";
   } else if (payment.type === "consultation") {
     itemLabel = "Consultation booking";
+  } else if (payment.type === "placement_test") {
+    itemLabel = "Spanish level test result";
   }
 
   // 🔒 createNotification بتحتاج user ObjectId فعلي (بتترتبط بحساب مسجّل

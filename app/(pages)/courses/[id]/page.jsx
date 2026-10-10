@@ -622,6 +622,8 @@ function RealCourseDetail({ id }) {
 
   const isOwner = session?.user?.id && course.teacher === session.user.id;
   const coursePriceInfo = getPriceForCurrency(course.prices, language);
+  // 🆕 كورس إسباني تحت Language → زرار اختبار المستوى (/spanish-test) جمب السعر
+  const isSpanishCourse = course.categorySlug === "language" && course.language === "es";
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
@@ -686,9 +688,20 @@ function RealCourseDetail({ id }) {
                 )}
               </div>
               <div className="p-5">
-                <p className="text-2xl font-black mb-4">
-                  {course.isFree ? t.free : formatPrice(coursePriceInfo.amount, coursePriceInfo.currency, language)}
-                </p>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <p className="text-2xl font-black">
+                    {course.isFree ? t.free : formatPrice(coursePriceInfo.amount, coursePriceInfo.currency, language)}
+                  </p>
+                  {isSpanishCourse && (
+                    <Link
+                      href="/spanish-test"
+                      target="_blank"
+                      className="inline-flex items-center border border-[#003A91]/30 text-[#003A91] text-xs font-bold px-3 py-2 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
+                    >
+                      {t.levelTestTitle}
+                    </Link>
+                  )}
+                </div>
 
                 {isOwner ? (
                   <Link href={`/teacher/courses/${course.id}`}
@@ -882,7 +895,7 @@ function RealCourseDetail({ id }) {
             إسباني مثلًا — فمش منطقي نستخدم نفس الـ quiz لكل دورات اللغة).
             ظاهر لأي زائر (مش لازم يكون مسجّل دخول أو مشترك) لأن الهدف إنه
             يساعده يقرر يبدأ الدورة منين قبل حتى ما يشترك. */}
-        {course.categorySlug === "language" && course.classMarkerQuizId && (
+        {course.categorySlug === "language" && course.classMarkerQuizId && !isSpanishCourse && (
           <LevelTestSection quizId={course.classMarkerQuizId} session={session} t={t} />
         )}
       </section>

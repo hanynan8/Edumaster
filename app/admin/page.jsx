@@ -26,6 +26,8 @@ import ContactAdmin from './components/(editcomponents)/contact';
 import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
 import ConsultationsAdmin from './components/consultationsPanel';
+// 🆕 نتائج اختبار تحديد المستوى (إسباني) + بيانات صاحب الاختبار وحالة الدفع
+import PlacementTestsAdmin from './components/placementTestsPanel';
 // 🆕 طلبات نموذج "طلب ترجمة" ونموذج "التسجيل في برنامج اللغة الإنجليزية"
 // (شوف app/components/translation و app/components/englishProgram)
 import TranslationRequestsAdmin from './components/translationRequestsPanel';
@@ -142,6 +144,7 @@ const SIDEBAR_GROUPS = [
       { id: 'users',            name: 'Users',            icon: Users, component: UsersAdmin },
       { id: 'form_submissions', name: 'Form Submissions', icon: Inbox, component: FormSubmissionsAdmin },
       { id: 'consultations',    name: 'Consultations',    icon: CalendarClock, component: ConsultationsAdmin },
+      { id: 'placement_tests',   name: 'Spanish Test Results', icon: GraduationCap, component: PlacementTestsAdmin },
       // 🆕 طلبات نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
       // (بتظهر في صفحة الخدمات والهوم لوج-إن ولوج-أوت)
       { id: 'translation_requests',    name: 'Translation Requests',     icon: Languages,      component: TranslationRequestsAdmin },

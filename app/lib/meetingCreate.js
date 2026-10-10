@@ -20,6 +20,7 @@ import { isDailyConfigured, createDailyRoom, deleteDailyRoom } from "@/app/lib/d
 import { createNotificationsForUsers } from "@/app/lib/notificationHelpers";
 import { sendMeetingInviteEmails } from "@/app/lib/emailHelpers";
 import { parseInvitedEmails } from "@/app/lib/meetingInvites";
+import { formatMeetingWhen } from "@/app/lib/meetingTime";
 import {
   expandRecurrence,
   normalizeRecurrence,
@@ -264,7 +265,7 @@ export async function sendInvitations({
         await createNotificationsForUsers(userIds, {
           type: "meeting_scheduled",
           title: `تمت دعوتك لمحاضرة مباشرة: ${firstMeeting.title}`,
-          message: `${new Date(firstMeeting.scheduledAt).toLocaleString("ar-EG")}${
+          message: `${formatMeetingWhen(firstMeeting.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
             occurrences > 1 ? ` — سلسلة من ${occurrences} محاضرات` : ""
           }`,
           link: "/meet",
@@ -283,6 +284,7 @@ export async function sendInvitations({
       durationMinutes: firstMeeting.durationMinutes,
       courseTitle,
       occurrences,
+      timeZone: recurrenceRule?.timeZone,
       recurrenceLabel: recurrenceRule ? describeRecurrence(recurrenceRule, "en") : "",
     });
     return { emailed };

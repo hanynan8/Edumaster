@@ -9,6 +9,7 @@
 // (جلسة عامة). بنستبعد اللي عمل التغيير.
 
 import { getAuthModel } from "@/app/lib/mongodb";
+import { formatMeetingWhen } from "@/app/lib/meetingTime";
 import {
   createNotificationsForUsers,
   getEnrolledUserIds,
@@ -43,7 +44,11 @@ export async function notifyMeetingChange({ meeting, kind, actorId, count = 1 })
     const recipients = await getMeetingRecipientIds(meeting, { excludeUserId: actorId });
     if (recipients.length === 0) return 0;
 
-    const when = new Date(meeting.scheduledAt).toLocaleString("ar-EG");
+    const when = formatMeetingWhen(meeting.scheduledAt, {
+      locale: "ar-EG",
+      timeZone: meeting.recurrence?.timeZone,
+      withZoneName: true,
+    });
     const many = count > 1;
     const title =
       kind === "cancelled"

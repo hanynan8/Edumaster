@@ -170,6 +170,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   const modalRef = useRef(null);
   const callFrameRef = useRef(null);
   const previewStreamRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const [status, setStatus] = useState("precheck");
   const [error, setError] = useState("");
@@ -228,6 +229,11 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
   // غير أي تفسير — دلوقتي بنطلب الإذن بنفسنا الأول ونوري نتيجة واضحة
   // (preview لو نجح، أو رسالة + خيارات لو اترفض) قبل ما نكمل للاتصال.
   const runDeviceCheck = useCallback(async () => {
+    // 🔧 نقفل أي stream قديم الأول (retry / StrictMode) وإلا الكاميرا كانت بتفضل مفتوحة.
+    if (previewStreamRef.current) {
+      previewStreamRef.current.getTracks().forEach((tr) => tr.stop());
+      previewStreamRef.current = null;
+    }
     setDeviceCheck({ status: "checking", hasCamera: true, hasMic: true });
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       // متصفح مش داعم getUserMedia أصلًا (نادر) — منسمحش نمنع الدخول
@@ -237,6 +243,10 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        return;
+      }
       previewStreamRef.current = stream;
       setDeviceCheck({ status: "granted", hasCamera: true, hasMic: true });
     } catch (err) {
@@ -257,7 +267,20 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status === "precheck"]);
 
-  useEffect(() => stopPreviewStream, [stopPreviewStream]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      stopPreviewStream();
+    };
+  }, [stopPreviewStream]);
+
+  // 🔧 مزامنة حالة الـ fullscreen (الضغط على Esc كان بيسيب الأيقونة غلط).
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
 
   function proceedPastDeviceCheck() {
     stopPreviewStream();
@@ -278,6 +301,7 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
     async function connect() {
       setStatus("loading");
       setError("");
+      setForbiddenReason(null);
 
       // 1) توكن دخول آمن — الفحص الحقيقي (enrollment/ownership) بيحصل هنا
       // على السيرفر، مش في الفرونت إند.
@@ -324,6 +348,15 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
       // 2) تحميل الـ SDK وعمل join فعلي بالتوكن.
       try {
         const { default: DailyIframe } = await import("@daily-co/daily-js");
+        // 🔧 Daily بترفض instance تاني لو القديم لسه بيتقفل (إعادة فتح سريعة / retry).
+        const stale = DailyIframe.getCallInstance?.();
+        if (stale) {
+          try {
+            await stale.destroy();
+          } catch {
+            // ignore
+          }
+        }
         if (cancelled || !containerRef.current) return;
 
         const callFrame = DailyIframe.createFrame(containerRef.current, {

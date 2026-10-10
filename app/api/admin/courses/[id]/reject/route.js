@@ -11,6 +11,7 @@
 // studentsCount > 0 بنرفض الحذف (كورس بالوضع ده مايفروضش يبقى فيه طلاب
 // أصلاً لأنه مش published، لكن بنتحقق دفاعيًا زي أي حذف تاني في السيستم).
 
+import { deleteMeetingsForCourse } from "@/app/lib/meetingCleanup";
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
@@ -63,6 +64,8 @@ export async function POST(request, { params }) {
       Section.deleteMany({ course: course._id }),
     ]);
     await course.deleteOne();
+    // 🔧 مسح محاضرات الكورس + غرف Daily بتاعتها.
+    await deleteMeetingsForCourse(course._id);
 
     await logAudit({
       request,

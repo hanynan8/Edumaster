@@ -29,7 +29,8 @@ import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { getAuthModel } from "@/app/lib/mongodb";
-import { sendMeetingScheduledEmail } from "@/app/lib/emailHelpers";
+import { sendMeetingScheduledEmails } from "@/app/lib/emailHelpers";
+import { formatMeetingWhen } from "@/app/lib/meetingTime";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
 import { createMeetingOrSeries, sendInvitations } from "@/app/lib/meetingCreate";
 import { describeRecurrence } from "@/app/lib/meetingRecurrence";
@@ -123,7 +124,7 @@ export async function POST(request, { params }) {
         title: isSeries
           ? `سلسلة محاضرات مباشرة جديدة في دورة ${course.title}`
           : `محاضرة مباشرة جديدة في دورة ${course.title}`,
-        message: `${first.title} — ${first.scheduledAt.toLocaleString("ar-EG")}${
+        message: `${first.title} — ${formatMeetingWhen(first.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
           isSeries ? ` (${meetings.length} محاضرات، ${describeRecurrence(recurrenceRule, "ar")})` : ""
         }`,
         link: "/meet",
@@ -136,18 +137,25 @@ export async function POST(request, { params }) {
       // بالكامل ومش بيوقف استجابة الـ API لو فشل.
       const AuthModel = getAuthModel();
       const users = await AuthModel.find({ _id: { $in: enrolledUserIds } }, "name email").lean();
-      for (const user of users) {
-        if (!user.email) continue;
-        notifiedEmails.add(String(user.email).toLowerCase());
-        sendMeetingScheduledEmail({
-          toEmail: user.email,
-          name: user.name || "Student",
-          courseTitle: course.title,
-          meetingTitle: first.title,
-          scheduledAt: first.scheduledAt,
-          occurrences: meetings.length,
-          recurrenceLabel: recurrenceRule ? describeRecurrence(recurrenceRule, "en") : "",
-        }).catch((err) => console.error("[/api/courses/[id]/meetings] sendMeetingScheduledEmail failed:", err));
+      const recipients = users.filter((u) => u.email);
+      for (const u of recipients) notifiedEmails.add(String(u.email).toLowerCase());
+      // 🔧 كان بيتبعت إيميل لكل طالب بدون await — على الاستضافات serverless الـ function
+      // بتقف بعد الرد فالإيميلات كانت بتضيع، والنداءات المتزامنة بتعدّي حد Resend.
+      // دلوقتي Batch API واحد + await (best-effort: الفشل ماوقفش الإنشاء).
+      try {
+        await sendMeetingScheduledEmails(
+          recipients.map((u) => ({ toEmail: u.email, name: u.name })),
+          {
+            courseTitle: course.title,
+            meetingTitle: first.title,
+            scheduledAt: first.scheduledAt,
+            occurrences: meetings.length,
+            recurrenceLabel: recurrenceRule ? describeRecurrence(recurrenceRule, "en") : "",
+            timeZone: recurrenceRule?.timeZone,
+          }
+        );
+      } catch (err) {
+        console.error("[/api/courses/[id]/meetings] sendMeetingScheduledEmails failed:", err);
       }
     }
 

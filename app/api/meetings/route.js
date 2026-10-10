@@ -31,6 +31,7 @@ import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
 import { createMeetingOrSeries, sendInvitations } from "@/app/lib/meetingCreate";
+import { formatMeetingWhen } from "@/app/lib/meetingTime";
 
 // 🆕 دعوة عدد كبير من المستخدمين = إيميلات كتير (Resend batch) — نرفع حد وقت
 // التنفيذ على Vercel (بيتجاهل لو الاستضافة مش Vercel).
@@ -134,7 +135,7 @@ export async function POST(request) {
       await createNotificationsForUsers(allUserIds, {
         type: "meeting_scheduled",
         title: meetings.length > 1 ? "سلسلة محاضرات مباشرة جديدة للجميع" : "محاضرة مباشرة جديدة للجميع",
-        message: `${first.title} — ${first.scheduledAt.toLocaleString("ar-EG")}${
+        message: `${first.title} — ${formatMeetingWhen(first.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
           meetings.length > 1 ? ` (${meetings.length} محاضرات)` : ""
         }`,
         link: "/meet",

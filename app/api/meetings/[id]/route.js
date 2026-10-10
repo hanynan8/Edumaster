@@ -103,7 +103,12 @@ export async function PUT(request, { params }) {
       if (Number.isNaN(newScheduledAt.getTime())) return jsonResponse({ error: "invalid_scheduled_at" }, 400);
       // 🕐 الواجهة بتبعت scheduledAt دايمًا (حتى لو المدرس عدّل العنوان بس) — فالرفض
       // بيتم بس لو الموعد اتغيّر فعلًا لوقت في الماضي، مش لمجرد إن المحاضرة قديمة.
-      if (newScheduledAt.getTime() !== meeting.scheduledAt.getTime() && isInPast(newScheduledAt)) {
+      // 🔧 الفورم بيقصّ الموعد لأقرب دقيقة (datetime-local) — فمحاضرة موعدها فيه ثواني/ms
+      // كان تعديل عنوانها بس بيتحسب "تغيير موعد" (إشعار للطلاب + تحديث غرفة Daily).
+      // فرق أقل من دقيقة = من غير تغيير.
+      if (Math.abs(newScheduledAt.getTime() - meeting.scheduledAt.getTime()) < 60_000) {
+        newScheduledAt = undefined;
+      } else if (isInPast(newScheduledAt)) {
         return jsonResponse({ error: "scheduled_in_past" }, 400);
       }
     }

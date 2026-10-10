@@ -81,18 +81,20 @@ export async function POST(request) {
 
     await connectToMongo();
     const Meeting = getMeetingModel();
-    const meeting = await Meeting.findOne({ dailyRoomName: roomName });
+    const meeting = await Meeting.findOne({ dailyRoomName: roomName }, "_id").lean();
     if (!meeting) {
       // ممكن الغرفة اتمسحت من عندنا لكن Daily لسه بتبعت webhook قديم —
       // مش خطأ حقيقي، بنتجاهل بهدوء.
       return jsonResponse({ ignored: true, reason: "meeting_not_found" });
     }
 
-    const alreadyLinked = meeting.recordings.some((r) => r.dailyRecordingId === recordingId);
-    if (!alreadyLinked) {
-      meeting.recordings.push({ dailyRecordingId: recordingId, durationSeconds });
-      await meeting.save();
-    }
+    // 🔧 إضافة ذرّية: Daily بتعيد إرسال الـ webhook، ولو وصلوا متزامنين الفحص القديم
+    // (some → push → save) كان بيضيف نفس التسجيل مرتين. الشرط $ne جوه الاستعلام نفسه
+    // بيمنع التكرار حتى مع طلبين في نفس اللحظة.
+    await Meeting.updateOne(
+      { _id: meeting._id, "recordings.dailyRecordingId": { $ne: recordingId } },
+      { $push: { recordings: { dailyRecordingId: recordingId, durationSeconds, createdAt: new Date() } } }
+    );
 
     return jsonResponse({ success: true });
   } catch (err) {

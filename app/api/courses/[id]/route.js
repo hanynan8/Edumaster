@@ -3,6 +3,7 @@
 // GET: عام لو الكورس published، وإلا صاحب الكورس/أدمن بس (عشان مدرس تاني
 // أو زائر ميشوفش كورس لسه draft). PUT/DELETE: صاحب الكورس أو أدمن بس.
 
+import { deleteMeetingsForCourse } from "@/app/lib/meetingCleanup";
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
@@ -389,6 +390,9 @@ export async function DELETE(request, { params }) {
         return jsonResponse({ error: "delete_failed" }, 500);
       }
     }
+
+    // 🔧 مسح محاضرات الكورس + غرف Daily بتاعتها (كانت بتفضل يتيمة).
+    await deleteMeetingsForCourse(course._id);
 
     return jsonResponse({ success: true });
   } catch (err) {

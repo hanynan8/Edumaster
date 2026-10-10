@@ -11,6 +11,8 @@
 // في الـ console بس وبنكمل عادي. الإشعار الداخلي (notificationHelpers.js)
 // هو مصدر الحقيقة الأساسي؛ الإيميل طبقة إضافية بس.
 
+import { formatMeetingWhen } from "@/app/lib/meetingTime";
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumaster365.com";
 
@@ -125,17 +127,16 @@ export async function sendMembershipExpiringEmail({ toEmail, name, planName, exp
  * الهدف: طالب مش فاتح الموقع وقت الإضافة ميفوّتش المحاضرة تمامًا (الإشعار
  * الداخلي في NotificationBell محتاج الموقع يكون مفتوح أو يتفتح لاحقًا).
  */
-export async function sendMeetingScheduledEmail({
-  toEmail,
+function buildMeetingScheduledEmail({
   name,
   courseTitle,
   meetingTitle,
   scheduledAt,
-  // 🆕 اختياريين للمحاضرات المتكررة — إيميل واحد للسلسلة كلها بدل إيميل لكل محاضرة.
   recurrenceLabel = "",
   occurrences = 0,
+  timeZone,
 }) {
-  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const when = formatMeetingWhen(scheduledAt, { locale: "en-US", timeZone, withZoneName: true });
   const seriesLine =
     occurrences > 1
       ? `<p style="font-size:13px;color:#475569;margin:6px 0 0 0;">Repeats <strong>${escapeHtml(recurrenceLabel)}</strong> — ${occurrences} lectures in total.</p>`
@@ -146,17 +147,28 @@ export async function sendMeetingScheduledEmail({
     </p>
     <div style="background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
       <p style="font-size:13px;color:#475569;margin:0 0 6px 0;">${escapeHtml(meetingTitle)}</p>
-      <p style="font-size:13px;color:#475569;margin:0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${when}</strong></p>
+      <p style="font-size:13px;color:#475569;margin:0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${escapeHtml(when)}</strong></p>
       ${seriesLine}
     </div>
     <p style="font-size:12px;color:#94a3b8;margin:0;">Join from the Live Lectures page in your EduMaster account when it starts.</p>
   `;
-  return sendTemplatedEmail({
-    to: toEmail,
+  return {
     subject: `New live lecture: ${meetingTitle}`,
     heading: "New Live Lecture Scheduled",
     bodyHtml,
-  });
+  };
+}
+
+export async function sendMeetingScheduledEmail({ toEmail, ...rest }) {
+  return sendTemplatedEmail({ to: toEmail, ...buildMeetingScheduledEmail(rest) });
+}
+
+/** 🔧 إرسال جماعي عبر Resend Batch (بدل نداء لكل طالب بدون await → كان بيتعمله rate-limit/بيتقطع). */
+export async function sendMeetingScheduledEmails(recipients, common) {
+  const messages = (recipients || [])
+    .filter((r) => r?.toEmail)
+    .map((r) => ({ to: r.toEmail, ...buildMeetingScheduledEmail({ ...common, name: r.name || "Student" }) }));
+  return sendTemplatedEmailBatch(messages);
 }
 
 /**
@@ -164,22 +176,34 @@ export async function sendMeetingScheduledEmail({
  * app/api/cron/meeting-reminders/route.js. مكمّل للإشعار الداخلي، مش بديل
  * عنه — طالب مش فاتح تاب الموقع أصلًا مش هيشوف جرس الإشعارات.
  */
-export async function sendMeetingReminderEmail({ toEmail, name, courseTitle, meetingTitle, scheduledAt, minutesLeft }) {
-  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+function buildMeetingReminderEmail({ name, courseTitle, meetingTitle, scheduledAt, minutesLeft, timeZone }) {
+  const when = formatMeetingWhen(scheduledAt, { locale: "en-US", timeZone, withZoneName: true });
   const bodyHtml = `
     <p style="font-size:14px;color:#64748b;margin:0 0 20px 0;">
       Hi ${escapeHtml(name)}, your live lecture <strong>${escapeHtml(meetingTitle)}</strong>
       (${escapeHtml(courseTitle)}) starts in about ${minutesLeft} minutes.
     </p>
-    <p style="font-size:13px;color:#475569;margin:0;">Scheduled for: <strong>${when}</strong></p>
+    <p style="font-size:13px;color:#475569;margin:0;">Scheduled for: <strong>${escapeHtml(when)}</strong></p>
   `;
-  return sendTemplatedEmail({
-    to: toEmail,
+  return {
     subject: `Starting soon: ${meetingTitle}`,
     heading: "Your Live Lecture Starts Soon",
     bodyHtml,
-  });
+  };
 }
+
+export async function sendMeetingReminderEmail({ toEmail, ...rest }) {
+  return sendTemplatedEmail({ to: toEmail, ...buildMeetingReminderEmail(rest) });
+}
+
+/** 🔧 تذكيرات جماعية عبر Resend Batch (الـ cron). بيرجّع عدد الإيميلات المقبولة. */
+export async function sendMeetingReminderEmails(recipients, common) {
+  const messages = (recipients || [])
+    .filter((r) => r?.toEmail)
+    .map((r) => ({ to: r.toEmail, ...buildMeetingReminderEmail({ ...common, name: r.name || "Student" }) }));
+  return sendTemplatedEmailBatch(messages);
+}
+
 /**
  * 🆕 إرسال إيميلات كتير دفعة واحدة عن طريق Resend Batch API
  * (POST /emails/batch — لحد 100 إيميل في الطلب الواحد) بدل طلب لكل إيميل.
@@ -235,8 +259,9 @@ function buildMeetingInviteEmail({
   courseTitle = "",
   recurrenceLabel = "",
   occurrences = 0,
+  timeZone,
 }) {
-  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+  const when = formatMeetingWhen(scheduledAt, { locale: "en-US", timeZone, dateStyle: "full", withZoneName: true });
   const baseUrl = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   const meetUrl = baseUrl ? `${baseUrl}/meet` : "";
   const bodyHtml = `
@@ -246,7 +271,7 @@ function buildMeetingInviteEmail({
     <div style="background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
       <p style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 6px 0;">${escapeHtml(meetingTitle)}</p>
       ${description ? `<p style="font-size:13px;color:#475569;margin:0 0 6px 0;">${escapeHtml(description)}</p>` : ""}
-      <p style="font-size:13px;color:#475569;margin:0 0 4px 0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${when}</strong></p>
+      <p style="font-size:13px;color:#475569;margin:0 0 4px 0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${escapeHtml(when)}</strong></p>
       <p style="font-size:13px;color:#475569;margin:0;">Duration: <strong>${Number(durationMinutes) || 60} min</strong></p>
       ${
         occurrences > 1

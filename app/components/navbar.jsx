@@ -10,6 +10,7 @@ import { signOut, useSession } from "next-auth/react";
 const AuthModal = dynamic(() => import("./auth/authModel"), { ssr: false });
 import NotificationBell from "./NotificationBell";
 import { useCollectionDoc } from "@/app/lib/useCollection";
+import { serviceCardHref } from "@/app/lib/serviceUtils";
 
 /* ═══════════════════════════════════════════════════════
    هذا الملف ناتج عن دمج navbar.jsx + NavUi.jsx في ملف واحد:
@@ -358,7 +359,9 @@ function useServicesForDropdown(language) {
       return {
         anchorId: slugifyServiceId(svc.id),
         title: countryItem ? (countryItem.titles[language] ?? countryItem.titles.en) : title,
-        pageHref: countryItem ? `/countries/${countryItem.id}` : null,
+        // 🆕 نفس لينك كارت الخدمة في الهوم بالظبط (serviceCardHref):
+        // /countries/<id> لـ Spain/Romania، وإلا الصفحة التفصيلية /services/<slug>
+        pageHref: serviceCardHref({ id: svc.id, title }),
       };
     });
 }
@@ -544,7 +547,7 @@ function ServicesNavItem({ label, href, services }) {
           {services.map((svc) => (
             <Link prefetch={true}
               key={svc.anchorId}
-              href={svc.pageHref ?? `${href}#${svc.anchorId}`}
+              href={svc.pageHref}
               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
             >
               {svc.title}

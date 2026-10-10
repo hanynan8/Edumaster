@@ -111,6 +111,7 @@ const STRINGS = {
     submit: "إرسال الطلب",
     submitting: "جارٍ الإرسال...",
     required: "* حقل مطلوب",
+    requiredLegend: "حقل مطلوب",
     fillRequired: "من فضلك أكمل الحقول المطلوبة المميّزة باللون الأحمر",
     successTitle: "تم استلام طلبك بنجاح!",
     successDesc: "سنتواصل معك قريبًا لتأكيد الموعد. أكمل الدفع أدناه لتأكيد الحجز.",
@@ -197,6 +198,7 @@ const STRINGS = {
     submit: "Submit request",
     submitting: "Submitting...",
     required: "* Required field",
+    requiredLegend: "Required Field",
     fillRequired: "Please complete the required fields highlighted in red",
     successTitle: "Your request was received!",
     successDesc: "We'll contact you soon to confirm the appointment. Complete the payment below to confirm your booking.",
@@ -571,6 +573,10 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
             {t.zoomLabel}
           </span>
         </div>
+        {/* 🆕 توضيح معنى العلامة: (* Required Field) — كل الحقول إجبارية ما عدا "Additional Information" */}
+        <p className="mt-3 text-xs font-semibold text-gray-500">
+          (<span className="text-red-500 font-bold">*</span> {t.requiredLegend})
+        </p>
       </div>
 
       <Section title={t.sections.personal} hasError={sectionHasError("personal")} defaultOpen>

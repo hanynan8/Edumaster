@@ -13,11 +13,12 @@
 // الحماية: middleware.js بيحمي المسار ده لأي مستخدم مسجل دخول (أي role)،
 // والفحص هنا طبقة UX إضافية بس (شاشة تحميل/رفض واضحة) زي باقي الصفحات.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DailyMeetingModal from "@/app/components/DailyMeetingModal";
 import { resolvePhase, isPresenceCheckCandidate } from "@/app/lib/meetingPhase";
+import { expandRecurrence, MAX_OCCURRENCES } from "@/app/lib/meetingRecurrence";
 import {
   Video,
   Plus,
@@ -35,6 +36,9 @@ import {
   ArrowRight,
   Radio,
   Film,
+  Repeat,
+  Mail,
+  Search,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -101,6 +105,46 @@ const T = {
     ended: "Ended",
     noLiveNow: "No lecture is live right now.",
     noUpcoming: "No upcoming lectures scheduled.",
+    invitedLabel: "Invite people (optional)",
+    invitedHelper: "Only people registered on the platform. Everyone you select gets an email invitation and an in-site notification, and can join from Live Lectures. No limit on the number of invitees.",
+    pickerAdd: "Add people",
+    pickerClose: "Done",
+    pickerSearch: "Search by name or email...",
+    pickerNoResults: "No users found",
+    pickerSelectAll: "Select all shown",
+    pickerClear: "Clear all",
+    pickerLoadMore: "Load more",
+    pickerSelected: (n) => `${n} selected`,
+    errUnknownEmails: (list) => `Not registered on the platform: ${list}`,
+    repeatLabel: "Repeat",
+    repeatNone: "Does not repeat",
+    repeatDaily: "Daily",
+    repeatWeekly: "Weekly",
+    repeatMonthly: "Monthly",
+    everyLabel: "Every",
+    unitDay: "day(s)",
+    unitWeek: "week(s)",
+    unitMonth: "month(s)",
+    onDaysLabel: "On",
+    endsLabel: "Ends",
+    endAfterCount: "After a number of lectures",
+    endOnDate: "On a date",
+    countLabel: "Number of lectures",
+    untilLabel: "Last date",
+    untilRequired: "Choose the date the repetition ends",
+    repeatPreview: (n, first, last) => `${n} lectures: ${first} → ${last}`,
+    recurringBadge: "Recurring",
+    invitedCount: (n) => `${n} invited`,
+    applyToLabel: "Apply changes to",
+    scopeSingle: "This lecture only",
+    scopeFollowing: "This and following lectures",
+    deleteSeriesTitle: "Delete a recurring lecture",
+    deleteSeriesHelp: (title) => `"${title}" is part of a recurring series. What do you want to delete?`,
+    deleteSingleBtn: "This lecture only",
+    deleteFollowingBtn: "This and following lectures",
+    errInvalidEmails: (list) => `Invalid email address: ${list}`,
+    errInvalidRecurrence: "The repeat settings are not valid",
+    errTooManyOccurrences: `Too many lectures — the maximum is ${MAX_OCCURRENCES}, within one year`,
   },
   ar: {
     noAccess: "لا تملك صلاحية الوصول",
@@ -160,6 +204,46 @@ const T = {
     ended: "انتهت",
     noLiveNow: "لا توجد محاضرة جارية الآن.",
     noUpcoming: "لا توجد محاضرات قادمة مجدولة.",
+    invitedLabel: "دعوة أشخاص (اختياري)",
+    invitedHelper: "مستخدمو الموقع المسجّلون فقط. كل من تختاره يصله إيميل دعوة وإشعار داخل الموقع بدعوته للميتنج، ويقدر ينضم من صفحة المحاضرات المباشرة. لا يوجد حد أقصى لعدد المدعوين.",
+    pickerAdd: "إضافة أشخاص",
+    pickerClose: "تم",
+    pickerSearch: "ابحث بالاسم أو الإيميل...",
+    pickerNoResults: "لا يوجد مستخدمون",
+    pickerSelectAll: "تحديد كل المعروض",
+    pickerClear: "مسح الكل",
+    pickerLoadMore: "عرض المزيد",
+    pickerSelected: (n) => `${n} مختار`,
+    errUnknownEmails: (list) => `غير مسجّلين في الموقع: ${list}`,
+    repeatLabel: "التكرار",
+    repeatNone: "لا يتكرر",
+    repeatDaily: "يوميًا",
+    repeatWeekly: "أسبوعيًا",
+    repeatMonthly: "شهريًا",
+    everyLabel: "كل",
+    unitDay: "يوم",
+    unitWeek: "أسبوع",
+    unitMonth: "شهر",
+    onDaysLabel: "في أيام",
+    endsLabel: "ينتهي",
+    endAfterCount: "بعد عدد من المحاضرات",
+    endOnDate: "في تاريخ محدد",
+    countLabel: "عدد المحاضرات",
+    untilLabel: "آخر تاريخ",
+    untilRequired: "اختر تاريخ انتهاء التكرار",
+    repeatPreview: (n, first, last) => `${n} محاضرات: ${first} ← ${last}`,
+    recurringBadge: "متكررة",
+    invitedCount: (n) => `${n} مدعو`,
+    applyToLabel: "تطبيق التعديلات على",
+    scopeSingle: "هذه المحاضرة فقط",
+    scopeFollowing: "هذه المحاضرة والمحاضرات التالية",
+    deleteSeriesTitle: "حذف محاضرة متكررة",
+    deleteSeriesHelp: (title) => `"${title}" جزء من سلسلة محاضرات متكررة. ماذا تريد أن تحذف؟`,
+    deleteSingleBtn: "هذه المحاضرة فقط",
+    deleteFollowingBtn: "هذه المحاضرة والمحاضرات التالية",
+    errInvalidEmails: (list) => `عنوان بريد إلكتروني غير صالح: ${list}`,
+    errInvalidRecurrence: "إعدادات التكرار غير صالحة",
+    errTooManyOccurrences: `عدد المحاضرات كبير جدًا — الحد الأقصى ${MAX_OCCURRENCES} خلال سنة واحدة`,
   },
   es: {
     noAccess: "Sin acceso",
@@ -219,6 +303,46 @@ const T = {
     ended: "Finalizadas",
     noLiveNow: "No hay ninguna clase en vivo ahora mismo.",
     noUpcoming: "No hay próximas clases programadas.",
+    invitedLabel: "Invitar personas (opcional)",
+    invitedHelper: "Solo personas registradas en la plataforma. Todos los que selecciones reciben una invitación por correo y una notificación en el sitio, y pueden unirse desde Clases en vivo. Sin límite de invitados.",
+    pickerAdd: "Agregar personas",
+    pickerClose: "Listo",
+    pickerSearch: "Buscar por nombre o correo...",
+    pickerNoResults: "No se encontraron usuarios",
+    pickerSelectAll: "Seleccionar todos los mostrados",
+    pickerClear: "Borrar todo",
+    pickerLoadMore: "Cargar más",
+    pickerSelected: (n) => `${n} seleccionados`,
+    errUnknownEmails: (list) => `No registrados en la plataforma: ${list}`,
+    repeatLabel: "Repetir",
+    repeatNone: "No se repite",
+    repeatDaily: "Diariamente",
+    repeatWeekly: "Semanalmente",
+    repeatMonthly: "Mensualmente",
+    everyLabel: "Cada",
+    unitDay: "día(s)",
+    unitWeek: "semana(s)",
+    unitMonth: "mes(es)",
+    onDaysLabel: "Los días",
+    endsLabel: "Termina",
+    endAfterCount: "Después de un número de clases",
+    endOnDate: "En una fecha",
+    countLabel: "Número de clases",
+    untilLabel: "Última fecha",
+    untilRequired: "Elige la fecha en que termina la repetición",
+    repeatPreview: (n, first, last) => `${n} clases: ${first} → ${last}`,
+    recurringBadge: "Recurrente",
+    invitedCount: (n) => `${n} invitados`,
+    applyToLabel: "Aplicar cambios a",
+    scopeSingle: "Solo esta clase",
+    scopeFollowing: "Esta y las siguientes clases",
+    deleteSeriesTitle: "Eliminar una clase recurrente",
+    deleteSeriesHelp: (title) => `"${title}" forma parte de una serie recurrente. ¿Qué quieres eliminar?`,
+    deleteSingleBtn: "Solo esta clase",
+    deleteFollowingBtn: "Esta y las siguientes clases",
+    errInvalidEmails: (list) => `Correo electrónico no válido: ${list}`,
+    errInvalidRecurrence: "La configuración de repetición no es válida",
+    errTooManyOccurrences: `Demasiadas clases — el máximo es ${MAX_OCCURRENCES}, dentro de un año`,
   },
 };
 
@@ -322,14 +446,184 @@ function getSaveErrorMessages(t) {
     invalid_scheduled_at: t.errInvalidScheduledAt,
     forbidden: t.errForbidden,
     daily_meeting_failed: t.errDailyFailed,
+    invalid_recurrence: t.errInvalidRecurrence,
+    too_many_occurrences: t.errTooManyOccurrences,
   };
 }
 
 const GENERAL_COURSE_VALUE = "general";
 
-function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
+// 🆕 منتقي المدعوين — بيعرض مستخدمي الموقع المسجّلين بس (GET /api/meetings/invitees)
+// وبيسمح باختيار أي عدد منهم (مفيش حد أقصى). كل مدعو بيوصله إيميل دعوة عن طريق
+// Resend + إشعار داخل الموقع بعد الحفظ. القائمة بتتحمّل على دفعات (بحث + "عرض المزيد")،
+// و"تحديد كل المعروض" بيضيف الدفعة الظاهرة قدامك.
+function InviteePicker({ selected, onChange, t }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const requestId = useRef(0);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+  const load = useCallback(async (q, skip) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30`);
+      const data = await res.json().catch(() => ({}));
+      if (id !== requestId.current) return; // رد قديم — اتجاهله
+      const users = Array.isArray(data?.users) ? data.users : [];
+      setResults((prev) => (skip === 0 ? users : [...prev, ...users]));
+      setHasMore(Boolean(data?.hasMore));
+    } catch {
+      if (id === requestId.current && skip === 0) {
+        setResults([]);
+        setHasMore(false);
+      }
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }, []);
+
+  // بحث مع debounce بسيط، وبيشتغل بس والمنتقي مفتوح.
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => load(query.trim(), 0), 300);
+    return () => clearTimeout(timer);
+  }, [query, open, load]);
+
+  function toggle(email) {
+    onChange(selectedSet.has(email) ? selected.filter((e) => e !== email) : [...selected, email]);
+  }
+
+  function selectAllShown() {
+    const merged = new Set(selected);
+    results.forEach((u) => merged.add(u.email));
+    onChange([...merged]);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-gray-600">{t.pickerSelected(selected.length)}</span>
+        <div className="flex items-center gap-2">
+          {selected.length > 0 && (
+            <button type="button" onClick={() => onChange([])} className="text-xs text-red-500 hover:underline">
+              {t.pickerClear}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs font-semibold text-[#003A91] border border-[#003A91] rounded-lg px-3 py-1 hover:bg-[#EBEFF6]"
+          >
+            {open ? t.pickerClose : t.pickerAdd}
+          </button>
+        </div>
+      </div>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto border border-gray-200 rounded-xl p-2">
+          {selected.map((email) => (
+            <span
+              key={email}
+              className="inline-flex items-center gap-1 bg-[#EBEFF6] text-[#003A91] text-[11px] font-semibold rounded-full pl-2.5 pr-1.5 py-1 dir-ltr"
+            >
+              {email}
+              <button type="button" onClick={() => toggle(email)} className="hover:text-red-600" aria-label="remove">
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-gray-50">
+            <Search size={15} className="text-gray-400 shrink-0" />
+            <input
+              className="flex-1 bg-transparent outline-none text-sm"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.pickerSearch}
+            />
+            <button
+              type="button"
+              onClick={selectAllShown}
+              disabled={results.length === 0}
+              className="text-xs font-semibold text-[#003A91] hover:underline disabled:opacity-40 shrink-0"
+            >
+              {t.pickerSelectAll}
+            </button>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto divide-y divide-gray-100">
+            {results.map((u) => (
+              <label key={u.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" checked={selectedSet.has(u.email)} onChange={() => toggle(u.email)} />
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold text-gray-700 truncate">{u.name || u.email}</span>
+                  <span className="block text-xs text-gray-400 truncate dir-ltr text-left">{u.email}</span>
+                </span>
+                <span className="text-[10px] text-gray-400 shrink-0">{u.role}</span>
+              </label>
+            ))}
+            {loading && (
+              <div className="flex justify-center py-3">
+                <Loader size={16} className="animate-spin text-gray-400" />
+              </div>
+            )}
+            {!loading && results.length === 0 && (
+              <p className="text-center text-xs text-gray-400 py-4">{t.pickerNoResults}</p>
+            )}
+            {!loading && hasMore && (
+              <button
+                type="button"
+                onClick={() => load(query.trim(), results.length)}
+                className="w-full text-xs font-semibold text-[#003A91] py-2.5 hover:bg-gray-50"
+              >
+                {t.pickerLoadMore}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
+
+function getBrowserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+// 🔁 قاعدة التكرار اللي بتتبعت للسيرفر (وبتتحسب بيها المعاينة) — شوف
+// app/lib/meetingRecurrence.js. weekly من غير أيام مختارة = يوم أول محاضرة.
+function buildRecurrence(form, startDow) {
+  if (form.repeat === "none") return null;
+  const days = form.daysOfWeek.length > 0 ? form.daysOfWeek : [startDow];
+  return {
+    frequency: form.repeat,
+    interval: Number(form.interval) || 1,
+    daysOfWeek: form.repeat === "weekly" ? days : [],
+    endType: form.endType,
+    count: Number(form.count),
+    until: form.until,
+  };
+}
+
+function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
   const SAVE_ERROR_MESSAGES = getSaveErrorMessages(t);
   const isEdit = Boolean(meeting);
+  const isSeriesEdit = isEdit && Boolean(meeting.seriesId);
+  const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const [form, setForm] = useState({
     course: meeting?.course || courses[0]?.id || "",
     title: meeting?.title || "",
@@ -337,6 +631,17 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
     link: meeting?.link || "",
     scheduledAt: meeting ? toLocalInputValue(meeting.scheduledAt) : "",
     durationMinutes: meeting?.durationMinutes ?? 60,
+    // 🆕 المدعوين — إيميلات مستخدمين مسجّلين (بيتختاروا من InviteePicker، بدون حد أقصى).
+    invitedEmails: meeting?.invitedEmails || [],
+    // 🆕 التكرار (عند الإنشاء بس)
+    repeat: "none", // none | daily | weekly | monthly
+    interval: 1,
+    daysOfWeek: [],
+    endType: "count", // count | until
+    count: 10,
+    until: "",
+    // 🆕 نطاق التعديل لمحاضرة ضمن سلسلة
+    scope: "single", // single | following
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -344,6 +649,33 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  const startDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
+  const startValid = Boolean(startDate) && !Number.isNaN(startDate.getTime());
+  const startDow = startValid ? startDate.getDay() : 0;
+  const effectiveDays = form.daysOfWeek.length > 0 ? form.daysOfWeek : [startDow];
+
+  const weekdayLabels = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(LOCALE_MAP[language] || "en-US", { weekday: "short", timeZone: "UTC" });
+    // 2023-01-01 كان يوم أحد → 0 = الأحد زي Date.getDay().
+    return WEEKDAY_INDEXES.map((d) => fmt.format(new Date(Date.UTC(2023, 0, 1 + d))));
+  }, [language]);
+
+  function toggleDay(day) {
+    const next = effectiveDays.includes(day) ? effectiveDays.filter((d) => d !== day) : [...effectiveDays, day];
+    if (next.length === 0) return; // لازم يوم واحد على الأقل
+    update("daysOfWeek", next.sort((a, b) => a - b));
+  }
+
+  const recurrence = !isEdit ? buildRecurrence(form, startDow) : null;
+  const recurrenceKey = JSON.stringify(recurrence);
+  // معاينة فورية للمواعيد الناتجة (نفس دالة السيرفر بالظبط → مفيش اختلاف).
+  const preview = useMemo(() => {
+    if (!recurrence || !startValid) return null;
+    if (form.endType === "until" && !form.until) return null;
+    return expandRecurrence({ startDate, recurrence, timeZone });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recurrenceKey, form.scheduledAt, timeZone]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -355,6 +687,8 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
     // invalid_link واضح (شوف SAVE_ERROR_MESSAGES).
     if (!form.scheduledAt) return setError(t.scheduledRequired);
     if (!isEdit && !form.course) return setError(t.chooseCourseRequired);
+    if (recurrence && form.endType === "until" && !form.until) return setError(t.untilRequired);
+    if (preview?.error) return setError(SAVE_ERROR_MESSAGES[preview.error] || t.savedError);
 
     setSaving(true);
     try {
@@ -364,7 +698,19 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
         link: form.link.trim(),
         scheduledAt: new Date(form.scheduledAt).toISOString(),
         durationMinutes: Number(form.durationMinutes) || 60,
+        invitedEmails: form.invitedEmails,
+        timeZone,
       };
+
+      if (isEdit) {
+        // 🔒 اللينك بيتبعت بس لو المدرس غيّره فعلًا — وإلا تعديل "هذه والتالية"
+        // كان ممكن يطبّق لينك الغرفة دي على باقي السلسلة (شوف PUT في
+        // app/api/meetings/[id]/route.js).
+        if (payload.link === meeting.link) delete payload.link;
+        payload.scope = isSeriesEdit ? form.scope : "single";
+      } else if (recurrence) {
+        payload.recurrence = recurrence;
+      }
 
       // 🆕 "general" = جلسة عامة برا الكورسات (بتظهر لكل المسجّلين على المنصة)
       const url = isEdit
@@ -378,15 +724,32 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "save_failed");
+      if (!res.ok) {
+        const err = new Error(data?.error || "save_failed");
+        err.invalid = data?.invalid;
+        throw err;
+      }
 
+      if (data?.warning) alert(data.warning);
       onSaved();
     } catch (err) {
-      setError(SAVE_ERROR_MESSAGES[err.message] || t.savedError);
+      if (
+        (err.message === "invalid_emails" || err.message === "unknown_emails") &&
+        Array.isArray(err.invalid) &&
+        err.invalid.length > 0
+      ) {
+        const list = err.invalid.slice(0, 5).join(", ") + (err.invalid.length > 5 ? ` +${err.invalid.length - 5}` : "");
+        setError(err.message === "unknown_emails" ? t.errUnknownEmails(list) : t.errInvalidEmails(list));
+      } else {
+        setError(SAVE_ERROR_MESSAGES[err.message] || t.savedError);
+      }
     } finally {
       setSaving(false);
     }
   }
+
+  const inputCls =
+    "w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -414,7 +777,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.courseLabel}</label>
               <select
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                className={inputCls}
                 value={form.course}
                 onChange={(e) => update("course", e.target.value)}
                 required
@@ -436,7 +799,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.titleLabel}</label>
             <input
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+              className={inputCls}
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder={t.titlePlaceholder}
@@ -448,7 +811,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.descLabel}</label>
             <textarea
               rows={2}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+              className={inputCls}
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
             />
@@ -458,7 +821,7 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.linkLabel}</label>
             <input
               type="url"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4] dir-ltr text-left"
+              className={`${inputCls} dir-ltr text-left`}
               value={form.link}
               onChange={(e) => update("link", e.target.value)}
               placeholder={t.linkPlaceholder}
@@ -468,12 +831,20 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
             </p>
           </div>
 
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+              <Mail size={14} /> {t.invitedLabel}
+            </label>
+            <InviteePicker selected={form.invitedEmails} onChange={(v) => update("invitedEmails", v)} t={t} />
+            <p className="text-xs text-gray-400 mt-1.5">{t.invitedHelper}</p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.scheduledLabel}</label>
               <input
                 type="datetime-local"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                className={inputCls}
                 value={form.scheduledAt}
                 onChange={(e) => update("scheduledAt", e.target.value)}
                 required
@@ -485,12 +856,149 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
                 type="number"
                 min={5}
                 max={480}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                className={inputCls}
                 value={form.durationMinutes}
                 onChange={(e) => update("durationMinutes", e.target.value)}
               />
             </div>
           </div>
+
+          {/* 🔁 التكرار — عند الإنشاء بس (تعديل قاعدة سلسلة موجودة = احذفها وأنشئ جديدة) */}
+          {!isEdit && (
+            <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                  <Repeat size={14} /> {t.repeatLabel}
+                </label>
+                <select className={inputCls} value={form.repeat} onChange={(e) => update("repeat", e.target.value)}>
+                  <option value="none">{t.repeatNone}</option>
+                  <option value="daily">{t.repeatDaily}</option>
+                  <option value="weekly">{t.repeatWeekly}</option>
+                  <option value="monthly">{t.repeatMonthly}</option>
+                </select>
+              </div>
+
+              {form.repeat !== "none" && (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-700">{t.everyLabel}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      className="w-20 border border-gray-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                      value={form.interval}
+                      onChange={(e) => update("interval", e.target.value)}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {form.repeat === "daily" ? t.unitDay : form.repeat === "weekly" ? t.unitWeek : t.unitMonth}
+                    </span>
+                  </div>
+
+                  {form.repeat === "weekly" && (
+                    <div>
+                      <span className="block text-sm font-semibold text-gray-700 mb-1.5">{t.onDaysLabel}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {WEEKDAY_INDEXES.map((d) => {
+                          const on = effectiveDays.includes(d);
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => toggleDay(d)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                                on
+                                  ? "bg-[#003A91] text-white border-[#003A91]"
+                                  : "bg-white text-gray-600 border-gray-300 hover:border-[#5279B4]"
+                              }`}
+                            >
+                              {weekdayLabels[d]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.endsLabel}</label>
+                      <select
+                        className={inputCls}
+                        value={form.endType}
+                        onChange={(e) => update("endType", e.target.value)}
+                      >
+                        <option value="count">{t.endAfterCount}</option>
+                        <option value="until">{t.endOnDate}</option>
+                      </select>
+                    </div>
+                    <div>
+                      {form.endType === "count" ? (
+                        <>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.countLabel}</label>
+                          <input
+                            type="number"
+                            min={2}
+                            max={MAX_OCCURRENCES}
+                            className={inputCls}
+                            value={form.count}
+                            onChange={(e) => update("count", e.target.value)}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.untilLabel}</label>
+                          <input
+                            type="date"
+                            className={inputCls}
+                            value={form.until}
+                            onChange={(e) => update("until", e.target.value)}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {preview?.dates && preview.dates.length > 0 && (
+                    <p className="text-xs text-[#003A91] bg-[#EBEFF6] rounded-lg px-3 py-2">
+                      {t.repeatPreview(
+                        preview.dates.length,
+                        formatDateTime(preview.dates[0], language),
+                        formatDateTime(preview.dates[preview.dates.length - 1], language)
+                      )}
+                    </p>
+                  )}
+                  {preview?.error && (
+                    <p className="text-xs text-red-600">{SAVE_ERROR_MESSAGES[preview.error] || t.savedError}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 🔁 نطاق التعديل لمحاضرة ضمن سلسلة متكررة */}
+          {isSeriesEdit && (
+            <div className="rounded-xl border border-gray-200 p-4">
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+                <Repeat size={14} /> {t.applyToLabel}
+              </span>
+              {[
+                ["single", t.scopeSingle],
+                ["following", t.scopeFollowing],
+              ].map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 text-sm text-gray-700 py-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="meeting-scope"
+                    value={value}
+                    checked={form.scope === value}
+                    onChange={() => update("scope", value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
@@ -510,6 +1018,44 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// 🆕 نافذة اختيار نطاق الحذف لمحاضرة ضمن سلسلة متكررة (زي Teams).
+function DeleteScopeModal({ meeting, busy, onChoose, onClose, t }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">{t.deleteSeriesTitle}</h3>
+        <p className="text-sm text-gray-500 mb-5">{t.deleteSeriesHelp(meeting.title)}</p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onChoose("single")}
+            className="py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:border-red-400 hover:text-red-600 disabled:opacity-60"
+          >
+            {t.deleteSingleBtn}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onChoose("following")}
+            className="py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60"
+          >
+            {t.deleteFollowingBtn}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="py-2.5 rounded-xl text-gray-500 font-semibold hover:bg-gray-50"
+          >
+            {t.cancel}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -562,6 +1108,17 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
         {showTeacher && meeting.teacherName && (
           <span className="flex items-center gap-1">
             <User size={13} /> {meeting.teacherName}
+          </span>
+        )}
+        {meeting.seriesId && (
+          <span className="flex items-center gap-1 text-[#003A91]">
+            <Repeat size={13} /> {t.recurringBadge}
+            {meeting.seriesIndex ? ` #${meeting.seriesIndex}` : ""}
+          </span>
+        )}
+        {canManage && meeting.invitedCount > 0 && (
+          <span className="flex items-center gap-1">
+            <Mail size={13} /> {t.invitedCount(meeting.invitedCount)}
           </span>
         )}
       </div>
@@ -686,6 +1243,8 @@ export default function MeetPage() {
   // undefined = مقفول | null = فورم إضافة | object = فورم تعديل
   const [modalMeeting, setModalMeeting] = useState(undefined);
   const [busyId, setBusyId] = useState(null);
+  // 🆕 محاضرة ضمن سلسلة المدرس عايز يحذفها (بيفتح DeleteScopeModal) — null = مقفول.
+  const [deleteTarget, setDeleteTarget] = useState(null);
   // 🆕 الاجتماع اللي المستخدم داخل عليه دلوقتي (مضمّن جوه الموقع) — null = مفيش.
   const [joinedMeeting, setJoinedMeeting] = useState(null);
   // 🆕 tick بسيط كل 30 ثانية عشان شارة "جارية الآن/لم تبدأ بعد/خلصت" تتحدث
@@ -732,17 +1291,32 @@ export default function MeetPage() {
       .catch(() => setCourses([]));
   }, [status, role]);
 
-  async function handleDelete(meeting) {
+  // 🆕 محاضرة ضمن سلسلة متكررة → نافذة اختيار النطاق (هذه فقط / هذه والتالية)،
+  // وإلا تأكيد عادي زي الأول.
+  function handleDelete(meeting) {
+    if (meeting.seriesId) {
+      setDeleteTarget(meeting);
+      return;
+    }
     if (!confirm(t.confirmDelete(meeting.title))) return;
+    performDelete(meeting, "single");
+  }
+
+  async function performDelete(meeting, scope) {
     setBusyId(meeting.id);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/meetings/${meeting.id}${scope === "following" ? "?scope=following" : ""}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error();
-      setMeetings((prev) => prev.filter((m) => m.id !== meeting.id));
+      const removed = new Set(Array.isArray(data?.ids) && data.ids.length > 0 ? data.ids : [meeting.id]);
+      setMeetings((prev) => prev.filter((m) => !removed.has(m.id)));
     } catch {
       alert(t.deleteError);
     } finally {
       setBusyId(null);
+      setDeleteTarget(null);
     }
   }
 
@@ -898,6 +1472,17 @@ export default function MeetPage() {
           courses={courses}
           onClose={() => setModalMeeting(undefined)}
           onSaved={handleSaved}
+          t={t}
+          language={language}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteScopeModal
+          meeting={deleteTarget}
+          busy={busyId === deleteTarget.id}
+          onChoose={(scope) => performDelete(deleteTarget, scope)}
+          onClose={() => setDeleteTarget(null)}
           t={t}
         />
       )}

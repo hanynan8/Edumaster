@@ -9,6 +9,7 @@
 //   - مدرس/أدمن صاحب الاجتماع → owner token (صلاحيات تحكم كاملة في الغرفة).
 //   - طالب → لازم يكون عنده enrollment/membership فعلية على كورس الاجتماع
 //     (نفس فحص getCourseAccessForUser المستخدم لمحتوى الكورس العادي).
+//   - 🆕 مدعو بالإيميل (Meeting.invitedEmails) → بيدخل حتى لو مش طالب في الكورس.
 //   - غير كده → 403، ومفيش توكن يتولّد خالص.
 //
 // بيرجع 400 واضح لو الاجتماع source == "manual" (رابط منصة تانية، مفيش
@@ -21,6 +22,7 @@ import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createMeetingToken } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -63,17 +65,24 @@ export async function GET(request, { params }) {
     if (rl) return rl;
 
     const isManager = isOwnerOrAdmin(session, meeting.teacher);
-    // 🆕 جلسة عامة (من غير كورس): متاحة لأي مستخدم مسجّل دخول.
-    if (!isManager && meeting.course) {
-      // طالب: لازم وصول فعلي على كورس الاجتماع ده تحديدًا.
-      const Course = getCourseModel();
-      const course = await Course.findById(meeting.course, "_id").lean();
-      if (!course) return jsonResponse({ error: "not_found" }, 404);
-
-      const access = await getCourseAccessForUser({ userId: session.user.id, courseId: meeting.course });
-      // 🆕 access.reason بيدي سبب دقيق (اشتراك منتهي، enrollment اتلغى...)
-      // بدل رسالة عامة — شوف app/lib/access.js وapp/components/DailyMeetingModal.jsx.
-      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: access.reason }, 403);
+    // 🔒 فحص الدخول الموحّد (app/lib/meetingInvites.js checkMeetingAccess):
+    //   مدرس/أدمن صاحب الاجتماع، أو 🆕 مدعو بالإيميل (Meeting.invitedEmails)،
+    //   أو جلسة عامة (أي مستخدم مسجّل)، أو طالب بوصول فعلي على كورس الاجتماع.
+    //   access.reason بيدي سبب دقيق (اشتراك منتهي، enrollment اتلغى...) —
+    //   شوف app/lib/access.js وapp/components/DailyMeetingModal.jsx.
+    const Course = getCourseModel();
+    const accessCheck = await checkMeetingAccess({
+      meeting,
+      session,
+      isManager,
+      findCourse: (courseId) => Course.findById(courseId, "_id").lean(),
+      getCourseAccess: getCourseAccessForUser,
+    });
+    if (!accessCheck.allowed) {
+      return jsonResponse(
+        { error: accessCheck.error, ...(accessCheck.reason ? { reason: accessCheck.reason } : {}) },
+        accessCheck.status
+      );
     }
 
     // 🕐 نفس هامش الغرفة (ربع ساعة قبل / ساعتين بعد) — لو المستخدم بيحاول

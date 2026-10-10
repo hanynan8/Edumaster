@@ -70,6 +70,36 @@ const meetingSchema = new mongoose.Schema(
     // لسه ماتبعتش. حقل بسيط بدل موديل منفصل لتتبع الإرسال، كافي هنا لأن كل
     // اجتماع بيحتاج تذكير واحد بس.
     reminderSentAt: { type: Date, default: null },
+
+    // 🆕 المدعوين — إيميلات مستخدمين مسجّلين في الموقع (بيتختاروا من منتقي
+    // المستخدمين، ومفيش حد أقصى للعدد). يقدروا يدخلوا الاجتماع ده حتى لو مش
+    // طلاب في الكورس. بنخزّنهم lowercase (شوف app/lib/meetingInvites.js).
+    // بيتبعتلهم إيميل دعوة (Resend) + إشعار داخل الموقع وقت الإضافة.
+    invitedEmails: { type: [String], default: [] },
+
+    // 🆕 الاجتماعات المتكررة (زي Teams): كل مرة بتتحفظ كـ Meeting مستقل
+    // (غرفة Daily خاصة بيه، تذكير خاص بيه، تسجيلات خاصة بيه) وكلهم بيشتركوا
+    // في نفس seriesId. null = اجتماع عادي مش ضمن سلسلة.
+    seriesId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    // ترتيب المحاضرة جوه السلسلة (1 = الأولى) — للعرض بس.
+    seriesIndex: { type: Number, default: null },
+    // قاعدة التكرار الأصلية (للعرض والتعديل) + timeZone المتصفح اللي اتحسبت بيه
+    // المواعيد، عشان زحزحة السلسلة (PUT scope=following) تحافظ على الساعة المحلية.
+    recurrence: {
+      type: new mongoose.Schema(
+        {
+          frequency: { type: String, enum: ["daily", "weekly", "monthly"] },
+          interval: { type: Number, default: 1 },
+          daysOfWeek: { type: [Number], default: [] },
+          endType: { type: String, enum: ["count", "until"], default: "count" },
+          count: { type: Number, default: null },
+          until: { type: String, default: null },
+          timeZone: { type: String, default: "UTC" },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -77,6 +107,9 @@ const meetingSchema = new mongoose.Schema(
 // الاستعلام الأساسي: اجتماعات كورس معيّن أو مدرس معيّن، مرتبة بالمعاد.
 meetingSchema.index({ course: 1, scheduledAt: 1 });
 meetingSchema.index({ teacher: 1, scheduledAt: 1 });
+// 🆕 تعديل/حذف "هذه المحاضرة وما بعدها" في سلسلة، وعرض المدعوين لمستخدم.
+meetingSchema.index({ seriesId: 1, scheduledAt: 1 });
+meetingSchema.index({ invitedEmails: 1 });
 
 export function getMeetingModel() {
   return getOrCreateModel("meeting", meetingSchema, "meetings");

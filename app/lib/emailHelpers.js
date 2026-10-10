@@ -125,15 +125,29 @@ export async function sendMembershipExpiringEmail({ toEmail, name, planName, exp
  * الهدف: طالب مش فاتح الموقع وقت الإضافة ميفوّتش المحاضرة تمامًا (الإشعار
  * الداخلي في NotificationBell محتاج الموقع يكون مفتوح أو يتفتح لاحقًا).
  */
-export async function sendMeetingScheduledEmail({ toEmail, name, courseTitle, meetingTitle, scheduledAt }) {
+export async function sendMeetingScheduledEmail({
+  toEmail,
+  name,
+  courseTitle,
+  meetingTitle,
+  scheduledAt,
+  // 🆕 اختياريين للمحاضرات المتكررة — إيميل واحد للسلسلة كلها بدل إيميل لكل محاضرة.
+  recurrenceLabel = "",
+  occurrences = 0,
+}) {
   const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const seriesLine =
+    occurrences > 1
+      ? `<p style="font-size:13px;color:#475569;margin:6px 0 0 0;">Repeats <strong>${escapeHtml(recurrenceLabel)}</strong> — ${occurrences} lectures in total.</p>`
+      : "";
   const bodyHtml = `
     <p style="font-size:14px;color:#64748b;margin:0 0 20px 0;">
-      Hi ${escapeHtml(name)}, a new live lecture was just scheduled for <strong>${escapeHtml(courseTitle)}</strong>.
+      Hi ${escapeHtml(name)}, a new live lecture${occurrences > 1 ? " series" : ""} was just scheduled for <strong>${escapeHtml(courseTitle)}</strong>.
     </p>
     <div style="background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
       <p style="font-size:13px;color:#475569;margin:0 0 6px 0;">${escapeHtml(meetingTitle)}</p>
-      <p style="font-size:13px;color:#475569;margin:0;">When: <strong>${when}</strong></p>
+      <p style="font-size:13px;color:#475569;margin:0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${when}</strong></p>
+      ${seriesLine}
     </div>
     <p style="font-size:12px;color:#94a3b8;margin:0;">Join from the Live Lectures page in your EduMaster account when it starts.</p>
   `;
@@ -165,4 +179,108 @@ export async function sendMeetingReminderEmail({ toEmail, name, courseTitle, mee
     heading: "Your Live Lecture Starts Soon",
     bodyHtml,
   });
+}
+/**
+ * 🆕 إرسال إيميلات كتير دفعة واحدة عن طريق Resend Batch API
+ * (POST /emails/batch — لحد 100 إيميل في الطلب الواحد) بدل طلب لكل إيميل.
+ * ده اللي بيخلّي دعوة عدد كبير من المستخدمين ممكنة من غير ما نقصف Resend بآلاف
+ * الطلبات. الدفعات بتتبعت بالتتابع مع فاصل صغير بينها (حد Resend الافتراضي
+ * 2 طلب/ثانية). best-effort: دفعة فشلت بتتسجّل وبنكمل اللي بعدها.
+ * @param {{to:string, subject:string, heading:string, bodyHtml:string}[]} messages
+ * @returns {Promise<number>} عدد الإيميلات اللي اتقبلت فعلًا
+ */
+export async function sendTemplatedEmailBatch(messages) {
+  if (!messages || messages.length === 0) return 0;
+  if (!RESEND_API_KEY) {
+    console.warn(`RESEND_API_KEY not set — skipping batch of ${messages.length} emails`);
+    return 0;
+  }
+  const CHUNK = 100;
+  let sent = 0;
+  for (let i = 0; i < messages.length; i += CHUNK) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, 600));
+    const chunk = messages.slice(i, i + CHUNK);
+    try {
+      const res = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify(
+          chunk.map((m) => ({
+            from: RESEND_FROM_EMAIL,
+            to: [m.to],
+            subject: m.subject,
+            html: wrapEmailTemplate({ heading: m.heading, bodyHtml: m.bodyHtml }),
+          }))
+        ),
+      });
+      if (!res.ok) {
+        console.error("[sendTemplatedEmailBatch] Resend batch failed:", await res.text());
+        continue;
+      }
+      sent += chunk.length;
+    } catch (err) {
+      console.error("[sendTemplatedEmailBatch] error:", err);
+    }
+  }
+  return sent;
+}
+
+// نفس محتوى دعوة المحاضرة لكل المدعوين — بنبنيه مرة واحدة.
+function buildMeetingInviteEmail({
+  inviterName,
+  meetingTitle,
+  description = "",
+  scheduledAt,
+  durationMinutes,
+  courseTitle = "",
+  recurrenceLabel = "",
+  occurrences = 0,
+}) {
+  const when = new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+  const baseUrl = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const meetUrl = baseUrl ? `${baseUrl}/meet` : "";
+  const bodyHtml = `
+    <p style="font-size:14px;color:#64748b;margin:0 0 20px 0;">
+      ${escapeHtml(inviterName || "An instructor")} invited you to a live lecture${courseTitle ? ` (<strong>${escapeHtml(courseTitle)}</strong>)` : ""} on EduMaster.
+    </p>
+    <div style="background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+      <p style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 6px 0;">${escapeHtml(meetingTitle)}</p>
+      ${description ? `<p style="font-size:13px;color:#475569;margin:0 0 6px 0;">${escapeHtml(description)}</p>` : ""}
+      <p style="font-size:13px;color:#475569;margin:0 0 4px 0;">${occurrences > 1 ? "First lecture" : "When"}: <strong>${when}</strong></p>
+      <p style="font-size:13px;color:#475569;margin:0;">Duration: <strong>${Number(durationMinutes) || 60} min</strong></p>
+      ${
+        occurrences > 1
+          ? `<p style="font-size:13px;color:#475569;margin:6px 0 0 0;">Repeats <strong>${escapeHtml(recurrenceLabel)}</strong> — ${occurrences} lectures in total.</p>`
+          : ""
+      }
+    </div>
+    ${
+      meetUrl
+        ? `<p style="margin:0 0 16px 0;"><a href="${meetUrl}" style="display:inline-block;background:#003A91;color:#fff;font-size:13px;font-weight:700;text-decoration:none;padding:10px 20px;border-radius:10px;">Open Live Lectures</a></p>`
+        : ""
+    }
+    <p style="font-size:12px;color:#94a3b8;margin:0;">Log in to your EduMaster account and open Live Lectures to join when it starts.</p>
+  `;
+  return {
+    subject: `You're invited: ${meetingTitle}`,
+    heading: "You're Invited to a Live Lecture",
+    bodyHtml,
+  };
+}
+
+/**
+ * 🆕 إيميل "دعوة لحضور محاضرة" لمدعو واحد — المدعوين دايمًا مستخدمين مسجّلين
+ * في الموقع (Meeting.invitedEmails). best-effort زي باقي الإيميلات هنا.
+ */
+export async function sendMeetingInviteEmail({ toEmail, ...rest }) {
+  return sendTemplatedEmail({ to: toEmail, ...buildMeetingInviteEmail(rest) });
+}
+
+/**
+ * 🆕 دعوات لعدد كبير من المدعوين (من غير حد أقصى) — Resend Batch API، شوف
+ * sendTemplatedEmailBatch. بيرجّع عدد الإيميلات اللي اتقبلت.
+ */
+export async function sendMeetingInviteEmails(emails, payloadWithoutTo) {
+  const content = buildMeetingInviteEmail(payloadWithoutTo);
+  return sendTemplatedEmailBatch(emails.map((to) => ({ to, ...content })));
 }

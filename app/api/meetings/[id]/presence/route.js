@@ -20,6 +20,7 @@ import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { getDailyRoomPresence } from "@/app/lib/daily";
+import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -49,13 +50,20 @@ export async function GET(request, { params }) {
     const { session } = auth;
 
     const isManager = isOwnerOrAdmin(session, meeting.teacher);
-    // 🆕 جلسة عامة (من غير كورس): متاحة لأي مستخدم مسجّل دخول.
-    if (!isManager && meeting.course) {
-      const Course = getCourseModel();
-      const course = await Course.findById(meeting.course, "_id").lean();
-      if (!course) return jsonResponse({ error: "not_found" }, 404);
-      const access = await getCourseAccessForUser({ userId: session.user.id, courseId: meeting.course });
-      if (!access.hasAccess) return jsonResponse({ error: "forbidden", reason: access.reason }, 403);
+    // 🆕 نفس فحص token/route.js بالظبط (شامل المدعوين بالإيميل والجلسات العامة).
+    const Course = getCourseModel();
+    const accessCheck = await checkMeetingAccess({
+      meeting,
+      session,
+      isManager,
+      findCourse: (courseId) => Course.findById(courseId, "_id").lean(),
+      getCourseAccess: getCourseAccessForUser,
+    });
+    if (!accessCheck.allowed) {
+      return jsonResponse(
+        { error: accessCheck.error, ...(accessCheck.reason ? { reason: accessCheck.reason } : {}) },
+        accessCheck.status
+      );
     }
 
     const { count } = await getDailyRoomPresence(meeting.dailyRoomName);

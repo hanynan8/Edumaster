@@ -11,22 +11,37 @@
 
 import { getNotificationModel, getEnrollmentModel } from "@/app/lib/models";
 import { getAuthModel } from "@/app/lib/mongodb";
+import { renderNotificationText } from "@/app/lib/notificationTemplates";
+
+// 🆕 بيجهّز حقول الإشعار: لو فيه key (+ params) بنخزّنهم، وبنولّد title/message
+// عربي كـ fallback مخزَّن؛ الترجمة الفعلية بتتم وقت العرض (GET /api/notifications).
+// لو مفيش key بنستخدم title/message اللي اتبعتوا زي ما هما (السلوك القديم).
+function buildNotificationFields({ key = null, params = null, title, message = "" }) {
+  if (key) {
+    const ar = renderNotificationText(key, params, "ar");
+    if (ar) return { key, params, title: ar.title || title, message: ar.message ?? message };
+  }
+  return { key: null, params: null, title, message };
+}
 
 /**
  * إشعار لمستخدم واحد.
  * @param {object} params
  * @param {string} params.user - ID المستخدم المستقبِل
  * @param {string} params.type - أحد قيم enum في Notification model
- * @param {string} params.title
+ * @param {string} [params.key] - 🆕 اسم قالب الترجمة (notificationTemplates.js)
+ * @param {object} [params.params] - 🆕 بيانات القالب
+ * @param {string} [params.title] - مطلوب فقط لو مفيش key
  * @param {string} [params.message]
  * @param {string} [params.link] - رابط نسبي (بدون origin)، مثلاً "/courses/123"
  * @param {string} [params.course]
  */
-export async function createNotification({ user, type, title, message = "", link = null, course = null }) {
+export async function createNotification({ user, type, key = null, params = null, title, message = "", link = null, course = null }) {
   try {
-    if (!user || !type || !title) return null;
+    const fields = buildNotificationFields({ key, params, title, message });
+    if (!user || !type || !fields.title) return null;
     const Notification = getNotificationModel();
-    return await Notification.create({ user, type, title, message, link, course });
+    return await Notification.create({ user, type, ...fields, link, course });
   } catch (err) {
     console.error("[createNotification] error:", err);
     return null;
@@ -38,12 +53,14 @@ export async function createNotification({ user, type, title, message = "", link
  * المسجلين) — insertMany بدل loop من create() لتقليل round-trips للداتابيز.
  * @param {string[]} userIds
  */
-export async function createNotificationsForUsers(userIds, { type, title, message = "", link = null, course = null }) {
+export async function createNotificationsForUsers(userIds, { type, key = null, params = null, title, message = "", link = null, course = null }) {
   try {
     const uniqueIds = [...new Set((userIds || []).map((id) => id?.toString()).filter(Boolean))];
     if (uniqueIds.length === 0) return [];
+    const fields = buildNotificationFields({ key, params, title, message });
+    if (!fields.title) return [];
     const Notification = getNotificationModel();
-    const docs = uniqueIds.map((user) => ({ user, type, title, message, link, course }));
+    const docs = uniqueIds.map((user) => ({ user, type, ...fields, link, course }));
     return await Notification.insertMany(docs, { ordered: false });
   } catch (err) {
     console.error("[createNotificationsForUsers] error:", err);

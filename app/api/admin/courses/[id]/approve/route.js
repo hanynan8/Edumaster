@@ -82,8 +82,8 @@ export async function POST(request, { params }) {
       createNotification({
         user: teacherId,
         type: "course_approved",
-        title: "تمت الموافقة على دورتك",
-        message: `وافقت الإدارة على نشر دورة "${course.title}" — وأصبحت ظاهرة للطلاب الآن.`,
+        key: "course_approved",
+        params: { courseTitle: course.title },
         link: `/teacher/courses/${course._id.toString()}`,
         course: course._id,
       }).catch((err) => console.error("[/api/admin/courses/[id]/approve] notify error:", err));

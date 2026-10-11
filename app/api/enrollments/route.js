@@ -188,8 +188,8 @@ export async function POST(request) {
     await createNotification({
       user: course.teacher,
       type: "enrollment_new",
-      title: "طالب جديد سجّل في كورسك",
-      message: `${session.user.name || "طالب"} سجّل في "${course.title}"`,
+      key: "enrollment_new",
+      params: { studentName: session.user.name || "", courseTitle: course.title },
       link: `/teacher/courses/${course._id}`,
       course: course._id,
     });

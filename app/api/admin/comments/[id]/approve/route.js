@@ -66,8 +66,8 @@ export async function POST(request, { params }) {
         createNotification({
           user: askerId,
           type: "comment_reply",
-          title: "رد جديد على سؤالك",
-          message: comment.body.slice(0, 200),
+          key: "comment_reply",
+          params: { body: comment.body.slice(0, 200) },
           link: `/courses/${comment.course._id || comment.course}`,
           course: comment.course._id || comment.course,
         }).catch((err) => console.error("[/api/admin/comments/[id]/approve] notify error:", err));
@@ -78,8 +78,8 @@ export async function POST(request, { params }) {
         createNotification({
           user: teacherId,
           type: "comment_question",
-          title: `سؤال جديد على درس "${comment.lesson?.title || ""}"`,
-          message: comment.body.slice(0, 200),
+          key: "comment_question",
+          params: { lessonTitle: comment.lesson?.title || "", body: comment.body.slice(0, 200) },
           link: `/courses/${comment.course._id || comment.course}`,
           course: comment.course._id || comment.course,
         }).catch((err) => console.error("[/api/admin/comments/[id]/approve] notify error:", err));
@@ -90,8 +90,8 @@ export async function POST(request, { params }) {
     createNotification({
       user: comment.user,
       type: "comment_approved",
-      title: "تمت الموافقة على تعليقك",
-      message: "أصبح تعليقك ظاهرًا أسفل الدرس الآن.",
+      key: "comment_approved",
+      params: {},
       link: `/courses/${comment.course._id || comment.course}`,
       course: comment.course._id || comment.course,
     }).catch((err) => console.error("[/api/admin/comments/[id]/approve] notify error:", err));

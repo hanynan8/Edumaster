@@ -44,26 +44,16 @@ export async function notifyMeetingChange({ meeting, kind, actorId, count = 1 })
     const recipients = await getMeetingRecipientIds(meeting, { excludeUserId: actorId });
     if (recipients.length === 0) return 0;
 
-    const when = formatMeetingWhen(meeting.scheduledAt, {
-      locale: "ar-EG",
-      timeZone: meeting.recurrence?.timeZone,
-      withZoneName: true,
-    });
-    const many = count > 1;
-    const title =
-      kind === "cancelled"
-        ? many
-          ? `تم إلغاء ${count} محاضرات: ${meeting.title}`
-          : `تم إلغاء المحاضرة: ${meeting.title}`
-        : many
-        ? `تم تغيير موعد سلسلة المحاضرات: ${meeting.title}`
-        : `تم تغيير موعد المحاضرة: ${meeting.title}`;
-    const message = kind === "cancelled" ? `كانت في ${when}` : `الموعد الجديد: ${when}`;
-
     const created = await createNotificationsForUsers(recipients, {
       type: "meeting_scheduled",
-      title,
-      message,
+      key: "meeting_changed",
+      params: {
+        kind,
+        title: meeting.title,
+        count,
+        scheduledAt: new Date(meeting.scheduledAt).toISOString(),
+        timeZone: meeting.recurrence?.timeZone || null,
+      },
       link: "/meet",
       course: meeting.course || null,
     });

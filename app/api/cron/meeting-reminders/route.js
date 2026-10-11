@@ -60,8 +60,8 @@ async function processMeeting(meeting, AuthModel, now) {
     const allUserIds = await getAllUserIds();
     const created = await createNotificationsForUsers(allUserIds, {
       type: "meeting_scheduled",
-      title: `محاضرة "${meeting.title}" ستبدأ بعد ${minutesLeft} دقيقة`,
-      message: "جلسة مباشرة للجميع — استعد للدخول",
+      key: "meeting_reminder_public",
+      params: { title: meeting.title, minutesLeft },
       link: "/meet",
     });
     notified += created.length;
@@ -83,8 +83,8 @@ async function processMeeting(meeting, AuthModel, now) {
   const courseTitle = meeting.course?.title || "الدورة";
   const created = await createNotificationsForUsers(recipientIds, {
     type: "meeting_scheduled",
-    title: `محاضرة "${meeting.title}" ستبدأ بعد ${minutesLeft} دقيقة`,
-    message: `${courseTitle} — استعد للدخول`,
+    key: "meeting_reminder_course",
+    params: { title: meeting.title, minutesLeft, courseTitle: meeting.course?.title || "" },
     link: "/meet",
     course: courseId,
   });

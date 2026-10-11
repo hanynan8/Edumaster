@@ -55,8 +55,8 @@ export async function POST(request, { params }) {
     createNotification({
       user: comment.user,
       type: "comment_rejected",
-      title: "تم رفض تعليقك",
-      message: reason ? `رفضت الإدارة تعليقك. السبب: ${reason}` : "رفضت الإدارة تعليقك ولن يظهر أسفل الدرس.",
+      key: "comment_rejected",
+      params: { reason: reason || "" },
       link: `/courses/${comment.course}`,
       course: comment.course,
     }).catch((err) => console.error("[/api/admin/comments/[id]/reject] notify error:", err));

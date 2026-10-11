@@ -48,7 +48,8 @@ describe("notifyMeetingChange", () => {
     const [ids, payload] = mockCreate.mock.calls[0];
     expect(ids).toEqual(["s1"]);
     expect(payload.type).toBe("meeting_scheduled");
-    expect(payload.title).toContain("5");
+    expect(payload.key).toBe("meeting_changed");
+    expect(payload.params).toMatchObject({ kind: "cancelled", count: 5 });
     expect(payload.course).toBe("c1");
   });
   it("مفيش مستلمين = مفيش إنشاء إشعارات", async () => {

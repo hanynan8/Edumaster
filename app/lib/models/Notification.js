@@ -40,6 +40,14 @@ const notificationSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 🆕 نص الإشعار بيتترجم وقت العرض حسب لغة المستخدم (شوف
+    // app/lib/notificationTemplates.js): key = اسم القالب، params = البيانات
+    // الخام (اسم الكورس، الدرجة، الميعاد...). لو الإشعار قديم (مالوش key)
+    // بنعرض title/message المخزّنين زي ما هما.
+    key: { type: String, default: null },
+    params: { type: mongoose.Schema.Types.Mixed, default: null },
+
+    // نص عربي مخزَّن كـ fallback (للإشعارات القديمة أو لو الترجمة فشلت)
     title: { type: String, required: true },
     message: { type: String, default: "" },
 

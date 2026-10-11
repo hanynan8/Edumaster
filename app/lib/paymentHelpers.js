@@ -233,8 +233,11 @@ async function notifyPaymentSucceeded(payment) {
     await createNotification({
       user: payment.user,
       type: "payment_succeeded",
-      title: "Payment successful",
-      message: itemLabel,
+      key: "payment_succeeded",
+      params: {
+        itemKind: ["course", "membership", "consultation", "placement_test"].includes(payment.type) ? payment.type : "other",
+        itemName: payment.type === "course" || payment.type === "membership" ? itemLabel : null,
+      },
       link: payment.type === "course" ? `/courses/${payment.course}` : "/student/payments",
       course: payment.type === "course" ? payment.course : null,
     });

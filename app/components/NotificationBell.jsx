@@ -34,6 +34,14 @@ const STRINGS = {
     hoursAgo: (n) => `${n}h ago`,
     daysAgo: (n) => `${n}d ago`,
   },
+  es: {
+    title: "Notificaciones",
+    empty: "Aún no hay notificaciones",
+    justNow: "Ahora",
+    minutesAgo: (n) => `hace ${n} min`,
+    hoursAgo: (n) => `hace ${n} h`,
+    daysAgo: (n) => `hace ${n} d`,
+  },
 };
 
 function timeAgo(dateStr, t) {
@@ -60,7 +68,8 @@ export default function NotificationBell() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications?limit=15");
+      // 🆕 بنبعت لغة الموقع الحالية عشان السيرفر يترجم نص الإشعار (عربي/إنجليزي/إسباني)
+      const res = await fetch(`/api/notifications?limit=15&lang=${encodeURIComponent(language)}`);
       if (!res.ok) return;
       const data = await res.json();
       setNotifications(data.notifications || []);
@@ -70,7 +79,7 @@ export default function NotificationBell() {
       // best-effort — الجرس مش critical UI، فشل التحميل (مثلاً مشكلة شبكة
       // عابرة) بيتجاهل بهدوء لحد الـ poll الجاي.
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     load();

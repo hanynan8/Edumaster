@@ -11,6 +11,7 @@
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getNotificationModel } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { renderNotificationText, resolveNotificationLang } from "@/app/lib/notificationTemplates";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -19,12 +20,15 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function serializeNotification(n) {
+// 🆕 النص بيتترجم هنا حسب ?lang= (لغة الموقع عند المستخدم) من key/params المخزّنين.
+// الإشعارات القديمة (مالهاش key) أو لو lang مش مبعوت → النص المخزَّن زي ما هو.
+function serializeNotification(n, lang) {
+  const localized = lang && n.key ? renderNotificationText(n.key, n.params, lang) : null;
   return {
     id: n._id.toString(),
     type: n.type,
-    title: n.title,
-    message: n.message,
+    title: localized?.title ?? n.title,
+    message: localized?.message ?? n.message,
     link: n.link,
     isRead: n.isRead,
     createdAt: n.createdAt,
@@ -40,6 +44,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10) || 20));
+    const lang = resolveNotificationLang(searchParams.get("lang"));
 
     await connectToMongo();
     const Notification = getNotificationModel();
@@ -55,7 +60,7 @@ export async function GET(request) {
     ]);
 
     return jsonResponse({
-      notifications: notifications.map(serializeNotification),
+      notifications: notifications.map((n) => serializeNotification(n, lang)),
       unreadCount,
       page,
       pages: Math.max(1, Math.ceil(total / limit)),

@@ -101,8 +101,8 @@ export async function PUT(request, { params }) {
     await createNotification({
       user: submission.student,
       type: "assignment_graded",
-      title: assignment.title,
-      message: `${score}/${assignment.maxScore}`,
+      key: "assignment_graded",
+      params: { assignmentTitle: assignment.title, score, maxScore: assignment.maxScore },
       link: `/student/grades`,
       course: assignment.course,
     });

@@ -134,10 +134,8 @@ export async function POST(request, { params }) {
     await createNotification({
       user: session.user.id,
       type: "quiz_result",
-      title: quiz.title,
-      message: passed
-        ? `${scorePercent}% — Passed`
-        : `${scorePercent}% — Not passed yet`,
+      key: "quiz_result",
+      params: { quizTitle: quiz.title, scorePercent, passed: !!passed },
       link: `/student/grades`,
       course: course._id,
     });

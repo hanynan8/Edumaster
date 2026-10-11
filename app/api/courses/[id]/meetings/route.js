@@ -121,12 +121,18 @@ export async function POST(request, { params }) {
     if (enrolledUserIds.length > 0) {
       await createNotificationsForUsers(enrolledUserIds, {
         type: "meeting_scheduled",
-        title: isSeries
-          ? `سلسلة محاضرات مباشرة جديدة في دورة ${course.title}`
-          : `محاضرة مباشرة جديدة في دورة ${course.title}`,
-        message: `${first.title} — ${formatMeetingWhen(first.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
-          isSeries ? ` (${meetings.length} محاضرات، ${describeRecurrence(recurrenceRule, "ar")})` : ""
-        }`,
+        key: "meeting_course_new",
+        params: {
+          courseTitle: course.title,
+          title: first.title,
+          scheduledAt: new Date(first.scheduledAt).toISOString(),
+          timeZone: recurrenceRule?.timeZone || null,
+          isSeries,
+          count: meetings.length,
+          recurrence: recurrenceRule
+            ? { frequency: recurrenceRule.frequency, interval: recurrenceRule.interval }
+            : null,
+        },
         link: "/meet",
         course: id,
       });

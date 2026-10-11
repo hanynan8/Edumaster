@@ -366,8 +366,8 @@ export async function issueCertificateForCompletedEnrollment(userId, courseId) {
       await createNotification({
         user: userId,
         type: "certificate_issued",
-        title: courseTitleSnapshot,
-        message: "Your certificate is ready",
+        key: "certificate_issued",
+        params: { courseTitle: courseTitleSnapshot },
         link: "/student/certificates",
         course: courseId,
       });

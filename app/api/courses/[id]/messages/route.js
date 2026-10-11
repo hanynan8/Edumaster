@@ -169,10 +169,13 @@ export async function POST(request, { params }) {
       createNotification({
         user: recipientId,
         type: "message_new",
-        title: senderIsStudent
-          ? `رسالة جديدة من ${session.user.name || "طالب"}`
-          : `رد جديد من مدرس "${course.title}"`,
-        message: text.slice(0, 200),
+        key: "message_new",
+        params: {
+          fromStudent: senderIsStudent,
+          senderName: session.user.name || "",
+          courseTitle: course.title,
+          text: text.slice(0, 200),
+        },
         link: senderIsStudent
           ? `/teacher/messages?course=${course._id}&student=${studentId}`
           : `/student/messages?course=${course._id}`,

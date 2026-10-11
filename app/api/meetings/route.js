@@ -134,10 +134,13 @@ export async function POST(request) {
     if (allUserIds.length > 0) {
       await createNotificationsForUsers(allUserIds, {
         type: "meeting_scheduled",
-        title: meetings.length > 1 ? "سلسلة محاضرات مباشرة جديدة للجميع" : "محاضرة مباشرة جديدة للجميع",
-        message: `${first.title} — ${formatMeetingWhen(first.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
-          meetings.length > 1 ? ` (${meetings.length} محاضرات)` : ""
-        }`,
+        key: "meeting_public_new",
+        params: {
+          title: first.title,
+          scheduledAt: new Date(first.scheduledAt).toISOString(),
+          timeZone: recurrenceRule?.timeZone || null,
+          count: meetings.length,
+        },
         link: "/meet",
       });
     }

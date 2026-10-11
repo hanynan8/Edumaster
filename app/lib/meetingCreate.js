@@ -264,10 +264,13 @@ export async function sendInvitations({
       if (userIds.length > 0) {
         await createNotificationsForUsers(userIds, {
           type: "meeting_scheduled",
-          title: `تمت دعوتك لمحاضرة مباشرة: ${firstMeeting.title}`,
-          message: `${formatMeetingWhen(firstMeeting.scheduledAt, { locale: "ar-EG", timeZone: recurrenceRule?.timeZone, withZoneName: true })}${
-            occurrences > 1 ? ` — سلسلة من ${occurrences} محاضرات` : ""
-          }`,
+          key: "meeting_invited",
+          params: {
+            title: firstMeeting.title,
+            scheduledAt: new Date(firstMeeting.scheduledAt).toISOString(),
+            timeZone: recurrenceRule?.timeZone || null,
+            occurrences,
+          },
           link: "/meet",
           course: firstMeeting.course || null,
         });

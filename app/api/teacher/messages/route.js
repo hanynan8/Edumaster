@@ -11,7 +11,7 @@
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMessageModel, getCourseModel } from "@/app/lib/models";
-import { requireRole } from "@/app/lib/rbac";
+import { requireRole, isStaffRole } from "@/app/lib/rbac";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
@@ -23,7 +23,7 @@ function jsonResponse(data, status = 200) {
 
 export async function GET(request) {
   try {
-    const auth = await requireRole(["teacher", "admin"]);
+    const auth = await requireRole(["teacher", "moderator", "admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
 
@@ -31,7 +31,7 @@ export async function GET(request) {
     const Message = getMessageModel();
 
     const match =
-      session.user.role === "admin" ? {} : { teacher: new mongoose.Types.ObjectId(session.user.id) };
+      isStaffRole(session.user.role) ? {} : { teacher: new mongoose.Types.ObjectId(session.user.id) };
 
     const threads = await Message.aggregate([
       { $match: match },

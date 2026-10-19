@@ -227,7 +227,7 @@ function UserDropdown({ user }) {
           { href: "/student/messages", label: t.roleLinks.myMessages },
         ]
       : [];
-  if (user?.role === "teacher" || user?.role === "admin") {
+  if (user?.role === "teacher" || user?.role === "moderator" || user?.role === "admin") {
     links.push({ href: "/teacher", label: t.roleLinks.teacherDashboard });
   }
   if (user?.role === "admin") {
@@ -239,7 +239,7 @@ function UserDropdown({ user }) {
   // أدمن → /admin، مدرّس → /teacher، وأي حد تاني (طالب) → /student.
   const profileHref =
     user?.role === "admin" ? "/admin" :
-    user?.role === "teacher" ? "/teacher" :
+    user?.role === "teacher" || user?.role === "moderator" ? "/teacher" :
     "/student";
 
   return (
@@ -629,7 +629,7 @@ export default function Navbar() {
     if (isLoading) return null;
     if (isLoggedIn) {
       const role = session.user?.role;
-      const profileHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
+      const profileHref = role === "admin" ? "/admin" : role === "teacher" || role === "moderator" ? "/teacher" : "/student";
       return (
         <>
           <div className="flex items-center justify-between gap-3 py-3 px-2 border-b border-gray-100">

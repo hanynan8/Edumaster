@@ -13,7 +13,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
@@ -72,7 +72,7 @@ export async function GET(request, { params }) {
     if (!lesson || !course) return jsonResponse({ error: "not_found" }, 404);
 
     const auth = await requireSession();
-    const canManage = !auth.response && isOwnerOrAdmin(auth.session, course.teacher);
+    const canManage = !auth.response && isOwnerOrStaff(auth.session, course.teacher);
 
     if (course.status !== "published" && !canManage) {
       return jsonResponse({ error: "not_found" }, 404);
@@ -106,7 +106,7 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -155,7 +155,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

@@ -20,7 +20,7 @@ function jsonResponse(data, status = 200) {
 
 // 🔒 SECURITY: الأدوار/الحالات المسموحة فقط — أي قيمة تانية (زي "superadmin"
 // مخترعة من العميل) بترفض فورًا.
-const ALLOWED_ROLES = new Set(["student", "teacher", "admin"]);
+const ALLOWED_ROLES = new Set(["student", "teacher", "moderator", "admin"]);
 const ALLOWED_STATUSES = new Set(["active", "suspended"]);
 
 export async function PATCH(request, { params }) {

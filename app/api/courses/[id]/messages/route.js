@@ -6,7 +6,7 @@
 //   - طالب عنده وصول فعلي للكورس (enrollment/membership، زي فحص اللي في
 //     app/api/lessons/[id]/comments/route.js بالظبط): بيرجّع محادثته هو مع
 //     مدرس الكورس (studentId بيتجاهل، دايمًا session.user.id).
-//   - مدرس صاحب الكورس أو أدمن (isOwnerOrAdmin): لازم ?studentId= — بيرجّع
+//   - مدرس صاحب الكورس أو أدمن (isOwnerOrStaff): لازم ?studentId= — بيرجّع
 //     محادثة الطالب ده تحديدًا (للاستخدام من صندوق وارد المدرس).
 //   - فتح الخيط بيعلّم رسايل الطرف التاني كـ "مقروءة" تلقائيًا (isRead=true).
 //
@@ -24,7 +24,7 @@
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getMessageModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -66,7 +66,7 @@ export async function GET(request, { params }) {
     const { session } = auth;
 
     const { searchParams } = new URL(request.url);
-    const canManage = isOwnerOrAdmin(session, course.teacher?._id || course.teacher);
+    const canManage = isOwnerOrStaff(session, course.teacher?._id || course.teacher);
 
     let studentId;
     if (canManage) {
@@ -127,7 +127,7 @@ export async function POST(request, { params }) {
     const text = String(body?.body || "").trim();
     if (!text) return jsonResponse({ error: "missing_body" }, 400);
 
-    const canManage = isOwnerOrAdmin(session, course.teacher);
+    const canManage = isOwnerOrStaff(session, course.teacher);
 
     let studentId;
     if (canManage) {

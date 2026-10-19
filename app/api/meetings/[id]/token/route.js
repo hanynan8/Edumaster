@@ -18,7 +18,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createMeetingToken } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -64,7 +64,7 @@ export async function GET(request, { params }) {
     });
     if (rl) return rl;
 
-    const isManager = isOwnerOrAdmin(session, meeting.teacher);
+    const isManager = isOwnerOrStaff(session, meeting.teacher);
     // 🔒 فحص الدخول الموحّد (app/lib/meetingInvites.js checkMeetingAccess):
     //   مدرس/أدمن صاحب الاجتماع، أو 🆕 مدعو بالإيميل (Meeting.invitedEmails)،
     //   أو جلسة عامة (أي مستخدم مسجّل)، أو طالب بوصول فعلي على كورس الاجتماع.

@@ -21,7 +21,7 @@
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getLessonModel, getCommentModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -66,7 +66,7 @@ async function loadLessonAndCheckAccess(lessonId) {
   const auth = await requireSession();
   if (auth.response) return { lesson, course, canManage: false, hasAccess: false, authResponse: auth.response };
 
-  const canManage = isOwnerOrAdmin(auth.session, course.teacher);
+  const canManage = isOwnerOrStaff(auth.session, course.teacher);
   const hasAccess =
     canManage ||
     (await getCourseAccessForUser({ userId: auth.session.user.id, courseId: course._id })).hasAccess;

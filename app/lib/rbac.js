@@ -71,6 +71,31 @@ export function isOwnerOrAdmin(session, ownerId) {
 }
 
 /**
+ * 🆕 "طاقم الإدارة" على مستوى محتوى الكورسات: الأدمن + الموديريتور. الموديريتور
+ * ليه نفس داشبورد المدرّس بالظبط لكن بيشوف ويدير كورسات كل المدرّسين (مش بس
+ * كورساته)، من غير ما يوصل لأي حاجة في لوحة الأدمن (/admin و /api/admin).
+ * @param {string|undefined} role
+ */
+export function isStaffRole(role) {
+  return role === "admin" || role === "moderator";
+}
+
+/**
+ * 🆕 زي isOwnerOrAdmin بالظبط لكن الموديريتور كمان بيعدّي. مخصصة لـ routes
+ * الكورسات/الأقسام/الدروس/الكويزات/الواجبات/الاجتماعات/الإعلانات/الرسائل —
+ * أي مكان الـ ownerId فيه هو "مدرّس الكورس". ⚠️ مش بتتستخدم لمصادر تانية
+ * (شهادات الطلاب، المدفوعات...) — دي لسه على isOwnerOrAdmin عشان الموديريتور
+ * ميشوفش بيانات مش من شغله.
+ * @param {object} session
+ * @param {string|import("mongoose").Types.ObjectId} ownerId
+ */
+export function isOwnerOrStaff(session, ownerId) {
+  if (!session?.user) return false;
+  if (isStaffRole(session.user.role)) return true;
+  return String(session.user.id) === String(ownerId);
+}
+
+/**
  * اختصار جاهز: يتحقق إن المستخدم owner للمورد أو admin، وبيرجّع نفس شكل
  * requireRole/requireSession (session/response) عشان الاستخدام يبقى متسق.
  * لازم تكون عندك الـ ownerId قبل ما تناديها (يعني بعد ما تجيب المستند من

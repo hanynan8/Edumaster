@@ -14,7 +14,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    const canManage = isOwnerOrAdmin(session, course.teacher);
+    const canManage = isOwnerOrStaff(session, course.teacher);
     // 🔒 الطالب صاحب التسليم يقدر يشوفه هو بس؛ غير كده صاحب الكورس/أدمن
     if (!canManage && String(session.user.id) !== String(submission.student)) {
       return jsonResponse({ error: "forbidden" }, 403);
@@ -81,7 +81,7 @@ export async function PUT(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrAdmin(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!isOwnerOrStaff(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
     const score = Number(body?.score);

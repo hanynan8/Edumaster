@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Pencil, Trash2, BookOpen, Users, Clock } from "lucide-react";
+import { Pencil, Trash2, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
@@ -46,7 +46,9 @@ function formatDuration(seconds, language) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export default function CourseCard({ course, onEdit, onDelete }) {
+// 🆕 showTeacher: الموديريتور بيشوف كورسات كل المدرّسين فبيظهر اسم المدرّس
+// المشرف على الكارت عشان يعرف كل كورس تبع مين.
+export default function CourseCard({ course, onEdit, onDelete, showTeacher = false }) {
   const { language } = useLanguage();
   const t = T[language] || T.en;
 
@@ -78,6 +80,11 @@ export default function CourseCard({ course, onEdit, onDelete }) {
 
       <div className="p-4">
         <h3 className="font-semibold text-gray-800 line-clamp-1 mb-1">{title}</h3>
+        {showTeacher && (
+          <p className="flex items-center gap-1 text-[11px] text-[#003A91] font-semibold mb-1.5 line-clamp-1">
+            <GraduationCap size={12} /> {course.teacherName || "—"}
+          </p>
+        )}
         <p className="text-xs text-gray-500 line-clamp-2 mb-3 min-h-[32px]">{shortDescription || "—"}</p>
 
         <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">

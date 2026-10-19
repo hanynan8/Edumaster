@@ -11,7 +11,7 @@
 // - 🔒 rate limit لكل مستخدم عشان القائمة دي مايتعملهاش scraping.
 
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
-import { requireSession } from "@/app/lib/rbac";
+import { requireSession, isStaffRole } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
@@ -30,7 +30,7 @@ export async function GET(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (session.user.role !== "teacher" && session.user.role !== "admin") {
+    if (session.user.role !== "teacher" && !isStaffRole(session.user.role)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

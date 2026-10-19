@@ -31,7 +31,7 @@ export async function POST(request) {
       return jsonResponse({ error: "upload_not_configured" }, 503);
     }
 
-    const auth = await requireRole(["teacher", "admin"]);
+    const auth = await requireRole(["teacher", "moderator", "admin"]);
     if (auth.response) return auth.response;
 
     // 🔒 SECURITY (Day 59): كل نداء بينشئ فيديو جديد في Bunny Stream (مورد

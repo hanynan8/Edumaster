@@ -3,7 +3,7 @@
 // app/teacher/layout.jsx
 //
 // 🔒 ملحوظة: middleware.js أصلاً بيحمي أي مسار يبدأ بـ /teacher (بيredirect
-// أي حد role مش teacher/admin أو مش مسجل دخول). الفحص هنا طبقة UX إضافية
+// أي حد role مش teacher/moderator/admin أو مش مسجل دخول). الفحص هنا طبقة UX إضافية
 // بس (يظهر شاشة تحميل/رفض واضحة بدل ما يستنى الـ redirect)، مش بديل عنها.
 //
 // 🎨 التصميم اتظبط عشان يتماشى مع هوية الموقع الرئيسي (navbar.jsx / footer.jsx):
@@ -65,7 +65,7 @@ export default function TeacherLayout({ children }) {
   }
 
   const role = session?.user?.role;
-  if (status === "unauthenticated" || !["teacher", "admin"].includes(role)) {
+  if (status === "unauthenticated" || !["teacher", "moderator", "admin"].includes(role)) {
     return <Blocked t={t} isRTL={isRTL} />;
   }
 

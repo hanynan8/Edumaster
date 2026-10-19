@@ -7,7 +7,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAnnouncementModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -33,7 +33,7 @@ export async function DELETE(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    const canDelete = course ? isOwnerOrAdmin(session, course.teacher) : session.user.role === "admin";
+    const canDelete = course ? isOwnerOrStaff(session, course.teacher) : session.user.role === "admin";
     if (!canDelete) return jsonResponse({ error: "forbidden" }, 403);
 
     await announcement.deleteOne();

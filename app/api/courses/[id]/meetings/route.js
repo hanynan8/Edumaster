@@ -24,7 +24,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getMeetingModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -60,7 +60,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const canManage = isOwnerOrAdmin(session, course.teacher);
+    const canManage = isOwnerOrStaff(session, course.teacher);
     if (!canManage) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: id });
       // 🆕 بنرجّع سبب الرفض التفصيلي (access.reason) بدل "enrollment_required"
@@ -91,7 +91,7 @@ export async function POST(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrAdmin(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!isOwnerOrStaff(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     // 🔒 نفس منطق rate limit إعلانات الكورس — كل اجتماع جديد بيبعت إشعار
     // لكل طالب مسجّل، فمحتاجين نمنع استخدامه كوسيلة سبام.

@@ -7,7 +7,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 
 function jsonResponse(data, status = 200) {
@@ -36,7 +36,7 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -74,7 +74,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

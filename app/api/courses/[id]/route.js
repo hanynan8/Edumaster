@@ -2,13 +2,18 @@
 //
 // GET: عام لو الكورس published، وإلا صاحب الكورس/أدمن بس (عشان مدرس تاني
 // أو زائر ميشوفش كورس لسه draft). PUT/DELETE: صاحب الكورس أو أدمن بس.
+//
+// 🆕 الموديريتور بيتعامل هنا زي الأدمن في الوصول (أي كورس لأي مدرّس) لكن
+// بقواعد المدرّس في النشر: مفيش "published" مباشر — أي طلب نشر بيتحول
+// pending لمراجعة الأدمن. والموديريتور بس هو اللي يقدر يغيّر "المدرّس
+// المشرف" (body.teacher) على الكورس.
 
 import { deleteMeetingsForCourse } from "@/app/lib/meetingCleanup";
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
-import { slugify, sanitizeCourseI18n, resolveCourseSubcategory } from "@/app/lib/courseHelpers";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { slugify, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisingTeacher } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
@@ -40,6 +45,7 @@ function serializeCourse(c) {
     subcategoryI18n: c.subcategory?.i18n instanceof Map ? Object.fromEntries(c.subcategory.i18n) : c.subcategory?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
+    createdBy: c.createdBy?._id ? c.createdBy._id.toString() : c.createdBy?.toString() || null,
     level: c.level,
     language: c.language,
     prices: c.prices || { EGP: 0, USD: 0, EUR: 0 },
@@ -127,7 +133,7 @@ export async function GET(request, { params }) {
     if (course.status !== "published") {
       const auth = await requireSession();
       if (auth.response) return jsonResponse({ error: "not_found" }, 404); // مش هنسرّب وجود كورس draft
-      if (!isOwnerOrAdmin(auth.session, course.teacher._id || course.teacher)) {
+      if (!isOwnerOrStaff(auth.session, course.teacher._id || course.teacher)) {
         return jsonResponse({ error: "not_found" }, 404);
       }
     }
@@ -151,7 +157,7 @@ export async function PUT(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrAdmin(session, existing.teacher)) {
+    if (!isOwnerOrStaff(session, existing.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -168,6 +174,19 @@ export async function PUT(request, { params }) {
       updates.title = String(updates.title).trim();
       if (!updates.title) return jsonResponse({ error: "invalid_title" }, 400);
     }
+
+    // 🆕 تغيير المدرّس المشرف — للموديريتور بس (teacher مش في EDITABLE_FIELDS
+    // عن قصد، فأي دور تاني بيتجاهل body.teacher تمامًا).
+    if (session.user.role === "moderator" && body.teacher !== undefined) {
+      const supervisor = await resolveSupervisingTeacher(body.teacher);
+      if (!supervisor.ok) {
+        return jsonResponse({ error: supervisor.error }, supervisor.error === "teacher_not_found" ? 404 : 400);
+      }
+      if (String(supervisor.teacher.id) !== String(existing.teacher)) {
+        updates.teacher = supervisor.teacher.id;
+      }
+    }
+
     let Category; // 🆕 لو المدرس/الأدمن عدّل category و/أو subcategory
     if (updates.category !== undefined) {
       if (!mongoose.Types.ObjectId.isValid(updates.category)) {
@@ -344,7 +363,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

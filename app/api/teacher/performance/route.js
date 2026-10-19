@@ -44,12 +44,17 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     let teacherId = session.user.id;
+    // 🆕 الموديريتور بيشوف أداء كورسات كل المدرّسين افتراضيًا (من غير فلتر
+    // teacher)، ولو بعت ?teacher=<id> بيتفلتر على مدرّس معيّن.
+    let allTeachers = false;
 
-    if (session.user.role === "admin") {
+    if (session.user.role === "admin" || session.user.role === "moderator") {
       const requested = searchParams.get("teacher");
       if (requested) {
         if (!mongoose.Types.ObjectId.isValid(requested)) return jsonResponse({ error: "invalid_teacher" }, 400);
         teacherId = requested;
+      } else if (session.user.role === "moderator") {
+        allTeachers = true;
       }
     } else if (session.user.role !== "teacher") {
       return jsonResponse({ error: "forbidden" }, 403);
@@ -57,7 +62,9 @@ export async function GET(request) {
 
     await connectToMongo();
     const Course = getCourseModel();
-    const courses = await Course.find({ teacher: teacherId }, "title status studentsCount").sort({ createdAt: -1 }).lean();
+    const courses = await Course.find(allTeachers ? {} : { teacher: teacherId }, "title status studentsCount")
+      .sort({ createdAt: -1 })
+      .lean();
 
     if (courses.length === 0) return jsonResponse({ courses: [] });
 

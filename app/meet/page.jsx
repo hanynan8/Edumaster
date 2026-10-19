@@ -1305,7 +1305,7 @@ export default function MeetPage() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    if (role !== "teacher" && role !== "admin") return;
+    if (role !== "teacher" && role !== "moderator" && role !== "admin") return;
     // 🆕 محتاجينها بس لملء dropdown "اختر دورة" في فورم الإضافة — GET
     // /api/courses أصلاً بيرجّع دورات المدرس نفسه (كل الحالات) أو كل
     // الدورات لو أدمن (شوف app/api/courses/route.js GET).
@@ -1386,10 +1386,10 @@ export default function MeetPage() {
 
   if (status === "unauthenticated") return <Blocked t={t} />;
 
-  const dashboardHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
-  const canCreate = role === "teacher" || role === "admin";
+  const dashboardHref = role === "admin" ? "/admin" : role === "teacher" || role === "moderator" ? "/teacher" : "/student";
+  const canCreate = role === "teacher" || role === "moderator" || role === "admin";
   // أدمن يقدر يدير أي اجتماع (isOwnerOrAdmin في الـ API)، مدرس بس اجتماعاته هو.
-  const canManage = (meeting) => role === "admin" || (role === "teacher" && meeting.teacher === userId);
+  const canManage = (meeting) => role === "admin" || role === "moderator" || (role === "teacher" && meeting.teacher === userId);
 
 
   return (
@@ -1446,14 +1446,14 @@ export default function MeetPage() {
               title={t.liveNow}
               meetings={grouped.live}
               canManage={canManage}
-              showTeacher={role === "admin"}
+              showTeacher={role === "admin" || role === "moderator"}
               onEdit={setModalMeeting}
               onDelete={handleDelete}
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText={t.noLiveNow}
               getMeetingPhase={getMeetingPhase}
-              isTeacherView={role === "teacher" || role === "admin"}
+              isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
               t={t}
               language={language}
             />
@@ -1461,14 +1461,14 @@ export default function MeetPage() {
               title={t.upcoming}
               meetings={grouped.upcoming}
               canManage={canManage}
-              showTeacher={role === "admin"}
+              showTeacher={role === "admin" || role === "moderator"}
               onEdit={setModalMeeting}
               onDelete={handleDelete}
               onJoinEmbedded={setJoinedMeeting}
               busyId={busyId}
               emptyText={t.noUpcoming}
               getMeetingPhase={getMeetingPhase}
-              isTeacherView={role === "teacher" || role === "admin"}
+              isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
               t={t}
               language={language}
             />
@@ -1477,14 +1477,14 @@ export default function MeetPage() {
                 title={t.ended}
                 meetings={grouped.ended}
                 canManage={canManage}
-                showTeacher={role === "admin"}
+                showTeacher={role === "admin" || role === "moderator"}
                 onEdit={setModalMeeting}
                 onDelete={handleDelete}
                 onJoinEmbedded={setJoinedMeeting}
                 busyId={busyId}
                 emptyText=""
                 getMeetingPhase={getMeetingPhase}
-                isTeacherView={role === "teacher" || role === "admin"}
+                isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
                 t={t}
                 language={language}
               />
@@ -1519,7 +1519,7 @@ export default function MeetPage() {
           meetingId={joinedMeeting.id}
           title={joinedMeeting.title}
           onClose={() => setJoinedMeeting(null)}
-          isTeacher={role === "teacher" || role === "admin"}
+          isTeacher={role === "teacher" || role === "moderator" || role === "admin"}
         />
       )}
     </div>

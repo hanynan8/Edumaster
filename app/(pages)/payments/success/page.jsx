@@ -73,7 +73,7 @@ export default function PaymentSuccessPage({ searchParams }) {
   // هيترحّلوا منها فورًا لصفحتهم هم من غير ما يوصلوا للمحتوى اللي اشتروه.
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const dashboardHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
+  const dashboardHref = role === "admin" ? "/admin" : role === "teacher" || role === "moderator" ? "/teacher" : "/student";
 
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");

@@ -348,11 +348,13 @@ function UsersAdmin() {
                         className={`px-2 py-1 rounded-lg text-xs font-semibold border-2 outline-none disabled:opacity-50 ${
                           user.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                           user.role === 'teacher' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          user.role === 'moderator' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                           'bg-gray-50 text-gray-600 border-gray-200'
                         }`}
                       >
                         <option value="student">student</option>
                         <option value="teacher">teacher</option>
+                        <option value="moderator">moderator</option>
                         <option value="admin">admin</option>
                       </select>
                     </td>

@@ -12,7 +12,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { getDailyRecordingAccessLink } from "@/app/lib/daily";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
@@ -41,7 +41,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const isManager = isOwnerOrAdmin(session, meeting.teacher);
+    const isManager = isOwnerOrStaff(session, meeting.teacher);
     // 🆕 فحص موحّد: بيغطي المدعوين بالإيميل، والجلسات العامة (course = null —
     // قبل كده Course.findById(null) كان بيرجّع 404 للطلاب على تسجيلات الجلسات
     // العامة)، والطلاب بوصول فعلي على الكورس.

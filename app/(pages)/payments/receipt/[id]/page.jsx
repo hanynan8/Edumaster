@@ -67,7 +67,7 @@ export default function ReceiptPage({ params }) {
   // كان "/student/payments" ثابت، واللي بيرفض دلوقتي أي role غير student.
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const backHref = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student/payments";
+  const backHref = role === "admin" ? "/admin" : role === "teacher" || role === "moderator" ? "/teacher" : "/student/payments";
 
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");

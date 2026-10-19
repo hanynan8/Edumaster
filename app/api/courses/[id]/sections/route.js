@@ -16,7 +16,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrAdmin } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
 
@@ -70,7 +70,7 @@ async function loadCourseAndCheckAccess(courseId) {
     // ممكن لسه نحتاج نعرف canManage/hasAccess عشان نظهر المحتوى الكامل
     // (للمالك أو لطالب عنده وصول فعلي)، من غير ما نمنع الزوار من أصل الطلب
     const auth = await requireSession();
-    const canManage = !auth.response && isOwnerOrAdmin(auth.session, course.teacher);
+    const canManage = !auth.response && isOwnerOrStaff(auth.session, course.teacher);
     // 🔒 لو صاحب الكورس أصلاً، مفيش داعي نفحص enrollment/membership (وهو
     // مش enrolled فيه عمليًا لأن /api/enrollments بيرفض تسجيل صاحب الكورس
     // في كورسه هو)
@@ -85,7 +85,7 @@ async function loadCourseAndCheckAccess(courseId) {
   // ممكن أصلاً لكورس مش منشور)
   const auth = await requireSession();
   if (auth.response) return { course: null, canManage: false, hasAccess: false };
-  if (!isOwnerOrAdmin(auth.session, course.teacher)) return { course: null, canManage: false, hasAccess: false };
+  if (!isOwnerOrStaff(auth.session, course.teacher)) return { course: null, canManage: false, hasAccess: false };
   return { course, canManage: true, hasAccess: false };
 }
 
@@ -139,7 +139,7 @@ export async function POST(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrAdmin(auth.session, course.teacher)) {
+    if (!isOwnerOrStaff(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

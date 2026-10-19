@@ -8,6 +8,7 @@
 // اتحذفت مستندات مباشرة من الداتابيز، العداد بيرجع يتظبط تلقائي في أول
 // تعديل جديد).
 
+import { getAuthModel } from "@/app/lib/mongodb";
 import { getLessonModel } from "@/app/lib/models/Lesson";
 import { getCourseModel, SUPPORTED_COURSE_LANGS } from "@/app/lib/models/Course";
 
@@ -66,6 +67,22 @@ export async function resolveCourseSubcategory(Category, body, categoryId) {
   const autoLanguage = parentCat?.slug === "language" ? sub.slug : null;
 
   return { ok: true, provided: true, id: sub._id, autoLanguage };
+}
+
+// 🆕 بيتحقق من "المدرّس المشرف" اللي الموديريتور اختاره لكورس (وقت الإنشاء أو
+// التعديل): لازم id صالح، والمستخدم موجود، ودوره "teacher" فعلًا، وحسابه مش
+// موقوف. بيرجّع { ok: true, teacher: { id, name } } أو { ok: false, error }.
+export async function resolveSupervisingTeacher(teacherId) {
+  const mongoose = (await import("mongoose")).default;
+  if (!teacherId || !mongoose.Types.ObjectId.isValid(String(teacherId))) {
+    return { ok: false, error: "invalid_teacher" };
+  }
+  const Auth = getAuthModel();
+  const user = await Auth.findById(String(teacherId), "name email role status").lean();
+  if (!user) return { ok: false, error: "teacher_not_found" };
+  if (user.role !== "teacher") return { ok: false, error: "user_is_not_teacher" };
+  if (user.status === "suspended") return { ok: false, error: "teacher_suspended" };
+  return { ok: true, teacher: { id: user._id, name: user.name || "" } };
 }
 
 export async function recomputeCourseTotals(courseId) {

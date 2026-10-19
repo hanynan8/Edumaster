@@ -31,20 +31,22 @@ import { getToken } from "next-auth/jwt";
 // عن طريق redirectByRole (بدل الـ "/" العام الافتراضي لباقي الحالات).
 const PAGE_ROLE_RULES = [
   { prefix: "/admin", roles: ["admin"] },
-  { prefix: "/teacher", roles: ["teacher", "admin"] },
+  // 🆕 الموديريتور ليه نفس داشبورد المدرّس (/teacher) بالظبط — الفرق في
+  // الـ API بس (بيشوف ويدير كورسات كل المدرّسين). مفيش وصول لـ /admin.
+  { prefix: "/teacher", roles: ["teacher", "moderator", "admin"] },
   {
     prefix: "/student",
     roles: ["student"],
-    redirectByRole: { admin: "/admin", teacher: "/teacher" },
+    redirectByRole: { admin: "/admin", teacher: "/teacher", moderator: "/teacher" },
   },
   // 🆕 /onboarding: خطوات "أول مرة" بعد التسجيل مباشرة — أي مستخدم مسجل
   // دخول (أي role) يقدر يوصلها، المهم بس إنه يكون عامل login أصلًا. غير
   // مسجل دخول → بيترحّل لـ "/" زي باقي الحالات (مفيش redirectByRole هنا).
-  { prefix: "/onboarding", roles: ["student", "teacher", "admin"] },
+  { prefix: "/onboarding", roles: ["student", "teacher", "moderator", "admin"] },
   // 🆕 /meet: صفحة المحاضرات اللايف (روابط Daily). زي /onboarding بالظبط —
   // أي role مسجل دخول يقدر يوصلها (الفحص الفعلي لـ"مين شايف اجتماع مين"
   // بيتم داخل GET /api/meetings حسب الـ role، مش هنا).
-  { prefix: "/meet", roles: ["student", "teacher", "admin"] },
+  { prefix: "/meet", roles: ["student", "teacher", "moderator", "admin"] },
 ];
 
 // نفس المنطق لكن لمسارات الـ API — بترجع 401/403 JSON بدل redirect، عشان
@@ -54,7 +56,10 @@ const PAGE_ROLE_RULES = [
 // requireRole()، الميدل وير ده بيغطيه لحد ما يتصلح.
 const API_ROLE_RULES = [
   { prefix: "/api/admin", roles: ["admin"] },
-  { prefix: "/api/teacher", roles: ["teacher", "admin"] },
+  { prefix: "/api/teacher", roles: ["teacher", "moderator", "admin"] },
+  // 🆕 endpoints خاصة بالموديريتور (زي قايمة المدرّسين لاختيار المشرف على
+  // الكورس) — المدرّس العادي مايشوفش إيميلات باقي المدرّسين.
+  { prefix: "/api/moderator", roles: ["moderator", "admin"] },
 ];
 
 function jsonError(status, error) {

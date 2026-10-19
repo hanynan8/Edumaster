@@ -58,6 +58,7 @@ export async function POST(request, { params }) {
     // بنحتفظ ببيانات الكورس اللي هنحتاجها بعد الحذف (للإشعار + الـ audit log)
     const courseTitle = course.title;
     const teacherId = course.teacher?._id || course.teacher;
+    const createdById = course.createdBy || null; // 🆕 الموديريتور اللي أنشأه (لو فيه)
 
     await Promise.all([
       Lesson.deleteMany({ course: course._id }),
@@ -85,6 +86,16 @@ export async function POST(request, { params }) {
         params: { courseTitle, reason: reason || "" },
         link: "/teacher",
       }).catch((err) => console.error("[/api/admin/courses/[id]/reject] notify error:", err));
+    }
+
+    if (createdById && String(createdById) !== String(teacherId)) {
+      createNotification({
+        user: createdById,
+        type: "course_rejected",
+        key: "course_rejected",
+        params: { courseTitle, reason: reason || "" },
+        link: "/teacher",
+      }).catch((err) => console.error("[/api/admin/courses/[id]/reject] notify creator error:", err));
     }
 
     return jsonResponse({ success: true });

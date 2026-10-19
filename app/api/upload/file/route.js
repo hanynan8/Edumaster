@@ -41,8 +41,8 @@ function isAvatarAllowedMime(mime) {
 // تسليم واجب (PDF/Word/Zip/صورة) — الأنواع التانية (image/pdf) لسه مقصورة
 // على المدرس/الأدمن (رفع مرفقات الدروس/الواجبات نفسها).
 const ALLOWED_KINDS = {
-  image: { subfolder: "images", allowedMime: (m) => isImageMime(m), roles: ["teacher", "admin"] },
-  pdf: { subfolder: "files", allowedMime: (m) => m === "application/pdf", roles: ["teacher", "admin"] },
+  image: { subfolder: "images", allowedMime: (m) => isImageMime(m), roles: ["teacher", "moderator", "admin"] },
+  pdf: { subfolder: "files", allowedMime: (m) => m === "application/pdf", roles: ["teacher", "moderator", "admin"] },
   submission: {
     subfolder: "submissions",
     allowedMime: (m) =>
@@ -53,7 +53,7 @@ const ALLOWED_KINDS = {
         "application/zip",
         "application/x-zip-compressed",
       ].includes(m) || isImageMime(m),
-    roles: ["student", "teacher", "admin"],
+    roles: ["student", "teacher", "moderator", "admin"],
   },
   // 🆕 صورة البروفايل الشخصية — أي مستخدم مسجّل دخول (student/teacher/admin)
   // يقدر يرفع صورة لنفسه بس (المسار تحت مبني على session.user.id، فمفيش
@@ -63,7 +63,7 @@ const ALLOWED_KINDS = {
   // 🔒 مقصورة على JPG/PNG/GIF بس (مش أي image/* زي WEBP) — بيطابق الفورم في
   // app/student/page.jsx (AVATAR_ALLOWED_TYPES) بالظبط عشان مفيش صورة تتقبل
   // في المتصفح وترفض هنا أو العكس.
-  avatar: { subfolder: "avatars", allowedMime: isAvatarAllowedMime, roles: ["student", "teacher", "admin"] },
+  avatar: { subfolder: "avatars", allowedMime: isAvatarAllowedMime, roles: ["student", "teacher", "moderator", "admin"] },
 };
 
 // 🔒 SECURITY: file.type جاي من المتصفح ومُعلَن ذاتيًا — أي حد يقدر يزوّره

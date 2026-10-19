@@ -7,16 +7,24 @@
 //   - مدرس: بيشوف كورساته هو بس (كل الحالات: draft/published/archived) —
 //     ده اللي هيتستخدم في صفحة "كورساتي" (اليوم 10).
 //   - أدمن: بيشوف كل الكورسات لأي مدرس (مع فلترة اختيارية ?teacher=).
+//   - 🆕 موديريتور: زي الأدمن في العرض بالظبط — بيشوف كل كورسات كل المدرسين
+//     بكل الحالات (مع فلترة اختيارية ?teacher= و ?status=)، من غير أي وصول
+//     للوحة الأدمن.
 //
 // POST: إنشاء كورس جديد — teacher/admin بس، والكورس بيتسجل دايمًا باسم
 // صاحب الـ session (مفيش تمرير teacher من الـ body، منعًا لأي حد يعمل كورس
 // باسم مدرس تاني).
+//
+// 🆕 الاستثناء الوحيد: الموديريتور. وهو بينشئ الكورس لازم يختار "المدرّس
+// المشرف" (body.teacher = id مدرّس مسجّل فعلًا) — الكورس بيتسجل باسم المدرّس
+// ده، وبيتحفظ الموديريتور في createdBy. الكورس بيتبعت pending للأدمن بنفس
+// نظام المدرّس بالظبط (مفيش نشر مباشر).
 
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
-import { generateUniqueCourseSlug, sanitizeCourseI18n, resolveCourseSubcategory } from "@/app/lib/courseHelpers";
+import { generateUniqueCourseSlug, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisingTeacher } from "@/app/lib/courseHelpers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authOptions";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -55,6 +63,8 @@ function serializeCourse(c) {
     subcategoryI18n: c.subcategory?.i18n instanceof Map ? Object.fromEntries(c.subcategory.i18n) : c.subcategory?.i18n || {},
     teacher: c.teacher?._id ? c.teacher._id.toString() : c.teacher?.toString(),
     teacherName: c.teacher?.name,
+    // 🆕 لو الكورس اتعمل بواسطة موديريتور: id الموديريتور (وإلا null).
+    createdBy: c.createdBy?._id ? c.createdBy._id.toString() : c.createdBy?.toString() || null,
     level: c.level,
     language: c.language,
     prices: c.prices || { EGP: 0, USD: 0, EUR: 0 },
@@ -103,8 +113,8 @@ export async function GET(request) {
     if (role === "teacher") {
       // مدرس: كورساته هو بس، بكل الحالات
       query.teacher = session.user.id;
-    } else if (role === "admin") {
-      // أدمن: كل الكورسات، مع فلترة اختيارية بمدرس معيّن و/أو بحالة معيّنة
+    } else if (role === "admin" || role === "moderator") {
+      // أدمن/موديريتور: كل الكورسات، مع فلترة اختيارية بمدرس معيّن و/أو بحالة معيّنة
       // (🆕 status=pending بتُستخدم في لوحة "مراجعة الكورسات" — شوف
       // app/admin/components/coursesReviewPanel.jsx)
       const teacherFilter = searchParams.get("teacher");
@@ -151,9 +161,10 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const auth = await requireRole(["teacher", "admin"]);
+    const auth = await requireRole(["teacher", "moderator", "admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
+    const isModerator = session.user.role === "moderator";
 
     // 🔒 SECURITY (Day 59)
     const rl = await enforceRateLimit(request, {
@@ -174,6 +185,23 @@ export async function POST(request) {
     await connectToMongo();
     const Course = getCourseModel();
     const Category = getCategoryModel();
+    // لازم الموديل ده يكون متسجل قبل ما نعمل populate("teacher")/findById عليه.
+    getAuthModel();
+
+    // 🆕 الموديريتور: لازم يختار المدرّس المشرف على الكورس من المدرّسين
+    // المسجلين فعلًا. أي دور تاني بيتجاهل body.teacher تمامًا (الكورس دايمًا
+    // باسم صاحب الـ session).
+    let courseTeacherId = session.user.id;
+    let createdById = null;
+    if (isModerator) {
+      const supervisor = await resolveSupervisingTeacher(body?.teacher);
+      if (!supervisor.ok) {
+        const status = supervisor.error === "teacher_not_found" ? 404 : 400;
+        return jsonResponse({ error: supervisor.error }, status);
+      }
+      courseTeacherId = supervisor.teacher.id;
+      createdById = session.user.id;
+    }
 
     const category = await Category.findById(body.category).lean();
     if (!category) return jsonResponse({ error: "category_not_found" }, 404);
@@ -223,7 +251,10 @@ export async function POST(request) {
       i18n: sanitizeCourseI18n(body?.i18n),
       durationLabel: String(body?.durationLabel || "").trim(),
       category: body.category,
-      teacher: session.user.id, // 🔒 دايمًا صاحب الـ session، مش من الـ body
+      // 🔒 دايمًا صاحب الـ session، مش من الـ body — إلا الموديريتور: المدرّس
+      // المشرف اللي اختاره (متحقق منه فوق إنه teacher فعلي في الداتابيز).
+      teacher: courseTeacherId,
+      createdBy: createdById,
       level,
       // 🆕 لو فيه subcategory حقيقي تابع لتصنيف "Language"، الـ language
       // القديم بيتعبّي تلقائيًا من الـ slug بتاعه (backward-compat) — وإلا

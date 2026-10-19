@@ -551,6 +551,7 @@ export default function TeacherCoursesPage() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   async function fetchCoursesPage(p) {
+    // 🆕 الموديريتور بيشوف كورسات كل المدرّسين (من غير ?teacher=) — مقصود.
     // 🆕 الأدمن بيشوف كل الكورسات في GET /api/courses، فصفحة "دوراتي" كانت
     // بتعرض كل كورسات الموقع لو الحساب أدمن. بنبعت ?teacher=<id الأدمن> عشان
     // تعرض كورساته هو بس (الـ API بيدعم الفلتر ده للأدمن).
@@ -752,7 +753,13 @@ export default function TeacherCoursesPage() {
       {courses?.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {courses.map((c) => (
-            <CourseCard key={c.id} course={c} onEdit={setModalCourse} onDelete={handleDelete} />
+            <CourseCard
+              key={c.id}
+              course={c}
+              onEdit={setModalCourse}
+              onDelete={handleDelete}
+              showTeacher={session?.user?.role === "moderator"}
+            />
           ))}
         </div>
       )}

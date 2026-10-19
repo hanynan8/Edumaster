@@ -86,6 +86,16 @@ const courseSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 🆕 مين أنشأ الكورس فعليًا. بيتحدد بس لما موديريتور هو اللي بيعمل الكورس
+    // (وقتها teacher = المدرّس المشرف اللي اختاره، و createdBy = الموديريتور).
+    // للكورسات اللي المدرّس/الأدمن بيعملها بنفسه بيفضل null (أو غير موجود في
+    // الكورسات القديمة) ومعناه "المدرّس صاحب الكورس هو اللي أنشأه".
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: USER_MODEL_NAME,
+      default: null,
+    },
+
     level: {
       type: String,
       enum: ["beginner", "intermediate", "advanced"],

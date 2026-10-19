@@ -364,7 +364,7 @@ export default function OnboardingPage() {
   const redirectTarget = useMemo(() => {
     const role = session?.user?.role;
     if (role === "admin") return "/admin";
-    if (role === "teacher") return "/teacher";
+    if (role === "teacher" || role === "moderator") return "/teacher";
     return "/student";
   }, [session]);
 

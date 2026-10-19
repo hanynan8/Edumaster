@@ -21,8 +21,13 @@
 // النصي ($text index). الدورة بيتعرض للطالب حسب لغة الموقع تلقائيًا (شوف
 // app/(pages)/courses/page.jsx و app/(pages)/courses/[id]/page.jsx —
 // بيختاروا course.i18n[language] مع fallback لـ en وبعدين للحقول الأساسية).
+//
+// 🆕 لو اللي فاتح الفورم "موديريتور": بيظهر حقل إجباري "المدرّس المشرف" —
+// قايمة بإيميلات المدرّسين المسجلين (من GET /api/moderator/teachers) والكورس
+// بيتسجل باسم المدرّس اللي بيختاره. باقي الأدوار مفيش عندهم الحقل ده.
 
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { X, Loader, Check, RotateCcw } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -125,6 +130,14 @@ const T = {
     certDesc: "Certificate description (optional)",
     tags: "Tags (comma-separated)",
     status: "Status",
+    supervisingTeacher: "Supervising teacher *",
+    supervisingTeacherHint: "The course is created under this teacher, who will see and manage it in their dashboard. Choose from the registered teachers' emails.",
+    chooseTeacher: "Choose a teacher by email...",
+    chooseTeacherRequired: "Choose the supervising teacher for this course",
+    teachersLoading: "Loading teachers...",
+    teachersLoadError: "Couldn't load the teachers list, try again",
+    noTeachers: "No registered teachers yet",
+    teacherInvalid: "The selected teacher is not valid, choose another one",
     classMarkerQuizId: "ClassMarker Test ID (optional)",
     classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
@@ -176,6 +189,14 @@ const T = {
     certDesc: "وصف الشهادة (اختياري)",
     tags: "Tags (مفصولة بفاصلة)",
     status: "الحالة",
+    supervisingTeacher: "المدرّس المشرف *",
+    supervisingTeacherHint: "الكورس هيتسجل باسم المدرّس ده وهيظهر له في لوحته ويقدر يديره. اختر من إيميلات المدرّسين المسجلين.",
+    chooseTeacher: "اختر المدرّس بالإيميل...",
+    chooseTeacherRequired: "اختر المدرّس المشرف على هذا الكورس",
+    teachersLoading: "جاري تحميل المدرّسين...",
+    teachersLoadError: "تعذّر تحميل قائمة المدرّسين، حاول مرة أخرى",
+    noTeachers: "لا يوجد مدرّسون مسجلون حتى الآن",
+    teacherInvalid: "المدرّس المختار غير صالح، اختر مدرّسًا آخر",
     classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
     classMarkerQuizIdHint: "الصق معرّف الاختبار (Quiz ID) من رابط اختبار ClassMarker الخاص بك (الجزء الذي يلي ?quiz= في رابط مثل https://www.classmarker.com/online-test/start?quiz=...). إذا تم إدخاله، سيظهر قسم \"اختبر مستواك\" في صفحة الدورة. اتركه فارغًا إذا لم ترغب في اختبار.",
     saveChanges: "حفظ التعديلات",
@@ -227,6 +248,14 @@ const T = {
     certDesc: "Descripción del certificado (opcional)",
     tags: "Etiquetas (separadas por coma)",
     status: "Estado",
+    supervisingTeacher: "Profesor supervisor *",
+    supervisingTeacherHint: "El curso se crea a nombre de este profesor, quien lo verá y gestionará en su panel. Elige entre los correos de los profesores registrados.",
+    chooseTeacher: "Elige un profesor por correo...",
+    chooseTeacherRequired: "Elige el profesor supervisor de este curso",
+    teachersLoading: "Cargando profesores...",
+    teachersLoadError: "No se pudo cargar la lista de profesores, inténtalo de nuevo",
+    noTeachers: "Aún no hay profesores registrados",
+    teacherInvalid: "El profesor seleccionado no es válido, elige otro",
     classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
     classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
@@ -254,6 +283,8 @@ function langContentFrom(i18nLang, fallback) {
 
 export default function CourseFormModal({ course, onClose, onSaved }) {
   const { language } = useLanguage();
+  const { data: session } = useSession();
+  const isModerator = session?.user?.role === "moderator";
   const t = T[language] || T.en;
   const LEVELS = [
     { value: "beginner", label: t.levels.beginner },
@@ -267,6 +298,9 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
   const submitStatusRef = useRef(null);
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
+  // 🆕 قايمة المدرّسين (للموديريتور بس): null = لسه بيتحمّل، [] = فاضية.
+  const [teachers, setTeachers] = useState(null);
+  const [teachersError, setTeachersError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("ar");
@@ -294,6 +328,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     thumbnail: course?.thumbnail || "",
     category: course?.category || "",
     subcategory: course?.subcategory || "",
+    teacher: course?.teacher || "", // 🆕 المدرّس المشرف (بيتستخدم للموديريتور بس)
     level: course?.level || "beginner",
     language: course?.language || "ar",
     prices: {
@@ -313,6 +348,31 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       .then(setCategories)
       .catch(() => setCategories([]));
   }, []);
+
+  // 🆕 الموديريتور: تحميل قايمة المدرّسين المسجلين لاختيار المشرف بالإيميل.
+  useEffect(() => {
+    if (!isModerator) return;
+    let cancelled = false;
+    fetch("/api/moderator/teachers")
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || "load_failed");
+        return data;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setTeachers(data.teachers || []);
+        setTeachersError(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTeachers([]);
+        setTeachersError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isModerator]);
 
   // 🆕 تحميل مسودة "دورة جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
   // بس في وضع "دورة جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
@@ -356,6 +416,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
       thumbnail: "",
       category: "",
       subcategory: "",
+      teacher: "",
       level: "beginner",
       language: "ar",
       prices: { EGP: 0, USD: 0, EUR: 0 },
@@ -432,6 +493,7 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
     }
     if (!form.category) return setError(t.chooseCategory);
     if (hasSubcategories && !form.subcategory) return setError(t.chooseSubcategory);
+    if (isModerator && !form.teacher) return setError(t.chooseTeacherRequired);
 
     setSaving(true);
     try {
@@ -476,6 +538,12 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
         tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
         classMarkerQuizId: form.classMarkerQuizId.trim(),
       };
+      // 🆕 الموديريتور بيبعت المدرّس المشرف: دايمًا في الإنشاء، وفي التعديل
+      // بس لو غيّره فعلًا (عشان كورس مدرّسه الأصلي مش "teacher" — زي كورس
+      // أدمن — ميترفضش بسبب إننا بعتنا نفس القيمة تاني).
+      if (isModerator && (!isEdit || form.teacher !== course.teacher)) {
+        payload.teacher = form.teacher;
+      }
 
       const res = await fetch(isEdit ? `/api/courses/${course.id}` : "/api/courses", {
         method: isEdit ? "PUT" : "POST",
@@ -499,7 +567,14 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
 
       onSaved(data);
     } catch (err) {
-      setError(err.message === "slug_taken" ? t.slugTaken : t.genericError);
+      const teacherErrors = ["invalid_teacher", "teacher_not_found", "user_is_not_teacher", "teacher_suspended"];
+      setError(
+        err.message === "slug_taken"
+          ? t.slugTaken
+          : teacherErrors.includes(err.message)
+            ? t.teacherInvalid
+            : t.genericError
+      );
     } finally {
       setSaving(false);
     }
@@ -538,6 +613,42 @@ export default function CourseFormModal({ course, onClose, onSaved }) {
                 <RotateCcw size={12} />
                 {t.discardDraft}
               </button>
+            </div>
+          )}
+
+          {/* 🆕 المدرّس المشرف — بيظهر للموديريتور بس. الكورس بيتسجل باسم
+              المدرّس المختار (بالإيميل) وبيتبعت pending للأدمن زي أي كورس. */}
+          {isModerator && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.supervisingTeacher}</label>
+              <select
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
+                value={form.teacher}
+                onChange={(e) => update("teacher", e.target.value)}
+                disabled={teachers === null}
+                required
+              >
+                <option value="">{teachers === null ? t.teachersLoading : t.chooseTeacher}</option>
+                {/* لو الكورس الحالي مدرّسه مش في القايمة (مثلاً كورس أدمن)،
+                    بنعرضه كخيار عشان الاختيار الحالي ميظهرش فاضي. */}
+                {isEdit &&
+                  course?.teacher &&
+                  teachers &&
+                  !teachers.some((x) => x.id === course.teacher) && (
+                    <option value={course.teacher}>{course.teacherName || course.teacher}</option>
+                  )}
+                {(teachers || []).map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.email}
+                    {x.name ? ` — ${x.name}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1.5">{t.supervisingTeacherHint}</p>
+              {teachersError && <p className="text-xs text-red-500 mt-1">{t.teachersLoadError}</p>}
+              {teachers && teachers.length === 0 && !teachersError && (
+                <p className="text-xs text-amber-600 mt-1">{t.noTeachers}</p>
+              )}
             </div>
           )}
 

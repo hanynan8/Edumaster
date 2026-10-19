@@ -25,7 +25,7 @@
 
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel, getEnrollmentModel } from "@/app/lib/models";
-import { requireSession } from "@/app/lib/rbac";
+import { requireSession, isStaffRole } from "@/app/lib/rbac";
 import { createNotificationsForUsers, getAllUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
@@ -72,7 +72,8 @@ export async function GET(request) {
       const courseIds = enrollments.map((e) => e.course);
       query.$or = [{ course: { $in: courseIds } }, { course: null }, ...invitedClause];
     }
-    // أدمن: مفيش فلتر — كل الاجتماعات.
+    // أدمن/موديريتور: مفيش فلتر — كل الاجتماعات (الموديريتور بيدير كورسات كل
+    // المدرّسين فلازم يشوف اجتماعاتهم).
 
     const meetings = await Meeting.find(query)
       .populate("course", "title thumbnail")
@@ -80,7 +81,7 @@ export async function GET(request) {
       .sort({ scheduledAt: 1 })
       .lean();
 
-    const isAdmin = session.user.role === "admin";
+    const isAdmin = isStaffRole(session.user.role);
     return jsonResponse({
       meetings: meetings.map((m) => {
         const teacherId = m.teacher?._id ? m.teacher._id.toString() : m.teacher?.toString();
@@ -106,7 +107,7 @@ export async function POST(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (session.user.role !== "teacher" && session.user.role !== "admin") {
+    if (session.user.role !== "teacher" && !isStaffRole(session.user.role)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

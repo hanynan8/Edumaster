@@ -89,6 +89,18 @@ export async function POST(request, { params }) {
       }).catch((err) => console.error("[/api/admin/courses/[id]/approve] notify error:", err));
     }
 
+    // 🆕 لو الكورس اتعمل بواسطة موديريتور (غير المدرّس المشرف)، هو كمان يتبلّغ.
+    if (course.createdBy && String(course.createdBy) !== String(teacherId)) {
+      createNotification({
+        user: course.createdBy,
+        type: "course_approved",
+        key: "course_approved",
+        params: { courseTitle: course.title },
+        link: `/teacher/courses/${course._id.toString()}`,
+        course: course._id,
+      }).catch((err) => console.error("[/api/admin/courses/[id]/approve] notify creator error:", err));
+    }
+
     return jsonResponse(serializeCourse(course));
   } catch (err) {
     console.error("[/api/admin/courses/[id]/approve] POST error:", err);

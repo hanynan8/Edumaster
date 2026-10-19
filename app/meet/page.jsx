@@ -1305,7 +1305,7 @@ export default function MeetPage() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    if (role !== "teacher" && role !== "moderator" && role !== "admin") return;
+    if (role !== "moderator" && role !== "admin") return;
     // 🆕 محتاجينها بس لملء dropdown "اختر دورة" في فورم الإضافة — GET
     // /api/courses أصلاً بيرجّع دورات المدرس نفسه (كل الحالات) أو كل
     // الدورات لو أدمن (شوف app/api/courses/route.js GET).
@@ -1387,9 +1387,9 @@ export default function MeetPage() {
   if (status === "unauthenticated") return <Blocked t={t} />;
 
   const dashboardHref = role === "admin" ? "/admin" : role === "teacher" || role === "moderator" ? "/teacher" : "/student";
-  const canCreate = role === "teacher" || role === "moderator" || role === "admin";
-  // أدمن يقدر يدير أي اجتماع (isOwnerOrAdmin في الـ API)، مدرس بس اجتماعاته هو.
-  const canManage = (meeting) => role === "admin" || role === "moderator" || (role === "teacher" && meeting.teacher === userId);
+  const canCreate = role === "moderator" || role === "admin";
+  // أدمن/موديريتور بس يقدروا يديروا الاجتماعات (المدرّس اتشالت منه صلاحية الميتنجس).
+  const canManage = (meeting) => role === "admin" || role === "moderator" || false;
 
 
   return (

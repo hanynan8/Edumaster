@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { X, Loader } from "lucide-react";
 import MediaUploader from "./MediaUploader";
+import AssignmentMedia from "@/app/components/AssignmentMedia";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -19,6 +20,11 @@ const STRINGS = {
     assignmentTitle: "عنوان الواجب *",
     descriptionLabel: "الوصف / التعليمات",
     attachmentLabel: "مرفق (اختياري) — ملف بدء، تعليمات إضافية...",
+    mediaSection: "فيديو أو أوديو للواجب (اختياري)",
+    videoLabel: "رفع فيديو",
+    audioLabel: "رفع أوديو",
+    removeMedia: "إزالة",
+    mediaError: "تعذّر حفظ الفيديو/الأوديو، حاول رفعه مرة أخرى",
     dueDateLabel: "الموعد النهائي (اختياري)",
     maxScoreLabel: "الدرجة الكاملة",
     allowLate: "السماح بالتسليم المتأخر بعد الموعد النهائي",
@@ -34,6 +40,11 @@ const STRINGS = {
     assignmentTitle: "Assignment title *",
     descriptionLabel: "Description / Instructions",
     attachmentLabel: "Attachment (optional) — starter file, extra instructions...",
+    mediaSection: "Video or audio for the assignment (optional)",
+    videoLabel: "Upload video",
+    audioLabel: "Upload audio",
+    removeMedia: "Remove",
+    mediaError: "Couldn't save the video/audio, try uploading it again",
     dueDateLabel: "Due date (optional)",
     maxScoreLabel: "Full score",
     allowLate: "Allow late submission after the due date",
@@ -58,6 +69,8 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
     title: assignment?.title || "",
     description: assignment?.description || "",
     attachmentUrl: assignment?.attachmentUrl || "",
+    mediaUrl: assignment?.mediaUrl || "",
+    mediaType: assignment?.mediaType || "",
     dueDate: toDateTimeLocalValue(assignment?.dueDate),
     maxScore: assignment?.maxScore ?? 100,
     allowLateSubmission: assignment?.allowLateSubmission ?? true,
@@ -81,6 +94,8 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
         title: form.title.trim(),
         description: form.description,
         attachmentUrl: form.attachmentUrl || null,
+        mediaUrl: form.mediaUrl || null,
+        mediaType: form.mediaUrl ? form.mediaType : null,
         dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
         maxScore: Number(form.maxScore) || 100,
         allowLateSubmission: form.allowLateSubmission,
@@ -96,8 +111,8 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
       onSaved(data);
-    } catch {
-      setError(t.genericError);
+    } catch (err) {
+      setError(String(err?.message || "").startsWith("invalid_media") ? t.mediaError : t.genericError);
     } finally {
       setSaving(false);
     }
@@ -146,6 +161,39 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
             currentUrl={form.attachmentUrl}
             onUploaded={(f) => update("attachmentUrl", f.url)}
           />
+
+          {/* 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) — واحد بس؛ رفع واحد جديد بيستبدل القديم */}
+          <div className="space-y-3 border border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-gray-700">{t.mediaSection}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <MediaUploader
+                key={`video-${form.mediaType === "video" ? "set" : "empty"}`}
+                kind="video"
+                label={t.videoLabel}
+                currentUrl={form.mediaType === "video" ? form.mediaUrl : ""}
+                onUploaded={(f) => setForm((p) => ({ ...p, mediaUrl: f.url, mediaType: "video" }))}
+              />
+              <MediaUploader
+                key={`audio-${form.mediaType === "audio" ? "set" : "empty"}`}
+                kind="audio"
+                label={t.audioLabel}
+                currentUrl={form.mediaType === "audio" ? form.mediaUrl : ""}
+                onUploaded={(f) => setForm((p) => ({ ...p, mediaUrl: f.url, mediaType: "audio" }))}
+              />
+            </div>
+            {form.mediaUrl && (
+              <div className="space-y-2">
+                <AssignmentMedia url={form.mediaUrl} type={form.mediaType} />
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, mediaUrl: "", mediaType: "" }))}
+                  className="text-xs font-semibold text-red-500 hover:underline"
+                >
+                  {t.removeMedia}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

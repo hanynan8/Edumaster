@@ -11,7 +11,7 @@
 //     بكل الحالات (مع فلترة اختيارية ?teacher= و ?status=)، من غير أي وصول
 //     للوحة الأدمن.
 //
-// POST: إنشاء كورس جديد — teacher/admin بس، والكورس بيتسجل دايمًا باسم
+// POST: إنشاء كورس جديد — moderator/admin بس (🆕 المدرّس اتشالت منه صلاحية الإضافة)، والكورس بيتسجل دايمًا باسم
 // صاحب الـ session (مفيش تمرير teacher من الـ body، منعًا لأي حد يعمل كورس
 // باسم مدرس تاني).
 //
@@ -161,7 +161,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const auth = await requireRole(["teacher", "moderator", "admin"]);
+    // 🆕 المدرّس مالوش صلاحية إضافة كورسات — الموديريتور (أو الأدمن) هو اللي
+    // بيضيف الكورس وبيختار المدرّس المشرف عليه، والكورس بيظهر عند المدرّس ده.
+    const auth = await requireRole(["moderator", "admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
     const isModerator = session.user.role === "moderator";

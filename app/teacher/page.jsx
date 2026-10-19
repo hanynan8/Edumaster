@@ -58,6 +58,9 @@ const T = {
     deleteErrorWithCode: (code) => `Something went wrong while deleting${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Something went wrong while deleting — check your internet connection and try again.",
     myCourses: "My courses",
+    moderatorDashboard: "Moderator Dashboard",
+    moderatorManage: "Add courses and assign them to teachers",
+    noCoursesAssigned: "No courses have been assigned to you yet",
     manageCourses: "Manage the courses you teach",
     performance: "Performance & stats",
     liveLectures: "Live lectures",
@@ -106,6 +109,9 @@ const T = {
     deleteErrorWithCode: (code) => `حدث خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "حدث خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
     myCourses: "دوراتي",
+    moderatorDashboard: "موديريتور داشبورد",
+    moderatorManage: "إضافة الدورات وتعيين المدرّس المسؤول عنها",
+    noCoursesAssigned: "لم يتم تعيين أي دورة لك بعد",
     manageCourses: "إدارة الدورات التي تدرّسها",
     performance: "الأداء والإحصائيات",
     liveLectures: "المحاضرات المباشرة",
@@ -154,6 +160,9 @@ const T = {
     deleteErrorWithCode: (code) => `Ocurrió un error al eliminar${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Ocurrió un error al eliminar — revisa tu conexión a internet e inténtalo de nuevo.",
     myCourses: "Mis cursos",
+    moderatorDashboard: "Moderator Dashboard",
+    moderatorManage: "Añade cursos y asígnalos a los profesores",
+    noCoursesAssigned: "Aún no se te ha asignado ningún curso",
     manageCourses: "Administra los cursos que impartes",
     performance: "Rendimiento y estadísticas",
     liveLectures: "Clases en vivo",
@@ -539,6 +548,10 @@ export default function TeacherCoursesPage() {
   const { language, isRTL } = useLanguage();
   const t = T[language] || T.en;
   const { data: session, status: sessionStatus } = useSession();
+  // 🆕 الموديريتور/الأدمن بس يقدروا يضيفوا كورسات ويدخلوا الميتنجس — المدرّس
+  // بيشوف الكورسات اللي الموديريتور عيّنها له فقط.
+  const isModerator = session?.user?.role === "moderator";
+  const canCreateCourse = isModerator || session?.user?.role === "admin";
   const [courses, setCourses] = useState(null);
   // 🆕 ترقيم الصفحات: "عرض المزيد" بيجيب الصفحة اللي بعدها ويضيفها للقايمة
   // لحد ما كل دورات المدرّس تظهر (total جاي من الـ API).
@@ -684,8 +697,10 @@ export default function TeacherCoursesPage() {
         <div className="flex items-center gap-3">
           <GraduationCap className="text-[#003A91]" size={30} />
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">{t.myCourses}</h1>
-            <p className="text-sm text-gray-400">{t.manageCourses}</p>
+            <h1 className="text-2xl font-semibold text-gray-800">
+              {isModerator ? t.moderatorDashboard : t.myCourses}
+            </h1>
+            <p className="text-sm text-gray-400">{isModerator ? t.moderatorManage : t.manageCourses}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -701,18 +716,22 @@ export default function TeacherCoursesPage() {
           >
             <MessageCircle size={16} /> {t.messages}
           </Link>
-          <Link
-            href="/meet"
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
-          >
-            <Video size={16} /> {t.liveLectures}
-          </Link>
-          <button
-            onClick={() => setModalCourse(null)}
-            className="flex items-center gap-2 bg-[#003A91] hover:bg-[#002E74] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors"
-          >
-            <Plus size={18} /> {t.newCourse}
-          </button>
+          {canCreateCourse && (
+            <Link
+              href="/meet"
+              className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
+            >
+              <Video size={16} /> {t.liveLectures}
+            </Link>
+          )}
+          {canCreateCourse && (
+            <button
+              onClick={() => setModalCourse(null)}
+              className="flex items-center gap-2 bg-[#003A91] hover:bg-[#002E74] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors"
+            >
+              <Plus size={18} /> {t.newCourse}
+            </button>
+          )}
         </div>
       </div>
 
@@ -740,13 +759,15 @@ export default function TeacherCoursesPage() {
       {courses?.length === 0 && (
         <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center">
           <BookOpen className="mx-auto text-gray-300 mb-3" size={40} />
-          <p className="text-gray-400 mb-4">{t.noCoursesYet}</p>
-          <button
-            onClick={() => setModalCourse(null)}
-            className="text-[#003A91] font-semibold hover:underline"
-          >
-            {t.createFirstCourse}
-          </button>
+          <p className="text-gray-400 mb-4">{canCreateCourse ? t.noCoursesYet : t.noCoursesAssigned}</p>
+          {canCreateCourse && (
+            <button
+              onClick={() => setModalCourse(null)}
+              className="text-[#003A91] font-semibold hover:underline"
+            >
+              {t.createFirstCourse}
+            </button>
+          )}
         </div>
       )}
 

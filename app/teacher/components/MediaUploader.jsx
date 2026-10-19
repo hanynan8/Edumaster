@@ -57,7 +57,15 @@ const ACCEPT_BY_KIND = {
   // ALLOWED_KINDS.submission في app/api/upload/file/route.js لقايمة الـ
   // mime types الكاملة المسموحة سيرفر-سايد.
   submission: "application/pdf,.doc,.docx,application/zip,image/*",
+  // 🆕 فيديو/أوديو الواجبات — الفيديو (video / submissionVideo) بيروح Bunny
+  // Stream بـ TUS، والأوديو (audio / submissionAudio) Bunny Storage.
+  audio: "audio/*",
+  submissionVideo: "video/*",
+  submissionAudio: "audio/*",
 };
+
+// الأنواع اللي بتتبعت لـ Bunny Stream (باقي الأنواع → Bunny Storage)
+const STREAM_KINDS = ["video", "submissionVideo"];
 
 // بيحاول يقرأ مدة الفيديو من الملف نفسه على جهاز المستخدم (بدون رفع)،
 // عشان نعرف نعبي durationSeconds فورًا وإحنا لسه بنرفع (Bunny Stream بياخد
@@ -94,7 +102,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
     const sigRes = await fetch("/api/upload/signature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "video", title: file.name }),
+      body: JSON.stringify({ kind: kind === "submissionVideo" ? "submissionVideo" : "video", title: file.name }),
     });
     const sig = await sigRes.json();
     if (!sigRes.ok) throw new Error(sig?.error || "signature_failed");
@@ -164,7 +172,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
     setErrorMsg("");
 
     try {
-      const result = kind === "video" ? await uploadVideo(file) : await uploadStorageFile(file);
+      const result = STREAM_KINDS.includes(kind) ? await uploadVideo(file) : await uploadStorageFile(file);
       setStatus("done");
       onUploaded?.(result);
     } catch (err) {

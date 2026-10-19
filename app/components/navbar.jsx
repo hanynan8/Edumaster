@@ -80,6 +80,7 @@ const UI_STRINGS = {
       myPayments: "مدفوعاتي",
       myMessages: "رسائلي",
       teacherDashboard: "لوحة المدرّس",
+      moderatorDashboard: "موديريتور داشبورد",
       adminDashboard: "لوحة الإدارة",
     },
   },
@@ -96,6 +97,7 @@ const UI_STRINGS = {
       myPayments: "My Payments",
       myMessages: "My Messages",
       teacherDashboard: "Teacher Dashboard",
+      moderatorDashboard: "Moderator Dashboard",
       adminDashboard: "Admin Dashboard",
     },
   },
@@ -112,6 +114,7 @@ const UI_STRINGS = {
       myPayments: "Mis pagos",
       myMessages: "Mis mensajes",
       teacherDashboard: "Panel del profesor",
+      moderatorDashboard: "Moderator Dashboard",
       adminDashboard: "Panel del administrador",
     },
   },
@@ -228,7 +231,10 @@ function UserDropdown({ user }) {
         ]
       : [];
   if (user?.role === "teacher" || user?.role === "moderator" || user?.role === "admin") {
-    links.push({ href: "/teacher", label: t.roleLinks.teacherDashboard });
+    links.push({
+      href: "/teacher",
+      label: user?.role === "moderator" ? t.roleLinks.moderatorDashboard : t.roleLinks.teacherDashboard,
+    });
   }
   if (user?.role === "admin") {
     links.push({ href: "/admin", label: t.roleLinks.adminDashboard });

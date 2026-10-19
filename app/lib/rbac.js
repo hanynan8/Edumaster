@@ -96,6 +96,16 @@ export function isOwnerOrStaff(session, ownerId) {
 }
 
 /**
+ * 🆕 الميتنجس (المحاضرات اللايف) بقت من صلاحيات طاقم الإدارة بس (أدمن + موديريتور).
+ * المدرّس اتشالت منه صلاحية إنشاء/إدارة/دخول الميتنجس خالص، حتى لو هو
+ * "مدرّس الكورس" — عكس isOwnerOrStaff اللي بتدّي المدرّس صاحب الكورس صلاحية.
+ * @param {object} session
+ */
+export function isMeetingStaff(session) {
+  return !!session?.user && isStaffRole(session.user.role);
+}
+
+/**
  * اختصار جاهز: يتحقق إن المستخدم owner للمورد أو admin، وبيرجّع نفس شكل
  * requireRole/requireSession (session/response) عشان الاستخدام يبقى متسق.
  * لازم تكون عندك الـ ownerId قبل ما تناديها (يعني بعد ما تجيب المستند من

@@ -11,6 +11,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 import { getCourseAccessForUser } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
@@ -29,6 +30,9 @@ function serializeAssignment(a) {
     title: a.title,
     description: a.description,
     attachmentUrl: a.attachmentUrl,
+    // 🆕 فيديو/أوديو الواجب (رابط جاهز للعرض — موقّع لو Token Auth مفعّل)
+    mediaUrl: resolveAssignmentMedia(a.mediaUrl, a.mediaType),
+    mediaType: a.mediaUrl ? a.mediaType : null,
     dueDate: a.dueDate,
     maxScore: a.maxScore,
     allowLateSubmission: a.allowLateSubmission,
@@ -77,6 +81,8 @@ export async function GET(request, { params }) {
         ? {
             id: mySubmission._id.toString(),
             fileUrl: mySubmission.fileUrl,
+            mediaUrl: resolveAssignmentMedia(mySubmission.mediaUrl, mySubmission.mediaType),
+            mediaType: mySubmission.mediaUrl ? mySubmission.mediaType : null,
             textAnswer: mySubmission.textAnswer,
             status: mySubmission.status,
             score: mySubmission.score,
@@ -113,6 +119,13 @@ export async function PUT(request, { params }) {
     }
     if (body?.description !== undefined) assignment.description = String(body.description);
     if (body?.attachmentUrl !== undefined) assignment.attachmentUrl = body.attachmentUrl || null;
+    if (body?.mediaUrl !== undefined || body?.mediaType !== undefined) {
+      // 🆕 تغيير/مسح فيديو أو أوديو الواجب (mediaUrl فاضي = مسح)
+      const media = sanitizeAssignmentMedia(body?.mediaUrl, body?.mediaType, { audioFolderPrefix: "/edumaster/teachers/" });
+      if (!media.ok) return jsonResponse({ error: media.error }, 400);
+      assignment.mediaUrl = media.mediaUrl;
+      assignment.mediaType = media.mediaType;
+    }
     if (body?.dueDate !== undefined) assignment.dueDate = body.dueDate ? new Date(body.dueDate) : null;
     if (body?.maxScore !== undefined) assignment.maxScore = Math.max(1, Number(body.maxScore) || 1);
     if (body?.allowLateSubmission !== undefined) assignment.allowLateSubmission = Boolean(body.allowLateSubmission);

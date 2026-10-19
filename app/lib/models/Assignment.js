@@ -15,6 +15,9 @@ const assignmentSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     attachmentUrl: { type: String, default: null }, // ملف يرفقه المدرس (تعليمات، ملف بدء، إلخ)
+    // 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) يرفقه المدرس مع الواجب
+    mediaUrl: { type: String, default: null },
+    mediaType: { type: String, enum: ["video", "audio", null], default: null },
 
     dueDate: { type: Date, default: null }, // null = بدون ميعاد نهائي
     maxScore: { type: Number, default: 100, min: 1 },
@@ -46,6 +49,9 @@ const submissionSchema = new mongoose.Schema(
     student: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
 
     fileUrl: { type: String, default: null },
+    // 🆕 تسليم بفيديو (Bunny Stream) أو أوديو (Bunny Storage)
+    mediaUrl: { type: String, default: null },
+    mediaType: { type: String, enum: ["video", "audio", null], default: null },
     textAnswer: { type: String, default: null },
 
     submittedAt: { type: Date, default: Date.now },

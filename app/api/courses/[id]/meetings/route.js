@@ -24,7 +24,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getMeetingModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createNotificationsForUsers, getEnrolledUserIds } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -60,7 +60,10 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const canManage = isOwnerOrStaff(session, course.teacher);
+    // 🆕 المدرّس مالوش صلاحية ميتنجس خالص (حتى لو الكورس بتاعه).
+    if (session.user.role === "teacher") return jsonResponse({ error: "forbidden" }, 403);
+
+    const canManage = isMeetingStaff(session);
     if (!canManage) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: id });
       // 🆕 بنرجّع سبب الرفض التفصيلي (access.reason) بدل "enrollment_required"
@@ -91,7 +94,7 @@ export async function POST(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrStaff(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!isMeetingStaff(session)) return jsonResponse({ error: "forbidden" }, 403);
 
     // 🔒 نفس منطق rate limit إعلانات الكورس — كل اجتماع جديد بيبعت إشعار
     // لكل طالب مسجّل، فمحتاجين نمنع استخدامه كوسيلة سبام.

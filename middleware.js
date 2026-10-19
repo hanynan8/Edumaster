@@ -46,7 +46,13 @@ const PAGE_ROLE_RULES = [
   // 🆕 /meet: صفحة المحاضرات اللايف (روابط Daily). زي /onboarding بالظبط —
   // أي role مسجل دخول يقدر يوصلها (الفحص الفعلي لـ"مين شايف اجتماع مين"
   // بيتم داخل GET /api/meetings حسب الـ role، مش هنا).
-  { prefix: "/meet", roles: ["student", "teacher", "moderator", "admin"] },
+  // 🆕 المدرّس مالوش صلاحية ميتنجس (اتشالت منه) — لو حاول يفتح /meet بيترحّل
+  // لداشبورده. الميتنجس للطلاب والموديريتور والأدمن بس.
+  {
+    prefix: "/meet",
+    roles: ["student", "moderator", "admin"],
+    redirectByRole: { teacher: "/teacher" },
+  },
 ];
 
 // نفس المنطق لكن لمسارات الـ API — بترجع 401/403 JSON بدل redirect، عشان

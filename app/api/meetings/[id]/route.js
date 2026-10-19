@@ -22,7 +22,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
 import { deleteDailyRoom, updateDailyRoom } from "@/app/lib/daily";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
 import { notifyMeetingChange } from "@/app/lib/meetingNotify";
@@ -69,7 +69,7 @@ export async function PUT(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrStaff(session, meeting.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!isMeetingStaff(session)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") return jsonResponse({ error: "invalid_body" }, 400);
@@ -296,7 +296,7 @@ export async function DELETE(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrStaff(session, meeting.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!isMeetingStaff(session)) return jsonResponse({ error: "forbidden" }, 403);
 
     const scope = new URL(request.url).searchParams.get("scope") === "following" ? "following" : "single";
     const targets = await resolveTargets(Meeting, meeting, scope);

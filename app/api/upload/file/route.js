@@ -31,6 +31,16 @@ function isImageMime(mime) {
   return mime.startsWith("image/") && !isSvgMime(mime);
 }
 
+// 🆕 أنواع الأوديو المقبولة (mp3/m4a/aac/wav/ogg/webm — كل اللي المتصفحات
+// بتسجّله أو بتشغّله). "audio/*" مش مفتوحة بالكامل عشان نمنع أنواع غريبة.
+function isAudioMime(mime) {
+  const base = String(mime || "").split(";")[0].trim().toLowerCase();
+  return [
+    "audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac",
+    "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg", "audio/webm", "audio/flac", "audio/x-flac",
+  ].includes(base);
+}
+
 function isAvatarAllowedMime(mime) {
   return ["image/jpeg", "image/png", "image/gif"].includes(mime);
 }
@@ -55,6 +65,11 @@ const ALLOWED_KINDS = {
       ].includes(m) || isImageMime(m),
     roles: ["student", "teacher", "moderator", "admin"],
   },
+  // 🆕 أوديو مرفق بالواجب (من المدرس/الموديريتور/الأدمن) — بيتخزن على Bunny
+  // Storage (الفيديو بيروح Bunny Stream عن طريق /api/upload/signature).
+  audio: { subfolder: "audio", allowedMime: (m) => isAudioMime(m), roles: ["teacher", "moderator", "admin"] },
+  // 🆕 أوديو تسليم الطالب لواجب — مسار الملف تحت فولدر الطالب نفسه.
+  submissionAudio: { subfolder: "audio", allowedMime: (m) => isAudioMime(m), roles: ["student", "teacher", "moderator", "admin"] },
   // 🆕 صورة البروفايل الشخصية — أي مستخدم مسجّل دخول (student/teacher/admin)
   // يقدر يرفع صورة لنفسه بس (المسار تحت مبني على session.user.id، فمفيش
   // حد يقدر يستبدل صورة حد تاني). منفصلة عن "image" (اللي لسه مقصورة على
@@ -94,6 +109,10 @@ const MAX_BYTES_BY_KIND = {
   image: 15 * 1024 * 1024, // 15MB
   pdf: 50 * 1024 * 1024, // 50MB
   submission: 25 * 1024 * 1024, // 25MB
+  // ⚠️ الرفع بيعدي على السيرفر (proxy) — لو الديبلوي على Vercel فحد الـ body
+  // هناك (~4.5MB) أقل من الحدود دي، يعني لازم استضافة بتسمح بـ body أكبر.
+  audio: 50 * 1024 * 1024, // 50MB
+  submissionAudio: 50 * 1024 * 1024, // 50MB
   avatar: 1 * 1024 * 1024, // 1MB — كافي جدًا لصورة بروفايل
 };
 
@@ -140,7 +159,8 @@ export async function POST(request) {
     }
 
     const { subfolder, allowedMime } = ALLOWED_KINDS[kind];
-    const mime = file.type || "application/octet-stream";
+    // audio/webm;codecs=opus (تسجيل المتصفح) → بنقارن على النوع الأساسي بس
+    const mime = (file.type || "application/octet-stream").split(";")[0].trim().toLowerCase();
     if (!allowedMime(mime)) {
       return jsonResponse({ error: "invalid_mime", mime }, 400);
     }

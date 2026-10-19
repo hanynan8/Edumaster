@@ -5,7 +5,7 @@
 //     محدودة (id/name/email).
 //   - POST /api/courses: الموديريتور لازم يختار مدرّس مشرف صالح، والكورس بيتسجل
 //     باسم المدرّس ده (createdBy = الموديريتور) وبيتبعت pending للأدمن. أي دور
-//     تاني بيتجاهل body.teacher تمامًا.
+//     تاني (المدرّس) مرفوض 403 — المدرّس مالوش صلاحية إضافة كورسات.
 
 const mockGetServerSession = jest.fn();
 const mockAuthFind = jest.fn();
@@ -164,17 +164,14 @@ describe("POST /api/courses (إنشاء كورس)", () => {
     expect((await res.json()).submittedForReview).toBe(true);
   });
 
-  it("المدرّس العادي بيتجاهل body.teacher: الكورس باسمه هو و createdBy فاضي", async () => {
+  it("المدرّس مالوش صلاحية إضافة كورسات: 403 ومفيش إنشاء", async () => {
     asUser("teacher", TEACHER_ID);
-    mockCourseCreate.mockResolvedValue(createdDoc());
+    mockCourseCreate.mockClear();
 
     const res = await POST(req({ teacher: "507f1f77bcf86cd7994390ff" }));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(403);
     expect(mockResolveSupervisor).not.toHaveBeenCalled();
-
-    const data = mockCourseCreate.mock.calls[0][0];
-    expect(String(data.teacher)).toBe(TEACHER_ID);
-    expect(data.createdBy).toBeNull();
+    expect(mockCourseCreate).not.toHaveBeenCalled();
   });
 
   it("الطالب مرفوض (403)", async () => {

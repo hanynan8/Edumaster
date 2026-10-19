@@ -55,15 +55,17 @@ export async function GET(request) {
     getCourseModel();
     getAuthModel();
 
+    // 🆕 المدرّس معندوش أي صلاحية على الميتنجس (عرض/إنشاء/دخول) — الميتنجس
+    // للأدمن والموديريتور والطلاب بس.
+    if (session.user.role === "teacher") return jsonResponse({ error: "forbidden" }, 403);
+
     const query = {};
     const userEmail = String(session.user.email || "").trim().toLowerCase();
     // 🆕 المدعوين بالإيميل — بيتضافوا لأي role غير الأدمن (الأدمن بيشوف كله أصلًا).
     const invitedClause = userEmail ? [{ invitedEmails: userEmail }] : [];
 
     // 🆕 الجلسات العامة (course = null) ظاهرة لكل المستخدمين.
-    if (session.user.role === "teacher") {
-      query.$or = [{ teacher: session.user.id }, { course: null }, ...invitedClause];
-    } else if (session.user.role === "student") {
+    if (session.user.role === "student") {
       const Enrollment = getEnrollmentModel();
       const enrollments = await Enrollment.find(
         { user: session.user.id, status: { $ne: "cancelled" } },
@@ -100,14 +102,14 @@ export async function GET(request) {
 
 // 🆕 POST /api/meetings { title, scheduledAt, description?, durationMinutes?, link?,
 //   invitedEmails?, timeZone?, recurrence? }
-// → إنشاء جلسة عامة (من غير كورس) — مدرس/أدمن بس. بنفس منطق إنشاء غرفة Daily
+// → إنشاء جلسة عامة (من غير كورس) — موديريتور/أدمن بس. بنفس منطق إنشاء غرفة Daily
 // تلقائيًا (أو link يدوي) زي app/api/courses/[id]/meetings.
 export async function POST(request) {
   try {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (session.user.role !== "teacher" && !isStaffRole(session.user.role)) {
+    if (!isStaffRole(session.user.role)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

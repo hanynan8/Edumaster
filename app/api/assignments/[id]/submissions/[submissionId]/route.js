@@ -15,6 +15,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
@@ -58,6 +59,8 @@ export async function GET(request, { params }) {
     return jsonResponse({
       id: submission._id.toString(),
       fileUrl: submission.fileUrl,
+      mediaUrl: resolveAssignmentMedia(submission.mediaUrl, submission.mediaType),
+      mediaType: submission.mediaUrl ? submission.mediaType : null,
       textAnswer: submission.textAnswer,
       status: submission.status,
       score: submission.score,

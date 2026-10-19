@@ -4,7 +4,7 @@
 //
 // GET  /api/assignments?course=<id> → قائمة واجبات كورس معيّن. صاحب
 //        الكورس/أدمن بيشوف الكل (منشور+مسودة)، غير كده منشور بس.
-// POST /api/assignments { course, title, description?, attachmentUrl?,
+// POST /api/assignments { course, title, description?, attachmentUrl?, mediaUrl?, mediaType? ("video"|"audio" — Bunny),
 //        section?, lesson?, dueDate?, maxScore?, allowLateSubmission? }
 //        → صاحب الكورس أو أدمن بس.
 
@@ -12,6 +12,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -29,6 +30,9 @@ function serializeAssignment(a) {
     title: a.title,
     description: a.description,
     attachmentUrl: a.attachmentUrl,
+    // 🆕 فيديو/أوديو الواجب (رابط جاهز للعرض — موقّع لو Token Auth مفعّل)
+    mediaUrl: resolveAssignmentMedia(a.mediaUrl, a.mediaType),
+    mediaType: a.mediaUrl ? a.mediaType : null,
     dueDate: a.dueDate,
     maxScore: a.maxScore,
     allowLateSubmission: a.allowLateSubmission,
@@ -93,6 +97,10 @@ export async function POST(request) {
       return jsonResponse({ error: "invalid_lesson" }, 400);
     }
 
+    // 🆕 فيديو (Bunny Stream) / أوديو (Bunny Storage) اختياري
+    const media = sanitizeAssignmentMedia(body?.mediaUrl, body?.mediaType, { audioFolderPrefix: "/edumaster/teachers/" });
+    if (!media.ok) return jsonResponse({ error: media.error }, 400);
+
     const Assignment = getAssignmentModel();
     const created = await Assignment.create({
       course: courseId,
@@ -101,6 +109,8 @@ export async function POST(request) {
       title,
       description: String(body?.description || ""),
       attachmentUrl: body?.attachmentUrl || null,
+      mediaUrl: media.mediaUrl,
+      mediaType: media.mediaType,
       dueDate: body?.dueDate ? new Date(body.dueDate) : null,
       maxScore: Number.isFinite(Number(body?.maxScore)) ? Math.max(1, Number(body.maxScore)) : 100,
       allowLateSubmission: body?.allowLateSubmission !== undefined ? Boolean(body.allowLateSubmission) : true,

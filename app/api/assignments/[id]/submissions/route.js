@@ -7,7 +7,7 @@
 //        معيّن (اسم/إيميل الطالب + الملف/النص + حالة التصحيح). صاحب الكورس
 //        أو أدمن بس (شوف app/teacher/assignments/[assignmentId]/submissions).
 //
-// POST /api/assignments/[id]/submissions { fileUrl?, textAnswer? } → تسليم
+// POST /api/assignments/[id]/submissions { fileUrl?, textAnswer?, mediaUrl?, mediaType? } → تسليم
 //        الطالب لنفسه. لازم يكون عنده وصول فعلي للكورس والواجب منشور.
 //        🔒 SECURITY: تسليم واحد لكل طالب لكل واجب (unique index في
 //        Submission model) — إعادة الإرسال بتعدّل نفس السجل (upsert) بدل ما
@@ -21,6 +21,7 @@ import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/li
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,6 +38,8 @@ function serializeSubmissionForTeacher(s, studentById) {
     studentName: student?.name || "—",
     studentEmail: student?.email || "—",
     fileUrl: s.fileUrl,
+    mediaUrl: resolveAssignmentMedia(s.mediaUrl, s.mediaType),
+    mediaType: s.mediaUrl ? s.mediaType : null,
     textAnswer: s.textAnswer,
     status: s.status,
     score: s.score,
@@ -117,7 +120,13 @@ export async function POST(request, { params }) {
     const body = await request.json().catch(() => null);
     const fileUrl = body?.fileUrl ? String(body.fileUrl) : null;
     const textAnswer = body?.textAnswer ? String(body.textAnswer) : null;
-    if (!fileUrl && !textAnswer) {
+    // 🆕 فيديو (Bunny Stream) / أوديو (Bunny Storage). 🔒 ملف الأوديو لازم
+    // يكون تحت فولدر الطالب نفسه (مش ملف حد تاني).
+    const media = sanitizeAssignmentMedia(body?.mediaUrl, body?.mediaType, {
+      audioFolderPrefix: `/edumaster/students/${session.user.id}/`,
+    });
+    if (!media.ok) return jsonResponse({ error: media.error }, 400);
+    if (!fileUrl && !textAnswer && !media.mediaUrl) {
       return jsonResponse({ error: "empty_submission" }, 400);
     }
 
@@ -136,6 +145,8 @@ export async function POST(request, { params }) {
       {
         $set: {
           fileUrl,
+          mediaUrl: media.mediaUrl,
+          mediaType: media.mediaType,
           textAnswer,
           submittedAt: now,
           status: isLate ? "late" : "submitted",
@@ -152,6 +163,8 @@ export async function POST(request, { params }) {
       {
         id: saved._id.toString(),
         fileUrl: saved.fileUrl,
+        mediaUrl: resolveAssignmentMedia(saved.mediaUrl, saved.mediaType),
+        mediaType: saved.mediaUrl ? saved.mediaType : null,
         textAnswer: saved.textAnswer,
         status: saved.status,
         submittedAt: saved.submittedAt,

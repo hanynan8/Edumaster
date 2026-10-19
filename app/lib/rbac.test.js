@@ -62,3 +62,16 @@ describe('isOwnerOrAdmin (unchanged — moderator must NOT pass)', () => {
     expect(isOwnerOrAdmin(sessionOf('student', 'student7'), 'student7')).toBe(true);
   });
 });
+
+describe("isMeetingStaff — الميتنجس للأدمن والموديريتور بس", () => {
+  const { isMeetingStaff } = require("./rbac");
+  it("أدمن وموديريتور → true", () => {
+    expect(isMeetingStaff({ user: { role: "admin" } })).toBe(true);
+    expect(isMeetingStaff({ user: { role: "moderator" } })).toBe(true);
+  });
+  it("المدرّس (حتى لو صاحب الكورس) والطالب وغير المسجّل → false", () => {
+    expect(isMeetingStaff({ user: { role: "teacher", id: "t1" } })).toBe(false);
+    expect(isMeetingStaff({ user: { role: "student" } })).toBe(false);
+    expect(isMeetingStaff(null)).toBe(false);
+  });
+});

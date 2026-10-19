@@ -13,6 +13,7 @@ import {
   ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Paperclip,
 } from "lucide-react";
 import MediaUploader from "@/app/teacher/components/MediaUploader";
+import AssignmentMedia from "@/app/components/AssignmentMedia";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -23,7 +24,11 @@ const STRINGS = {
     statusGraded: "مُصحَّح",
     accessError: "يجب أن تملك صلاحية الوصول إلى هذه الدورة لتسليم هذا الواجب",
     loadError: "تعذّر تحميل الواجب",
-    needFileOrText: "يجب رفع ملف أو كتابة إجابة نصية قبل التسليم",
+    needFileOrText: "يجب رفع ملف أو فيديو أو أوديو أو كتابة إجابة نصية قبل التسليم",
+    uploadVideoLabel: "أو سجّل/ارفع فيديو كتسليم (اختياري)",
+    uploadAudioLabel: "أو سجّل/ارفع أوديو كتسليم (اختياري)",
+    removeMedia: "إزالة الفيديو/الأوديو",
+    invalidMedia: "تعذّر قبول الفيديو/الأوديو، حاول رفعه مرة أخرى",
     deadlinePassed: "انتهى موعد التسليم ولا يُسمح بالتسليم المتأخر لهذا الواجب",
     submitError: "حدث خطأ أثناء التسليم، حاول مرة أخرى",
     backToCourse: "الرجوع إلى الدورة",
@@ -48,7 +53,11 @@ const STRINGS = {
     statusGraded: "Graded",
     accessError: "You need access to this course to submit this assignment",
     loadError: "Couldn't load the assignment",
-    needFileOrText: "You must upload a file or write a text answer before submitting",
+    needFileOrText: "You must upload a file, video, audio or write a text answer before submitting",
+    uploadVideoLabel: "Or upload a video as your submission (optional)",
+    uploadAudioLabel: "Or upload an audio recording as your submission (optional)",
+    removeMedia: "Remove video/audio",
+    invalidMedia: "The video/audio couldn't be accepted, try uploading it again",
     deadlinePassed: "The deadline has passed and late submission isn't allowed for this assignment",
     submitError: "Something went wrong while submitting, try again",
     backToCourse: "Back to course",
@@ -87,6 +96,7 @@ export default function SubmitAssignmentPage({ params }) {
   const [assignment, setAssignment] = useState(null);
   const [error, setError] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [media, setMedia] = useState({ url: "", type: "" }); // 🆕 فيديو/أوديو التسليم
   const [textAnswer, setTextAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -98,6 +108,7 @@ export default function SubmitAssignmentPage({ params }) {
       if (!res.ok) throw new Error(data?.error || "error");
       setAssignment(data);
       setFileUrl(data.mySubmission?.fileUrl || "");
+      setMedia({ url: data.mySubmission?.mediaUrl || "", type: data.mySubmission?.mediaType || "" });
       setTextAnswer(data.mySubmission?.textAnswer || "");
     } catch (err) {
       setError(err.message === "forbidden" ? t.accessError : t.loadError);
@@ -115,7 +126,7 @@ export default function SubmitAssignmentPage({ params }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError("");
-    if (!fileUrl && !textAnswer.trim()) {
+    if (!fileUrl && !media.url && !textAnswer.trim()) {
       setSubmitError(t.needFileOrText);
       return;
     }
@@ -124,11 +135,17 @@ export default function SubmitAssignmentPage({ params }) {
       const res = await fetch(`/api/assignments/${assignmentId}/submissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: fileUrl || null, textAnswer: textAnswer.trim() || null }),
+        body: JSON.stringify({
+          fileUrl: fileUrl || null,
+          mediaUrl: media.url || null,
+          mediaType: media.url ? media.type : null,
+          textAnswer: textAnswer.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         if (data.error === "deadline_passed") setSubmitError(t.deadlinePassed);
+        else if (String(data.error || "").startsWith("invalid_media")) setSubmitError(t.invalidMedia);
         else setSubmitError(t.submitError);
         return;
       }
@@ -181,6 +198,11 @@ export default function SubmitAssignmentPage({ params }) {
             </span>
           )}
         </div>
+        {assignment.mediaUrl && (
+          <div className="mt-4">
+            <AssignmentMedia url={assignment.mediaUrl} type={assignment.mediaType} title={assignment.title} />
+          </div>
+        )}
         {assignment.attachmentUrl && (
           <a
             href={assignment.attachmentUrl}
@@ -204,6 +226,11 @@ export default function SubmitAssignmentPage({ params }) {
           <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-3">
             <Clock size={12} /> {t.submittedAt} {formatDate(mySubmission.submittedAt)}
           </p>
+          {mySubmission.mediaUrl && (
+            <div className="mb-3">
+              <AssignmentMedia url={mySubmission.mediaUrl} type={mySubmission.mediaType} />
+            </div>
+          )}
           {mySubmission.status === "graded" && (
             <div className="bg-green-50 rounded-xl p-4 mb-2">
               <p className="text-lg font-black text-green-700">
@@ -222,6 +249,36 @@ export default function SubmitAssignmentPage({ params }) {
           {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{submitError}</div>}
 
           <MediaUploader kind="submission" label={t.uploadLabel} currentUrl={fileUrl} onUploaded={(r) => setFileUrl(r.url)} />
+
+          {/* 🆕 تسليم بفيديو (Bunny Stream) أو أوديو (Bunny Storage) — واحد بس */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <MediaUploader
+              key={`sv-${media.type === "video" ? "set" : "empty"}`}
+              kind="submissionVideo"
+              label={t.uploadVideoLabel}
+              currentUrl={media.type === "video" ? media.url : ""}
+              onUploaded={(r) => setMedia({ url: r.url, type: "video" })}
+            />
+            <MediaUploader
+              key={`sa-${media.type === "audio" ? "set" : "empty"}`}
+              kind="submissionAudio"
+              label={t.uploadAudioLabel}
+              currentUrl={media.type === "audio" ? media.url : ""}
+              onUploaded={(r) => setMedia({ url: r.url, type: "audio" })}
+            />
+          </div>
+          {media.url && (
+            <div className="space-y-2">
+              <AssignmentMedia url={media.url} type={media.type} />
+              <button
+                type="button"
+                onClick={() => setMedia({ url: "", type: "" })}
+                className="text-xs font-semibold text-red-500 hover:underline"
+              >
+                {t.removeMedia}
+              </button>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.orWriteText}</label>

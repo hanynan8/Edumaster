@@ -9,6 +9,7 @@ import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft, FileText, Loader, CheckCircle2, Clock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import AssignmentMedia from "@/app/components/AssignmentMedia";
 
 const STRINGS = {
   ar: {
@@ -191,6 +192,11 @@ export default function AssignmentSubmissionsPage({ params }) {
                   >
                     <FileText size={15} /> {t.viewSubmittedFile}
                   </a>
+                )}
+                {s.mediaUrl && (
+                  <div className="mb-3">
+                    <AssignmentMedia url={s.mediaUrl} type={s.mediaType} title={s.studentName} />
+                  </div>
                 )}
                 {s.textAnswer && (
                   <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 whitespace-pre-line mb-3">{s.textAnswer}</div>

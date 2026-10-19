@@ -17,7 +17,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { getDailyRoomPresence } from "@/app/lib/daily";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const isManager = isOwnerOrStaff(session, meeting.teacher);
+    const isManager = isMeetingStaff(session);
     // 🆕 نفس فحص token/route.js بالظبط (شامل المدعوين بالإيميل والجلسات العامة).
     const Course = getCourseModel();
     const accessCheck = await checkMeetingAccess({

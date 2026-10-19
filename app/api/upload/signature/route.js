@@ -31,7 +31,10 @@ export async function POST(request) {
       return jsonResponse({ error: "upload_not_configured" }, 503);
     }
 
-    const auth = await requireRole(["teacher", "moderator", "admin"]);
+    // 🆕 الفيديو العادي (kind="video") للمدرس/الموديريتور/الأدمن، و
+    // kind="submissionVideo" (فيديو تسليم واجب) كمان للطالب — الدور بيتفحص تحت
+    // حسب الـ kind بعد قراءة الـ body.
+    const auth = await requireRole(["student", "teacher", "moderator", "admin"]);
     if (auth.response) return auth.response;
 
     // 🔒 SECURITY (Day 59): كل نداء بينشئ فيديو جديد في Bunny Stream (مورد
@@ -48,16 +51,20 @@ export async function POST(request) {
     const kind = body?.kind;
 
     // 🔒 الراوت ده بقى مخصص للفيديو بس. الصور والـ PDF بتتبعت لـ /api/upload/file
-    if (kind !== "video") {
+    const isStaff = ["teacher", "moderator", "admin"].includes(auth.session.user.role);
+    if (kind !== "video" && kind !== "submissionVideo") {
       return jsonResponse(
         { error: "invalid_kind", message: "استخدم /api/upload/file للصور والـ PDF" },
         400
       );
     }
 
+    // 🔒 الطالب مسموحله بس "submissionVideo" — "video" (فيديوهات الدروس) للطاقم.
+    if (kind === "video" && !isStaff) return jsonResponse({ error: "forbidden" }, 403);
+
     // 🔒 العنوان اللي بنسجله في Bunny Stream مش جاي من الـ client، بنولّده
     // إحنا عشان منسمحش بأي string عشوائي يتخزن هناك.
-    const title = typeof body?.title === "string" && body.title.trim() ? body.title.trim().slice(0, 200) : "lesson-video";
+    const title = typeof body?.title === "string" && body.title.trim() ? body.title.trim().slice(0, 200) : (kind === "submissionVideo" ? "assignment-submission-video" : "lesson-video");
 
     const { videoId } = await createStreamVideo({ title });
     const authPayload = generateStreamUploadAuthorization({ videoId });

@@ -30,7 +30,7 @@ export async function GET(request) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (session.user.role !== "teacher" && !isStaffRole(session.user.role)) {
+    if (!isStaffRole(session.user.role)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

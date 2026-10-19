@@ -30,6 +30,7 @@ import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "./LoadingScreen";
+import { isPlacementTestCourse } from "@/app/lib/placementLevels";
 
 // 🆕 زرار "اختبر مستواك" في كارت الكورس على الصفحة الرئيسية — نص بسيط
 // حسب اللغة (مش جوه ui المُمرّرة من الصفحة الأب عشان منضطرش نعدّل كل
@@ -81,6 +82,7 @@ function localizeCourse(c, language, ui) {
     categoryName,
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
+    hasPlacementTest: isPlacementTestCourse(c),
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -308,6 +310,8 @@ function CourseCard({ course, ui, lang, visible, delay }) {
   // بدل زرار ClassMarker القديم.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
   const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
+  // اختبار A1 بيظهر بس على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3)
+  const showSpanishTest = isSpanishCourse && course.hasPlacementTest;
   const levelTestLabel = LEVEL_TEST_BTN_LABEL[lang] || LEVEL_TEST_BTN_LABEL.en;
 
   function handleSpanishTestClick(e) {
@@ -384,7 +388,7 @@ function CourseCard({ course, ui, lang, visible, delay }) {
           <span className="text-sm font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
             {course.isFree || !course.price ? ui.free : `${course.price} ${course.currency}`}
           </span>
-          {isSpanishCourse && (
+          {showSpanishTest && (
             <button
               type="button"
               onClick={handleSpanishTestClick}

@@ -38,6 +38,7 @@ export async function GET() {
         language: d.language,
         score: d.score,
         maxScore: d.maxScore,
+        level: d.level || null,
         answeredCount: d.answeredCount,
         totalQuestions: d.totalQuestions,
         paymentStatus: d.paymentStatus || "unpaid",

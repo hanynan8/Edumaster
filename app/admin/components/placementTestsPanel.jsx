@@ -8,9 +8,9 @@
 // لو الطالب لسه ماستلمهاش (لأنه لسه ما دفعش). فيه فلتر حالة الدفع،
 // تصدير Excel، وحذف نتيجة.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ExcelJS from 'exceljs';
-import { Loader, AlertCircle, GraduationCap, Trash2, Download } from 'lucide-react';
+import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones } from 'lucide-react';
 
 const PAY_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -29,6 +29,155 @@ function formatDate(value) {
 function formatPaid(row) {
   if (row.paymentStatus !== 'paid' || row.paidAmount == null) return '—';
   return `${(row.paidAmount / 100).toFixed(2)} ${row.paidCurrency || ''}`.trim();
+}
+
+
+const AUDIO_SLOTS = [
+  { slot: 1, label: 'Audio 1 — Mensajes cortos', hint: 'Questions 1–5' },
+  { slot: 2, label: 'Audio 2 — Mensajes muy breves', hint: 'Questions 6–10' },
+  { slot: 3, label: 'Audio 3 — Carmen: su casa y su día', hint: 'Questions 11–18' },
+  { slot: 4, label: 'Audio 4 — Rosa y Miguel', hint: 'Questions 19–25' },
+];
+
+function formatSize(bytes) {
+  if (!bytes) return '';
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+// رفع صوتيات قسم الاستماع (4 خانات) — بتظهر في الاختبار فورًا أول ما تتّرفع.
+function ListeningAudioManager() {
+  const [tracks, setTracks] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busySlot, setBusySlot] = useState(null);
+  const [error, setError] = useState('');
+  const inputs = useRef({});
+
+  useEffect(() => {
+    fetch('/api/admin/placement-tests/audio')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((d) => setTracks(d.tracks || {}))
+      .catch(() => setError('Could not load the audio files'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const upload = async (slot, file) => {
+    if (!file) return;
+    setError('');
+    setBusySlot(slot);
+    try {
+      const fd = new FormData();
+      fd.append('slot', String(slot));
+      fd.append('file', file);
+      const res = await fetch('/api/admin/placement-tests/audio', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          data?.error === 'invalid_mime' ? 'Unsupported file type — upload an MP3, M4A, WAV or OGG file'
+          : data?.error === 'file_too_large' ? 'File is too large (max 30 MB)'
+          : data?.error === 'upload_not_configured' ? 'Bunny Storage is not configured'
+          : 'Upload failed, please try again'
+        );
+      }
+      setTracks(data.tracks || {});
+    } catch (e) {
+      setError(e.message || 'Upload failed, please try again');
+    } finally {
+      setBusySlot(null);
+      if (inputs.current[slot]) inputs.current[slot].value = '';
+    }
+  };
+
+  const remove = async (slot) => {
+    if (!window.confirm('Remove this audio? Its questions will be hidden from the test until you upload a new one.')) return;
+    setError('');
+    setBusySlot(slot);
+    try {
+      const res = await fetch(`/api/admin/placement-tests/audio?slot=${slot}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error('failed');
+      setTracks(data.tracks || {});
+    } catch {
+      setError('Could not remove the audio, please try again');
+    } finally {
+      setBusySlot(null);
+    }
+  };
+
+  const uploadedCount = AUDIO_SLOTS.filter((a) => tracks[a.slot]).length;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Headphones className="text-indigo-600" size={18} />
+        <h3 className="text-sm font-semibold text-gray-800">Listening audio (Part 2)</h3>
+        <span className="text-xs text-gray-400">({uploadedCount}/4 uploaded)</span>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        Each audio appears in its place in the test as soon as it is uploaded. A task without audio stays hidden from the test.
+      </p>
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+          <AlertCircle size={15} /> {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader className="animate-spin text-indigo-600" size={20} /></div>
+      ) : (
+        <div className="space-y-3">
+          {AUDIO_SLOTS.map(({ slot, label, hint }) => {
+            const t = tracks[slot];
+            const busy = busySlot === slot;
+            return (
+              <div key={slot} className="border border-gray-100 rounded-lg p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{label}</p>
+                    <p className="text-[11px] text-gray-400">{hint}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={(el) => { inputs.current[slot] = el; }}
+                      type="file"
+                      accept="audio/*,.mp3,.m4a,.wav,.ogg"
+                      className="hidden"
+                      onChange={(e) => upload(slot, e.target.files?.[0])}
+                    />
+                    <button
+                      onClick={() => inputs.current[slot]?.click()}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy ? <Loader className="animate-spin" size={13} /> : <Upload size={13} />}
+                      {busy ? 'Uploading...' : t ? 'Replace' : 'Upload'}
+                    </button>
+                    {t && (
+                      <button
+                        onClick={() => remove(slot)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-red-600 text-xs font-semibold px-2.5 py-2 rounded-lg border border-red-100 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 size={13} /> Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {t ? (
+                  <div className="mt-2.5">
+                    <p className="text-[11px] text-gray-500 mb-1">{t.name} · {formatSize(t.size)}</p>
+                    <audio controls src={t.url} className="w-full h-9" />
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600 mt-2">Not uploaded — its questions are hidden from the test.</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PlacementTestsAdmin() {
@@ -75,6 +224,7 @@ function PlacementTestsAdmin() {
         { header: 'Email', key: 'email', width: 32 },
         { header: 'Score', key: 'score', width: 10 },
         { header: 'Out of', key: 'maxScore', width: 10 },
+        { header: 'Level', key: 'level', width: 10 },
         { header: 'Answered', key: 'answered', width: 12 },
         { header: 'Payment', key: 'payment', width: 12 },
         { header: 'Paid Amount', key: 'paid', width: 16 },
@@ -94,6 +244,7 @@ function PlacementTestsAdmin() {
         email: r.email,
         score: r.score,
         maxScore: r.maxScore,
+        level: r.level || '',
         answered: `${r.answeredCount}/${r.totalQuestions}`,
         payment: r.paymentStatus,
         paid: formatPaid(r),
@@ -121,6 +272,7 @@ function PlacementTestsAdmin() {
 
   return (
     <div className="p-4 sm:p-6">
+      <ListeningAudioManager />
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
           <GraduationCap className="text-indigo-600" size={22} />
@@ -165,6 +317,7 @@ function PlacementTestsAdmin() {
                 <th className="px-4 py-3">Student #</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Score</th>
+                <th className="px-4 py-3">Level</th>
                 <th className="px-4 py-3">Answered</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Paid</th>
@@ -179,6 +332,7 @@ function PlacementTestsAdmin() {
                   <td className="px-4 py-3 text-gray-600">{r.studentNumber}</td>
                   <td className="px-4 py-3 text-gray-600">{r.email}</td>
                   <td className="px-4 py-3 font-bold text-indigo-700">{r.score} / {r.maxScore}</td>
+                  <td className="px-4 py-3 font-bold text-gray-700">{r.level || "—"}</td>
                   <td className="px-4 py-3 text-gray-500">{r.answeredCount}/{r.totalQuestions}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${PAY_STYLES[r.paymentStatus] || PAY_STYLES.unpaid}`}>

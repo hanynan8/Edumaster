@@ -143,6 +143,29 @@ export default function PaymentSuccessPage({ searchParams }) {
                     <p className="text-[11px] text-gray-400 mt-1">
                       {t.answered}: {placementResult.answeredCount}/{placementResult.totalQuestions}
                     </p>
+                    {placementResult.level && (
+                      <>
+                        <p className="text-xs text-gray-500 mt-4 mb-1">{language === "ar" ? "مستواك" : language === "es" ? "Tu nivel" : "Your level"}</p>
+                        <p className="text-3xl font-black text-[#003A91]" dir="ltr">{placementResult.level}</p>
+                      </>
+                    )}
+                    {placementResult.recommended?.length > 0 && (
+                      <div className="mt-4 text-start space-y-1.5">
+                        <p className="text-xs font-bold text-gray-600">
+                          {language === "ar" ? "كورسات مقترحة لك" : language === "es" ? "Cursos recomendados" : "Recommended courses"}
+                        </p>
+                        {placementResult.recommended.slice(0, 5).map((c) => (
+                          <Link
+                            key={c.id}
+                            href={`/courses/${c.id}`}
+                            className="flex items-center justify-between gap-2 text-xs bg-white border border-gray-100 rounded-lg px-3 py-2 hover:border-[#003A91]"
+                          >
+                            <span className="font-semibold text-gray-800 truncate">{c.title}</span>
+                            <span className="font-bold text-[#003A91] shrink-0" dir="ltr">{c.levelCode}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </>
                 ) : placementResultError ? (
                   <p className="text-xs text-red-500">{t.resultError}</p>

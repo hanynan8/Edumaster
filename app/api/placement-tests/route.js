@@ -3,7 +3,7 @@
 // POST — استلام إجابات اختبار تحديد المستوى (إسباني) بعد ما الطالب يخلّصه.
 // بيتم التصحيح هنا على السيرفر وبيتخزن في كولكشن "placement_tests".
 // - اختبار مجاني (PLACEMENT_TEST_IS_FREE=true): بيتسجّل بحالة "free" والراوت
-//   بيرجع الدرجة فورًا للطالب.
+//   بيرجع الدرجة (من 100) + المستوى + الكورسات الموصى بها فورًا للطالب.
 // - اختبار مدفوع: بيتسجّل بحالة "unpaid" 🔒 والراوت مبيرجعش الدرجة للـ client،
 //   والطالب مبيستلمها غير بعد نجاح الدفع (شوف ./result/route.js).
 //
@@ -13,7 +13,13 @@
 import { connectToMongo } from "@/app/lib/mongodb";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { PLACEMENT_TEST_IS_FREE } from "@/app/lib/spanishPlacementTest";
-import { getPlacementTestsCollection, sanitizeAnswers, scoreAnswers } from "@/app/lib/placementTest";
+import {
+  getAudioMap,
+  getPlacementTestsCollection,
+  getRecommendedCourses,
+  sanitizeAnswers,
+  scoreAnswers,
+} from "@/app/lib/placementTest";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -43,10 +49,12 @@ export async function POST(request) {
       return jsonResponse({ error: "invalid_request" }, 400);
     }
 
-    const answers = sanitizeAnswers(body?.answers);
-    const result = scoreAnswers(answers);
-
     await connectToMongo();
+    // الأسئلة المصححة = الأسئلة الظاهرة فعلًا (مهام الاستماع من غير صوت مرفوع بتتخفي)
+    const audio = await getAudioMap();
+    const answers = sanitizeAnswers(body?.answers, audio);
+    const result = scoreAnswers(answers, audio);
+
     const col = getPlacementTestsCollection();
     const inserted = await col.insertOne({
       name,
@@ -58,12 +66,19 @@ export async function POST(request) {
       maxScore: result.maxScore,
       answeredCount: result.answered,
       totalQuestions: result.totalQuestions,
+      level: result.level,
+      a11Correct: result.a11,
+      a12Correct: result.a12,
+      rawScore: result.rawScore,
+      rawMax: result.rawMax,
       paymentStatus: PLACEMENT_TEST_IS_FREE ? "free" : "unpaid",
       createdAt: new Date(),
     });
 
     const id = inserted.insertedId.toString();
     if (PLACEMENT_TEST_IS_FREE) {
+      // الكورسات الموصى بها (نفس مستوى الطالب وأعلى) — لو فشلت منوقّفش النتيجة
+      const recommended = await getRecommendedCourses(result.level, language).catch(() => []);
       return jsonResponse(
         {
           id,
@@ -71,8 +86,10 @@ export async function POST(request) {
           name,
           score: result.score,
           maxScore: result.maxScore,
+          level: result.level,
           answeredCount: result.answered,
           totalQuestions: result.totalQuestions,
+          recommended,
         },
         201
       );

@@ -32,6 +32,7 @@ import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
+import { isPlacementTestCourse } from "@/app/lib/placementLevels";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
@@ -624,6 +625,8 @@ function RealCourseDetail({ id }) {
   const coursePriceInfo = getPriceForCurrency(course.prices, language);
   // 🆕 كورس إسباني تحت Language → زرار اختبار المستوى (/spanish-test) جمب السعر
   const isSpanishCourse = course.categorySlug === "language" && course.language === "es";
+  // اختبار A1 بيظهر بس على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3)
+  const showSpanishTest = isSpanishCourse && isPlacementTestCourse(course);
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
@@ -692,7 +695,7 @@ function RealCourseDetail({ id }) {
                   <p className="text-2xl font-black">
                     {course.isFree ? t.free : formatPrice(coursePriceInfo.amount, coursePriceInfo.currency, language)}
                   </p>
-                  {isSpanishCourse && (
+                  {showSpanishTest && (
                     <Link
                       href="/spanish-test"
                       target="_blank"

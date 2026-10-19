@@ -2,27 +2,29 @@
 
 // app/(pages)/spanish-test/page.jsx
 //
-// اختبار تحديد المستوى (إسباني) — Prueba de nivel (90 نقطة).
+// اختبار تحديد المستوى (إسباني) — Prueba de nivel de español A1 (100 نقطة).
 // بيتفتح من زرار "اختبر مستواك" اللي جمب سعر كل كورس إسباني (تصنيف Language).
 //
-// التدفق: بيانات الطالب → الأسئلة على مراحل (A1 → A2 → B1 → C1، وبعد كل مرحلة
-// يقدر يكمّل أو ينهي) → عند الإنهاء الإجابات بتتبعت للسيرفر (POST /api/placement-tests)
-// وبيتصحح هناك ويتسجّل للأدمن → رسالة "انتهى الاختبار" + دفع رسوم الاختبار (5$ بعملة
-// لغة الموقع) بنفس نظام GetPayIn بتاع الكورسات → النتيجة بتظهر في صفحة النجاح بعد الدفع.
-// 🆓 الاختبار الحالي مجاني (PLACEMENT_TEST_IS_FREE في lib/spanishPlacementTest.js): النتيجة بتظهر
-// لحظيًا أول ما الطالب يخلّص ومن غير دفع. لو اتغيّرت لـ false بيرجع التدفق المدفوع.
-// 🔒 في الاختبار المدفوع الدرجة مش بتوصل المتصفح قبل الدفع، ومفتاح الإجابات على السيرفر بس.
+// التدفق: بيانات الطالب → 3 أجزاء (قراءة، استماع، قواعد ومفردات) → عند الإنهاء الإجابات
+// بتتبعت للسيرفر (POST /api/placement-tests) وبيتصحح هناك ويتسجّل للأدمن →
+// النتيجة من 100 + مستوى الطالب (Pre-A1 / A1.1 / A1.2 / A1.3) + الكورسات الموصى بها
+// (نفس مستواه وأعلى).
+// 🆓 الاختبار الحالي مجاني (PLACEMENT_TEST_IS_FREE في lib/spanishPlacementTest.js): النتيجة
+// بتظهر لحظيًا. لو اتغيّرت لـ false بيرجع التدفق المدفوع (دفع رسوم الاختبار ثم النتيجة
+// في صفحة النجاح).
+// 🔒 مفتاح الإجابات على السيرفر بس.
+// 🎧 مهام الاستماع بتظهر لما يتحط لها audioSrc في lib/spanishPlacementTest.js.
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  PLACEMENT_STAGES,
   PLACEMENT_TEST_FEE_USD,
   PLACEMENT_TEST_IS_FREE,
   PLACEMENT_TEST_TITLE,
-  getVisibleBlocks,
+  getVisibleParts,
 } from "@/app/lib/spanishPlacementTest";
 import { convertPrice, formatPrice, getCurrencyForLanguage } from "@/app/lib/currency";
+import PlacementResult from "@/app/components/PlacementResult";
 
 const PENDING_KEY = "spanishTestPending";
 
@@ -33,18 +35,17 @@ const STRINGS = {
     email: "Email",
     start: "Start the test",
     required: "Please fill in all fields with a valid email",
-    dontKnow: "No sé (I don't know)",
+    intro: "This test has three parts: reading, listening, and grammar & vocabulary. Choose one answer for each question. There is no penalty for wrong answers, so if you're unsure, pick an option. Don't use a dictionary.",
+    part: "Part",
+    min: "min",
+    audioNote: "You will hear each audio twice.",
     next: "Continue",
+    back: "Back",
     finish: "Finish the test",
-    stageDone: "You've completed this level. Continue, or finish the test here.",
-    stage: "Level",
-    hardNote: "If the questions get too difficult, you can finish the test at the end of each level.",
+    unanswered: "Unanswered questions",
     submitting: "Submitting your answers...",
     doneTitle: "The test has been completed successfully",
     doneBody: "To receive your result, you need to pay the test fee:",
-    resultTitle: "Your result",
-    resultBody: "Your Spanish level test has been scored:",
-    yourScore: "Your score",
     pay: "Pay & get my result",
     paying: "Redirecting to payment...",
     newTest: "Start a new test",
@@ -57,18 +58,17 @@ const STRINGS = {
     email: "البريد الإلكتروني",
     start: "ابدأ الاختبار",
     required: "من فضلك املأ كل الحقول وأدخل بريدًا إلكترونيًا صحيحًا",
-    dontKnow: "No sé (لا أعرف)",
+    intro: "الاختبار من ثلاثة أجزاء: القراءة، الاستماع، القواعد والمفردات. اختر إجابة واحدة لكل سؤال. لا يوجد خصم على الإجابة الخاطئة، فإن لم تكن متأكدًا اختر أي خيار. لا تستخدم القاموس.",
+    part: "الجزء",
+    min: "دقيقة",
+    audioNote: "ستسمع كل مقطع صوتي مرتين.",
     next: "متابعة",
+    back: "رجوع",
     finish: "إنهاء الاختبار",
-    stageDone: "أنهيت هذا المستوى. يمكنك المتابعة أو إنهاء الاختبار هنا.",
-    stage: "المستوى",
-    hardNote: "لو الأسئلة بقت صعبة تقدر تنهي الاختبار في نهاية أي مستوى.",
+    unanswered: "أسئلة بدون إجابة",
     submitting: "جارٍ إرسال إجاباتك...",
     doneTitle: "تم انتهاء الاختبار بنجاح",
     doneBody: "لاستلام نتيجتك يجب دفع رسوم الاختبار:",
-    resultTitle: "نتيجتك",
-    resultBody: "تم تصحيح اختبار تحديد المستوى في الإسبانية:",
-    yourScore: "درجتك",
     pay: "ادفع واستلم نتيجتي",
     paying: "جارٍ التحويل لصفحة الدفع...",
     newTest: "ابدأ اختبارًا جديدًا",
@@ -81,18 +81,17 @@ const STRINGS = {
     email: "Correo electrónico",
     start: "Empezar la prueba",
     required: "Completa todos los campos con un correo válido",
-    dontKnow: "No sé",
+    intro: "Esta prueba tiene tres partes: lectura, auditiva, y gramática y vocabulario. Marca una sola respuesta en cada pregunta. No se resta por error: si dudas, elige una opción. No uses diccionario.",
+    part: "Parte",
+    min: "min",
+    audioNote: "Escucharás cada audio dos veces.",
     next: "Seguir",
+    back: "Atrás",
     finish: "Terminar el examen",
-    stageDone: "Has alcanzado otro nivel. Puedes seguir o terminar el examen aquí.",
-    stage: "Nivel",
-    hardNote: "Si encuentras las preguntas difíciles, puedes terminar el examen al final de cada nivel.",
+    unanswered: "Preguntas sin responder",
     submitting: "Enviando tus respuestas...",
     doneTitle: "La prueba se ha completado con éxito",
     doneBody: "Para recibir tu resultado debes pagar la tarifa de la prueba:",
-    resultTitle: "Tu resultado",
-    resultBody: "Tu prueba de nivel de español ha sido corregida:",
-    yourScore: "Tu puntuación",
     pay: "Pagar y recibir mi resultado",
     paying: "Redirigiendo al pago...",
     newTest: "Empezar una nueva prueba",
@@ -102,6 +101,7 @@ const STRINGS = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LETTERS = "abcdefghijk";
 
 export default function SpanishTestPage() {
   const { language, isRTL } = useLanguage();
@@ -110,8 +110,8 @@ export default function SpanishTestPage() {
   const [step, setStep] = useState("intro"); // intro | quiz | submitting | result (مجاني) | pay (مدفوع)
   const [info, setInfo] = useState({ name: "", email: "" });
   const [infoError, setInfoError] = useState(false);
-  const [stageIdx, setStageIdx] = useState(0);
-  const [answers, setAnswers] = useState({}); // { [n]: optionIndex | -1 (no sé) }
+  const [partIdx, setPartIdx] = useState(0);
+  const [answers, setAnswers] = useState({}); // { [n]: optionIndex }
   const [testId, setTestId] = useState(null);
   const [result, setResult] = useState(null); // اختبار مجاني: النتيجة اللحظية
   const [paying, setPaying] = useState(false);
@@ -129,12 +129,19 @@ export default function SpanishTestPage() {
     } catch {}
   }, []);
 
-  const stages = useMemo(
-    () =>
-      PLACEMENT_STAGES.map((s) => ({ ...s, blocks: getVisibleBlocks(s) })).filter((s) =>
-        s.blocks.some((b) => b.questions.length)
-      ),
-    []
+  // 🎧 روابط الصوتيات اللي الأدمن رفعها (مهام الاستماع بتظهر لما صوتها يتّرفع)
+  const [audio, setAudio] = useState({});
+  useEffect(() => {
+    fetch("/api/placement-tests/audio")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.audio && setAudio(d.audio))
+      .catch(() => {});
+  }, []);
+
+  const parts = useMemo(() => getVisibleParts(audio), [audio]);
+  const allQuestions = useMemo(
+    () => parts.flatMap((p) => p.tasks.flatMap((tk) => tk.questions)),
+    [parts]
   );
 
   const currency = getCurrencyForLanguage(language);
@@ -146,6 +153,11 @@ export default function SpanishTestPage() {
     }
     setInfoError(false);
     setStep("quiz");
+  }
+
+  function goPart(idx) {
+    setPartIdx(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function submitTest() {
@@ -169,7 +181,7 @@ export default function SpanishTestPage() {
       // 🆓 اختبار مجاني: النتيجة بتظهر فورًا من غير دفع
       if (PLACEMENT_TEST_IS_FREE && data.free && Number.isFinite(data.score)) {
         try { localStorage.removeItem(PENDING_KEY); } catch {}
-        setResult({ score: data.score, maxScore: data.maxScore });
+        setResult(data);
         setStep("result");
         return;
       }
@@ -202,15 +214,17 @@ export default function SpanishTestPage() {
   function startNew() {
     try { localStorage.removeItem(PENDING_KEY); } catch {}
     setAnswers({});
-    setStageIdx(0);
+    setPartIdx(0);
     setTestId(null);
     setResult(null);
     setError("");
     setStep("intro");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const stage = stages[stageIdx];
-  const isLast = stageIdx === stages.length - 1;
+  const part = parts[partIdx];
+  const isLast = partIdx === parts.length - 1;
+  const unansweredCount = allQuestions.filter((q) => answers[q.n] === undefined).length;
   const dir = isRTL ? "rtl" : "ltr";
   const btn = "px-5 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60";
   const input =
@@ -218,7 +232,7 @@ export default function SpanishTestPage() {
 
   return (
     <main dir={dir} className="min-h-screen bg-gray-50 pt-28 pb-16 px-4">
-      <div className="max-w-3xl mx-auto">
+      <div className={`${step === "result" ? "max-w-6xl" : "max-w-3xl"} mx-auto`}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 mb-6">
           <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">{t.title}</h1>
           <p className="text-sm text-gray-500 mt-1">{PLACEMENT_TEST_TITLE}</p>
@@ -241,56 +255,114 @@ export default function SpanishTestPage() {
               />
             </label>
             {infoError && <p className="text-sm text-red-500">{t.required}</p>}
-            <p className="text-xs text-gray-400">{t.hardNote}</p>
+            <p className="text-xs text-gray-500 leading-relaxed">{t.intro}</p>
             <button onClick={start} className={`${btn} bg-[#003A91] text-white`}>
               {t.start}
             </button>
           </div>
         )}
 
-        {step === "quiz" && stage && (
+        {step === "quiz" && part && (
           <div className="space-y-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#003A91]">
-              {t.stage} {stage.id}
+            {/* شريط الأجزاء */}
+            <div className="flex items-center gap-2" dir="ltr">
+              {parts.map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`flex-1 h-1.5 rounded-full ${i <= partIdx ? "bg-[#003A91]" : "bg-gray-200"}`}
+                />
+              ))}
+            </div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#003A91]" dir="ltr">
+              {t.part} {partIdx + 1}/{parts.length} · {part.title} · {part.minutes} {t.min}
             </p>
 
-            {stage.blocks.map((block, bi) => (
-              <div key={bi} className="space-y-4">
-                {block.audioSrc && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    {block.title && <p className="text-sm font-semibold text-gray-800 mb-3">{block.title}</p>}
-                    <audio controls src={block.audioSrc} className="w-full" />
-                  </div>
-                )}
+            {part.tasks.map((task, ti) => (
+              <div key={ti} className="space-y-4" dir="ltr">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left space-y-3">
+                  <p className="text-sm font-bold text-gray-900">{task.title}</p>
+                  <p className="text-sm text-gray-600">{task.intro}</p>
 
-                {block.questions.map((q) => (
-                  <div key={q.n} dir="ltr" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left">
-                    <p className="text-sm font-semibold text-gray-900 mb-3">
-                      {q.n}. {q.q}
-                      {q.p > 1 && <span className="ml-2 text-[11px] font-bold text-[#003A91]">({q.p} pts)</span>}
-                    </p>
-                    <div className="space-y-2">
-                      {[...q.o, null].map((opt, oi) => {
-                        const value = opt === null ? -1 : oi;
-                        const checked = answers[q.n] === value;
-                        return (
-                          <label
-                            key={oi}
-                            className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                              checked ? "border-[#003A91] bg-[#003A91]/5" : "border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`q${q.n}`}
-                              checked={checked}
-                              onChange={() => setAnswers({ ...answers, [q.n]: value })}
-                            />
-                            <span>{opt === null ? t.dontKnow : opt}</span>
-                          </label>
-                        );
-                      })}
+                  {task.audioSrc && (
+                    <div>
+                      <audio controls src={task.audioSrc} className="w-full" />
+                      <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
                     </div>
+                  )}
+
+                  {task.passage && (
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 text-sm text-gray-800 whitespace-pre-line">
+                      {task.passage}
+                    </div>
+                  )}
+
+                  {task.bank && (
+                    <ul className="space-y-1.5">
+                      {task.bank.map((b) => (
+                        <li key={b.l} className="flex gap-2.5 text-sm text-gray-800 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                          <span className="font-black text-[#003A91] shrink-0">{b.l}.</span>
+                          <span>{b.t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {task.questions.map((q) => (
+                  <div key={q.n} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left">
+                    {q.ctx && (
+                      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">{q.ctx}</p>
+                    )}
+                    <p className="text-sm font-semibold text-gray-900 mb-3">
+                      {q.ln}. {q.q}
+                    </p>
+
+                    {task.bank ? (
+                      // أسئلة الربط: حروف (A, B, C...) — النصوص فوق في القائمة
+                      <div className="flex flex-wrap gap-2">
+                        {q.o.map((letter, oi) => {
+                          const checked = answers[q.n] === oi;
+                          return (
+                            <button
+                              key={letter}
+                              type="button"
+                              onClick={() => setAnswers({ ...answers, [q.n]: oi })}
+                              className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
+                                checked
+                                  ? "border-[#003A91] bg-[#003A91] text-white"
+                                  : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              {letter}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {q.o.map((opt, oi) => {
+                          const checked = answers[q.n] === oi;
+                          return (
+                            <label
+                              key={oi}
+                              className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                                checked ? "border-[#003A91] bg-[#003A91]/5" : "border-gray-200 hover:bg-gray-50"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`q${q.n}`}
+                                checked={checked}
+                                onChange={() => setAnswers({ ...answers, [q.n]: oi })}
+                              />
+                              <span>
+                                <span className="font-bold text-gray-500">{LETTERS[oi]})</span> {opt}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -298,24 +370,25 @@ export default function SpanishTestPage() {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-3">
               {error && <p className="text-sm text-red-500 w-full">{error}</p>}
-              {!isLast && <p className="text-sm text-gray-600 w-full">{t.stageDone}</p>}
-              {!isLast && (
-                <button
-                  onClick={() => {
-                    setStageIdx(stageIdx + 1);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className={`${btn} bg-[#003A91] text-white`}
-                >
-                  {t.next}
+              {isLast && unansweredCount > 0 && (
+                <p className="text-xs text-amber-600 w-full">
+                  {t.unanswered}: {unansweredCount}
+                </p>
+              )}
+              {partIdx > 0 && (
+                <button onClick={() => goPart(partIdx - 1)} className={`${btn} border border-gray-300 text-gray-700`}>
+                  {t.back}
                 </button>
               )}
-              <button
-                onClick={submitTest}
-                className={`${btn} ${isLast ? "bg-[#003A91] text-white" : "border border-gray-300 text-gray-700"}`}
-              >
-                {t.finish}
-              </button>
+              {!isLast ? (
+                <button onClick={() => goPart(partIdx + 1)} className={`${btn} bg-[#003A91] text-white`}>
+                  {t.next}
+                </button>
+              ) : (
+                <button onClick={submitTest} className={`${btn} bg-[#003A91] text-white`}>
+                  {t.finish}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -327,20 +400,11 @@ export default function SpanishTestPage() {
         )}
 
         {step === "result" && result && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 text-center space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">{t.resultTitle}</h2>
-            <p className="text-sm text-gray-600">{t.resultBody}</p>
-            <div className="bg-[#003A91]/5 rounded-xl py-5 px-3">
-              <p className="text-xs text-gray-500 mb-1">{t.yourScore}</p>
-              <p className="text-5xl font-black text-[#003A91]" dir="ltr">
-                {result.score}
-                <span className="text-lg font-bold text-gray-400"> / {result.maxScore}</span>
-              </p>
-            </div>
+          <PlacementResult result={result} language={language}>
             <button onClick={startNew} className={`${btn} border border-gray-300 text-gray-700`}>
               {t.newTest}
             </button>
-          </div>
+          </PlacementResult>
         )}
 
         {step === "pay" && (

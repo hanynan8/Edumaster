@@ -1,10 +1,22 @@
 // app/api/register/route.js
 // نقطة تسجيل حساب جديد الوحيدة والمسموحة. بديل عن POST /api/data?collection=auth
 // اللي كان بيسمح لأي حد يبعت أي بيانات (زي role) مباشرة للداتابيز من غير أي تحقق.
+//
+// 🆕 تأكيد الإيميل: الـ endpoint ده مابينشئش الحساب. بيتحقق من البيانات، يخزّنها
+// كتسجيل معلّق (PendingRegistration)، ويبعت كود من 6 أرقام على الإيميل. الحساب
+// بيتعمل فعليًا في POST /api/register/verify بعد ما الكود يتأكد.
 
 import bcrypt from "bcryptjs";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
+import { getPendingRegistrationModel } from "@/app/lib/models";
 import { checkRateLimit, getClientIp } from "@/app/lib/rateLimit";
+import {
+  VERIFY_CODE_TTL_MS,
+  consumeSendQuota,
+  cooldownRemainingSeconds,
+  generateVerificationCode,
+  sendVerificationCodeEmail,
+} from "@/app/lib/registrationHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -90,31 +102,70 @@ export async function POST(request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+
+    // 🆕 مفيش حساب بيتعمل هنا. بنخزّن تسجيل معلّق ونبعت كود التأكيد.
+    // لو فيه تسجيل معلّق لنفس الإيميل (المستخدم رجع صحّح اسمه/باسورده مثلًا)
+    // بنحدّث بياناته ونبعت كود جديد — بس بحدّين ضد إغراق إيميل حد بالرسائل:
+    // فاصل 60 ثانية بين كل إرسالين + حصة يومية: 5 أكواد/يوم لكل إيميل ولكل IP.
+    const Pending = getPendingRegistrationModel();
+    const pending = await Pending.findOne({ email });
+
+    if (pending) {
+      const wait = cooldownRemainingSeconds(pending.lastSentAt);
+      if (wait > 0) {
+        return jsonResponse({ error: "resend_too_soon", retryAfterSeconds: wait }, 429);
+      }
+    }
+
+    // 🔒 الحصة اليومية (5 لكل إيميل + 5 لكل IP) — بتتخصم قبل الإرسال الفعلي.
+    const quota = await consumeSendQuota(ip, email);
+    if (!quota.allowed) {
+      return jsonResponse(
+        {
+          error: "too_many_codes",
+          scope: quota.scope,
+          retryAfterSeconds: quota.retryAfterSeconds,
+          dailyLimit: quota.limit,
+          remainingSends: 0,
+        },
+        429
+      );
+    }
+
+    const code = generateVerificationCode();
+    const codeHash = await bcrypt.hash(code, 10);
     const now = new Date();
 
-    // role دايمًا "student" هنا — مفيش أي طريقة للـ client إنه يطلب دور أعلى.
-    // ترقية أي حساب لـ teacher/admin بتتم من لوحة الأدمن فقط لاحقًا.
-    // status دايمًا "active" عند التسجيل — مفيش طريقة إنشاء حساب موقوف من نفسه.
-    const created = await AuthModel.create({
-      name,
-      email,
-      password: passwordHash,
-      phone,
-      role: "student",
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
+    await Pending.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          name,
+          phone,
+          passwordHash,
+          codeHash,
+          codeExpiry: new Date(now.getTime() + VERIFY_CODE_TTL_MS),
+          attempts: 0,
+          lastSentAt: now,
+        },
+        // أول إرسال بيعمل sendCount = 1 (upsert)، وكل إرسال بعده بيزوّده 1.
+        $inc: { sendCount: 1 },
+        $setOnInsert: { createdAt: now },
+      },
+      { upsert: true, new: true }
+    );
+
+    const sent = await sendVerificationCodeEmail({ to: email, name, code });
+    if (!sent) {
+      // الإيميل ماوصلش لـ Resend (مفتاح غلط/Resend واقع) — مفيش فايدة نسيب
+      // تسجيل معلّق مستخدمه عمره ما هيستلم كوده.
+      await Pending.deleteOne({ email });
+      return jsonResponse({ error: "email_send_failed" }, 502);
+    }
 
     return jsonResponse(
-      {
-        id: created._id.toString(),
-        name: created.name,
-        email: created.email,
-        phone: created.phone,
-        role: created.role,
-      },
-      201
+      { verificationRequired: true, email, remainingSends: quota.remaining, dailyLimit: quota.limit },
+      202
     );
   } catch (err) {
     console.error("Register error:", err);

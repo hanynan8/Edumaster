@@ -28,3 +28,6 @@ export { getMessageModel } from "./Message";
 // متظبط على السيرفر أو فشل إنشاء الغرفة) — شوف app/lib/models/Meeting.js
 // و app/lib/daily.js
 export { getMeetingModel } from "./Meeting";
+
+// 🆕 تسجيلات معلّقة بانتظار تأكيد كود الإيميل (شوف /api/register)
+export { getPendingRegistrationModel } from "./PendingRegistration";

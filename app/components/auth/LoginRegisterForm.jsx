@@ -56,6 +56,25 @@ const AUTH_I18N = {
       errWeakPassword: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
       errInvalidPhone: "رقم الهاتف ليس بصيغة صحيحة",
       errRateLimitedRetry: "محاولات تسجيل كثيرة من نفس الشبكة. حاول مرة أخرى بعد {m} دقيقة",
+      // 🆕 تأكيد الإيميل بكود من 6 أرقام قبل إنشاء الحساب
+      verifyTitle: "أكّد بريدك الإلكتروني",
+      verifySubtitle: "أرسلنا كودًا من 6 أرقام إلى {email}. أدخله لإكمال إنشاء حسابك",
+      codeLabel: "كود التحقق",
+      verifySubmit: "تأكيد وإنشاء الحساب",
+      resend: "إعادة إرسال الكود",
+      resendIn: "إعادة الإرسال بعد {s} ثانية",
+      resent: "تم إرسال كود جديد إلى بريدك الإلكتروني",
+      changeEmail: "تغيير البريد الإلكتروني",
+      errInvalidCode: "الكود غير صحيح",
+      attemptsLeft: "تبقّى لك {n} محاولات",
+      errCodeExpired: "انتهت صلاحية الكود. اضغط على إعادة إرسال الكود",
+      errNoPending: "انتهت مهلة التسجيل. يُرجى البدء من جديد",
+      errTooManyAttemptsCode: "تجاوزت عدد المحاولات المسموح بها. يُرجى البدء من جديد",
+      codeLimitNote: "يمكن إرسال 5 أكواد كحد أقصى يوميًا لكل بريد إلكتروني ولكل شبكة (IP)",
+      sendsLeft: "المتبقي لك اليوم: {n} من 5 إرسالات للكود",
+      errCodeLimitEmail: "وصلت للحد الأقصى (5 أكواد في اليوم) لهذا البريد الإلكتروني. حاول مرة أخرى بعد {h} ساعة",
+      errCodeLimitIp: "وصلت للحد الأقصى (5 أكواد في اليوم) من هذه الشبكة (IP). حاول مرة أخرى بعد {h} ساعة",
+      errEmailSendFailed: "تعذّر إرسال كود التحقق. تأكد من صحة البريد الإلكتروني وحاول مرة أخرى",
     },
     forgot: {
       title: "استعادة كلمة المرور",
@@ -140,6 +159,25 @@ const AUTH_I18N = {
       errWeakPassword: "Password must be at least 8 characters",
       errInvalidPhone: "Please enter a valid phone number",
       errRateLimitedRetry: "Too many sign-ups from this network. Try again in {m} minute(s)",
+      // 🆕 Email verification code before the account is created
+      verifyTitle: "Verify your email",
+      verifySubtitle: "We sent a 6-digit code to {email}. Enter it to finish creating your account",
+      codeLabel: "Verification code",
+      verifySubmit: "Verify and create account",
+      resend: "Resend code",
+      resendIn: "Resend in {s}s",
+      resent: "A new code was sent to your email",
+      changeEmail: "Change email",
+      errInvalidCode: "Incorrect code",
+      attemptsLeft: "{n} attempts remaining",
+      errCodeExpired: "The code has expired. Tap Resend code",
+      errNoPending: "Your sign-up expired. Please start again",
+      errTooManyAttemptsCode: "Too many incorrect attempts. Please start again",
+      codeLimitNote: "You can request up to 5 codes per day per email address and per network (IP)",
+      sendsLeft: "{n} of 5 code sends left today",
+      errCodeLimitEmail: "You've reached the limit (5 codes per day) for this email address. Try again in {h} hour(s)",
+      errCodeLimitIp: "You've reached the limit (5 codes per day) from this network (IP). Try again in {h} hour(s)",
+      errEmailSendFailed: "We couldn't send the verification code. Check your email address and try again",
     },
     forgot: {
       title: "Reset password",
@@ -224,6 +262,25 @@ const AUTH_I18N = {
       errWeakPassword: "La contraseña debe tener al menos 8 caracteres",
       errInvalidPhone: "Ingresa un número de teléfono válido",
       errRateLimitedRetry: "Demasiados registros desde esta red. Inténtalo de nuevo en {m} minuto(s)",
+      // 🆕 Verificación del correo con código antes de crear la cuenta
+      verifyTitle: "Verifica tu correo",
+      verifySubtitle: "Enviamos un código de 6 dígitos a {email}. Ingrésalo para terminar de crear tu cuenta",
+      codeLabel: "Código de verificación",
+      verifySubmit: "Verificar y crear cuenta",
+      resend: "Reenviar código",
+      resendIn: "Reenviar en {s}s",
+      resent: "Se envió un nuevo código a tu correo",
+      changeEmail: "Cambiar correo",
+      errInvalidCode: "Código incorrecto",
+      attemptsLeft: "Te quedan {n} intentos",
+      errCodeExpired: "El código ha expirado. Pulsa Reenviar código",
+      errNoPending: "Tu registro expiró. Empieza de nuevo",
+      errTooManyAttemptsCode: "Demasiados intentos incorrectos. Empieza de nuevo",
+      codeLimitNote: "Puedes solicitar hasta 5 códigos al día por correo y por red (IP)",
+      sendsLeft: "Te quedan {n} de 5 envíos de código hoy",
+      errCodeLimitEmail: "Alcanzaste el límite (5 códigos al día) para este correo. Inténtalo de nuevo en {h} hora(s)",
+      errCodeLimitIp: "Alcanzaste el límite (5 códigos al día) desde esta red (IP). Inténtalo de nuevo en {h} hora(s)",
+      errEmailSendFailed: "No pudimos enviar el código. Revisa tu correo e inténtalo de nuevo",
     },
     forgot: {
       title: "Restablecer contraseña",
@@ -332,6 +389,17 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
   // بتتبني ديناميكيًا من رقم بيجيلنا من السيرفر، مش نص ثابت.
   const [registerRetrySeconds, setRegisterRetrySeconds] = useState(null);
 
+  // 🆕 تأكيد الإيميل: بعد /api/register (اللي بيبعت كود 6 أرقام ومابينشئش
+  // الحساب) بنعرض خطوة إدخال الكود. الحساب بيتعمل في /api/register/verify.
+  const [verifyStep, setVerifyStep] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyRemaining, setVerifyRemaining] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [infoMsg, setInfoMsg] = useState("");
+  // 🆕 عدد إرسالات الكود المتبقية اليوم (حد 5/يوم لكل إيميل ولكل IP) — السيرفر
+  // هو اللي بيحدد الرقم وبيرجّعه مع كل إرسال.
+  const [sendsRemaining, setSendsRemaining] = useState(null);
+
   const i18n = AUTH_I18N[language] ?? AUTH_I18N["en"];
   const isLogin = mode === "login";
   const tx = isLogin ? i18n.login : i18n.register;
@@ -342,7 +410,20 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
     setMfaCode("");
     setLoginRemainingAttempts(null);
     setRegisterRetrySeconds(null);
+    setVerifyStep(false);
+    setVerifyCode("");
+    setVerifyRemaining(null);
+    setResendCooldown(0);
+    setInfoMsg("");
+    setSendsRemaining(null);
   }, [language, mode]);
+
+  // عدّاد إعادة إرسال الكود (بيتناقص كل ثانية)
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
 
   const handleChange = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -428,6 +509,36 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
     await attemptLogin({ mfaCode });
   };
 
+  // 🆕 رسالة الحد اليومي (5 أكواد/يوم) — بتوضّح السبب (الإيميل ولا الـ IP)
+  // والوقت المتبقي بالساعات، من رد السيرفر.
+  const codeLimitMessage = (data) => {
+    const hours = Math.max(1, Math.ceil((Number(data?.retryAfterSeconds) || 0) / 3600));
+    const msg = data?.scope === "ip" ? tx.errCodeLimitIp : tx.errCodeLimitEmail;
+    return msg.replace("{h}", hours);
+  };
+
+  // بعد ما الحساب يتعمل فعليًا (تأكيد الكود نجح): دخول تلقائي ثم onboarding.
+  const finishRegistration = async () => {
+    const signInRes = await signIn("credentials", {
+      redirect: false,
+      nameOrEmail: form.email.trim(),
+      password: form.password,
+    });
+    setLoading(false);
+    if (signInRes?.error) {
+      setError(tx.errRegistered);
+      onSwitch("login");
+      return;
+    }
+    // 🆕 حساب جديد فعلًا وباين إنه دخل بنجاح → بدل ما نقفل المودال بس
+    // ونسيبه على نفس الصفحة، بنقفله ونوديه لصفحة onboarding (خطوات
+    // "أول مرة": الهدف، الدور الحالي، المهارات، المستوى التعليمي)، زي
+    // تدفق Coursera بالظبط. لو رجع لاحقًا وكان خلّص onboarding قبل كده،
+    // صفحة /onboarding نفسها هتحوّله على طول من غير ما تعرضله الخطوات.
+    onClose();
+    router.push("/onboarding");
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.password) { setError(tx.errEmpty); return; }
@@ -441,10 +552,22 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password }),
       });
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setLoading(false);
+        // كود اتبعت للإيميل ده من أقل من دقيقة (ضغط "إنشاء" تاني بسرعة) —
+        // بدل ما نعرض خطأ، نوديه لخطوة إدخال الكود اللي لسه صالح.
+        if (data.error === "resend_too_soon") {
+          setResendCooldown(Number(data.retryAfterSeconds) || 60);
+          setVerifyCode("");
+          setVerifyRemaining(null);
+          setInfoMsg("");
+          setVerifyStep(true);
+          return;
+        }
+        if (data.error === "too_many_codes")    { setSendsRemaining(0); setError(codeLimitMessage(data)); return; }
+        if (data.error === "email_send_failed") { setError(tx.errEmailSendFailed); return; }
         if (res.status === 429) {
           // ✅ /api/register بيرجّع retryAfterSeconds فعليًا — بنحوّله لدقايق
           // ونعرضه بدل رسالة عامة، بنفس أسلوب رسائل rate limit التانية.
@@ -462,24 +585,94 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
         return;
       }
 
-      const signInRes = await signIn("credentials", {
-        redirect: false,
-        nameOrEmail: form.email,
-        password: form.password,
-      });
+      // 🆕 الكود اتبعت — نعرض خطوة التأكيد (الحساب لسه ما اتعملش).
       setLoading(false);
-      if (signInRes?.error) {
-        setError(tx.errRegistered);
-        onSwitch("login");
+      setVerifyCode("");
+      setVerifyRemaining(null);
+      setInfoMsg("");
+      setResendCooldown(60);
+      setSendsRemaining(Number.isFinite(Number(data.remainingSends)) ? Number(data.remainingSends) : null);
+      setVerifyStep(true);
+    } catch {
+      setLoading(false);
+      setError(tx.errFail);
+    }
+  };
+
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(verifyCode)) { setError(tx.errInvalidCode); return; }
+
+    setLoading(true);
+    setInfoMsg("");
+    try {
+      const res = await fetch("/api/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim(), code: verifyCode }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setLoading(false);
+        if (data.error === "invalid_code") {
+          const remaining = Number(data.remainingAttempts);
+          setVerifyRemaining(Number.isFinite(remaining) ? remaining : null);
+          setError(tx.errInvalidCode);
+          return;
+        }
+        if (data.error === "code_expired") { setError(tx.errCodeExpired); return; }
+        if (data.error === "email_taken")  { setVerifyStep(false); setError(tx.errEmailTaken); return; }
+        if (data.error === "name_taken")   { setVerifyStep(false); setError(tx.errNameTaken);  return; }
+        if (data.error === "no_pending_registration") { setVerifyStep(false); setError(tx.errNoPending); return; }
+        if (data.error === "too_many_attempts_for_code") { setVerifyStep(false); setError(tx.errTooManyAttemptsCode); return; }
+        if (res.status === 429) {
+          const minutes = Math.max(1, Math.ceil((Number(data.retryAfterSeconds) || 0) / 60));
+          setError(tx.errRateLimitedRetry.replace("{m}", minutes));
+          return;
+        }
+        setError(tx.errFail);
         return;
       }
-      // 🆕 حساب جديد فعلًا وباين إنه دخل بنجاح → بدل ما نقفل المودال بس
-      // ونسيبه على نفس الصفحة، بنقفله ونوديه لصفحة onboarding (خطوات
-      // "أول مرة": الهدف، الدور الحالي، المهارات، المستوى التعليمي)، زي
-      // تدفق Coursera بالظبط. لو رجع لاحقًا وكان خلّص onboarding قبل كده،
-      // صفحة /onboarding نفسها هتحوّله على طول من غير ما تعرضله الخطوات.
-      onClose();
-      router.push("/onboarding");
+
+      await finishRegistration();
+    } catch {
+      setLoading(false);
+      setError(tx.errFail);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0 || loading) return;
+    setLoading(true);
+    setError("");
+    setInfoMsg("");
+    try {
+      const res = await fetch("/api/register/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setLoading(false);
+      if (!res.ok) {
+        if (data.error === "resend_too_soon") { setResendCooldown(Number(data.retryAfterSeconds) || 60); return; }
+        if (data.error === "too_many_codes")  { setSendsRemaining(0); setError(codeLimitMessage(data)); return; }
+        if (data.error === "email_send_failed") { setError(tx.errEmailSendFailed); return; }
+        if (data.error === "no_pending_registration") { setVerifyStep(false); setError(tx.errNoPending); return; }
+        if (res.status === 429) {
+          const minutes = Math.max(1, Math.ceil((Number(data.retryAfterSeconds) || 0) / 60));
+          setError(tx.errRateLimitedRetry.replace("{m}", minutes));
+          return;
+        }
+        setError(tx.errFail);
+        return;
+      }
+      setVerifyCode("");
+      setVerifyRemaining(null);
+      setResendCooldown(60);
+      setSendsRemaining(Number.isFinite(Number(data.remainingSends)) ? Number(data.remainingSends) : null);
+      setInfoMsg(tx.resent);
     } catch {
       setLoading(false);
       setError(tx.errFail);
@@ -493,9 +686,11 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
     <>
       <div className="mb-6 sm:mb-7">
         <h2 className="text-xl sm:text-2xl font-semibold text-[#0a0a0a] tracking-tight">
-          {tx.title}<span className="text-[#C9A227]">.</span>
+          {!isLogin && verifyStep ? tx.verifyTitle : tx.title}<span className="text-[#C9A227]">.</span>
         </h2>
-        <p className="text-sm text-gray-400 mt-1 font-medium">{tx.subtitle}</p>
+        <p className="text-sm text-gray-400 mt-1 font-medium">
+          {!isLogin && verifyStep ? tx.verifySubtitle.replace("{email}", form.email.trim()) : tx.subtitle}
+        </p>
       </div>
 
       {isLogin && mfaStep ? (
@@ -559,6 +754,90 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
           >
             {tx.mfaBack}
           </button>
+        </form>
+      ) : !isLogin && verifyStep ? (
+        /* ─── 🆕 خطوة تأكيد الإيميل: كود من 6 أرقام وصل على البريد ─── */
+        <form onSubmit={handleVerifySubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+              {tx.codeLabel}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              value={verifyCode}
+              onChange={(e) => { setVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); setInfoMsg(""); }}
+              placeholder="------"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-lg font-bold tracking-[0.3em] text-center text-[#0a0a0a] placeholder-gray-300 outline-none focus:border-[#C9A227] focus:ring-2 focus:ring-[#C9A227]/10 transition-all"
+              dir="ltr"
+            />
+            {verifyRemaining !== null && verifyRemaining > 0 && (
+              <p className={`text-xs mt-1.5 font-semibold text-center ${verifyRemaining <= 2 ? "text-[#C9A227]" : "text-gray-400"}`}>
+                {tx.attemptsLeft.replace("{n}", verifyRemaining)}
+              </p>
+            )}
+          </div>
+
+          {infoMsg && (
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-green-50 border border-green-100">
+              <span className="text-xs font-semibold text-green-700">{infoMsg}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#C9A227" strokeWidth={2.5} strokeLinecap="round">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span className="text-xs font-semibold text-[#C9A227]">{error}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || verifyCode.length !== 6}
+            className="w-full mt-1 py-3.5 bg-[#C9A227] text-white text-sm font-bold rounded-xl hover:bg-[#977a1d] active:scale-[0.98] transition-all shadow-md shadow-amber-900/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity={0.25} />
+                <path d="M21 12a9 9 0 00-9-9" />
+              </svg>
+            ) : (
+              <>{tx.verifySubmit}</>
+            )}
+          </button>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={resendCooldown > 0 || loading || sendsRemaining === 0}
+              className="text-xs font-bold text-[#C9A227] hover:underline transition-all disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
+            >
+              {resendCooldown > 0 ? tx.resendIn.replace("{s}", resendCooldown) : tx.resend}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setVerifyStep(false); setVerifyCode(""); setVerifyRemaining(null); setInfoMsg(""); setError(""); }}
+              className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-all"
+            >
+              {tx.changeEmail}
+            </button>
+          </div>
+
+          {/* 🆕 الحد اليومي لإرسال الأكواد (5/يوم لكل إيميل ولكل IP) + المتبقي */}
+          <div className="px-3 sm:px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 text-center">
+            {sendsRemaining !== null && (
+              <p className={`text-xs font-bold ${sendsRemaining <= 1 ? "text-[#C9A227]" : "text-gray-500"}`}>
+                {tx.sendsLeft.replace("{n}", sendsRemaining)}
+              </p>
+            )}
+            <p className="text-[11px] text-gray-400 font-medium mt-0.5">{tx.codeLimitNote}</p>
+          </div>
         </form>
       ) : (
         <form onSubmit={isLogin ? handleLogin : handleRegister} className="flex flex-col gap-4">
@@ -680,10 +959,13 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
               </>
             )}
           </button>
+          {!isLogin && (
+            <p className="text-[11px] text-gray-400 font-medium text-center -mt-1">{tx.codeLimitNote}</p>
+          )}
         </form>
       )}
 
-      {!(isLogin && mfaStep) && (
+      {!(isLogin && mfaStep) && !(!isLogin && verifyStep) && (
         <p className="text-center text-sm text-gray-400 mt-5 sm:mt-6 font-medium">
           {tx.switchText}{" "}
           <button

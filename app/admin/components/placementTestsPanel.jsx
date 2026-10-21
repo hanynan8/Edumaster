@@ -2,15 +2,18 @@
 
 // app/admin/components/placementTestsPanel.jsx
 //
-// لوحة أدمن: نتائج اختبار تحديد المستوى (إسباني) — اسم ورقم وإيميل صاحب
-// الاختبار + الدرجة + حالة الدفع (paid/unpaid) + المبلغ المدفوع. مصدر
+// لوحة أدمن: نتائج اختبار تحديد المستوى (إسباني) — اسم ورقم (تليفون) وإيميل صاحب
+// الاختبار (بيتسجّلوا تلقائيًا من حساب الطالب وقت ما يكمّل الاختبار) + الدرجة +
+// زرار 👁 لعرض إجابات الطالب على كل سؤال مع الإجابة الصحيحة والتصحيح +
+// حالة الدفع (paid/unpaid) + المبلغ المدفوع. مصدر
 // البيانات GET /api/admin/placement-tests. الأدمن بيشوف الدرجة دايمًا حتى
 // لو الطالب لسه ماستلمهاش (لأنه لسه ما دفعش). فيه فلتر حالة الدفع،
 // تصدير Excel، وحذف نتيجة.
 
 import { useState, useEffect, useRef } from 'react';
 import ExcelJS from 'exceljs';
-import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones } from 'lucide-react';
+import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones, Eye, X } from 'lucide-react';
+import PlacementReview from '@/app/components/PlacementReview';
 
 const PAY_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -180,6 +183,67 @@ function ListeningAudioManager() {
   );
 }
 
+// تفاصيل نتيجة طالب: بياناته + الدرجة + إجاباته على كل سؤال مع الإجابة الصحيحة والتصحيح.
+function ResultDetailModal({ row, detail, loading, error, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const info = detail || row;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-4xl rounded-2xl bg-gray-50 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 rounded-t-2xl bg-white border-b border-gray-100 p-5">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 truncate">{info.name}</h3>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+              <span dir="ltr">{info.email}</span>
+              <span dir="ltr">{info.phone || '—'}</span>
+              <span>{formatDate(info.createdAt)}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
+                Score {info.score} / {info.maxScore}
+              </span>
+              <span className="text-sm font-bold bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
+                Level {info.level || '—'}
+              </span>
+              <span className="text-xs text-gray-500">Answered {info.answeredCount}/{info.totalQuestions}</span>
+              {detail && detail.emailSent !== null && (
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${detail.emailSent ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                  {detail.emailSent ? 'Result emailed to student' : 'Email not sent'}
+                </span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-4 sm:p-5">
+          {loading && <div className="flex justify-center py-16"><Loader className="animate-spin text-indigo-600" size={24} /></div>}
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+          {detail && (
+            detail.review?.length
+              ? <PlacementReview review={detail.review} language="en" defaultOpen collapsible={false} />
+              : <p className="text-sm text-gray-500 py-8 text-center">No answers were recorded for this result.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlacementTestsAdmin() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +251,10 @@ function PlacementTestsAdmin() {
   const [filter, setFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [selected, setSelected] = useState(null); // الصف المفتوح تفاصيله
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/placement-tests')
@@ -196,6 +264,22 @@ function PlacementTestsAdmin() {
   }, []);
 
   const visible = filter === 'all' ? rows : rows.filter((r) => r.paymentStatus === filter);
+
+  const openDetail = async (row) => {
+    setSelected(row);
+    setDetail(null);
+    setDetailError('');
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/admin/placement-tests?id=${row._id}`);
+      if (!res.ok) throw new Error('failed');
+      setDetail(await res.json());
+    } catch {
+      setDetailError('Could not load the answers, please try again');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleDelete = async (row) => {
     if (!window.confirm(`Delete the test result of ${row.name}?`)) return;
@@ -220,7 +304,7 @@ function PlacementTestsAdmin() {
       sheet.columns = [
         { header: '#', key: 'index', width: 6 },
         { header: 'Name', key: 'name', width: 28 },
-        { header: 'Student Number', key: 'studentNumber', width: 18 },
+        { header: 'Phone', key: 'phone', width: 18 },
         { header: 'Email', key: 'email', width: 32 },
         { header: 'Score', key: 'score', width: 10 },
         { header: 'Out of', key: 'maxScore', width: 10 },
@@ -240,7 +324,7 @@ function PlacementTestsAdmin() {
       visible.forEach((r, i) => sheet.addRow({
         index: i + 1,
         name: r.name,
-        studentNumber: r.studentNumber,
+        phone: r.phone,
         email: r.email,
         score: r.score,
         maxScore: r.maxScore,
@@ -314,7 +398,7 @@ function PlacementTestsAdmin() {
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Student #</th>
+                <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Score</th>
                 <th className="px-4 py-3">Level</th>
@@ -329,7 +413,7 @@ function PlacementTestsAdmin() {
               {visible.map((r) => (
                 <tr key={r._id} className="border-t border-gray-100">
                   <td className="px-4 py-3 font-semibold text-gray-800">{r.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.studentNumber}</td>
+                  <td className="px-4 py-3 text-gray-600" dir="ltr">{r.phone || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{r.email}</td>
                   <td className="px-4 py-3 font-bold text-indigo-700">{r.score} / {r.maxScore}</td>
                   <td className="px-4 py-3 font-bold text-gray-700">{r.level || "—"}</td>
@@ -341,7 +425,14 @@ function PlacementTestsAdmin() {
                   </td>
                   <td className="px-4 py-3 text-gray-600">{formatPaid(r)}</td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(r.createdAt)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <button
+                      onClick={() => openDetail(r)}
+                      className="text-indigo-600 hover:text-indigo-800 mr-3"
+                      title="View answers & corrections"
+                    >
+                      <Eye size={16} />
+                    </button>
                     <button
                       onClick={() => handleDelete(r)}
                       disabled={deletingId === r._id}
@@ -356,6 +447,16 @@ function PlacementTestsAdmin() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {selected && (
+        <ResultDetailModal
+          row={selected}
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );

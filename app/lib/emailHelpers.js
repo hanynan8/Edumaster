@@ -12,6 +12,7 @@
 // هو مصدر الحقيقة الأساسي؛ الإيميل طبقة إضافية بس.
 
 import { formatMeetingWhen } from "@/app/lib/meetingTime";
+import { buildPlacementResultEmail } from "@/app/lib/placementReview";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumaster365.com";
@@ -19,14 +20,16 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumas
 // قالب HTML بسيط موحّد (هيدر EduMaster + محتوى) — بيُستخدم لكل إيميلات
 // الأحداث في الدالة دي، عشان كل الإيميلات تحس إنها من نفس المنصة بشكل
 // متسق من غير ما نكرر HTML الهيدر/الفوتر في كل مكان بيبعت إيميل.
-function wrapEmailTemplate({ heading, bodyHtml }) {
+// dir/lang/maxWidth اختياريين (الافتراضي زي ما كان: ltr/en/480) — إيميل نتيجة الاختبار
+// بيستخدمهم عشان يدعم العربي (rtl) وعرض أكبر لقائمة الأسئلة.
+function wrapEmailTemplate({ heading, bodyHtml, dir = "ltr", lang = "en", maxWidth = 480 }) {
   return `
 <!DOCTYPE html>
-<html dir="ltr" lang="en">
+<html dir="${dir}" lang="${lang}">
   <body style="margin:0;padding:0;background-color:#eef2ff;font-family:'DM Sans',Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2ff;padding:32px 16px;">
       <tr><td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;overflow:hidden;border:2px solid #dbeafe;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;background:#fff;border-radius:16px;overflow:hidden;border:2px solid #dbeafe;">
           <tr><td style="background-color:#1E3561;padding:24px 32px;">
             <span style="font-size:20px;font-weight:900;color:#C9A227;">Edumaster</span>
           </td></tr>
@@ -55,8 +58,11 @@ function escapeHtml(str) {
  * @param {string} params.subject
  * @param {string} params.heading - عنوان بارز داخل جسم الإيميل
  * @param {string} params.bodyHtml - باقي محتوى الإيميل (HTML جاهز)
+ * @param {"ltr"|"rtl"} [params.dir] - اتجاه الإيميل (افتراضي ltr)
+ * @param {string} [params.lang] - لغة الإيميل (افتراضي en)
+ * @param {number} [params.maxWidth] - أقصى عرض بالبكسل (افتراضي 480)
  */
-export async function sendTemplatedEmail({ to, subject, heading, bodyHtml }) {
+export async function sendTemplatedEmail({ to, subject, heading, bodyHtml, dir, lang, maxWidth }) {
   if (!RESEND_API_KEY) {
     console.warn(`RESEND_API_KEY not set — skipping email "${subject}" to ${to}`);
     return false;
@@ -69,7 +75,7 @@ export async function sendTemplatedEmail({ to, subject, heading, bodyHtml }) {
         from: RESEND_FROM_EMAIL,
         to: [to],
         subject,
-        html: wrapEmailTemplate({ heading, bodyHtml }),
+        html: wrapEmailTemplate({ heading, bodyHtml, dir, lang, maxWidth }),
       }),
     });
     if (!res.ok) {
@@ -99,6 +105,29 @@ export async function sendPaymentSucceededEmail({ toEmail, name, itemLabel, amou
     <p style="font-size:12px;color:#94a3b8;margin:0;">You can view your full payment history and receipt anytime from your EduMaster account.</p>
   `;
   return sendTemplatedEmail({ to: toEmail, subject: "Your EduMaster payment was successful", heading: "Payment Confirmed ✓", bodyHtml });
+}
+
+/**
+ * إيميل نتيجة اختبار تحديد المستوى (إسباني): الدرجة + المستوى + إجابات الطالب على كل
+ * سؤال مع التصحيح. بيتبعت للإيميل المسجّل في حساب الطالب (من الـ session) بعد التسليم
+ * (أو بعد نجاح الدفع لو الاختبار مدفوع). best-effort: بيرجع true/false ومبيرميش خطأ.
+ * @param {object} p
+ * @param {string} p.toEmail
+ * @param {string} p.name
+ * @param {"ar"|"en"|"es"} p.language
+ * @param {number} p.score
+ * @param {number} p.maxScore
+ * @param {string} p.level
+ * @param {Array} p.review - من buildReview() في placementReview.js
+ */
+export async function sendPlacementResultEmail({ toEmail, name, language, score, maxScore, level, review }) {
+  try {
+    const mail = buildPlacementResultEmail({ name, language, score, maxScore, level, review });
+    return await sendTemplatedEmail({ to: toEmail, ...mail });
+  } catch (err) {
+    console.error("[sendPlacementResultEmail] error:", err);
+    return false;
+  }
 }
 
 /**

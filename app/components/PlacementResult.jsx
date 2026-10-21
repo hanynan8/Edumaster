@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AuthModal from "@/app/components/auth/authModel";
 import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
+import PlacementReview from "@/app/components/PlacementReview";
 import { getLevelByCode, getLevelByPercent } from "@/app/lib/placementLevels";
 import { formatPrice } from "@/app/lib/currency";
 
@@ -26,6 +27,7 @@ const STRINGS = {
     none: "لا توجد كورسات منشورة حاليًا بهذا المستوى أو أعلى. تصفّح كل الكورسات:",
     browse: "تصفّح الكورسات",
     answered: "الأسئلة المُجاب عنها",
+    emailSent: "أرسلنا نسخة من نتيجتك وإجاباتك مع التصحيح إلى بريدك:",
     buy: "اشترِ الآن",
     enrollFree: "سجّل مجانًا",
     working: "جارٍ التنفيذ...",
@@ -43,6 +45,7 @@ const STRINGS = {
     none: "There are no published courses at your level or above yet. Browse all courses:",
     browse: "Browse courses",
     answered: "Answered",
+    emailSent: "We emailed a copy of your result and answers with corrections to:",
     buy: "Buy now",
     enrollFree: "Enroll free",
     working: "Please wait...",
@@ -60,6 +63,7 @@ const STRINGS = {
     none: "Aún no hay cursos publicados de tu nivel o superior. Explora todos los cursos:",
     browse: "Ver cursos",
     answered: "Respondidas",
+    emailSent: "Te enviamos una copia de tu resultado y respuestas con correcciones a:",
     buy: "Comprar ahora",
     enrollFree: "Inscribirme gratis",
     working: "Espera...",
@@ -164,8 +168,17 @@ export default function PlacementResult({ result, language = "ar", children }) {
             {t.answered}: {result.answeredCount}/{result.totalQuestions}
           </p>
         )}
+        {result?.emailSentTo && (
+          <p className="text-xs text-gray-500">
+            {t.emailSent}{" "}
+            <span className="font-semibold text-gray-700" dir="ltr">{result.emailSentTo}</span>
+          </p>
+        )}
         {children}
       </div>
+
+      {/* إجابات الطالب على كل سؤال مع التصحيح (مطوية افتراضيًا) */}
+      <PlacementReview review={result?.review} language={language} />
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
         <h2 className="text-lg font-semibold text-gray-900">{t.recommended}</h2>

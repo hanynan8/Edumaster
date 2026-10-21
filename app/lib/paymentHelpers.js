@@ -21,8 +21,9 @@ import {
   getMembershipPlanModel,
 } from "@/app/lib/models";
 import { createNotification } from "@/app/lib/notificationHelpers";
-import { sendPaymentSucceededEmail } from "@/app/lib/emailHelpers";
+import { sendPaymentSucceededEmail, sendPlacementResultEmail } from "@/app/lib/emailHelpers";
 import { getPlacementTestsCollection } from "@/app/lib/placementTest";
+import { reviewFromDoc } from "@/app/lib/placementReview";
 
 export function generateInvoiceNumber(paymentId) {
   const now = new Date();
@@ -197,6 +198,22 @@ async function markPlacementTestPaidBestEffort(payment) {
         },
       }
     );
+
+    // 📧 اختبار مدفوع: النتيجة بتتسلّم بعد الدفع، فنبعت للطالب نسخة (الدرجة + إجاباته مع
+    // التصحيح) على إيميله المسجّل. الاختبار المجاني بيتبعت وقت التسليم (emailSent=true) فمنكررش.
+    const doc = await getPlacementTestsCollection().findOne({ _id: payment.placementTest });
+    if (doc?.email && !doc.emailSent) {
+      const sent = await sendPlacementResultEmail({
+        toEmail: doc.email,
+        name: doc.name,
+        language: doc.language || "ar",
+        score: doc.score,
+        maxScore: doc.maxScore,
+        level: doc.level,
+        review: reviewFromDoc(doc),
+      });
+      await getPlacementTestsCollection().updateOne({ _id: doc._id }, { $set: { emailSent: Boolean(sent) } });
+    }
   } catch (err) {
     console.error("[markPlacementTestPaidBestEffort] update error:", err);
   }

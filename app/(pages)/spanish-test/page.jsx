@@ -5,8 +5,12 @@
 // اختبار تحديد المستوى (إسباني) — Prueba de nivel de español A1 (100 نقطة).
 // بيتفتح من زرار "اختبر مستواك" اللي جمب سعر كل كورس إسباني (تصنيف Language).
 //
-// التدفق: بيانات الطالب → 3 أجزاء (قراءة، استماع، قواعد ومفردات) → عند الإنهاء الإجابات
-// بتتبعت للسيرفر (POST /api/placement-tests) وبيتصحح هناك ويتسجّل للأدمن →
+// 🔐 لازم تسجيل دخول: بيانات الطالب (الاسم/الإيميل/الرقم) بتتاخد تلقائيًا من الـ session
+// (مفيش إدخال يدوي). غير المسجّل بيتفتحله الـ Login قبل ما الاختبار يبدأ.
+//
+// التدفق: (تسجيل دخول) → 3 أجزاء (قراءة، استماع، قواعد ومفردات) → عند الإنهاء الإجابات
+// بتتبعت للسيرفر (POST /api/placement-tests) وبيتصحح هناك ويتسجّل للأدمن (باسم ورقم
+// وإيميل الطالب من حسابه) →
 // النتيجة من 100 + مستوى الطالب (Pre-A1 / A1.1 / A1.2 / A1.3) + الكورسات الموصى بها
 // (نفس مستواه وأعلى).
 // 🆓 الاختبار الحالي مجاني (PLACEMENT_TEST_IS_FREE في lib/spanishPlacementTest.js): النتيجة
@@ -15,8 +19,10 @@
 // 🔒 مفتاح الإجابات على السيرفر بس.
 // 🎧 مهام الاستماع بتظهر لما يتحط لها audioSrc في lib/spanishPlacementTest.js.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import AuthModal from "@/app/components/auth/authModel";
 import {
   PLACEMENT_TEST_FEE_USD,
   PLACEMENT_TEST_IS_FREE,
@@ -31,10 +37,16 @@ const PENDING_KEY = "spanishTestPending";
 const STRINGS = {
   en: {
     title: "Spanish Level Test",
-    name: "Full name",
+    name: "Name",
     email: "Email",
+    phone: "Phone",
     start: "Start the test",
-    required: "Please fill in all fields with a valid email",
+    takingAs: "You will take this test with your account details:",
+    loginTitle: "Please log in to start the test",
+    loginBody: "Your name, phone and email are taken from your account and saved with your result.",
+    loginBtn: "Log in",
+    checking: "Checking your account...",
+    sessionExpired: "Your session has expired. Please log in again — your answers are still saved on this page.",
     intro: "This test has three parts: reading, listening, and grammar & vocabulary. Choose one answer for each question. There is no penalty for wrong answers, so if you're unsure, pick an option. Don't use a dictionary.",
     part: "Part",
     min: "min",
@@ -54,10 +66,16 @@ const STRINGS = {
   },
   ar: {
     title: "اختبار تحديد المستوى في الإسبانية",
-    name: "الاسم بالكامل",
+    name: "الاسم",
     email: "البريد الإلكتروني",
+    phone: "رقم الهاتف",
     start: "ابدأ الاختبار",
-    required: "من فضلك املأ كل الحقول وأدخل بريدًا إلكترونيًا صحيحًا",
+    takingAs: "ستدخل الاختبار ببيانات حسابك:",
+    loginTitle: "سجّل دخولك أولًا لبدء الاختبار",
+    loginBody: "اسمك ورقمك وبريدك الإلكتروني بتُؤخذ تلقائيًا من حسابك وتُسجَّل مع نتيجتك.",
+    loginBtn: "تسجيل الدخول",
+    checking: "جارٍ التحقق من حسابك...",
+    sessionExpired: "انتهت جلستك. سجّل دخولك مرة أخرى — إجاباتك ما زالت محفوظة في هذه الصفحة.",
     intro: "الاختبار من ثلاثة أجزاء: القراءة، الاستماع، القواعد والمفردات. اختر إجابة واحدة لكل سؤال. لا يوجد خصم على الإجابة الخاطئة، فإن لم تكن متأكدًا اختر أي خيار. لا تستخدم القاموس.",
     part: "الجزء",
     min: "دقيقة",
@@ -77,10 +95,16 @@ const STRINGS = {
   },
   es: {
     title: "Prueba de nivel de español",
-    name: "Nombre completo",
+    name: "Nombre",
     email: "Correo electrónico",
+    phone: "Teléfono",
     start: "Empezar la prueba",
-    required: "Completa todos los campos con un correo válido",
+    takingAs: "Harás la prueba con los datos de tu cuenta:",
+    loginTitle: "Inicia sesión para empezar la prueba",
+    loginBody: "Tu nombre, teléfono y correo se toman de tu cuenta y se guardan con tu resultado.",
+    loginBtn: "Iniciar sesión",
+    checking: "Verificando tu cuenta...",
+    sessionExpired: "Tu sesión ha expirado. Inicia sesión de nuevo — tus respuestas siguen guardadas en esta página.",
     intro: "Esta prueba tiene tres partes: lectura, auditiva, y gramática y vocabulario. Marca una sola respuesta en cada pregunta. No se resta por error: si dudas, elige una opción. No uses diccionario.",
     part: "Parte",
     min: "min",
@@ -100,16 +124,20 @@ const STRINGS = {
   },
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LETTERS = "abcdefghijk";
 
 export default function SpanishTestPage() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
 
+  // 🔐 بيانات الطالب (الاسم/الإيميل/الرقم) بتيجي من الـ session — مفيش إدخال يدوي.
+  const { data: session, status: sessionStatus } = useSession();
+  const user = session?.user ?? null;
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const autoPrompted = useRef(false);
+
   const [step, setStep] = useState("intro"); // intro | quiz | submitting | result (مجاني) | pay (مدفوع)
-  const [info, setInfo] = useState({ name: "", email: "" });
-  const [infoError, setInfoError] = useState(false);
   const [partIdx, setPartIdx] = useState(0);
   const [answers, setAnswers] = useState({}); // { [n]: optionIndex }
   const [testId, setTestId] = useState(null);
@@ -147,11 +175,23 @@ export default function SpanishTestPage() {
   const currency = getCurrencyForLanguage(language);
   const feeLabel = formatPrice(convertPrice(PLACEMENT_TEST_FEE_USD, "USD", currency), currency, language);
 
-  function start() {
-    if (!info.name.trim() || !EMAIL_RE.test(info.email.trim())) {
-      return setInfoError(true);
+  function openLogin() {
+    setAuthMode("login");
+    setAuthOpen(true);
+  }
+
+  // غير مسجّل دخول → نفتح له الـ Login تلقائيًا أول ما الصفحة تفتح (مرة واحدة)؛
+  // لو قفله، بيفضل كارت "سجّل دخولك" وزرار يفتحه تاني.
+  useEffect(() => {
+    if (sessionStatus === "unauthenticated" && !autoPrompted.current) {
+      autoPrompted.current = true;
+      setAuthMode("login");
+      setAuthOpen(true);
     }
-    setInfoError(false);
+  }, [sessionStatus]);
+
+  function start() {
+    if (!user) return openLogin();
     setStep("quiz");
   }
 
@@ -168,14 +208,17 @@ export default function SpanishTestPage() {
       const res = await fetch("/api/placement-tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: info.name.trim(),
-          email: info.email.trim(),
-          language,
-          answers,
-        }),
+        // الاسم/الإيميل/الرقم بيتاخدوا من الـ session على السيرفر
+        body: JSON.stringify({ language, answers }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 401) {
+        // الجلسة انتهت أثناء الاختبار → نرجّعه للاختبار (إجاباته محفوظة) ونفتح الـ Login
+        setError(t.sessionExpired);
+        setStep("quiz");
+        openLogin();
+        return;
+      }
       if (!res.ok || !data?.id) throw new Error("submit_failed");
       setTestId(data.id);
       // 🆓 اختبار مجاني: النتيجة بتظهر فورًا من غير دفع
@@ -227,8 +270,6 @@ export default function SpanishTestPage() {
   const unansweredCount = allQuestions.filter((q) => answers[q.n] === undefined).length;
   const dir = isRTL ? "rtl" : "ltr";
   const btn = "px-5 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60";
-  const input =
-    "mt-1.5 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003A91]/20 focus:border-[#003A91]";
 
   return (
     <main dir={dir} className="min-h-screen bg-gray-50 pt-28 pb-16 px-4">
@@ -238,23 +279,43 @@ export default function SpanishTestPage() {
           <p className="text-sm text-gray-500 mt-1">{PLACEMENT_TEST_TITLE}</p>
         </div>
 
-        {step === "intro" && (
+        {step === "intro" && sessionStatus === "loading" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-500">
+            {t.checking}
+          </div>
+        )}
+
+        {/* 🔐 غير مسجّل دخول: لازم يسجّل الأول قبل ما الاختبار يبدأ */}
+        {step === "intro" && sessionStatus !== "loading" && !user && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 text-center space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900">{t.loginTitle}</h2>
+            <p className="text-sm text-gray-600">{t.loginBody}</p>
+            <button onClick={openLogin} className={`${btn} bg-[#003A91] text-white`}>
+              {t.loginBtn}
+            </button>
+          </div>
+        )}
+
+        {/* مسجّل دخول: بياناته بتظهر للقراءة بس (من الحساب) ثم يبدأ الاختبار */}
+        {step === "intro" && user && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-gray-700">{t.name}</span>
-              <input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} className={input} />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-gray-700">{t.email}</span>
-              <input
-                type="email"
-                dir="ltr"
-                value={info.email}
-                onChange={(e) => setInfo({ ...info, email: e.target.value })}
-                className={input}
-              />
-            </label>
-            {infoError && <p className="text-sm text-red-500">{t.required}</p>}
+            <p className="text-sm text-gray-600">{t.takingAs}</p>
+            <dl className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2.5 text-sm">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                <dt className="font-semibold text-gray-500 min-w-[5.5rem]">{t.name}</dt>
+                <dd className="text-gray-900 break-all">{user.name}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                <dt className="font-semibold text-gray-500 min-w-[5.5rem]">{t.email}</dt>
+                <dd className="text-gray-900 break-all" dir="ltr">{user.email}</dd>
+              </div>
+              {user.phone && (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                  <dt className="font-semibold text-gray-500 min-w-[5.5rem]">{t.phone}</dt>
+                  <dd className="text-gray-900" dir="ltr">{user.phone}</dd>
+                </div>
+              )}
+            </dl>
             <p className="text-xs text-gray-500 leading-relaxed">{t.intro}</p>
             <button onClick={start} className={`${btn} bg-[#003A91] text-white`}>
               {t.start}
@@ -424,6 +485,10 @@ export default function SpanishTestPage() {
           </div>
         )}
       </div>
+
+      {authOpen && (
+        <AuthModal mode={authMode} onClose={() => setAuthOpen(false)} onSwitch={(next) => setAuthMode(next)} />
+      )}
     </main>
   );
 }

@@ -1,0 +1,1380 @@
+diff --git a/app/admin/components/placementTestsPanel.jsx b/app/admin/components/placementTestsPanel.jsx
+index 96567dd..a418af0 100644
+--- a/app/admin/components/placementTestsPanel.jsx
++++ b/app/admin/components/placementTestsPanel.jsx
+@@ -4,6 +4,7 @@
+ //
+ // لوحة أدمن: نتائج اختبار تحديد المستوى (إسباني) — اسم ورقم (تليفون) وإيميل صاحب
+ // الاختبار (بيتسجّلوا تلقائيًا من حساب الطالب وقت ما يكمّل الاختبار) + الدرجة +
++// زرار 👁 لعرض إجابات الطالب على كل سؤال مع الإجابة الصحيحة والتصحيح +
+ // حالة الدفع (paid/unpaid) + المبلغ المدفوع. مصدر
+ // البيانات GET /api/admin/placement-tests. الأدمن بيشوف الدرجة دايمًا حتى
+ // لو الطالب لسه ماستلمهاش (لأنه لسه ما دفعش). فيه فلتر حالة الدفع،
+@@ -11,7 +12,8 @@
+ 
+ import { useState, useEffect, useRef } from 'react';
+ import ExcelJS from 'exceljs';
+-import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones } from 'lucide-react';
++import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones, Eye, X } from 'lucide-react';
++import PlacementReview from '@/app/components/PlacementReview';
+ 
+ const PAY_STYLES = {
+   paid: 'bg-green-100 text-green-700',
+@@ -181,6 +183,67 @@ function ListeningAudioManager() {
+   );
+ }
+ 
++// تفاصيل نتيجة طالب: بياناته + الدرجة + إجاباته على كل سؤال مع الإجابة الصحيحة والتصحيح.
++function ResultDetailModal({ row, detail, loading, error, onClose }) {
++  useEffect(() => {
++    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
++    document.addEventListener('keydown', onKey);
++    return () => document.removeEventListener('keydown', onKey);
++  }, [onClose]);
++
++  const info = detail || row;
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
++      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
++    >
++      <div className="w-full max-w-4xl rounded-2xl bg-gray-50 shadow-2xl">
++        <div className="flex items-start justify-between gap-4 rounded-t-2xl bg-white border-b border-gray-100 p-5">
++          <div className="min-w-0">
++            <h3 className="text-lg font-semibold text-gray-900 truncate">{info.name}</h3>
++            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
++              <span dir="ltr">{info.email}</span>
++              <span dir="ltr">{info.phone || '—'}</span>
++              <span>{formatDate(info.createdAt)}</span>
++            </div>
++            <div className="mt-3 flex flex-wrap items-center gap-2">
++              <span className="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
++                Score {info.score} / {info.maxScore}
++              </span>
++              <span className="text-sm font-bold bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
++                Level {info.level || '—'}
++              </span>
++              <span className="text-xs text-gray-500">Answered {info.answeredCount}/{info.totalQuestions}</span>
++              {detail && detail.emailSent !== null && (
++                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${detail.emailSent ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
++                  {detail.emailSent ? 'Result emailed to student' : 'Email not sent'}
++                </span>
++              )}
++            </div>
++          </div>
++          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
++            <X size={18} />
++          </button>
++        </div>
++
++        <div className="p-4 sm:p-5">
++          {loading && <div className="flex justify-center py-16"><Loader className="animate-spin text-indigo-600" size={24} /></div>}
++          {error && (
++            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
++              <AlertCircle size={15} /> {error}
++            </div>
++          )}
++          {detail && (
++            detail.review?.length
++              ? <PlacementReview review={detail.review} language="en" defaultOpen collapsible={false} />
++              : <p className="text-sm text-gray-500 py-8 text-center">No answers were recorded for this result.</p>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
++
+ function PlacementTestsAdmin() {
+   const [rows, setRows] = useState([]);
+   const [loading, setLoading] = useState(true);
+@@ -188,6 +251,10 @@ function PlacementTestsAdmin() {
+   const [filter, setFilter] = useState('all');
+   const [deletingId, setDeletingId] = useState(null);
+   const [exporting, setExporting] = useState(false);
++  const [selected, setSelected] = useState(null); // الصف المفتوح تفاصيله
++  const [detail, setDetail] = useState(null);
++  const [detailLoading, setDetailLoading] = useState(false);
++  const [detailError, setDetailError] = useState('');
+ 
+   useEffect(() => {
+     fetch('/api/admin/placement-tests')
+@@ -198,6 +265,22 @@ function PlacementTestsAdmin() {
+ 
+   const visible = filter === 'all' ? rows : rows.filter((r) => r.paymentStatus === filter);
+ 
++  const openDetail = async (row) => {
++    setSelected(row);
++    setDetail(null);
++    setDetailError('');
++    setDetailLoading(true);
++    try {
++      const res = await fetch(`/api/admin/placement-tests?id=${row._id}`);
++      if (!res.ok) throw new Error('failed');
++      setDetail(await res.json());
++    } catch {
++      setDetailError('Could not load the answers, please try again');
++    } finally {
++      setDetailLoading(false);
++    }
++  };
++
+   const handleDelete = async (row) => {
+     if (!window.confirm(`Delete the test result of ${row.name}?`)) return;
+     setDeletingId(row._id);
+@@ -342,7 +425,14 @@ function PlacementTestsAdmin() {
+                   </td>
+                   <td className="px-4 py-3 text-gray-600">{formatPaid(r)}</td>
+                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(r.createdAt)}</td>
+-                  <td className="px-4 py-3">
++                  <td className="px-4 py-3 whitespace-nowrap">
++                    <button
++                      onClick={() => openDetail(r)}
++                      className="text-indigo-600 hover:text-indigo-800 mr-3"
++                      title="View answers & corrections"
++                    >
++                      <Eye size={16} />
++                    </button>
+                     <button
+                       onClick={() => handleDelete(r)}
+                       disabled={deletingId === r._id}
+@@ -358,6 +448,16 @@ function PlacementTestsAdmin() {
+           </table>
+         </div>
+       )}
++
++      {selected && (
++        <ResultDetailModal
++          row={selected}
++          detail={detail}
++          loading={detailLoading}
++          error={detailError}
++          onClose={() => setSelected(null)}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/app/api/admin/placement-tests/route.js b/app/api/admin/placement-tests/route.js
+index 4b64c90..7a55aef 100644
+--- a/app/api/admin/placement-tests/route.js
++++ b/app/api/admin/placement-tests/route.js
+@@ -2,13 +2,16 @@
+ //
+ // لوحة الأدمن: نتائج اختبار تحديد المستوى (إسباني) مع بيانات صاحب الاختبار
+ // وحالة الدفع. أدمن بس (requireRole + middleware على /api/admin).
+-//   GET            → كل النتائج (الأحدث أولًا)
++//   GET            → كل النتائج (الأحدث أولًا) — من غير الإجابات التفصيلية
++//   GET ?id=...    → نتيجة واحدة بالتفصيل: بيانات الطالب + الدرجة + إجاباته على كل سؤال
++//                    مع الإجابة الصحيحة والتصحيح (review)
+ //   DELETE ?id=... → مسح نتيجة
+ 
+ import mongoose from "mongoose";
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import { requireRole } from "@/app/lib/rbac";
+ import { getPlacementTestsCollection } from "@/app/lib/placementTest";
++import { reviewFromDoc } from "@/app/lib/placementReview";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -17,39 +20,52 @@ function jsonResponse(data, status = 200) {
+   });
+ }
+ 
+-export async function GET() {
++// صف النتيجة (نفس الحقول في القايمة وفي التفاصيل)
++function toRow(d) {
++  return {
++    _id: d._id.toString(),
++    userId: d.userId || null,
++    name: d.name,
++    // الرقم = تليفون الطالب من حسابه (النتايج القديمة كانت مخزّنة في studentNumber)
++    phone: d.phone || d.studentNumber || "",
++    email: d.email,
++    language: d.language,
++    score: d.score,
++    maxScore: d.maxScore,
++    level: d.level || null,
++    answeredCount: d.answeredCount,
++    totalQuestions: d.totalQuestions,
++    paymentStatus: d.paymentStatus || "unpaid",
++    paidAmount: d.paidAmount ?? null,
++    paidCurrency: d.paidCurrency ?? null,
++    paidAt: d.paidAt ?? null,
++    emailSent: d.emailSent ?? null,
++    createdAt: d.createdAt ?? null,
++  };
++}
++
++export async function GET(request) {
+   try {
+     const auth = await requireRole(["admin"]);
+     if (auth.response) return auth.response;
+ 
++    const id = new URL(request.url).searchParams.get("id");
++    if (id !== null) {
++      if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_id" }, 400);
++      await connectToMongo();
++      const doc = await getPlacementTestsCollection().findOne({ _id: new mongoose.Types.ObjectId(id) });
++      if (!doc) return jsonResponse({ error: "not_found" }, 404);
++      return jsonResponse({ ...toRow(doc), review: reviewFromDoc(doc) });
++    }
++
+     await connectToMongo();
+     const docs = await getPlacementTestsCollection()
+-      .find({}, { projection: { answers: 0 } })
++      .find({}, { projection: { answers: 0, results: 0 } })
+       .sort({ createdAt: -1 })
+       .limit(2000)
+       .toArray();
+ 
+-    return jsonResponse(
+-      docs.map((d) => ({
+-        _id: d._id.toString(),
+-        userId: d.userId || null,
+-        name: d.name,
+-        // الرقم = تليفون الطالب من حسابه (النتايج القديمة كانت مخزّنة في studentNumber)
+-        phone: d.phone || d.studentNumber || "",
+-        email: d.email,
+-        language: d.language,
+-        score: d.score,
+-        maxScore: d.maxScore,
+-        level: d.level || null,
+-        answeredCount: d.answeredCount,
+-        totalQuestions: d.totalQuestions,
+-        paymentStatus: d.paymentStatus || "unpaid",
+-        paidAmount: d.paidAmount ?? null,
+-        paidCurrency: d.paidCurrency ?? null,
+-        paidAt: d.paidAt ?? null,
+-        createdAt: d.createdAt ?? null,
+-      }))
+-    );
++    return jsonResponse(docs.map(toRow));
+   } catch (err) {
+     console.error("[/api/admin/placement-tests] GET error:", err);
+     return jsonResponse({ error: "internal_error" }, 500);
+diff --git a/app/api/placement-tests/route.js b/app/api/placement-tests/route.js
+index 514765d..74681d9 100644
+--- a/app/api/placement-tests/route.js
++++ b/app/api/placement-tests/route.js
+@@ -3,7 +3,8 @@
+ // POST — استلام إجابات اختبار تحديد المستوى (إسباني) بعد ما الطالب يخلّصه.
+ // بيتم التصحيح هنا على السيرفر وبيتخزن في كولكشن "placement_tests".
+ // - اختبار مجاني (PLACEMENT_TEST_IS_FREE=true): بيتسجّل بحالة "free" والراوت
+-//   بيرجع الدرجة (من 100) + المستوى + الكورسات الموصى بها فورًا للطالب.
++//   بيرجع الدرجة (من 100) + المستوى + إجابات الطالب مع التصحيح (review) + الكورسات
++//   الموصى بها فورًا للطالب، وبيبعتله نسخة على إيميل حسابه.
+ // - اختبار مدفوع: بيتسجّل بحالة "unpaid" 🔒 والراوت مبيرجعش الدرجة للـ client،
+ //   والطالب مبيستلمها غير بعد نجاح الدفع (شوف ./result/route.js).
+ //
+@@ -14,6 +15,8 @@
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import { enforceRateLimit } from "@/app/lib/rateLimit";
+ import { requireSession } from "@/app/lib/rbac";
++import { sendPlacementResultEmail } from "@/app/lib/emailHelpers";
++import { buildResults, buildReview } from "@/app/lib/placementReview";
+ import { PLACEMENT_TEST_IS_FREE } from "@/app/lib/spanishPlacementTest";
+ import {
+   getAudioMap,
+@@ -63,6 +66,9 @@ export async function POST(request) {
+     const audio = await getAudioMap();
+     const answers = sanitizeAnswers(body?.answers, audio);
+     const result = scoreAnswers(answers, audio);
++    // لقطة التصحيح لكل سؤال (إجابة الطالب + الصحيحة) — بتتخزّن عشان الأدمن والطالب
++    // يشوفوا الإجابات مع التصحيح، وتفضل مطابقة للدرجة المحسوبة دلوقتي.
++    const results = buildResults(answers, audio);
+ 
+     const col = getPlacementTestsCollection();
+     const inserted = await col.insertOne({
+@@ -72,6 +78,7 @@ export async function POST(request) {
+       email,
+       language,
+       answers,
++      results,
+       score: result.score,
+       maxScore: result.maxScore,
+       answeredCount: result.answered,
+@@ -87,6 +94,23 @@ export async function POST(request) {
+ 
+     const id = inserted.insertedId.toString();
+     if (PLACEMENT_TEST_IS_FREE) {
++      const review = buildReview(results);
++
++      // 📧 نسخة من النتيجة + الإجابات والتصحيح على إيميل الطالب المسجّل بيه (من الـ session).
++      // best-effort: فشل الإرسال مبيوقّفش النتيجة، والـ client بيعرف لو اتبعت (emailSentTo).
++      const emailSent = await sendPlacementResultEmail({
++        toEmail: email,
++        name,
++        language,
++        score: result.score,
++        maxScore: result.maxScore,
++        level: result.level,
++        review,
++      }).catch(() => false);
++      await col
++        .updateOne({ _id: inserted.insertedId }, { $set: { emailSent: Boolean(emailSent) } })
++        .catch((e) => console.error("[/api/placement-tests] emailSent update error:", e));
++
+       // الكورسات الموصى بها (نفس مستوى الطالب وأعلى) — لو فشلت منوقّفش النتيجة
+       const recommended = await getRecommendedCourses(result.level, language).catch(() => []);
+       return jsonResponse(
+@@ -99,6 +123,8 @@ export async function POST(request) {
+           level: result.level,
+           answeredCount: result.answered,
+           totalQuestions: result.totalQuestions,
++          review,
++          emailSentTo: emailSent ? email : null,
+           recommended,
+         },
+         201
+diff --git a/app/components/PlacementResult.jsx b/app/components/PlacementResult.jsx
+index 63475fd..b92de1f 100644
+--- a/app/components/PlacementResult.jsx
++++ b/app/components/PlacementResult.jsx
+@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
+ import { useSession } from "next-auth/react";
+ import AuthModal from "@/app/components/auth/authModel";
+ import PaymentGatewayModal from "@/app/components/payments/PaymentGatewayModal";
++import PlacementReview from "@/app/components/PlacementReview";
+ import { getLevelByCode, getLevelByPercent } from "@/app/lib/placementLevels";
+ import { formatPrice } from "@/app/lib/currency";
+ 
+@@ -26,6 +27,7 @@ const STRINGS = {
+     none: "لا توجد كورسات منشورة حاليًا بهذا المستوى أو أعلى. تصفّح كل الكورسات:",
+     browse: "تصفّح الكورسات",
+     answered: "الأسئلة المُجاب عنها",
++    emailSent: "أرسلنا نسخة من نتيجتك وإجاباتك مع التصحيح إلى بريدك:",
+     buy: "اشترِ الآن",
+     enrollFree: "سجّل مجانًا",
+     working: "جارٍ التنفيذ...",
+@@ -43,6 +45,7 @@ const STRINGS = {
+     none: "There are no published courses at your level or above yet. Browse all courses:",
+     browse: "Browse courses",
+     answered: "Answered",
++    emailSent: "We emailed a copy of your result and answers with corrections to:",
+     buy: "Buy now",
+     enrollFree: "Enroll free",
+     working: "Please wait...",
+@@ -60,6 +63,7 @@ const STRINGS = {
+     none: "Aún no hay cursos publicados de tu nivel o superior. Explora todos los cursos:",
+     browse: "Ver cursos",
+     answered: "Respondidas",
++    emailSent: "Te enviamos una copia de tu resultado y respuestas con correcciones a:",
+     buy: "Comprar ahora",
+     enrollFree: "Inscribirme gratis",
+     working: "Espera...",
+@@ -164,9 +168,18 @@ export default function PlacementResult({ result, language = "ar", children }) {
+             {t.answered}: {result.answeredCount}/{result.totalQuestions}
+           </p>
+         )}
++        {result?.emailSentTo && (
++          <p className="text-xs text-gray-500">
++            {t.emailSent}{" "}
++            <span className="font-semibold text-gray-700" dir="ltr">{result.emailSentTo}</span>
++          </p>
++        )}
+         {children}
+       </div>
+ 
++      {/* إجابات الطالب على كل سؤال مع التصحيح (مطوية افتراضيًا) */}
++      <PlacementReview review={result?.review} language={language} />
++
+       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+         <h2 className="text-lg font-semibold text-gray-900">{t.recommended}</h2>
+         <p className="text-xs text-gray-400 mt-0.5 mb-4">{t.recommendedHint}</p>
+diff --git a/app/components/PlacementReview.jsx b/app/components/PlacementReview.jsx
+new file mode 100644
+index 0000000..d4dd179
+--- /dev/null
++++ b/app/components/PlacementReview.jsx
+@@ -0,0 +1,226 @@
++"use client";
++
++// app/components/PlacementReview.jsx
++//
++// "إجاباتك والتصحيح" — بيعرض كل سؤال في اختبار تحديد المستوى (إسباني) بنصه وخياراته،
++// مع إجابة الطالب والإجابة الصحيحة وعلامة صح/غلط. بيُستخدم في:
++//   - صفحة النتيجة للطالب (PlacementResult) — مطوي افتراضيًا مع زرار "عرض الإجابات"
++//   - لوحة الأدمن (تفاصيل نتيجة طالب) — مفتوح (defaultOpen) وباللغة الإنجليزية
++//
++// review = من السيرفر (buildReview في app/lib/placementReview.js):
++//   [{ id, title, tasks: [{ title, intro, passage, bank, questions: [
++//        { n, ln, q, ctx, options: [{label, text}], yourIndex, correctIndex, isCorrect } ] }] }]
++// مفيش مفتاح إجابات بيتحمّل هنا — الصح بييجي جاهز في الـ review.
++
++import { useMemo, useState } from "react";
++import { REVIEW_STRINGS } from "@/app/lib/placementReviewStrings";
++
++const TONE = {
++  correct: "border-green-200 bg-green-50/40",
++  wrong: "border-red-200 bg-red-50/40",
++  none: "border-amber-200 bg-amber-50/40",
++};
++
++const stateOf = (q) => (q.yourIndex == null ? "none" : q.isCorrect ? "correct" : "wrong");
++
++// نص إجابة (حرف + نص). أسئلة الربط: النص من قائمة النصوص (bank) بتاعة المهمة.
++function answerLabel(task, q, idx) {
++  const opt = q.options[idx];
++  if (!opt) return "";
++  const text = task.bank ? task.bank.find((b) => b.l === opt.label)?.t || "" : opt.text;
++  return text ? `${opt.label}) ${text}` : opt.label;
++}
++
++function Badge({ tone, children }) {
++  const cls =
++    tone === "green"
++      ? "bg-green-100 text-green-700"
++      : tone === "red"
++      ? "bg-red-100 text-red-700"
++      : "bg-amber-100 text-amber-700";
++  return <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cls}`}>{children}</span>;
++}
++
++function QuestionCard({ task, q, t }) {
++  const state = stateOf(q);
++  return (
++    <div className={`rounded-xl border p-4 text-left ${TONE[state]}`}>
++      <div className="flex items-start justify-between gap-3">
++        <p className="text-sm font-semibold text-gray-900">
++          {q.ln}. {q.q}
++        </p>
++        <span
++          className={`shrink-0 text-base font-black ${
++            state === "correct" ? "text-green-600" : state === "wrong" ? "text-red-600" : "text-amber-500"
++          }`}
++          aria-label={state === "correct" ? t.correct : state === "wrong" ? t.wrong : t.unanswered}
++        >
++          {state === "correct" ? "✓" : state === "wrong" ? "✗" : "–"}
++        </span>
++      </div>
++      {q.ctx && <p className="text-xs text-gray-600 bg-white/70 border border-gray-100 rounded-lg px-3 py-2 mt-2">{q.ctx}</p>}
++
++      {task.bank ? (
++        // أسئلة الربط: بنعرض إجابة الطالب والصحيحة بس (النصوص كلها فوق في قائمة المهمة)
++        <div className="mt-3 space-y-1.5 text-sm">
++          <div className="flex flex-wrap items-start gap-2">
++            <Badge tone={state === "correct" ? "green" : state === "wrong" ? "red" : "amber"}>{t.yourAnswer}</Badge>
++            <span className={state === "wrong" ? "text-red-700" : state === "correct" ? "text-green-700" : "text-amber-700"}>
++              {q.yourIndex == null ? t.noAnswer : answerLabel(task, q, q.yourIndex)}
++            </span>
++          </div>
++          {state !== "correct" && (
++            <div className="flex flex-wrap items-start gap-2">
++              <Badge tone="green">{t.correctAnswer}</Badge>
++              <span className="text-green-700 font-semibold">{answerLabel(task, q, q.correctIndex)}</span>
++            </div>
++          )}
++        </div>
++      ) : (
++        <div className="mt-3 space-y-1.5">
++          {q.options.map((opt, oi) => {
++            const isRight = oi === q.correctIndex;
++            const isYours = oi === q.yourIndex;
++            const cls = isRight
++              ? "border-green-400 bg-green-50 text-green-800 font-semibold"
++              : isYours
++              ? "border-red-300 bg-red-50 text-red-700"
++              : "border-gray-100 bg-white/60 text-gray-600";
++            return (
++              <div key={oi} className={`flex items-center justify-between gap-2 text-sm px-3 py-2 rounded-lg border ${cls}`}>
++                <span>
++                  <span className="font-bold opacity-70">{opt.label})</span> {opt.text}
++                </span>
++                <span className="flex items-center gap-1.5">
++                  {isYours && <Badge tone={isRight ? "green" : "red"}>{t.yourAnswer}</Badge>}
++                  {isRight && !isYours && <Badge tone="green">{t.correctAnswer}</Badge>}
++                </span>
++              </div>
++            );
++          })}
++          {q.yourIndex == null && <p className="text-xs text-amber-700">{t.noAnswer}</p>}
++        </div>
++      )}
++    </div>
++  );
++}
++
++export default function PlacementReview({ review, language = "ar", defaultOpen = false, collapsible = true }) {
++  const t = REVIEW_STRINGS[language] ?? REVIEW_STRINGS.en;
++  const [open, setOpen] = useState(defaultOpen || !collapsible);
++  const [wrongOnly, setWrongOnly] = useState(false);
++
++  const stats = useMemo(() => {
++    const s = { correct: 0, wrong: 0, none: 0 };
++    for (const part of review || []) {
++      for (const task of part.tasks) for (const q of task.questions) s[stateOf(q)] += 1;
++    }
++    return s;
++  }, [review]);
++
++  // بعد الفلتر: لو "الخاطئة فقط" بنشيل الأسئلة الصحيحة (وأي مهمة/جزء فاضي)
++  const visible = useMemo(() => {
++    if (!wrongOnly) return review || [];
++    return (review || [])
++      .map((part) => ({
++        ...part,
++        tasks: part.tasks
++          .map((task) => ({ ...task, questions: task.questions.filter((q) => !q.isCorrect) }))
++          .filter((task) => task.questions.length),
++      }))
++      .filter((part) => part.tasks.length);
++  }, [review, wrongOnly]);
++
++  if (!Array.isArray(review) || review.length === 0) return null;
++
++  const dir = language === "ar" ? "rtl" : "ltr";
++  const chip = "text-xs font-bold px-2.5 py-1 rounded-full";
++
++  return (
++    <div dir={dir} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
++      <div className="flex flex-wrap items-center justify-between gap-3">
++        <h2 className="text-lg font-semibold text-gray-900">{t.title}</h2>
++        <div className="flex flex-wrap items-center gap-2">
++          <span className={`${chip} bg-green-50 text-green-700`}>
++            {stats.correct} {t.correct}
++          </span>
++          <span className={`${chip} bg-red-50 text-red-700`}>
++            {stats.wrong} {t.wrong}
++          </span>
++          {stats.none > 0 && (
++            <span className={`${chip} bg-amber-50 text-amber-700`}>
++              {stats.none} {t.unanswered}
++            </span>
++          )}
++        </div>
++      </div>
++
++      {collapsible && (
++        <button
++          type="button"
++          onClick={() => setOpen((v) => !v)}
++          className="mt-4 px-4 py-2 rounded-xl border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50"
++        >
++          {open ? t.hide : t.show}
++        </button>
++      )}
++
++      {open && (
++        <div className="mt-5 space-y-6">
++          <div className="flex items-center gap-2">
++            {[
++              { v: false, label: t.all },
++              { v: true, label: t.wrongOnly },
++            ].map((f) => (
++              <button
++                key={String(f.v)}
++                type="button"
++                onClick={() => setWrongOnly(f.v)}
++                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
++                  wrongOnly === f.v
++                    ? "border-[#003A91] bg-[#003A91] text-white"
++                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
++                }`}
++              >
++                {f.label}
++              </button>
++            ))}
++          </div>
++
++          {visible.length === 0 && <p className="text-sm text-gray-500">{t.nothingToShow}</p>}
++
++          {visible.map((part) => (
++            <section key={part.id} className="space-y-4" dir="ltr">
++              <h3 className="text-xs font-bold uppercase tracking-wider text-[#003A91] border-b-2 border-[#C9A227] pb-1.5 text-left">
++                {part.title}
++              </h3>
++              {part.tasks.map((task, ti) => (
++                <div key={ti} className="space-y-3">
++                  <p className="text-sm font-bold text-gray-800 text-left">{task.title}</p>
++                  {task.passage && (
++                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 text-sm text-gray-800 whitespace-pre-line text-left">
++                      {task.passage}
++                    </div>
++                  )}
++                  {task.bank && (
++                    <ul className="space-y-1.5">
++                      {task.bank.map((b) => (
++                        <li key={b.l} className="flex gap-2.5 text-sm text-gray-800 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-left">
++                          <span className="font-black text-[#003A91] shrink-0">{b.l}.</span>
++                          <span>{b.t}</span>
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                  {task.questions.map((q) => (
++                    <QuestionCard key={q.n} task={task} q={q} t={t} />
++                  ))}
++                </div>
++              ))}
++            </section>
++          ))}
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/app/lib/adminPlacementTestsRoute.test.js b/app/lib/adminPlacementTestsRoute.test.js
+new file mode 100644
+index 0000000..bf09b3a
+--- /dev/null
++++ b/app/lib/adminPlacementTestsRoute.test.js
+@@ -0,0 +1,98 @@
++// app/lib/adminPlacementTestsRoute.test.js
++//
++// GET /api/admin/placement-tests:
++//   - أدمن بس (الطالب 403).
++//   - القايمة من غير الإجابات التفصيلية (answers/results) وبـ phone (مع fallback لـ studentNumber القديم).
++//   - ?id=... بيرجّع نتيجة واحدة بالتفصيل: بيانات الطالب + إجاباته مع التصحيح.
++
++const mockGetServerSession = jest.fn();
++const mockFind = jest.fn();
++const mockFindOne = jest.fn();
++
++jest.mock("next-auth", () => ({ getServerSession: (...a) => mockGetServerSession(...a) }));
++jest.mock("@/app/lib/authOptions", () => ({ authOptions: {} }));
++jest.mock("@/app/lib/mongodb", () => ({ connectToMongo: jest.fn().mockResolvedValue() }));
++jest.mock("@/app/lib/placementTest", () => ({
++  getPlacementTestsCollection: () => ({
++    find: (...a) => mockFind(...a),
++    findOne: (...a) => mockFindOne(...a),
++  }),
++}));
++
++const ID = "507f1f77bcf86cd799439011";
++const asRole = (role) => mockGetServerSession.mockResolvedValue({ user: { id: "u1", role } });
++const get = (qs = "") => new Request(`http://x/api/admin/placement-tests${qs}`);
++
++const baseDoc = {
++  _id: { toString: () => ID },
++  name: "Mona",
++  email: "mona@example.com",
++  phone: "+201001234567",
++  score: 50,
++  maxScore: 100,
++  level: "A1.1",
++  answeredCount: 2,
++  totalQuestions: 75,
++  paymentStatus: "free",
++  emailSent: true,
++  createdAt: new Date("2026-10-22T00:00:00Z"),
++};
++
++describe("GET /api/admin/placement-tests", () => {
++  let GET;
++  beforeAll(async () => {
++    ({ GET } = await import("@/app/api/admin/placement-tests/route.js"));
++  });
++
++  it("غير الأدمن مرفوض", async () => {
++    asRole("student");
++    expect((await GET(get())).status).toBe(403);
++    mockGetServerSession.mockResolvedValue(null);
++    expect((await GET(get())).status).toBe(401);
++  });
++
++  it("القايمة: من غير answers/results، والرقم من phone أو studentNumber القديم", async () => {
++    asRole("admin");
++    mockFind.mockReturnValue({
++      sort: () => ({
++        limit: () => ({
++          toArray: () =>
++            Promise.resolve([baseDoc, { ...baseDoc, phone: undefined, studentNumber: "OLD-7" }]),
++        }),
++      }),
++    });
++    const res = await GET(get());
++    expect(res.status).toBe(200);
++    expect(mockFind).toHaveBeenCalledWith({}, { projection: { answers: 0, results: 0 } });
++    const rows = await res.json();
++    expect(rows[0]).toMatchObject({ name: "Mona", email: "mona@example.com", phone: "+201001234567" });
++    expect(rows[1].phone).toBe("OLD-7");
++    expect(rows[0].review).toBeUndefined();
++  });
++
++  it("?id: بيرجّع الإجابات مع التصحيح", async () => {
++    asRole("admin");
++    mockFindOne.mockResolvedValue({
++      ...baseDoc,
++      results: [
++        { n: 1, a: 1, c: 1 },
++        { n: 2, a: 2, c: 0 },
++      ],
++    });
++    const res = await GET(get(`?id=${ID}`));
++    expect(res.status).toBe(200);
++    const data = await res.json();
++    expect(data).toMatchObject({ name: "Mona", phone: "+201001234567", score: 50, emailSent: true });
++    const qs = data.review.flatMap((p) => p.tasks.flatMap((t) => t.questions));
++    expect(qs).toHaveLength(2);
++    expect(qs[0]).toMatchObject({ n: 1, isCorrect: true });
++    expect(qs[1]).toMatchObject({ n: 2, isCorrect: false, yourIndex: 2, correctIndex: 0 });
++  });
++
++  it("?id غلط → 400، ومش موجود → 404", async () => {
++    asRole("admin");
++    expect((await GET(get("?id=nope"))).status).toBe(400);
++    mockFindOne.mockResolvedValue(null);
++    expect((await GET(get(`?id=${ID}`))).status).toBe(404);
++  });
++});
+diff --git a/app/lib/emailHelpers.js b/app/lib/emailHelpers.js
+index 878e9dd..226ba75 100644
+--- a/app/lib/emailHelpers.js
++++ b/app/lib/emailHelpers.js
+@@ -12,6 +12,7 @@
+ // هو مصدر الحقيقة الأساسي؛ الإيميل طبقة إضافية بس.
+ 
+ import { formatMeetingWhen } from "@/app/lib/meetingTime";
++import { buildPlacementResultEmail } from "@/app/lib/placementReview";
+ 
+ const RESEND_API_KEY = process.env.RESEND_API_KEY;
+ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumaster365.com";
+@@ -19,14 +20,16 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "notifications@edumas
+ // قالب HTML بسيط موحّد (هيدر EduMaster + محتوى) — بيُستخدم لكل إيميلات
+ // الأحداث في الدالة دي، عشان كل الإيميلات تحس إنها من نفس المنصة بشكل
+ // متسق من غير ما نكرر HTML الهيدر/الفوتر في كل مكان بيبعت إيميل.
+-function wrapEmailTemplate({ heading, bodyHtml }) {
++// dir/lang/maxWidth اختياريين (الافتراضي زي ما كان: ltr/en/480) — إيميل نتيجة الاختبار
++// بيستخدمهم عشان يدعم العربي (rtl) وعرض أكبر لقائمة الأسئلة.
++function wrapEmailTemplate({ heading, bodyHtml, dir = "ltr", lang = "en", maxWidth = 480 }) {
+   return `
+ <!DOCTYPE html>
+-<html dir="ltr" lang="en">
++<html dir="${dir}" lang="${lang}">
+   <body style="margin:0;padding:0;background-color:#eef2ff;font-family:'DM Sans',Arial,sans-serif;">
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2ff;padding:32px 16px;">
+       <tr><td align="center">
+-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;overflow:hidden;border:2px solid #dbeafe;">
++        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;background:#fff;border-radius:16px;overflow:hidden;border:2px solid #dbeafe;">
+           <tr><td style="background-color:#1E3561;padding:24px 32px;">
+             <span style="font-size:20px;font-weight:900;color:#C9A227;">Edumaster</span>
+           </td></tr>
+@@ -55,8 +58,11 @@ function escapeHtml(str) {
+  * @param {string} params.subject
+  * @param {string} params.heading - عنوان بارز داخل جسم الإيميل
+  * @param {string} params.bodyHtml - باقي محتوى الإيميل (HTML جاهز)
++ * @param {"ltr"|"rtl"} [params.dir] - اتجاه الإيميل (افتراضي ltr)
++ * @param {string} [params.lang] - لغة الإيميل (افتراضي en)
++ * @param {number} [params.maxWidth] - أقصى عرض بالبكسل (افتراضي 480)
+  */
+-export async function sendTemplatedEmail({ to, subject, heading, bodyHtml }) {
++export async function sendTemplatedEmail({ to, subject, heading, bodyHtml, dir, lang, maxWidth }) {
+   if (!RESEND_API_KEY) {
+     console.warn(`RESEND_API_KEY not set — skipping email "${subject}" to ${to}`);
+     return false;
+@@ -69,7 +75,7 @@ export async function sendTemplatedEmail({ to, subject, heading, bodyHtml }) {
+         from: RESEND_FROM_EMAIL,
+         to: [to],
+         subject,
+-        html: wrapEmailTemplate({ heading, bodyHtml }),
++        html: wrapEmailTemplate({ heading, bodyHtml, dir, lang, maxWidth }),
+       }),
+     });
+     if (!res.ok) {
+@@ -101,6 +107,29 @@ export async function sendPaymentSucceededEmail({ toEmail, name, itemLabel, amou
+   return sendTemplatedEmail({ to: toEmail, subject: "Your EduMaster payment was successful", heading: "Payment Confirmed ✓", bodyHtml });
+ }
+ 
++/**
++ * إيميل نتيجة اختبار تحديد المستوى (إسباني): الدرجة + المستوى + إجابات الطالب على كل
++ * سؤال مع التصحيح. بيتبعت للإيميل المسجّل في حساب الطالب (من الـ session) بعد التسليم
++ * (أو بعد نجاح الدفع لو الاختبار مدفوع). best-effort: بيرجع true/false ومبيرميش خطأ.
++ * @param {object} p
++ * @param {string} p.toEmail
++ * @param {string} p.name
++ * @param {"ar"|"en"|"es"} p.language
++ * @param {number} p.score
++ * @param {number} p.maxScore
++ * @param {string} p.level
++ * @param {Array} p.review - من buildReview() في placementReview.js
++ */
++export async function sendPlacementResultEmail({ toEmail, name, language, score, maxScore, level, review }) {
++  try {
++    const mail = buildPlacementResultEmail({ name, language, score, maxScore, level, review });
++    return await sendTemplatedEmail({ to: toEmail, ...mail });
++  } catch (err) {
++    console.error("[sendPlacementResultEmail] error:", err);
++    return false;
++  }
++}
++
+ /**
+  * إيميل "اشتراكك على وشك الانتهاء" — بيُستخدم من
+  * app/api/cron/membership-expiry/route.js.
+diff --git a/app/lib/paymentHelpers.js b/app/lib/paymentHelpers.js
+index 83a0e92..8301c91 100644
+--- a/app/lib/paymentHelpers.js
++++ b/app/lib/paymentHelpers.js
+@@ -21,8 +21,9 @@ import {
+   getMembershipPlanModel,
+ } from "@/app/lib/models";
+ import { createNotification } from "@/app/lib/notificationHelpers";
+-import { sendPaymentSucceededEmail } from "@/app/lib/emailHelpers";
++import { sendPaymentSucceededEmail, sendPlacementResultEmail } from "@/app/lib/emailHelpers";
+ import { getPlacementTestsCollection } from "@/app/lib/placementTest";
++import { reviewFromDoc } from "@/app/lib/placementReview";
+ 
+ export function generateInvoiceNumber(paymentId) {
+   const now = new Date();
+@@ -197,6 +198,22 @@ async function markPlacementTestPaidBestEffort(payment) {
+         },
+       }
+     );
++
++    // 📧 اختبار مدفوع: النتيجة بتتسلّم بعد الدفع، فنبعت للطالب نسخة (الدرجة + إجاباته مع
++    // التصحيح) على إيميله المسجّل. الاختبار المجاني بيتبعت وقت التسليم (emailSent=true) فمنكررش.
++    const doc = await getPlacementTestsCollection().findOne({ _id: payment.placementTest });
++    if (doc?.email && !doc.emailSent) {
++      const sent = await sendPlacementResultEmail({
++        toEmail: doc.email,
++        name: doc.name,
++        language: doc.language || "ar",
++        score: doc.score,
++        maxScore: doc.maxScore,
++        level: doc.level,
++        review: reviewFromDoc(doc),
++      });
++      await getPlacementTestsCollection().updateOne({ _id: doc._id }, { $set: { emailSent: Boolean(sent) } });
++    }
+   } catch (err) {
+     console.error("[markPlacementTestPaidBestEffort] update error:", err);
+   }
+diff --git a/app/lib/placementReview.js b/app/lib/placementReview.js
+new file mode 100644
+index 0000000..69bc44d
+--- /dev/null
++++ b/app/lib/placementReview.js
+@@ -0,0 +1,240 @@
++// app/lib/placementReview.js
++//
++// 🔒 سيرفر بس (بيستورد مفتاح الإجابات — ممنوع من أي كومبوننت "use client").
++//
++// مراجعة اختبار تحديد المستوى (إسباني): لكل سؤال → إجابة الطالب + الإجابة الصحيحة + هل صح.
++//   1) buildResults(answers, audio) — "لقطة" مدمجة بتتخزّن في مستند النتيجة وقت التسليم:
++//        [{ n: رقم السؤال، a: index إجابة الطالب أو null، c: index الإجابة الصحيحة }]
++//      بنخزّنها عشان التصحيح اللي بيظهر للطالب/الأدمن لاحقًا يفضل مطابق للدرجة اللي اتحسبت
++//      وقتها (حتى لو مفتاح الإجابات أو الصوتيات المرفوعة اتغيّروا بعد كده).
++//   2) buildReview(results) — بتبني هيكل العرض (أجزاء → مهام → أسئلة بنصوصها وخياراتها).
++//   3) buildPlacementResultEmail(...) — إيميل النتيجة + الإجابات والتصحيح (3 لغات).
++
++import { PLACEMENT_PARTS, getVisibleParts } from "@/app/lib/spanishPlacementTest";
++import { ANSWER_KEY } from "@/app/lib/spanishPlacementTestKey";
++import { getLevelByCode } from "@/app/lib/placementLevels";
++import { REVIEW_STRINGS } from "@/app/lib/placementReviewStrings";
++
++const LETTERS = "abcdefghijk";
++
++const toIndex = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
++
++// لقطة النتيجة للأسئلة الظاهرة فعلًا وقت الاختبار (نفس الأسئلة اللي اتحسبت منها الدرجة).
++export function buildResults(answers, audio = {}) {
++  const out = [];
++  for (const part of getVisibleParts(audio)) {
++    for (const task of part.tasks) {
++      for (const q of task.questions) {
++        out.push({ n: q.n, a: toIndex(answers?.[q.n]), c: ANSWER_KEY[q.n]?.a ?? null });
++      }
++    }
++  }
++  return out;
++}
++
++// للنتايج القديمة (اتسجّلت قبل ما نخزّن اللقطة): بنعيد بناءها من answers المخزّنة.
++// مهام الاستماع بتظهر بس لو الطالب جاوب على سؤال منها (يعني كانت ظاهرة وقتها).
++export function legacyResults(answers) {
++  const out = [];
++  for (const part of PLACEMENT_PARTS) {
++    for (const task of part.tasks) {
++      const visible =
++        task.audioSlot === undefined || task.questions.some((q) => answers?.[q.n] !== undefined);
++      if (!visible) continue;
++      for (const q of task.questions) {
++        out.push({ n: q.n, a: toIndex(answers?.[q.n]), c: ANSWER_KEY[q.n]?.a ?? null });
++      }
++    }
++  }
++  return out;
++}
++
++export function resultsFromDoc(doc) {
++  return Array.isArray(doc?.results) && doc.results.length ? doc.results : legacyResults(doc?.answers);
++}
++
++// خيارات السؤال للعرض. أسئلة الربط (bank): الخيارات حروف والنص بيتجاب من task.bank وقت العرض.
++function optionsFor(task, q) {
++  if (task.bank) return q.o.map((label) => ({ label, text: "" }));
++  return q.o.map((text, i) => ({ label: LETTERS[i], text }));
++}
++
++export function buildReview(results) {
++  const byN = new Map((results || []).map((r) => [r.n, r]));
++  const parts = [];
++  for (const part of PLACEMENT_PARTS) {
++    const tasks = [];
++    for (const task of part.tasks) {
++      const questions = task.questions
++        .filter((q) => byN.has(q.n))
++        .map((q) => {
++          const r = byN.get(q.n);
++          return {
++            n: q.n,
++            ln: q.ln,
++            q: q.q,
++            ctx: q.ctx || "",
++            options: optionsFor(task, q),
++            yourIndex: r.a ?? null,
++            correctIndex: r.c ?? null,
++            isCorrect: r.a != null && r.a === r.c,
++          };
++        });
++      if (!questions.length) continue;
++      tasks.push({
++        title: task.title,
++        intro: task.intro || "",
++        passage: task.passage || "",
++        bank: task.bank || null,
++        questions,
++      });
++    }
++    if (tasks.length) parts.push({ id: part.id, title: part.title, tasks });
++  }
++  return parts;
++}
++
++export function reviewFromDoc(doc) {
++  return buildReview(resultsFromDoc(doc));
++}
++
++// ───────────── إيميل النتيجة ─────────────
++
++const EMAIL_STRINGS = {
++  ar: {
++    dir: "rtl",
++    subject: (s, m, l) => `نتيجة اختبار تحديد المستوى في الإسبانية: ${s}/${m} (${l})`,
++    heading: "نتيجة اختبارك",
++    hello: (n) => `مرحبًا ${n}،`,
++    intro: "شكرًا لإكمالك اختبار تحديد المستوى في اللغة الإسبانية. هذه درجتك ومستواك، وبعدها إجاباتك على كل سؤال مع التصحيح.",
++    score: "درجتك",
++    level: "مستواك",
++  },
++  en: {
++    dir: "ltr",
++    subject: (s, m, l) => `Your Spanish level test result: ${s}/${m} (${l})`,
++    heading: "Your test result",
++    hello: (n) => `Hi ${n},`,
++    intro: "Thanks for completing the Spanish placement test. Here are your score and level, followed by your answer to every question with the correction.",
++    score: "Your score",
++    level: "Your level",
++  },
++  es: {
++    dir: "ltr",
++    subject: (s, m, l) => `Tu resultado de la prueba de nivel de español: ${s}/${m} (${l})`,
++    heading: "Tu resultado",
++    hello: (n) => `Hola ${n},`,
++    intro: "Gracias por completar la prueba de nivel de español. Aquí tienes tu puntuación y tu nivel, y después tu respuesta a cada pregunta con su corrección.",
++    score: "Tu puntuación",
++    level: "Tu nivel",
++  },
++};
++
++const esc = (s) =>
++  String(s ?? "")
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;");
++
++// نص الإجابة للعرض (حرف + نص). أسئلة الربط: النص من task.bank.
++function answerText(task, q, idx, noAnswer) {
++  if (idx == null) return noAnswer;
++  const opt = q.options[idx];
++  if (!opt) return noAnswer;
++  const text = task.bank ? task.bank.find((b) => b.l === opt.label)?.t || "" : opt.text;
++  return text ? `${opt.label}) ${text}` : `${opt.label}`;
++}
++
++const TONES = {
++  correct: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d", mark: "✓" },
++  wrong: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", mark: "✗" },
++  none: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", mark: "–" },
++};
++
++export function buildPlacementResultEmail({ name, language = "ar", score, maxScore, level, review }) {
++  const lang = EMAIL_STRINGS[language] ? language : "en";
++  const s = EMAIL_STRINGS[lang];
++  const r = REVIEW_STRINGS[lang];
++  const lvl = getLevelByCode(level);
++  const desc = lvl ? lvl.desc[lang] || lvl.desc.en : "";
++
++  let correct = 0;
++  let wrong = 0;
++  let none = 0;
++  const partsHtml = (review || [])
++    .map((part) => {
++      const tasksHtml = part.tasks
++        .map((task) => {
++          const context = [
++            task.passage
++              ? `<div dir="ltr" style="font-size:12px;color:#334155;background:#f8fafc;border-radius:8px;padding:10px 12px;margin:0 0 8px 0;white-space:pre-line;">${esc(task.passage)}</div>`
++              : "",
++            task.bank
++              ? `<div dir="ltr" style="font-size:12px;color:#334155;background:#f8fafc;border-radius:8px;padding:10px 12px;margin:0 0 8px 0;">${task.bank
++                  .map((b) => `<div style="margin:0 0 4px 0;"><strong>${esc(b.l)}.</strong> ${esc(b.t)}</div>`)
++                  .join("")}</div>`
++              : "",
++          ].join("");
++
++          const qsHtml = task.questions
++            .map((q) => {
++              const state = q.yourIndex == null ? "none" : q.isCorrect ? "correct" : "wrong";
++              if (state === "correct") correct += 1;
++              else if (state === "wrong") wrong += 1;
++              else none += 1;
++              const tone = TONES[state];
++              const yours = answerText(task, q, q.yourIndex, r.noAnswer);
++              const right = answerText(task, q, q.correctIndex, "");
++              return `
++<div style="background:${tone.bg};border:1px solid ${tone.border};border-radius:8px;padding:10px 12px;margin:0 0 8px 0;">
++  <div dir="ltr" style="font-size:13px;font-weight:700;color:#0f172a;text-align:left;">${esc(q.ln)}. ${esc(q.q)}</div>
++  ${q.ctx ? `<div dir="ltr" style="font-size:12px;color:#64748b;margin-top:3px;text-align:left;">${esc(q.ctx)}</div>` : ""}
++  <div style="font-size:12px;color:#475569;margin-top:6px;">${esc(r.yourAnswer)}: <strong dir="ltr" style="color:${tone.color};">${esc(yours)}</strong> <span style="color:${tone.color};font-weight:800;">${tone.mark}</span></div>
++  ${state === "correct" ? "" : `<div style="font-size:12px;color:#475569;margin-top:3px;">${esc(r.correctAnswer)}: <strong dir="ltr" style="color:#15803d;">${esc(right)}</strong></div>`}
++</div>`;
++            })
++            .join("");
++
++          return `
++<p dir="ltr" style="font-size:12px;font-weight:800;color:#1E3561;margin:16px 0 6px 0;text-align:left;">${esc(task.title)}</p>
++${context}${qsHtml}`;
++        })
++        .join("");
++      return `<p dir="ltr" style="font-size:14px;font-weight:800;color:#1E3561;margin:22px 0 0 0;padding-top:10px;border-top:2px solid #C9A227;text-align:left;">${esc(part.title)}</p>${tasksHtml}`;
++    })
++    .join("");
++
++  const bodyHtml = `
++    <p style="font-size:14px;color:#64748b;margin:0 0 6px 0;">${esc(s.hello(name))}</p>
++    <p style="font-size:13px;color:#64748b;margin:0 0 18px 0;">${esc(s.intro)}</p>
++    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px 0;"><tr>
++      <td style="background:#eff6ff;border-radius:12px;padding:14px;text-align:center;width:50%;">
++        <div style="font-size:12px;color:#64748b;">${esc(s.score)}</div>
++        <div dir="ltr" style="font-size:28px;font-weight:900;color:#003A91;">${esc(score)}<span style="font-size:14px;color:#94a3b8;"> / ${esc(maxScore)}</span></div>
++      </td>
++      <td style="width:8px;">&nbsp;</td>
++      <td style="background:#003A91;border-radius:12px;padding:14px;text-align:center;width:50%;">
++        <div style="font-size:12px;color:#bfdbfe;">${esc(s.level)}</div>
++        <div dir="ltr" style="font-size:28px;font-weight:900;color:#ffffff;">${esc(level)}</div>
++      </td>
++    </tr></table>
++    ${desc ? `<p style="font-size:13px;color:#475569;margin:0 0 14px 0;">${esc(desc)}</p>` : ""}
++    <p style="font-size:13px;color:#475569;margin:0 0 4px 0;">
++      <strong style="color:#15803d;">${correct}</strong> ${esc(r.correct)} ·
++      <strong style="color:#b91c1c;">${wrong}</strong> ${esc(r.wrong)} ·
++      <strong style="color:#b45309;">${none}</strong> ${esc(r.unanswered)}
++    </p>
++    <p style="font-size:15px;font-weight:800;color:#1e293b;margin:20px 0 0 0;">${esc(r.title)}</p>
++    ${partsHtml}
++  `;
++
++  return {
++    subject: s.subject(score, maxScore, level),
++    heading: s.heading,
++    bodyHtml,
++    dir: s.dir,
++    lang,
++    maxWidth: 640,
++  };
++}
+diff --git a/app/lib/placementReview.test.js b/app/lib/placementReview.test.js
+new file mode 100644
+index 0000000..5ccdcbf
+--- /dev/null
++++ b/app/lib/placementReview.test.js
+@@ -0,0 +1,136 @@
++// app/lib/placementReview.test.js
++//
++// اختبارات مراجعة اختبار تحديد المستوى (إجابات الطالب مع التصحيح):
++//   - لقطة النتيجة (buildResults) للأسئلة الظاهرة بس + النتايج القديمة (legacyResults).
++//   - هيكل المراجعة (buildReview): صح/غلط/بدون إجابة وأسئلة الربط.
++//   - إيميل النتيجة: لغة/اتجاه، الإجابات والتصحيح، وهروب HTML.
++
++import {
++  buildResults,
++  legacyResults,
++  resultsFromDoc,
++  buildReview,
++  reviewFromDoc,
++  buildPlacementResultEmail,
++} from "@/app/lib/placementReview";
++import { ANSWER_KEY } from "@/app/lib/spanishPlacementTestKey";
++
++const ALL_AUDIO = { 1: "a.mp3", 2: "b.mp3", 3: "c.mp3", 4: "d.mp3" };
++const flat = (review) => review.flatMap((p) => p.tasks.flatMap((t) => t.questions));
++
++describe("buildResults", () => {
++  it("مهام الاستماع من غير صوت مرفوع بتتخفي، ومعاه الاختبار 100 سؤال", () => {
++    expect(buildResults({}, {}).length).toBeLessThan(100);
++    expect(buildResults({}, ALL_AUDIO)).toHaveLength(100);
++  });
++
++  it("بيسجّل إجابة الطالب (أو null) والإجابة الصحيحة من المفتاح", () => {
++    const r = buildResults({ 1: 0 }, {});
++    expect(r.find((x) => x.n === 1)).toEqual({ n: 1, a: 0, c: ANSWER_KEY[1].a });
++    expect(r.find((x) => x.n === 2).a).toBeNull();
++  });
++});
++
++describe("buildReview", () => {
++  it("كل الإجابات صح → كل الأسئلة isCorrect", () => {
++    const answers = Object.fromEntries(Object.entries(ANSWER_KEY).map(([n, k]) => [n, k.a]));
++    const qs = flat(buildReview(buildResults(answers, ALL_AUDIO)));
++    expect(qs).toHaveLength(100);
++    expect(qs.every((q) => q.isCorrect)).toBe(true);
++  });
++
++  it("بيفرّق بين صح وغلط وبدون إجابة", () => {
++    const wrong = (ANSWER_KEY[2].a + 1) % 3;
++    const qs = flat(buildReview(buildResults({ 1: ANSWER_KEY[1].a, 2: wrong }, {})));
++    expect(qs.find((q) => q.n === 1).isCorrect).toBe(true);
++    const q2 = qs.find((q) => q.n === 2);
++    expect(q2).toMatchObject({ isCorrect: false, yourIndex: wrong, correctIndex: ANSWER_KEY[2].a });
++    expect(qs.find((q) => q.n === 3)).toMatchObject({ yourIndex: null, isCorrect: false });
++  });
++
++  it("أسئلة الربط: الخيارات حروف والنصوص في task.bank", () => {
++    const review = buildReview(buildResults({ 6: ANSWER_KEY[6].a }, {}));
++    const task = review.flatMap((p) => p.tasks).find((t) => t.questions.some((q) => q.n === 6));
++    expect(task.bank.length).toBeGreaterThan(0);
++    const q6 = task.questions.find((q) => q.n === 6);
++    expect(q6.options[0]).toEqual({ label: "A", text: "" });
++    expect(q6.isCorrect).toBe(true);
++  });
++
++  it("بيشيل الأسئلة اللي مش في اللقطة (مهام استماع مخفية)", () => {
++    const qs = flat(buildReview(buildResults({}, {})));
++    expect(qs.length).toBeLessThan(100);
++  });
++});
++
++describe("النتايج القديمة", () => {
++  it("legacyResults: مهمة استماع ظاهرة بس لو الطالب جاوب على سؤال منها", () => {
++    const withoutListening = legacyResults({ 1: 0 });
++    const withListening = legacyResults({ 1: 0, 6: 0, 26: 0 });
++    expect(withListening.length).toBeGreaterThanOrEqual(withoutListening.length);
++  });
++
++  it("resultsFromDoc بيفضّل اللقطة المخزّنة، وإلا بيبنيها من answers", () => {
++    const stored = [{ n: 1, a: 2, c: 1 }];
++    expect(resultsFromDoc({ results: stored, answers: { 1: 0 } })).toBe(stored);
++    expect(resultsFromDoc({ answers: { 1: 0 } }).find((r) => r.n === 1)).toEqual({ n: 1, a: 0, c: ANSWER_KEY[1].a });
++    expect(flat(reviewFromDoc({ results: stored }))).toHaveLength(1);
++  });
++});
++
++describe("buildPlacementResultEmail", () => {
++  const review = [
++    {
++      id: "p",
++      title: "Parte <1>",
++      tasks: [
++        {
++          title: "Tarea 1",
++          intro: "",
++          passage: "",
++          bank: null,
++          questions: [
++            {
++              n: 1, ln: 1, q: "Pablo da su <b>teléfono</b> & más", ctx: "", yourIndex: 0, correctIndex: 1, isCorrect: false,
++              options: [{ label: "a", text: "dirección." }, { label: "b", text: "teléfono." }],
++            },
++            {
++              n: 2, ln: 2, q: "Cuesta...", ctx: "", yourIndex: 0, correctIndex: 0, isCorrect: true,
++              options: [{ label: "a", text: "12 euros." }, { label: "b", text: "2 euros." }],
++            },
++            {
++              n: 3, ln: 3, q: "Sin respuesta", ctx: "", yourIndex: null, correctIndex: 1, isCorrect: false,
++              options: [{ label: "a", text: "x" }, { label: "b", text: "y" }],
++            },
++          ],
++        },
++      ],
++    },
++  ];
++
++  it("عربي: rtl + الدرجة في الموضوع + الإجابات والتصحيح بالعربي", () => {
++    const m = buildPlacementResultEmail({ name: "منى", language: "ar", score: 72, maxScore: 100, level: "A1.2", review });
++    expect(m.dir).toBe("rtl");
++    expect(m.lang).toBe("ar");
++    expect(m.subject).toContain("72/100");
++    expect(m.bodyHtml).toContain("إجابتك");
++    expect(m.bodyHtml).toContain("الإجابة الصحيحة");
++    expect(m.bodyHtml).toContain("b) teléfono.");
++  });
++
++  it("الإجابة الصحيحة مبتتكررش للسؤال الصح، وبيحسب صحيحة/خاطئة/بدون إجابة", () => {
++    const m = buildPlacementResultEmail({ name: "Mona", language: "en", score: 33, maxScore: 100, level: "Pre-A1", review });
++    expect(m.dir).toBe("ltr");
++    // سؤالين مش صح (غلط + بدون إجابة) → سطرين "Correct answer" بس
++    expect(m.bodyHtml.match(/Correct answer:/g)).toHaveLength(2);
++    expect(m.bodyHtml).toContain("Not answered");
++    expect(m.bodyHtml).toMatch(/<strong[^>]*>1<\/strong> Correct/);
++  });
++
++  it("بيهرّب HTML في نصوص الأسئلة والاسم", () => {
++    const m = buildPlacementResultEmail({ name: "<img src=x>", language: "es", score: 1, maxScore: 100, level: "Pre-A1", review });
++    expect(m.bodyHtml).not.toContain("<img");
++    expect(m.bodyHtml).not.toContain("<b>teléfono</b>");
++    expect(m.bodyHtml).toContain("&lt;b&gt;teléfono&lt;/b&gt; &amp; más");
++  });
++});
+diff --git a/app/lib/placementReviewStrings.js b/app/lib/placementReviewStrings.js
+new file mode 100644
+index 0000000..ed043e5
+--- /dev/null
++++ b/app/lib/placementReviewStrings.js
+@@ -0,0 +1,49 @@
++// app/lib/placementReviewStrings.js
++//
++// نصوص "إجاباتك والتصحيح" (3 لغات) — آمنة للمتصفح والسيرفر (مفيش فيها مفتاح إجابات).
++// بيستخدمها كومبوننت PlacementReview (الموقع + لوحة الأدمن) وإيميل النتيجة.
++
++export const REVIEW_STRINGS = {
++  ar: {
++    title: "إجاباتك والتصحيح",
++    show: "عرض الإجابات والتصحيح",
++    hide: "إخفاء الإجابات",
++    all: "الكل",
++    wrongOnly: "الخاطئة فقط",
++    correct: "صحيحة",
++    wrong: "خاطئة",
++    unanswered: "بدون إجابة",
++    yourAnswer: "إجابتك",
++    correctAnswer: "الإجابة الصحيحة",
++    noAnswer: "لم تُجب عن هذا السؤال",
++    nothingToShow: "لا توجد أسئلة في هذا الفلتر.",
++  },
++  en: {
++    title: "Your answers & corrections",
++    show: "Show answers & corrections",
++    hide: "Hide answers",
++    all: "All",
++    wrongOnly: "Wrong only",
++    correct: "Correct",
++    wrong: "Wrong",
++    unanswered: "Unanswered",
++    yourAnswer: "Your answer",
++    correctAnswer: "Correct answer",
++    noAnswer: "Not answered",
++    nothingToShow: "No questions match this filter.",
++  },
++  es: {
++    title: "Tus respuestas y correcciones",
++    show: "Ver respuestas y correcciones",
++    hide: "Ocultar respuestas",
++    all: "Todas",
++    wrongOnly: "Solo incorrectas",
++    correct: "Correctas",
++    wrong: "Incorrectas",
++    unanswered: "Sin responder",
++    yourAnswer: "Tu respuesta",
++    correctAnswer: "Respuesta correcta",
++    noAnswer: "Sin responder",
++    nothingToShow: "No hay preguntas con este filtro.",
++  },
++};
+diff --git a/app/lib/placementTestsRoute.test.js b/app/lib/placementTestsRoute.test.js
+index cd0f893..b25a2a5 100644
+--- a/app/lib/placementTestsRoute.test.js
++++ b/app/lib/placementTestsRoute.test.js
+@@ -8,14 +8,22 @@
+ 
+ const mockGetServerSession = jest.fn();
+ const mockInsertOne = jest.fn();
++const mockUpdateOne = jest.fn();
++const mockSendEmail = jest.fn();
+ 
+ jest.mock("next-auth", () => ({ getServerSession: (...a) => mockGetServerSession(...a) }));
+ jest.mock("@/app/lib/authOptions", () => ({ authOptions: {} }));
+ jest.mock("@/app/lib/rateLimit", () => ({ enforceRateLimit: jest.fn().mockResolvedValue(null) }));
+ jest.mock("@/app/lib/mongodb", () => ({ connectToMongo: jest.fn().mockResolvedValue() }));
++jest.mock("@/app/lib/emailHelpers", () => ({
++  sendPlacementResultEmail: (...a) => mockSendEmail(...a),
++}));
+ jest.mock("@/app/lib/placementTest", () => ({
+   getAudioMap: jest.fn().mockResolvedValue({}),
+-  getPlacementTestsCollection: () => ({ insertOne: (...a) => mockInsertOne(...a) }),
++  getPlacementTestsCollection: () => ({
++    insertOne: (...a) => mockInsertOne(...a),
++    updateOne: (...a) => mockUpdateOne(...a),
++  }),
+   getRecommendedCourses: jest.fn().mockResolvedValue([]),
+   sanitizeAnswers: jest.fn((a) => a || {}),
+   scoreAnswers: jest.fn(() => ({
+@@ -54,8 +62,12 @@ describe("POST /api/placement-tests", () => {
+ 
+   beforeEach(() => {
+     mockInsertOne.mockResolvedValue({ insertedId: { toString: () => "test123" } });
++    mockUpdateOne.mockResolvedValue({});
++    mockSendEmail.mockResolvedValue(true);
+   });
+ 
++  const flat = (review) => review.flatMap((p) => p.tasks.flatMap((t) => t.questions));
++
+   it("غير مسجّل دخول → 401 ومفيش نتيجة بتتسجّل", async () => {
+     mockGetServerSession.mockResolvedValue(null);
+     const res = await POST(post({ language: "ar", answers: { 1: 0 } }));
+@@ -105,4 +117,53 @@ describe("POST /api/placement-tests", () => {
+     expect(res.status).toBe(201);
+     expect(mockInsertOne.mock.calls[0][0].phone).toBe("");
+   });
++
++  it("بيخزّن لقطة تصحيح لكل سؤال وبيرجّع الإجابات مع التصحيح للطالب", async () => {
++    mockGetServerSession.mockResolvedValue({ user: USER });
++    // سؤال 1: الصح index 1 (إجابة صح) — سؤال 2: الصح index 0 (الطالب جاوب 2 = غلط)
++    const res = await POST(post({ language: "ar", answers: { 1: 1, 2: 2 } }));
++    expect(res.status).toBe(201);
++
++    const { results } = mockInsertOne.mock.calls[0][0];
++    expect(results.find((r) => r.n === 1)).toEqual({ n: 1, a: 1, c: 1 });
++    expect(results.find((r) => r.n === 2)).toEqual({ n: 2, a: 2, c: 0 });
++    expect(results.find((r) => r.n === 3).a).toBeNull(); // سؤال متجاوبش عليه
++
++    const { review } = await res.json();
++    const qs = flat(review);
++    expect(qs.find((q) => q.n === 1)).toMatchObject({ yourIndex: 1, correctIndex: 1, isCorrect: true });
++    expect(qs.find((q) => q.n === 2)).toMatchObject({ yourIndex: 2, correctIndex: 0, isCorrect: false });
++    expect(qs.find((q) => q.n === 3)).toMatchObject({ yourIndex: null, isCorrect: false });
++  });
++
++  it("بيبعت النتيجة والإجابات على إيميل الحساب (من الـ session) ويبلّغ الـ client", async () => {
++    mockGetServerSession.mockResolvedValue({ user: USER });
++    const res = await POST(post({ email: "fake@evil.com", language: "en", answers: { 1: 1 } }));
++    const data = await res.json();
++
++    expect(mockSendEmail).toHaveBeenCalledTimes(1);
++    const arg = mockSendEmail.mock.calls[0][0];
++    expect(arg).toMatchObject({
++      toEmail: USER.email,
++      name: USER.name,
++      language: "en",
++      score: 72,
++      maxScore: 100,
++      level: "A1.2",
++    });
++    expect(arg.review.length).toBeGreaterThan(0);
++    expect(data.emailSentTo).toBe(USER.email);
++    expect(mockUpdateOne).toHaveBeenCalledWith({ _id: expect.anything() }, { $set: { emailSent: true } });
++  });
++
++  it("فشل إرسال الإيميل مبيوقّفش النتيجة", async () => {
++    mockGetServerSession.mockResolvedValue({ user: USER });
++    mockSendEmail.mockRejectedValue(new Error("resend down"));
++    const res = await POST(post({ language: "ar", answers: { 1: 1 } }));
++    expect(res.status).toBe(201);
++    const data = await res.json();
++    expect(data.emailSentTo).toBeNull();
++    expect(data.review.length).toBeGreaterThan(0);
++    expect(mockUpdateOne).toHaveBeenCalledWith({ _id: expect.anything() }, { $set: { emailSent: false } });
++  });
+ });

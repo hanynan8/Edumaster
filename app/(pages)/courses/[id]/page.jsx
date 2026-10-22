@@ -32,7 +32,7 @@ import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
-import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
@@ -627,7 +627,8 @@ function RealCourseDetail({ id }) {
   const isSpanishCourse = course.categorySlug === "language" && course.language === "es";
   // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
   // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
-  const placementTestId = isSpanishCourse ? getPlacementTestForCourse(course) : null;
+  // 🆕 كورس مربوط باختبار مخصص من الأدمن (course.placementTest) → الزرار بيظهر حتى لو مش إسباني
+  const placementTestId = isSpanishCourse || hasLinkedPlacementTest(course) ? getPlacementTestForCourse(course) : null;
   const showSpanishTest = Boolean(placementTestId);
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
@@ -900,7 +901,7 @@ function RealCourseDetail({ id }) {
             إسباني مثلًا — فمش منطقي نستخدم نفس الـ quiz لكل دورات اللغة).
             ظاهر لأي زائر (مش لازم يكون مسجّل دخول أو مشترك) لأن الهدف إنه
             يساعده يقرر يبدأ الدورة منين قبل حتى ما يشترك. */}
-        {course.categorySlug === "language" && course.classMarkerQuizId && !isSpanishCourse && (
+        {course.categorySlug === "language" && course.classMarkerQuizId && !isSpanishCourse && !showSpanishTest && (
           <LevelTestSection quizId={course.classMarkerQuizId} session={session} t={t} />
         )}
       </section>

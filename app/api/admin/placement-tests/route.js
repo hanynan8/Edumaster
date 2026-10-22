@@ -12,7 +12,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { requireRole } from "@/app/lib/rbac";
 import { getPlacementTestsCollection } from "@/app/lib/placementTest";
 import { reviewFromDoc } from "@/app/lib/placementReview";
-import { normalizeTestId } from "@/app/lib/placementTests";
+import { resolveTest } from "@/app/lib/customPlacementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,7 +26,7 @@ function toRow(d) {
   return {
     _id: d._id.toString(),
     userId: d.userId || null,
-    test: normalizeTestId(d.test), // نتيجة قديمة من غير test = A1
+    test: d.test ? String(d.test).toLowerCase() : "a1", // نتيجة قديمة من غير test = A1 · مخصص = id الاختبار
     name: d.name,
     // الرقم = تليفون الطالب من حسابه (النتايج القديمة كانت مخزّنة في studentNumber)
     phone: d.phone || d.studentNumber || "",
@@ -57,7 +57,9 @@ export async function GET(request) {
       await connectToMongo();
       const doc = await getPlacementTestsCollection().findOne({ _id: new mongoose.Types.ObjectId(id) });
       if (!doc) return jsonResponse({ error: "not_found" }, 404);
-      return jsonResponse({ ...toRow(doc), review: reviewFromDoc(doc) });
+      // 🆕 اختبار مخصص (حتى لو مؤرشف/مخفي): مراجعة النتيجة القديمة محتاجة هيكل الاختبار نفسه
+      const resolved = await resolveTest(doc.test, { allowUnpublished: true });
+      return jsonResponse({ ...toRow(doc), review: reviewFromDoc(doc, resolved.custom ? resolved.def : null) });
     }
 
     await connectToMongo();

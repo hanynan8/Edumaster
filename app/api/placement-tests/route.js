@@ -8,8 +8,8 @@
 // - اختبار مدفوع: بيتسجّل بحالة "unpaid" 🔒 والراوت مبيرجعش الدرجة للـ client،
 //   والطالب مبيستلمها غير بعد نجاح الدفع (شوف ./result/route.js).
 //
-// 🆕 body.test = "a1" | "a2" (الافتراضي a1) — الأسئلة والمفتاح والصوتيات والمستوى بيتحددوا حسب الاختبار،
-// والنتيجة بتتخزن بحقل test.
+// 🆕 body.test = "a1" | "a2" (الافتراضي a1) أو id اختبار مخصص منشور (b1, ...) — الأسئلة والمفتاح والصوتيات
+// والمستوى بيتحددوا حسب الاختبار، والنتيجة بتتخزن بحقل test. اختبار مخصص مش منشور → 404.
 //
 // 🔐 لازم الطالب يكون مسجّل دخول: الاسم والإيميل والرقم (التليفون) بيتاخدوا من
 // الـ session على السيرفر — مش من الـ body — فمفيش حد يقدر يبعت بيانات مزيّفة، وبيانات
@@ -21,7 +21,7 @@ import { requireSession } from "@/app/lib/rbac";
 import { sendPlacementResultEmail } from "@/app/lib/emailHelpers";
 import { buildResults, buildReview } from "@/app/lib/placementReview";
 import { PLACEMENT_TEST_IS_FREE } from "@/app/lib/spanishPlacementTest";
-import { normalizeTestId } from "@/app/lib/placementTests";
+import { resolveTest, levelInfoFor } from "@/app/lib/customPlacementTests";
 import {
   getAudioMap,
   getPlacementTestsCollection,
@@ -60,13 +60,16 @@ export async function POST(request) {
     const phone = String(user.phone || "").trim().slice(0, 60);
     const userId = String(user.id || "");
     const language = ["ar", "en", "es"].includes(body?.language) ? body.language : "ar";
-    const testId = normalizeTestId(body?.test);
 
     if (!name || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "invalid_profile" }, 400);
     }
 
     await connectToMongo();
+    // 🆕 اختبار مدمج (a1/a2) أو مخصص من الداتابيز. ref = اللي بتتمرر لدوال التصحيح (id أو تعريف الاختبار).
+    const resolved = await resolveTest(body?.test);
+    if (!resolved) return jsonResponse({ error: "test_not_found" }, 404);
+    const testId = resolved.ref;
     // الأسئلة المصححة = الأسئلة الظاهرة فعلًا (مهام الاستماع من غير صوت مرفوع بتتخفي)
     const audio = await getAudioMap(testId);
     const answers = sanitizeAnswers(body?.answers, audio, testId);
@@ -78,7 +81,7 @@ export async function POST(request) {
     const col = getPlacementTestsCollection();
     const inserted = await col.insertOne({
       userId,
-      test: testId,
+      test: resolved.id,
       name,
       phone,
       email,
@@ -112,18 +115,21 @@ export async function POST(request) {
         maxScore: result.maxScore,
         level: result.level,
         review,
+        subject: resolved.custom ? resolved.subject : undefined,
+        levels: resolved.levels || undefined,
       }).catch(() => false);
       await col
         .updateOne({ _id: inserted.insertedId }, { $set: { emailSent: Boolean(emailSent) } })
         .catch((e) => console.error("[/api/placement-tests] emailSent update error:", e));
 
       // الكورسات الموصى بها (نفس مستوى الطالب وأعلى) — لو فشلت منوقّفش النتيجة
-      const recommended = await getRecommendedCourses(result.level, language).catch(() => []);
+      const recommended = await getRecommendedCourses(result.level, language, 12, resolved.recommend).catch(() => []);
       return jsonResponse(
         {
           id,
           free: true,
-          test: testId,
+          test: resolved.id,
+          levelInfo: levelInfoFor(resolved, result.level),
           name,
           score: result.score,
           maxScore: result.maxScore,

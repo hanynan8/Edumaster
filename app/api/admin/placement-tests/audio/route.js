@@ -1,6 +1,7 @@
 // app/api/admin/placement-tests/audio/route.js
 //
 // إدارة صوتيات اختبارات تحديد المستوى (أدمن بس) — A1: 4 خانات · A2: 12 خانة (زي ملف الاختبار).
+//   (🆕 test = a1 | a2 | id اختبار مخصص — الاختبار المخصص غير الموجود → 404)
 //   GET ?test=a1|a2            → حالة الخانات (اسم الملف/الحجم/رابط التشغيل + نص التسجيل script لو متاح)
 //   POST (form)                → test (a1|a2) + slot (1–4 لـ A1 · 1–12 لـ A2) + file (صوت) → بيترفع على Bunny Storage
 //                                ويظهر في الاختبار فورًا
@@ -18,7 +19,8 @@ import {
   resolveSecureStoredUrl,
 } from "@/app/lib/bunny";
 import { getAudioTracks, setAudioTrack } from "@/app/lib/placementTest";
-import { getPlacementTest, normalizeTestId, getAudioSlotNumbers } from "@/app/lib/placementTests";
+import { getPlacementTest, getAudioSlotNumbers } from "@/app/lib/placementTests";
+import { resolveTest } from "@/app/lib/customPlacementTests";
 import { getAudioScript } from "@/app/lib/placementAudioScripts";
 
 function jsonResponse(data, status = 200) {
@@ -75,10 +77,12 @@ export async function GET(request) {
   try {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
-    const testId = normalizeTestId(new URL(request.url).searchParams.get("test"));
     await connectToMongo();
+    const resolved = await resolveTest(new URL(request.url).searchParams.get("test"), { allowUnpublished: true, strict: true });
+    if (!resolved) return jsonResponse({ error: "test_not_found" }, 404);
+    const testId = resolved.ref;
     return jsonResponse({
-      test: testId,
+      test: resolved.id,
       tracks: serialize(await getAudioTracks(testId), testId),
       scripts: scriptsFor(testId),
     });
@@ -103,7 +107,10 @@ export async function POST(request) {
     if (rl) return rl;
 
     const formData = await request.formData().catch(() => null);
-    const testId = normalizeTestId(formData?.get("test"));
+    await connectToMongo();
+    const resolved = await resolveTest(formData?.get("test"), { allowUnpublished: true, strict: true });
+    if (!resolved) return jsonResponse({ error: "test_not_found" }, 404);
+    const testId = resolved.ref;
     const slot = parseSlot(formData?.get("slot"), testId);
     const file = formData?.get("file");
     if (!slot) return jsonResponse({ error: "invalid_slot" }, 400);
@@ -121,7 +128,6 @@ export async function POST(request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await uploadToStorage({ path, body: buffer, contentType: mime });
 
-    await connectToMongo();
     await setAudioTrack(
       slot,
       {
@@ -132,7 +138,7 @@ export async function POST(request) {
       },
       testId
     );
-    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId), testId) });
+    return jsonResponse({ ok: true, test: resolved.id, tracks: serialize(await getAudioTracks(testId), testId) });
   } catch (err) {
     console.error("[/api/admin/placement-tests/audio] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
@@ -144,12 +150,14 @@ export async function DELETE(request) {
     const auth = await requireRole(["admin"]);
     if (auth.response) return auth.response;
     const params = new URL(request.url).searchParams;
-    const testId = normalizeTestId(params.get("test"));
+    await connectToMongo();
+    const resolved = await resolveTest(params.get("test"), { allowUnpublished: true, strict: true });
+    if (!resolved) return jsonResponse({ error: "test_not_found" }, 404);
+    const testId = resolved.ref;
     const slot = parseSlot(params.get("slot"), testId);
     if (!slot) return jsonResponse({ error: "invalid_slot" }, 400);
-    await connectToMongo();
     await setAudioTrack(slot, null, testId); // الملف القديم بيفضل على Bunny (ممكن يتمسح يدويًا) — بس مبقاش مربوط بالاختبار
-    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId), testId) });
+    return jsonResponse({ ok: true, test: resolved.id, tracks: serialize(await getAudioTracks(testId), testId) });
   } catch (err) {
     console.error("[/api/admin/placement-tests/audio] DELETE error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

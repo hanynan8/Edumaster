@@ -11,7 +11,7 @@ import { getPaymentModel } from "@/app/lib/models";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { getPlacementTestsCollection, getRecommendedCourses } from "@/app/lib/placementTest";
 import { getLevelByPercent } from "@/app/lib/placementLevels";
-import { normalizeTestId } from "@/app/lib/placementTests";
+import { resolveTest, levelInfoFor } from "@/app/lib/customPlacementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -42,11 +42,13 @@ export async function GET(request) {
     const doc = await getPlacementTestsCollection().findOne({ _id: payment.placementTest });
     if (!doc) return jsonResponse({ error: "not_found" }, 404);
 
-    const testId = normalizeTestId(doc.test); // نتيجة قديمة من غير test = A1
-    const level = doc.level || getLevelByPercent(doc.score, testId).code;
-    const recommended = await getRecommendedCourses(level, doc.language || "ar").catch(() => []);
+    // نتيجة قديمة من غير test = A1. اختبار مخصص اتخفى بعد ما الطالب دفع → النتيجة لسه بتتسلّم (allowUnpublished).
+    const resolved = await resolveTest(doc.test, { allowUnpublished: true });
+    const level = doc.level || getLevelByPercent(doc.score, resolved.ref).code;
+    const recommended = await getRecommendedCourses(level, doc.language || "ar", 12, resolved.recommend).catch(() => []);
     return jsonResponse({
-      test: testId,
+      test: resolved.id,
+      levelInfo: levelInfoFor(resolved, level),
       name: doc.name,
       score: doc.score,
       maxScore: doc.maxScore,

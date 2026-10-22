@@ -30,7 +30,7 @@ import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "./LoadingScreen";
-import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
 
 // 🆕 زرار "اختبر مستواك" في كارت الكورس على الصفحة الرئيسية — نص بسيط
 // حسب اللغة (مش جوه ui المُمرّرة من الصفحة الأب عشان منضطرش نعدّل كل
@@ -82,7 +82,8 @@ function localizeCourse(c, language, ui) {
     categoryName,
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
-    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | null
+    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | id اختبار مخصص | null
+    placementTestLinked: hasLinkedPlacementTest(c), // 🆕 الأدمن ربط الكورس باختبار مخصص (أي لغة)
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -309,10 +310,11 @@ function CourseCard({ course, ui, lang, visible, delay }) {
   // 🆕 كورسات الإسباني (Language + es): اختبار المستوى الداخلي (/spanish-test) جمب السعر
   // بدل زرار ClassMarker القديم.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
+  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني (وبيحل محل زرار ClassMarker)
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse && !course.placementTestLinked;
   // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
   // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
-  const showSpanishTest = isSpanishCourse && Boolean(course.placementTestId);
+  const showSpanishTest = (isSpanishCourse || course.placementTestLinked) && Boolean(course.placementTestId);
   const levelTestLabel = LEVEL_TEST_BTN_LABEL[lang] || LEVEL_TEST_BTN_LABEL.en;
 
   function handleSpanishTestClick(e) {

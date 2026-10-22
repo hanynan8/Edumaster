@@ -17,6 +17,7 @@ import { slugify, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisi
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
+import { getPlacementLinksForCourses } from "@/app/lib/customPlacementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -25,7 +26,8 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function serializeCourse(c) {
+// 🆕 placementTest = { id, path, label } لو الكورس مربوط باختبار تحديد مستوى مخصص منشور (وإلا null)
+function serializeCourse(c, placementTest = null) {
   return {
     id: c._id.toString(),
     title: c.title,
@@ -62,6 +64,7 @@ function serializeCourse(c) {
     totalLessonsCount: c.totalLessonsCount,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+    placementTest,
   };
 }
 
@@ -138,7 +141,9 @@ export async function GET(request, { params }) {
       }
     }
 
-    return jsonResponse(serializeCourse(course));
+    const cid = course._id.toString();
+    const links = await getPlacementLinksForCourses([cid]).catch(() => ({}));
+    return jsonResponse(serializeCourse(course, links[cid] || null));
   } catch (err) {
     console.error("[/api/courses/[id]] GET error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

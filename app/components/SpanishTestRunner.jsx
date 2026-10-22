@@ -24,11 +24,12 @@
 // 🎧 مهام الاستماع بتظهر لما يتحط لها audioSrc في lib/spanishPlacementTest.js.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AuthModal from "@/app/components/auth/authModel";
 import { PLACEMENT_TEST_FEE_USD, PLACEMENT_TEST_IS_FREE } from "@/app/lib/spanishPlacementTest";
-import { getPlacementTest, getVisiblePartsFor, normalizeTestId } from "@/app/lib/placementTests";
+import { PLACEMENT_TESTS, getPlacementTest, getVisiblePartsFor } from "@/app/lib/placementTests";
 import { convertPrice, formatPrice, getCurrencyForLanguage } from "@/app/lib/currency";
 import PlacementResult from "@/app/components/PlacementResult";
 
@@ -49,6 +50,9 @@ const STRINGS = {
     checking: "Checking your account...",
     sessionExpired: "Your session has expired. Please log in again — your answers are still saved on this page.",
     intro: "This test has three parts: reading, listening, and grammar & vocabulary. Choose one answer for each question. There is no penalty for wrong answers, so if you're unsure, pick an option. Don't use a dictionary.",
+    introGeneric: "Choose one answer for each question. There is no penalty for wrong answers, so if you're unsure, pick an option. Don't use a dictionary.",
+    notFound: "This test is not available right now.",
+    backToCourses: "Browse courses",
     part: "Part",
     min: "min",
     audioNote: "You will hear each audio twice.",
@@ -78,6 +82,9 @@ const STRINGS = {
     checking: "جارٍ التحقق من حسابك...",
     sessionExpired: "انتهت جلستك. سجّل دخولك مرة أخرى — إجاباتك ما زالت محفوظة في هذه الصفحة.",
     intro: "الاختبار من ثلاثة أجزاء: القراءة، الاستماع، القواعد والمفردات. اختر إجابة واحدة لكل سؤال. لا يوجد خصم على الإجابة الخاطئة، فإن لم تكن متأكدًا اختر أي خيار. لا تستخدم القاموس.",
+    introGeneric: "اختر إجابة واحدة لكل سؤال. لا يوجد خصم على الإجابة الخاطئة، فإن لم تكن متأكدًا اختر أي خيار. لا تستخدم القاموس.",
+    notFound: "هذا الاختبار غير متاح حاليًا.",
+    backToCourses: "تصفّح الكورسات",
     part: "الجزء",
     min: "دقيقة",
     audioNote: "ستسمع كل مقطع صوتي مرتين.",
@@ -107,6 +114,9 @@ const STRINGS = {
     checking: "Verificando tu cuenta...",
     sessionExpired: "Tu sesión ha expirado. Inicia sesión de nuevo — tus respuestas siguen guardadas en esta página.",
     intro: "Esta prueba tiene tres partes: lectura, auditiva, y gramática y vocabulario. Marca una sola respuesta en cada pregunta. No se resta por error: si dudas, elige una opción. No uses diccionario.",
+    introGeneric: "Marca una sola respuesta en cada pregunta. No se resta por error: si dudas, elige una opción. No uses diccionario.",
+    notFound: "Esta prueba no está disponible ahora.",
+    backToCourses: "Ver cursos",
     part: "Parte",
     min: "min",
     audioNote: "Escucharás cada audio dos veces.",
@@ -128,8 +138,13 @@ const STRINGS = {
 const LETTERS = "abcdefghijk";
 
 export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
-  const testId = normalizeTestId(testIdProp);
-  const test = getPlacementTest(testId);
+  // 🆕 testId = "a1" | "a2" (مدمجين) أو id اختبار مخصص رفعه الأدمن (b1, ...): المخصص بيتحمّل من
+  // GET /api/placement-tests/custom/<id> (من غير مفتاح الإجابات — التصحيح على السيرفر بس).
+  const rawId = String(testIdProp || "a1").toLowerCase();
+  const isBuiltin = Boolean(PLACEMENT_TESTS[rawId]);
+  const testId = rawId;
+  const [custom, setCustom] = useState({ status: isBuiltin ? "ready" : "loading", test: null });
+  const test = isBuiltin ? getPlacementTest(testId) : custom.test;
   const PENDING_KEY = pendingKeyFor(testId);
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
@@ -164,13 +179,31 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   // 🎧 روابط الصوتيات اللي الأدمن رفعها (مهام الاستماع بتظهر لما صوتها يتّرفع)
   const [audio, setAudio] = useState({});
   useEffect(() => {
+    if (isBuiltin) return;
+    let alive = true;
+    fetch(`/api/placement-tests/custom/${encodeURIComponent(testId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return;
+        if (d?.test) {
+          setCustom({ status: "ready", test: d.test });
+          setAudio(d.audio || {});
+        } else setCustom({ status: "notfound", test: null });
+      })
+      .catch(() => alive && setCustom({ status: "notfound", test: null }));
+    return () => {
+      alive = false;
+    };
+  }, [testId, isBuiltin]);
+  useEffect(() => {
+    if (!isBuiltin) return;
     fetch(`/api/placement-tests/audio?test=${testId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.audio && setAudio(d.audio))
       .catch(() => {});
-  }, [testId]);
+  }, [testId, isBuiltin]);
 
-  const parts = useMemo(() => getVisiblePartsFor(testId, audio), [testId, audio]);
+  const parts = useMemo(() => (test ? getVisiblePartsFor(test, audio) : []), [test, audio]);
   const allQuestions = useMemo(
     () => parts.flatMap((p) => p.tasks.flatMap((tk) => tk.questions)),
     [parts]
@@ -279,18 +312,34 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
     <main dir={dir} className="min-h-screen bg-gray-50 pt-28 pb-16 px-4">
       <div className={`${step === "result" ? "max-w-6xl" : "max-w-3xl"} mx-auto`}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">{t.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">{test.title}</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">{isBuiltin ? t.title : test?.title || ""}</h1>
+          {test && isBuiltin && <p className="text-sm text-gray-500 mt-1">{test.title}</p>}
+          {test && !isBuiltin && test.label && <p className="text-sm text-gray-500 mt-1">{test.label}</p>}
         </div>
 
-        {step === "intro" && sessionStatus === "loading" && (
+        {/* 🆕 اختبار مخصص: تحميل / مش موجود أو مش منشور */}
+        {!isBuiltin && custom.status === "loading" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-500">
+            {t.checking}
+          </div>
+        )}
+        {!isBuiltin && custom.status === "notfound" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center space-y-4">
+            <p className="text-sm text-gray-600">{t.notFound}</p>
+            <Link href="/courses" className={`${btn} inline-block bg-[#003A91] text-white`}>
+              {t.backToCourses}
+            </Link>
+          </div>
+        )}
+
+        {test && step === "intro" && sessionStatus === "loading" && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-500">
             {t.checking}
           </div>
         )}
 
         {/* 🔐 غير مسجّل دخول: لازم يسجّل الأول قبل ما الاختبار يبدأ */}
-        {step === "intro" && sessionStatus !== "loading" && !user && (
+        {test && step === "intro" && sessionStatus !== "loading" && !user && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 text-center space-y-4">
             <h2 className="text-xl font-semibold text-gray-900">{t.loginTitle}</h2>
             <p className="text-sm text-gray-600">{t.loginBody}</p>
@@ -301,7 +350,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
         )}
 
         {/* مسجّل دخول: بياناته بتظهر للقراءة بس (من الحساب) ثم يبدأ الاختبار */}
-        {step === "intro" && user && (
+        {test && step === "intro" && user && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-4">
             <p className="text-sm text-gray-600">{t.takingAs}</p>
             <dl className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2.5 text-sm">
@@ -320,7 +369,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                 </div>
               )}
             </dl>
-            <p className="text-xs text-gray-500 leading-relaxed">{t.intro}</p>
+            <p className="text-xs text-gray-500 leading-relaxed">{isBuiltin ? t.intro : t.introGeneric}</p>
             <button onClick={start} className={`${btn} bg-[#003A91] text-white`}>
               {t.start}
             </button>

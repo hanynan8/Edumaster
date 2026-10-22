@@ -39,6 +39,27 @@ jest.mock("@/app/lib/placementTest", () => ({
   })),
 }));
 
+jest.mock("@/app/lib/customPlacementTests", () => {
+  const actual = jest.requireActual("@/app/lib/customPlacementTests");
+  const { normalizeTestId } = jest.requireActual("@/app/lib/placementTests");
+  const { buildStandardLevels } = jest.requireActual("@/app/lib/placementLevels");
+  const levels = buildStandardLevels("B1", [40, 60, 80]);
+  const DEF = { custom: true, id: "b1x", label: "B1", subject: "en", parts: [], answerKey: {}, audioSlots: [], levels };
+  return {
+    levelInfoFor: actual.levelInfoFor,
+    // بديل resolveTest من غير داتابيز: b1x = اختبار مخصص منشور · hidden = مخصص مش منشور · غير كده مدمج/افتراضي a1
+    resolveTest: jest.fn(async (raw) => {
+      const lower = String(raw ?? "").toLowerCase();
+      if (lower === "b1x") {
+        return { id: "b1x", ref: DEF, custom: true, subject: "en", levels, recommend: { levels, courseLanguage: "en" }, def: DEF };
+      }
+      if (lower === "hidden") return null;
+      const id = normalizeTestId(lower);
+      return { id, ref: id, custom: false, subject: "es", levels: null, recommend: {}, def: null };
+    }),
+  };
+});
+
 const USER = {
   id: "507f1f77bcf86cd799439011",
   name: "Mona Student",
@@ -122,6 +143,34 @@ describe("POST /api/placement-tests", () => {
     mockInsertOne.mockClear();
     await POST(post({ language: "es", answers: { 1: 1 } })); // من غير test = A1
     expect(mockInsertOne.mock.calls[0][0]).toMatchObject({ test: "a1" });
+  });
+
+  it("🆕 اختبار مخصص منشور → بيتصحح بتعريفه (مش id) ويتسجّل بالـ id ويرجّع معلومات المستوى والكورسات المربوطة", async () => {
+    const placement = await import("@/app/lib/placementTest");
+    mockGetServerSession.mockResolvedValue({ user: USER });
+    placement.scoreAnswers.mockReturnValueOnce({
+      score: 72, maxScore: 100, answered: 4, totalQuestions: 5, level: "B1.2", a11: 0, a12: 0, rawScore: 4, rawMax: 5,
+    });
+
+    const res = await POST(post({ language: "en", answers: { 1: 1 }, test: "b1x" }));
+    expect(res.status).toBe(201);
+    const def = placement.scoreAnswers.mock.calls.at(-1)[2];
+    expect(def).toMatchObject({ custom: true, id: "b1x" }); // بيتمرر التعريف نفسه عشان المفتاح جواه
+    expect(placement.getAudioMap).toHaveBeenLastCalledWith(def);
+    expect(mockInsertOne.mock.calls[0][0]).toMatchObject({ test: "b1x", level: "B1.2" });
+    const json = await res.json();
+    expect(json.test).toBe("b1x");
+    expect(json.levelInfo).toMatchObject({ code: "B1.2", nextCode: "B1.3" });
+    expect(placement.getRecommendedCourses).toHaveBeenLastCalledWith("B1.2", "en", 12, expect.objectContaining({ courseLanguage: "en" }));
+    expect(mockSendEmail).toHaveBeenLastCalledWith(expect.objectContaining({ subject: "en", levels: expect.any(Array) }));
+  });
+
+  it("🆕 اختبار مخصص مش منشور (مخفي/مؤرشف) → 404 ومفيش نتيجة بتتسجّل", async () => {
+    mockGetServerSession.mockResolvedValue({ user: USER });
+    const res = await POST(post({ language: "en", answers: { 1: 1 }, test: "hidden" }));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("test_not_found");
+    expect(mockInsertOne).not.toHaveBeenCalled();
   });
 
   it("حساب من غير إيميل صالح → 400 invalid_profile", async () => {

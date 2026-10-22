@@ -31,6 +31,7 @@ import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
+import { getPlacementLinksForCourses } from "@/app/lib/customPlacementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -39,7 +40,9 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function serializeCourse(c) {
+// 🆕 placementTest = { id, path, label } لو الأدمن ربط الكورس باختبار تحديد مستوى مخصص منشور (وإلا null).
+// صفحات الكورسات بتعرض زرار "اختبر مستواك" للكورس المربوط حتى لو مش إسباني.
+function serializeCourse(c, placementTest = null) {
   return {
     id: c._id.toString(),
     title: c.title,
@@ -82,6 +85,7 @@ function serializeCourse(c) {
     displayOrder: typeof c.displayOrder === "number" ? c.displayOrder : null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+    placementTest,
   };
 }
 
@@ -149,8 +153,11 @@ export async function GET(request) {
       Course.countDocuments(query),
     ]);
 
+    // الربط بالاختبارات المخصصة best-effort: لو فشل مبيوقّفش الكتالوج
+    const links = await getPlacementLinksForCourses(courses.map((c) => c._id.toString())).catch(() => ({}));
+
     return jsonResponse({
-      courses: courses.map(serializeCourse),
+      courses: courses.map((c) => serializeCourse(c, links[c._id.toString()] || null)),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (err) {

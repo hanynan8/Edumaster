@@ -75,7 +75,8 @@ const STRINGS = {
 
 export default function PlacementResult({ result, language = "ar", children }) {
   const t = STRINGS[language] ?? STRINGS.en;
-  const level = getLevelByCode(result?.level) || getLevelByPercent(result?.score);
+  // 🆕 اختبار مخصص (B1, B2...): الـ API بيرجّع معلومات المستوى جاهزة (levelInfo) لأن جدول A1/A2 مايعرفش Pre-B1 / B1.x
+  const level = result?.levelInfo?.desc ? result.levelInfo : getLevelByCode(result?.level) || getLevelByPercent(result?.score);
   const desc = level.desc[language] ?? level.desc.en;
   const recommended = Array.isArray(result?.recommended) ? result.recommended : [];
 

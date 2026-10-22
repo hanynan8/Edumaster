@@ -144,7 +144,7 @@ const SIDEBAR_GROUPS = [
       { id: 'users',            name: 'Users',            icon: Users, component: UsersAdmin },
       { id: 'form_submissions', name: 'Form Submissions', icon: Inbox, component: FormSubmissionsAdmin },
       { id: 'consultations',    name: 'Consultations',    icon: CalendarClock, component: ConsultationsAdmin },
-      { id: 'placement_tests',   name: 'Spanish Test Results', icon: GraduationCap, component: PlacementTestsAdmin },
+      { id: 'placement_tests',   name: 'Level Tests', icon: GraduationCap, component: PlacementTestsAdmin },
       // 🆕 طلبات نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
       // (بتظهر في صفحة الخدمات والهوم لوج-إن ولوج-أوت)
       { id: 'translation_requests',    name: 'Translation Requests',     icon: Languages,      component: TranslationRequestsAdmin },

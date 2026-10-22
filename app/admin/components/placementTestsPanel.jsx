@@ -10,16 +10,18 @@
 // لو الطالب لسه ماستلمهاش (لأنه لسه ما دفعش). فيه فلتر حالة الدفع،
 // تصدير Excel، وحذف نتيجة.
 //
-// 🆕 تبويبين: اختبار A1 / اختبار A2. كل تبويب ليه:
+// 🆕 تبويبات ديناميكية: A1 / A2 + أي اختبار مخصص (B1, B2, ...) الأدمن رفعه + تبويب "Manage tests"
+//   (رفع Excel، نشر/إخفاء، ربط الكورسات — شوف customPlacementTestsManager.jsx). كل تبويب اختبار ليه:
 //   - رفع صوتيات الاستماع بتاعته (4 خانات منفصلة) — في A2 بتظهر كمان "Script" لكل خانة
 //     (نص التسجيل اللي هتسجّله بنفسك، بييجي من API الأدمن بس).
 //   - نتائجه (النتايج القديمة من غير حقل test بتتحسب A1).
 
 import { useState, useEffect, useRef } from 'react';
 import ExcelJS from 'exceljs';
-import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones, Eye, X } from 'lucide-react';
+import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones, Eye, X, FileSpreadsheet } from 'lucide-react';
 import PlacementReview from '@/app/components/PlacementReview';
-import { PLACEMENT_TESTS, TEST_IDS, normalizeTestId } from '@/app/lib/placementTests';
+import { PLACEMENT_TESTS, TEST_IDS } from '@/app/lib/placementTests';
+import CustomPlacementTestsManager from './customPlacementTestsManager';
 
 const PAY_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -47,8 +49,8 @@ function formatSize(bytes) {
 }
 
 // رفع صوتيات قسم الاستماع (A1: 4 خانات · A2: 12 خانة زي ملف الاختبار) — بتظهر في الاختبار فورًا أول ما تتّرفع.
-function ListeningAudioManager({ testId }) {
-  const testInfo = PLACEMENT_TESTS[testId];
+// testInfo = { label, audioSlots: [{slot,label,hint}] } — مدمج (PLACEMENT_TESTS) أو مخصص (من قايمة الاختبارات المخصصة)
+function ListeningAudioManager({ testId, testInfo }) {
   const AUDIO_SLOTS = testInfo.audioSlots;
   const [tracks, setTracks] = useState({});
   const [scripts, setScripts] = useState({}); // نص التسجيل لكل خانة (لو متاح — A2)
@@ -278,8 +280,17 @@ function ResultDetailModal({ row, detail, loading, error, onClose }) {
   );
 }
 
+// الاختبارات المخصصة (B1, ...) — بترمي Error لو الطلب فشل
+async function fetchCustomTests() {
+  const res = await fetch('/api/admin/placement-tests/custom');
+  if (!res.ok) throw new Error('failed');
+  const data = await res.json();
+  return Array.isArray(data?.tests) ? data.tests : [];
+}
+
 function PlacementTestsAdmin() {
-  const [testId, setTestId] = useState('a1'); // التبويب الحالي: اختبار A1 أو A2
+  const [testId, setTestId] = useState('a1'); // التبويب الحالي: a1 | a2 | id اختبار مخصص | 'manage'
+  const [customTests, setCustomTests] = useState([]); // الاختبارات المخصصة (B1, ...)
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -291,15 +302,37 @@ function PlacementTestsAdmin() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
 
+  const loadCustomTests = async () => {
+    try {
+      setCustomTests(await fetchCustomTests());
+    } catch {
+      setError('Error fetching the custom tests');
+    }
+  };
+
   useEffect(() => {
     fetch('/api/admin/placement-tests')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
       .then((data) => { setRows(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => { setError('Error fetching placement test results'); setLoading(false); });
+    fetchCustomTests()
+      .then(setCustomTests)
+      .catch(() => setError('Error fetching the custom tests'));
   }, []);
 
-  const countFor = (id) => rows.filter((r) => normalizeTestId(r.test) === id).length;
-  const testRows = rows.filter((r) => normalizeTestId(r.test) === testId);
+  // نتيجة قديمة من غير test = A1 · الاختبار المخصص = id الاختبار
+  const rowTestId = (r) => (r.test ? String(r.test).toLowerCase() : 'a1');
+  const countFor = (id) => rows.filter((r) => rowTestId(r) === id).length;
+  // تبويبات الاختبارات: المدمجة + المخصصة (المؤرشف بيظهر بس لو ليه نتايج قديمة)
+  const tabs = [
+    ...TEST_IDS.map((id) => ({ id, label: PLACEMENT_TESTS[id].label, audioSlots: PLACEMENT_TESTS[id].audioSlots })),
+    ...customTests
+      .filter((t) => t.status !== 'archived' || countFor(t.id) > 0)
+      .map((t) => ({ id: t.id, label: t.label, status: t.status, audioSlots: t.audioSlots || [] })),
+  ];
+  const isManage = testId === 'manage';
+  const current = tabs.find((t) => t.id === testId) || tabs[0];
+  const testRows = rows.filter((r) => rowTestId(r) === testId);
   const visible = filter === 'all' ? testRows : testRows.filter((r) => r.paymentStatus === filter);
 
   const openDetail = async (row) => {
@@ -337,7 +370,7 @@ function PlacementTestsAdmin() {
     try {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Edumaster Admin';
-      const sheet = workbook.addWorksheet(`Spanish Tests ${PLACEMENT_TESTS[testId].label}`, { views: [{ state: 'frozen', ySplit: 1 }] });
+      const sheet = workbook.addWorksheet(`Level Tests ${current.label}`.slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] });
       sheet.columns = [
         { header: '#', key: 'index', width: 6 },
         { header: 'Name', key: 'name', width: 28 },
@@ -377,7 +410,7 @@ function PlacementTestsAdmin() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `spanish-test-${testId}-results-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `level-test-${testId}-results-${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -393,25 +426,47 @@ function PlacementTestsAdmin() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 mb-5">
-        {TEST_IDS.map((id) => (
-          <button
-            key={id}
-            onClick={() => { setTestId(id); setFilter('all'); setSelected(null); }}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              testId === id ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {PLACEMENT_TESTS[id].label} test
-            <span className={`ml-1.5 text-xs ${testId === id ? 'text-indigo-200' : 'text-gray-400'}`}>({countFor(id)})</span>
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <div className="inline-flex flex-wrap rounded-xl border border-gray-200 bg-white p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => { setTestId(tab.id); setFilter('all'); setSelected(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                testId === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {tab.label} test
+              {tab.status && tab.status !== 'published' && (
+                <span className={`ml-1 text-[10px] uppercase ${testId === tab.id ? 'text-indigo-200' : 'text-amber-600'}`}>{tab.status}</span>
+              )}
+              <span className={`ml-1.5 text-xs ${testId === tab.id ? 'text-indigo-200' : 'text-gray-400'}`}>({countFor(tab.id)})</span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => { setTestId('manage'); setSelected(null); }}
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+            isManage ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-indigo-700 hover:bg-indigo-50'
+          }`}
+        >
+          <FileSpreadsheet size={15} /> Manage tests
+          <span className={`text-xs ${isManage ? 'text-indigo-200' : 'text-gray-400'}`}>({customTests.length})</span>
+        </button>
       </div>
-      <ListeningAudioManager testId={testId} />
+      {isManage ? (
+        <CustomPlacementTestsManager
+          tests={customTests}
+          onChanged={loadCustomTests}
+          onOpenTest={(id) => { setTestId(id); setFilter('all'); setSelected(null); }}
+        />
+      ) : (
+      <>
+      {current.audioSlots.length > 0 && <ListeningAudioManager key={testId} testId={testId} testInfo={current} />}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
           <GraduationCap className="text-indigo-600" size={22} />
-          <h2 className="text-lg font-semibold text-gray-800">Spanish Level Test Results — {PLACEMENT_TESTS[testId].label}</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Level Test Results — {current.label}</h2>
           <span className="text-xs text-gray-400">({visible.length})</span>
         </div>
         <div className="flex items-center gap-2">
@@ -442,7 +497,7 @@ function PlacementTestsAdmin() {
       )}
 
       {visible.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">No {PLACEMENT_TESTS[testId].label} test results yet.</div>
+        <div className="text-center py-16 text-gray-400">No {current.label} test results yet.</div>
       ) : (
         <div className="overflow-x-auto bg-white rounded-xl border border-gray-100">
           <table className="w-full text-sm text-left">
@@ -498,6 +553,9 @@ function PlacementTestsAdmin() {
             </tbody>
           </table>
         </div>
+      )}
+
+      </>
       )}
 
       {selected && (

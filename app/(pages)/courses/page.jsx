@@ -28,7 +28,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
 
 const FALLBACK_IMAGE =
   "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
@@ -173,7 +173,8 @@ function localizeCourse(c, language, t) {
     categoryName: categoryI18nEntry?.name || c.categoryName || "",
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
-    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | null
+    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | id اختبار مخصص | null
+    placementTestLinked: hasLinkedPlacementTest(c), // 🆕 الأدمن ربط الكورس باختبار مخصص (أي لغة)
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -672,10 +673,11 @@ function CourseCard({ course, t }) {
   // 🆕 كورسات الإسباني (تصنيف Language + لغة es) ليها اختبار تحديد المستوى الداخلي
   // (/spanish-test) جمب السعر، فبنخفي زرار ClassMarker القديم عنها عشان ميبقاش فيه اختبارين.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
+  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني (وبيحل محل زرار ClassMarker)
+  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse && !course.placementTestLinked;
   // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
   // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
-  const showSpanishTest = isSpanishCourse && Boolean(course.placementTestId);
+  const showSpanishTest = (isSpanishCourse || course.placementTestLinked) && Boolean(course.placementTestId);
 
   function handleSpanishTestClick(e) {
     e.preventDefault();

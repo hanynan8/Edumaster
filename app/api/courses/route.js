@@ -166,7 +166,6 @@ export async function POST(request) {
     const auth = await requireRole(["moderator", "admin"]);
     if (auth.response) return auth.response;
     const { session } = auth;
-    const isModerator = session.user.role === "moderator";
 
     // 🔒 SECURITY (Day 59)
     const rl = await enforceRateLimit(request, {
@@ -178,6 +177,12 @@ export async function POST(request) {
     if (rl) return rl;
 
     const body = await request.json().catch(() => null);
+    // 🆕 الأدمن لما يدخل "موديريتور داشبورد" بيبعت body.teacher (المدرّس المشرف)
+    // فبنعامله زي الموديريتور بالظبط. لو الأدمن ماحددش مدرّس (داشبورد الأدمن
+    // العادية) الكورس بيتسجل باسمه زي الأول.
+    const isModerator =
+      session.user.role === "moderator" ||
+      (session.user.role === "admin" && Boolean(body?.teacher));
     const title = String(body?.title || "").trim();
     if (!title) return jsonResponse({ error: "missing_title" }, 400);
     if (!body?.category || !mongoose.Types.ObjectId.isValid(body.category)) {

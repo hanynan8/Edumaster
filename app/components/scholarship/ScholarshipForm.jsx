@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent from "@/app/components/TermsConsent";
 import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
 
 // مستويات اللغة (CEFR) + "Native" — نفس الاختيارات لمستوى الإسباني والإنجليزي
@@ -214,6 +215,7 @@ export default function ScholarshipForm({ onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -232,7 +234,7 @@ export default function ScholarshipForm({ onSuccess }) {
       setError(t.required);
       return;
     }
-    if (!form.privacyConsent) {
+    if (!form.privacyConsent || !termsAccepted) {
       setError(t.required);
       return;
     }
@@ -353,6 +355,7 @@ export default function ScholarshipForm({ onSuccess }) {
           />
           {f.consent}
         </label>
+        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
       </Section>
 
       {error && (

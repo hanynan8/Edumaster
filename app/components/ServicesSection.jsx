@@ -26,13 +26,14 @@ import EnglishProgramModal from "./englishProgram/EnglishProgramModal";
 import ScholarshipModal from "./scholarship/ScholarshipModal";
 import CallCenterModal from "./callCenter/CallCenterModal";
 import { serviceCardHref, mergeService } from "@/app/lib/serviceUtils";
+import { formatConsultationBadge } from "@/app/lib/currency";
 
 // نصوص زرار طلب الاستشارة — مستقلة عن الـ ui prop الجاي من صفحة الهوم
 // (لوج-إن ولوج-أوت) عشان مانحتاجش نعدّل كل ملفات الهوم لإضافة مفتاح جديد.
 const CONSULT_STRINGS = {
-  en: { cta: "Book a Consultation", badge: "45 min · 1300 EGP" },
-  ar: { cta: "احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه" },
-  es: { cta: "Reservar una consulta", badge: "45 min · 1300 EGP" },
+  en: { cta: "Book a Consultation" },
+  ar: { cta: "احجز استشارة" },
+  es: { cta: "Reservar una consulta" },
 };
 
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية —
@@ -124,7 +125,8 @@ export default function ServicesSection({ lang, ui, consultationOnly = false }) 
   // القائمة المنسدلة دي، اللي فيها كل الفورمات اللي ممكن تتملي في المشروع.
   const [servicesMenuOpen, setServicesMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const cs = CONSULT_STRINGS[lang] ?? CONSULT_STRINGS.en;
+  // 🆕 السعر/العملة بيتغيّروا حسب لغة الموقع (EGP / USD / EUR)
+  const cs = { ...(CONSULT_STRINGS[lang] ?? CONSULT_STRINGS.en), badge: formatConsultationBadge(lang) };
   const qf = QUICK_FORM_STRINGS[lang] ?? QUICK_FORM_STRINGS.en;
 
   // اقفل القائمة لو اليوزر دوس بره منها

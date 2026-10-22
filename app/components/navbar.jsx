@@ -236,7 +236,9 @@ function UserDropdown({ user }) {
       label: user?.role === "moderator" ? t.roleLinks.moderatorDashboard : t.roleLinks.teacherDashboard,
     });
   }
+  // 🆕 الأدمن يدخل "موديريتور داشبورد" — بتظهر تحت داشبورد التيتشر مباشرة.
   if (user?.role === "admin") {
+    links.push({ href: "/moderator", label: t.roleLinks.moderatorDashboard });
     links.push({ href: "/admin", label: t.roleLinks.adminDashboard });
   }
 

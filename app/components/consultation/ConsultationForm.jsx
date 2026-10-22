@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent from "@/app/components/TermsConsent";
 import { ChevronDown, Loader, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react";
 import { getCurrencyForLanguage, convertPrice, formatPrice } from "@/app/lib/currency";
 import { CONSULTATION_REQUIRED_FIELDS, CONSULTATION_SECTION_FIELDS } from "@/app/lib/consultationFields";
@@ -366,6 +367,8 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
   const [paymentError, setPaymentError] = useState("");
   // 🆕 حالة المرفق الاختياري
   const [errors, setErrors] = useState({});
+  // 🆕 الموافقة على الشروط والأحكام (إجبارية)
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState("");
   const fileInputRef = useRef(null);
@@ -452,6 +455,7 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
     }
     if (form.email.trim() && !SIMPLE_EMAIL_REGEX.test(form.email.trim())) missing.email = true;
     if (!form.privacyConsent) missing.privacyConsent = true;
+    if (!termsAccepted) missing.terms = true;
     // 🆕 المرفق إجباري
     if (!file) missing.attachment = true;
     setErrors(missing);
@@ -795,6 +799,17 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
             <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
             {f.privacyConsent}
           </label>
+          <div id="field-terms">
+            <TermsConsent
+              checked={termsAccepted}
+              onChange={(v) => {
+                setTermsAccepted(v);
+                if (v) setErrors((prev) => (prev.terms ? { ...prev, terms: false } : prev));
+              }}
+              lang={language}
+              error={Boolean(errors.terms)}
+            />
+          </div>
         </div>
       </Section>
 

@@ -1,0 +1,161 @@
+diff --git a/app/api/courses/route.js b/app/api/courses/route.js
+index d1feb34..f79c4dc 100644
+--- a/app/api/courses/route.js
++++ b/app/api/courses/route.js
+@@ -166,7 +166,6 @@ export async function POST(request) {
+     const auth = await requireRole(["moderator", "admin"]);
+     if (auth.response) return auth.response;
+     const { session } = auth;
+-    const isModerator = session.user.role === "moderator";
+ 
+     // 🔒 SECURITY (Day 59)
+     const rl = await enforceRateLimit(request, {
+@@ -178,6 +177,12 @@ export async function POST(request) {
+     if (rl) return rl;
+ 
+     const body = await request.json().catch(() => null);
++    // 🆕 الأدمن لما يدخل "موديريتور داشبورد" بيبعت body.teacher (المدرّس المشرف)
++    // فبنعامله زي الموديريتور بالظبط. لو الأدمن ماحددش مدرّس (داشبورد الأدمن
++    // العادية) الكورس بيتسجل باسمه زي الأول.
++    const isModerator =
++      session.user.role === "moderator" ||
++      (session.user.role === "admin" && Boolean(body?.teacher));
+     const title = String(body?.title || "").trim();
+     if (!title) return jsonResponse({ error: "missing_title" }, 400);
+     if (!body?.category || !mongoose.Types.ObjectId.isValid(body.category)) {
+diff --git a/app/components/navbar.jsx b/app/components/navbar.jsx
+index 45ff6c8..2a19ef3 100644
+--- a/app/components/navbar.jsx
++++ b/app/components/navbar.jsx
+@@ -236,7 +236,9 @@ function UserDropdown({ user }) {
+       label: user?.role === "moderator" ? t.roleLinks.moderatorDashboard : t.roleLinks.teacherDashboard,
+     });
+   }
++  // 🆕 الأدمن يدخل "موديريتور داشبورد" — بتظهر تحت داشبورد التيتشر مباشرة.
+   if (user?.role === "admin") {
++    links.push({ href: "/moderator", label: t.roleLinks.moderatorDashboard });
+     links.push({ href: "/admin", label: t.roleLinks.adminDashboard });
+   }
+ 
+diff --git a/app/moderator/layout.jsx b/app/moderator/layout.jsx
+new file mode 100644
+index 0000000..c5368bb
+--- /dev/null
++++ b/app/moderator/layout.jsx
+@@ -0,0 +1,9 @@
++// app/moderator/layout.jsx
++//
++// 🆕 "موديريتور داشبورد" للأدمن (والموديريتور): نفس غلاف /teacher (فحص الدور +
++// RTL + الخلفية)، والحماية الفعلية في middleware.js (/moderator → moderator/admin).
++import TeacherLayout from "@/app/teacher/layout";
++
++export default function ModeratorLayout({ children }) {
++  return <TeacherLayout>{children}</TeacherLayout>;
++}
+diff --git a/app/moderator/page.jsx b/app/moderator/page.jsx
+new file mode 100644
+index 0000000..5fc4c4a
+--- /dev/null
++++ b/app/moderator/page.jsx
+@@ -0,0 +1,11 @@
++"use client";
++
++// app/moderator/page.jsx
++//
++// 🆕 داشبورد الموديريتور للأدمن: نفس صفحة /teacher لكن بوضع الموديريتور
++// (بيشوف كل كورسات المدرّسين ويضيف كورس ويختار المدرّس المشرف).
++import TeacherCoursesPage from "@/app/teacher/page";
++
++export default function ModeratorDashboardPage() {
++  return <TeacherCoursesPage asModerator />;
++}
+diff --git a/app/teacher/components/CourseFormModal.jsx b/app/teacher/components/CourseFormModal.jsx
+index afc8e45..2e933b2 100644
+--- a/app/teacher/components/CourseFormModal.jsx
++++ b/app/teacher/components/CourseFormModal.jsx
+@@ -281,10 +281,14 @@ function langContentFrom(i18nLang, fallback) {
+   };
+ }
+ 
+-export default function CourseFormModal({ course, onClose, onSaved }) {
++export default function CourseFormModal({ course, onClose, onSaved, moderatorMode = false }) {
+   const { language } = useLanguage();
+   const { data: session } = useSession();
+-  const isModerator = session?.user?.role === "moderator";
++  // 🆕 الأدمن جوه "موديريتور داشبورد" (moderatorMode) بيشوف نفس فورم الموديريتور
++  // (اختيار المدرّس المشرف) — خارجها فورم الأدمن العادي.
++  const isModerator =
++    session?.user?.role === "moderator" ||
++    (session?.user?.role === "admin" && moderatorMode);
+   const t = T[language] || T.en;
+   const LEVELS = [
+     { value: "beginner", label: t.levels.beginner },
+diff --git a/app/teacher/page.jsx b/app/teacher/page.jsx
+index 2ee467b..0e88b21 100644
+--- a/app/teacher/page.jsx
++++ b/app/teacher/page.jsx
+@@ -544,14 +544,21 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
+   );
+ }
+ 
+-export default function TeacherCoursesPage() {
++export default function TeacherCoursesPage({ asModerator = false }) {
+   const { language, isRTL } = useLanguage();
+   const t = T[language] || T.en;
+   const { data: session, status: sessionStatus } = useSession();
+   // 🆕 الموديريتور/الأدمن بس يقدروا يضيفوا كورسات ويدخلوا الميتنجس — المدرّس
+   // بيشوف الكورسات اللي الموديريتور عيّنها له فقط.
+-  const isModerator = session?.user?.role === "moderator";
+-  const canCreateCourse = isModerator || session?.user?.role === "admin";
++  // 🆕 asModerator: صفحة /moderator بتعرض نفس الداشبورد للأدمن بوضع الموديريتور
++  // (كل كورسات المدرّسين + اختيار المدرّس المشرف).
++  const isModerator =
++    session?.user?.role === "moderator" ||
++    (session?.user?.role === "admin" && asModerator);
++  // 🆕 "دورة جديدة" و"المحاضرات المباشرة" بقوا في داشبورد الموديريتور بس
++  // (/moderator للأدمن، و/teacher للموديريتور). داشبورد التيتشر مافيهاش الزرارين
++  // دول لأي دور، حتى الأدمن.
++  const canCreateCourse = isModerator;
+   const [courses, setCourses] = useState(null);
+   // 🆕 ترقيم الصفحات: "عرض المزيد" بيجيب الصفحة اللي بعدها ويضيفها للقايمة
+   // لحد ما كل دورات المدرّس تظهر (total جاي من الـ API).
+@@ -569,7 +576,7 @@ export default function TeacherCoursesPage() {
+     // بتعرض كل كورسات الموقع لو الحساب أدمن. بنبعت ?teacher=<id الأدمن> عشان
+     // تعرض كورساته هو بس (الـ API بيدعم الفلتر ده للأدمن).
+     const teacherParam =
+-      session?.user?.role === "admin" && session?.user?.id
++      session?.user?.role === "admin" && !asModerator && session?.user?.id
+         ? `&teacher=${encodeURIComponent(session.user.id)}`
+         : "";
+     const res = await fetch(`/api/courses?page=${p}&limit=${PAGE_SIZE}${teacherParam}`);
+@@ -779,7 +786,7 @@ export default function TeacherCoursesPage() {
+               course={c}
+               onEdit={setModalCourse}
+               onDelete={handleDelete}
+-              showTeacher={session?.user?.role === "moderator"}
++              showTeacher={isModerator}
+             />
+           ))}
+         </div>
+@@ -804,6 +811,7 @@ export default function TeacherCoursesPage() {
+           course={modalCourse}
+           onClose={() => setModalCourse(undefined)}
+           onSaved={handleSaved}
++          moderatorMode={asModerator}
+         />
+       )}
+     </div>
+diff --git a/middleware.js b/middleware.js
+index a111c38..78909a7 100644
+--- a/middleware.js
++++ b/middleware.js
+@@ -34,6 +34,9 @@ const PAGE_ROLE_RULES = [
+   // 🆕 الموديريتور ليه نفس داشبورد المدرّس (/teacher) بالظبط — الفرق في
+   // الـ API بس (بيشوف ويدير كورسات كل المدرّسين). مفيش وصول لـ /admin.
+   { prefix: "/teacher", roles: ["teacher", "moderator", "admin"] },
++  // 🆕 "موديريتور داشبورد" — الأدمن يقدر يدخلها (بتظهر في قايمة الأدمن تحت
++  // داشبورد التيتشر). المدرّس والطالب ممنوعين.
++  { prefix: "/moderator", roles: ["moderator", "admin"] },
+   {
+     prefix: "/student",
+     roles: ["student"],

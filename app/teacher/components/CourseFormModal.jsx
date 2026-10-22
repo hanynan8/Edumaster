@@ -281,10 +281,14 @@ function langContentFrom(i18nLang, fallback) {
   };
 }
 
-export default function CourseFormModal({ course, onClose, onSaved }) {
+export default function CourseFormModal({ course, onClose, onSaved, moderatorMode = false }) {
   const { language } = useLanguage();
   const { data: session } = useSession();
-  const isModerator = session?.user?.role === "moderator";
+  // 🆕 الأدمن جوه "موديريتور داشبورد" (moderatorMode) بيشوف نفس فورم الموديريتور
+  // (اختيار المدرّس المشرف) — خارجها فورم الأدمن العادي.
+  const isModerator =
+    session?.user?.role === "moderator" ||
+    (session?.user?.role === "admin" && moderatorMode);
   const t = T[language] || T.en;
   const LEVELS = [
     { value: "beginner", label: t.levels.beginner },

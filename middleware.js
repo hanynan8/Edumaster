@@ -34,6 +34,9 @@ const PAGE_ROLE_RULES = [
   // 🆕 الموديريتور ليه نفس داشبورد المدرّس (/teacher) بالظبط — الفرق في
   // الـ API بس (بيشوف ويدير كورسات كل المدرّسين). مفيش وصول لـ /admin.
   { prefix: "/teacher", roles: ["teacher", "moderator", "admin"] },
+  // 🆕 "موديريتور داشبورد" — الأدمن يقدر يدخلها (بتظهر في قايمة الأدمن تحت
+  // داشبورد التيتشر). المدرّس والطالب ممنوعين.
+  { prefix: "/moderator", roles: ["moderator", "admin"] },
   {
     prefix: "/student",
     roles: ["student"],

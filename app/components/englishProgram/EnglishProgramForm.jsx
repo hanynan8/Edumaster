@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent from "@/app/components/TermsConsent";
 import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
 
 // نفس بنية المستوايات المقترحة في المستند المرفوع
@@ -217,6 +218,7 @@ export default function EnglishProgramForm({ onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -229,7 +231,7 @@ export default function EnglishProgramForm({ onSuccess }) {
       setError(t.required);
       return;
     }
-    if (!form.privacyConsent) {
+    if (!form.privacyConsent || !termsAccepted) {
       setError(t.required);
       return;
     }
@@ -361,6 +363,7 @@ export default function EnglishProgramForm({ onSuccess }) {
           <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
           {f.privacyConsent}
         </label>
+        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
       </Section>
 
       {error && (

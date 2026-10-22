@@ -1,0 +1,306 @@
+diff --git a/app/components/TermsConsent.jsx b/app/components/TermsConsent.jsx
+index f416210..bfc71dc 100644
+--- a/app/components/TermsConsent.jsx
++++ b/app/components/TermsConsent.jsx
+@@ -4,14 +4,20 @@
+ //
+ // 🆕 خانة "أوافق على الشروط والأحكام" المشتركة — بتتحط في كل فورمات الموقع
+ // (contact / quick-inquiry / الاستشارة / الترجمة / المنح / البرامج /
+-// Call Center / التسجيل). بتربط بصفحات الشروط والخصوصية والاسترداد الموجودة
+-// فعلاً (/terms, /privacy, /refund) وبتفتحهم في تاب جديد عشان المستخدم ما
+-// يفقدش اللي كتبه في الفورم.
++// Call Center / التسجيل).
++//
++// 🆕 الروابط (الشروط والأحكام / الخصوصية / الاسترداد) بتفتح قايمة منبثقة
++// (مودال) في نفس الصفحة فيها ملخص سريع، من غير ما المستخدم يسيب الفورم.
++// ولو عايز التفاصيل الكاملة فيه زرار بيفتح الصفحة الكاملة في تاب جديد
++// (/terms, /privacy, /refund) عشان اللي كتبه في الفورم ما يضيعش.
+ //
+ // الاستخدام:
+ //   const [termsAccepted, setTermsAccepted] = useState(false);
+ //   <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} error={showError} />
+ 
++import { useEffect, useState } from "react";
++import { createPortal } from "react-dom";
++
+ const TEXT = {
+   ar: {
+     prefix: "أوافق على ",
+@@ -22,6 +28,9 @@ const TEXT = {
+     refund: "سياسة الاسترداد",
+     suffix: " الخاصة بـ Edumaster. *",
+     required: "يجب الموافقة على الشروط والأحكام للمتابعة",
++    summary: "ملخص",
++    close: "إغلاق",
++    fullPage: "للمزيد من التفاصيل، اقرأ الصفحة الكاملة",
+   },
+   en: {
+     prefix: "I agree to the ",
+@@ -32,6 +41,9 @@ const TEXT = {
+     refund: "Refund Policy",
+     suffix: " of Edumaster. *",
+     required: "You must accept the Terms & Conditions to continue",
++    summary: "Summary",
++    close: "Close",
++    fullPage: "For more details, read the full page",
+   },
+   es: {
+     prefix: "Acepto los ",
+@@ -42,6 +54,125 @@ const TEXT = {
+     refund: "Política de Reembolso",
+     suffix: " de Edumaster. *",
+     required: "Debes aceptar los Términos y Condiciones para continuar",
++    summary: "Resumen",
++    close: "Cerrar",
++    fullPage: "Para más detalles, lee la página completa",
++  },
++};
++
++// ملخصات مختصرة مبنية على محتوى الصفحات الفعلية (app/(pages)/terms|privacy|refund).
++// لو محتوى الصفحات اتغيّر، حدّث الملخص هنا كمان.
++const SUMMARIES = {
++  terms: {
++    href: "/terms",
++    ar: {
++      title: "الشروط والأحكام",
++      points: [
++        "باستخدامك للمنصة فأنت توافق على هذه الشروط وكل السياسات ذات الصلة.",
++        "تقدم Edumaster استشارات أكاديمية ومهنية ودعم القبول الجامعي وخدمات الدراسة في الخارج، ولا تضمن القبول الجامعي أو المنح أو التأشيرات.",
++        "عليك تقديم معلومات ومستندات صحيحة وأصلية، واستخدام المنصة بشكل قانوني واحترام حقوق الملكية الفكرية.",
++        "الرسوم تُعلن بوضوح قبل الدفع، وتتم المدفوعات عبر بوابات دفع آمنة، ويبدأ الوصول للخدمة المدفوعة فور نجاح الدفع.",
++        "محتوى المنصة وبرمجياتها وعلامتها التجارية ملك حصري لـ Edumaster ولا يجوز استخدامها بدون تصريح.",
++        "لا تتحمل Edumaster مسؤولية قرارات الجامعات والسفارات أو رفض التأشيرات أو تأخيرات الأطراف الثالثة، والخدمات تُقدَّم \"كما هي\".",
++        "يحق لـ Edumaster تعليق الوصول أو إنهاؤه عند الإساءة أو الاحتيال أو مخالفة الشروط، وتخضع الشروط للقانون المصري.",
++      ],
++    },
++    en: {
++      title: "Terms & Conditions",
++      points: [
++        "By using the platform you agree to these Terms and all related policies.",
++        "Edumaster provides academic and career counseling, admissions support and study-abroad advisory, and does not guarantee admission, scholarships or visas.",
++        "You must provide accurate, genuine information and documents, use the platform lawfully and respect intellectual property rights.",
++        "Fees are disclosed clearly before payment, payments go through secure gateways, and paid services start once payment succeeds.",
++        "All platform content, software and trademarks are Edumaster's exclusive property and may not be used without permission.",
++        "Edumaster is not liable for university or embassy decisions, visa rejections or third-party delays; services are provided \"as is\".",
++        "Edumaster may suspend or end access for misuse, fraud or breach of these Terms. The Terms are governed by Egyptian law.",
++      ],
++    },
++    es: {
++      title: "Términos y Condiciones",
++      points: [
++        "Al usar la plataforma aceptas estos Términos y todas las políticas relacionadas.",
++        "Edumaster ofrece asesoría académica y profesional, apoyo en admisiones y asesoría para estudiar en el extranjero, y no garantiza admisiones, becas ni visados.",
++        "Debes proporcionar información y documentos veraces y auténticos, usar la plataforma de forma legal y respetar la propiedad intelectual.",
++        "Las tarifas se informan claramente antes del pago, los pagos se procesan en pasarelas seguras y el servicio de pago comienza al confirmarse el pago.",
++        "El contenido, el software y las marcas de la plataforma son propiedad exclusiva de Edumaster y no pueden usarse sin autorización.",
++        "Edumaster no es responsable de decisiones de universidades o embajadas, rechazos de visado ni retrasos de terceros; los servicios se ofrecen \"tal cual\".",
++        "Edumaster puede suspender o finalizar el acceso por mal uso, fraude o incumplimiento. Los Términos se rigen por la ley egipcia.",
++      ],
++    },
++  },
++  privacy: {
++    href: "/privacy",
++    ar: {
++      title: "سياسة الخصوصية",
++      points: [
++        "نجمع بياناتك الشخصية (الاسم، البريد، الهاتف، الجنسية، الخلفية الأكاديمية) وبيانات الخدمة والاستخدام التقني وحالة الدفع.",
++        "لا نخزّن بيانات البطاقة كاملة؛ تتم المدفوعات عبر بوابات دفع آمنة من أطراف ثالثة.",
++        "نستخدم بياناتك لتقديم الاستشارات وخدمات القبول والتقييمات المدعومة بالذكاء الاصطناعي والتواصل معك ومعالجة المدفوعات وتحسين المنصة.",
++        "قد نشارك بياناتك مع الجامعات الشريكة (بموافقتك فقط) ومزودي الخدمة المعتمدين والجهات القانونية عند الطلب، ولا نبيع بياناتك الشخصية.",
++        "تُحفظ البيانات على خوادم آمنة ومشفّرة وبوصول محدود، ولا نحتفظ بها إلا للمدة اللازمة لتقديم الخدمة أو الالتزام القانوني.",
++        "من حقك الوصول لبياناتك وتصحيحها وطلب حذفها وسحب موافقتك عبر info@edumaster365.com.",
++        "لمن هم دون 18 سنة يلزم موافقة ولي الأمر، ونستخدم ملفات تعريف الارتباط (كوكيز) لتحسين التجربة وتحليل الاستخدام.",
++      ],
++    },
++    en: {
++      title: "Privacy Policy",
++      points: [
++        "We collect personal details (name, email, phone, nationality, academic background), service and technical usage data, and payment status.",
++        "We do not store full card details; payments are processed through secure third-party gateways.",
++        "We use your data to deliver counseling and admissions services, AI-powered assessments, communication, payments and platform improvement.",
++        "Data may be shared with partner universities (only with your consent), authorized service providers and legal authorities when required. We do not sell personal data.",
++        "Data is kept on secure, encrypted servers with restricted access, and retained only as long as needed for the service or legal compliance.",
++        "You can access, correct or delete your data and withdraw consent by contacting info@edumaster365.com.",
++        "Users under 18 need parental or guardian consent, and we use cookies to improve the experience and analyze usage.",
++      ],
++    },
++    es: {
++      title: "Política de Privacidad",
++      points: [
++        "Recopilamos datos personales (nombre, correo, teléfono, nacionalidad, formación académica), datos del servicio y de uso técnico, y el estado de los pagos.",
++        "No almacenamos los datos completos de la tarjeta; los pagos se procesan en pasarelas seguras de terceros.",
++        "Usamos tus datos para ofrecer asesoría y servicios de admisión, evaluaciones con IA, comunicación, pagos y mejora de la plataforma.",
++        "Podemos compartir datos con universidades asociadas (solo con tu consentimiento), proveedores autorizados y autoridades legales cuando se requiera. No vendemos datos personales.",
++        "Los datos se guardan en servidores seguros y cifrados con acceso restringido, y solo el tiempo necesario para el servicio o el cumplimiento legal.",
++        "Puedes acceder, corregir o eliminar tus datos y retirar tu consentimiento escribiendo a info@edumaster365.com.",
++        "Los menores de 18 años necesitan el consentimiento de un tutor, y usamos cookies para mejorar la experiencia y analizar el uso.",
++      ],
++    },
++  },
++  refund: {
++    href: "/refund",
++    ar: {
++      title: "سياسة الاسترداد والإلغاء",
++      points: [
++        "الرسوم غير قابلة للاسترداد بمجرد بدء تقديم الخدمة.",
++        "قد يُنظر في الاسترداد فقط في حالات: دفع مكرر، أو خطأ تقني منع الوصول للخدمة، أو خطأ في الفوترة.",
++        "لا يوجد استرداد إذا ألغيت بعد بدء الخدمة، أو لم تقدّم المستندات المطلوبة، أو غيّرت الدولة/الجامعة/البرنامج، أو لم تنجح نتيجة الطلب، أو رُفضت التأشيرة أو تأخرت.",
++        "تقدم Edumaster دعم تجهيز التأشيرة فقط، ولا تضمن إصدارها ولا حجز مواعيد السفارات ولا تؤثر على قراراتها.",
++        "يمكن إلغاء الاشتراكات في أي وقت لإيقاف الفوترة المستقبلية، والمدفوعات السابقة غير قابلة للاسترداد.",
++      ],
++    },
++    en: {
++      title: "Refund & Cancellation Policy",
++      points: [
++        "All fees are non-refundable once service delivery has started.",
++        "Refunds may be considered only for a duplicate payment, a technical error that blocked access to the service, or a billing error.",
++        "No refund if you cancel after the service starts, don't provide required documents, change country/university/program, the application is unsuccessful, or the visa is rejected or delayed.",
++        "Edumaster provides visa preparation support only; it does not guarantee visas, secure embassy appointments or influence embassy decisions.",
++        "Subscriptions can be canceled at any time to stop future billing; past payments remain non-refundable.",
++      ],
++    },
++    es: {
++      title: "Política de Reembolso y Cancelación",
++      points: [
++        "Las tarifas no son reembolsables una vez iniciada la prestación del servicio.",
++        "Solo se puede considerar un reembolso por pago duplicado, error técnico que impidió el acceso al servicio o error de facturación.",
++        "No hay reembolso si cancelas después de iniciado el servicio, no entregas los documentos requeridos, cambias de país/universidad/programa, la solicitud no tiene éxito o el visado es rechazado o demorado.",
++        "Edumaster solo ofrece apoyo en la preparación del visado; no garantiza visados, no consigue citas en embajadas ni influye en sus decisiones.",
++        "Las suscripciones pueden cancelarse en cualquier momento para detener cobros futuros; los pagos anteriores no son reembolsables.",
++      ],
++    },
+   },
+ };
+ 
+@@ -49,9 +180,109 @@ export function termsRequiredMessage(lang) {
+   return (TEXT[lang] || TEXT.en).required;
+ }
+ 
++function SummaryModal({ doc, lang, onClose }) {
++  const t = TEXT[lang] || TEXT.en;
++  const isRTL = lang === "ar";
++  const s = SUMMARIES[doc];
++  const content = s[lang] || s.en;
++
++  // Escape بيقفل الملخص بس — من غير ما يقفل المودال/الفورم اللي ورا.
++  useEffect(() => {
++    function onKey(e) {
++      if (e.key === "Escape") {
++        e.stopImmediatePropagation();
++        onClose();
++      }
++    }
++    window.addEventListener("keydown", onKey, true);
++    return () => window.removeEventListener("keydown", onKey, true);
++  }, [onClose]);
++
++  // بنرسمه في document.body (portal) عشان ما يتحبسش جوه <form>/مودال تاني،
++  // وعشان z-index يعلى على مودالات الفورمات (z-[100]).
++  return createPortal(
++    <div
++      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
++      onClick={(e) => {
++        e.stopPropagation();
++        if (e.target === e.currentTarget) onClose();
++      }}
++      onMouseDown={(e) => e.stopPropagation()}
++    >
++      <div
++        dir={isRTL ? "rtl" : "ltr"}
++        role="dialog"
++        aria-modal="true"
++        aria-label={content.title}
++        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
++      >
++        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-gray-100">
++          <div>
++            <p className="text-[10px] font-bold uppercase tracking-widest text-[#C9A227]">{t.summary}</p>
++            <h3 className="text-lg font-bold text-gray-900">{content.title}</h3>
++          </div>
++          <button
++            type="button"
++            onClick={onClose}
++            aria-label={t.close}
++            className="shrink-0 w-8 h-8 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-xl leading-none"
++          >
++            ×
++          </button>
++        </div>
++
++        <ul className="px-5 py-4 overflow-y-auto flex flex-col gap-2.5 text-sm text-gray-600 leading-relaxed">
++          {content.points.map((p, i) => (
++            <li key={i} className="flex items-start gap-2.5">
++              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#003A91] shrink-0" aria-hidden="true" />
++              <span>{p}</span>
++            </li>
++          ))}
++        </ul>
++
++        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
++          <a
++            href={s.href}
++            target="_blank"
++            rel="noopener noreferrer"
++            className="text-sm font-semibold text-[#003A91] underline"
++          >
++            {t.fullPage} ↗
++          </a>
++          <button
++            type="button"
++            onClick={onClose}
++            className="px-5 py-2 rounded-xl bg-[#003A91] text-white text-sm font-bold hover:opacity-90 transition-opacity"
++          >
++            {t.close}
++          </button>
++        </div>
++      </div>
++    </div>,
++    document.body
++  );
++}
++
++// رابط بيفتح الملخص (زرار مش <a>، عشان ما يفتحش الصفحة ولا يغيّر حالة الخانة).
++function DocLink({ doc, onOpen, children }) {
++  return (
++    <button
++      type="button"
++      className="text-[#003A91] font-semibold underline cursor-pointer"
++      onClick={(e) => {
++        e.preventDefault();
++        e.stopPropagation();
++        onOpen(doc);
++      }}
++    >
++      {children}
++    </button>
++  );
++}
++
+ export default function TermsConsent({ checked, onChange, lang = "en", error = false, className = "" }) {
+   const t = TEXT[lang] || TEXT.en;
+-  const linkCls = "text-[#003A91] font-semibold underline";
++  const [openDoc, setOpenDoc] = useState(null); // "terms" | "privacy" | "refund" | null
+   return (
+     <div className={className}>
+       <label
+@@ -67,15 +298,17 @@ export default function TermsConsent({ checked, onChange, lang = "en", error = f
+         />
+         <span>
+           {t.prefix}
+-          <a href="/terms" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.terms}</a>
++          <DocLink doc="terms" onOpen={setOpenDoc}>{t.terms}</DocLink>
+           {t.and1}
+-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.privacy}</a>
++          <DocLink doc="privacy" onOpen={setOpenDoc}>{t.privacy}</DocLink>
+           {t.and2}
+-          <a href="/refund" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.refund}</a>
++          <DocLink doc="refund" onOpen={setOpenDoc}>{t.refund}</DocLink>
+           {t.suffix}
+         </span>
+       </label>
+       {error && <p className="text-red-500 text-xs font-medium mt-1">{t.required}</p>}
++
++      {openDoc && <SummaryModal doc={openDoc} lang={lang} onClose={() => setOpenDoc(null)} />}
+     </div>
+   );
+ }

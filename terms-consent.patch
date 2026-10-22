@@ -1,0 +1,414 @@
+diff --git a/app/components/TermsConsent.jsx b/app/components/TermsConsent.jsx
+new file mode 100644
+index 0000000..f416210
+--- /dev/null
++++ b/app/components/TermsConsent.jsx
+@@ -0,0 +1,81 @@
++"use client";
++
++// app/components/TermsConsent.jsx
++//
++// 🆕 خانة "أوافق على الشروط والأحكام" المشتركة — بتتحط في كل فورمات الموقع
++// (contact / quick-inquiry / الاستشارة / الترجمة / المنح / البرامج /
++// Call Center / التسجيل). بتربط بصفحات الشروط والخصوصية والاسترداد الموجودة
++// فعلاً (/terms, /privacy, /refund) وبتفتحهم في تاب جديد عشان المستخدم ما
++// يفقدش اللي كتبه في الفورم.
++//
++// الاستخدام:
++//   const [termsAccepted, setTermsAccepted] = useState(false);
++//   <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} error={showError} />
++
++const TEXT = {
++  ar: {
++    prefix: "أوافق على ",
++    terms: "الشروط والأحكام",
++    and1: "، ",
++    privacy: "سياسة الخصوصية",
++    and2: " و",
++    refund: "سياسة الاسترداد",
++    suffix: " الخاصة بـ Edumaster. *",
++    required: "يجب الموافقة على الشروط والأحكام للمتابعة",
++  },
++  en: {
++    prefix: "I agree to the ",
++    terms: "Terms & Conditions",
++    and1: ", ",
++    privacy: "Privacy Policy",
++    and2: " and ",
++    refund: "Refund Policy",
++    suffix: " of Edumaster. *",
++    required: "You must accept the Terms & Conditions to continue",
++  },
++  es: {
++    prefix: "Acepto los ",
++    terms: "Términos y Condiciones",
++    and1: ", la ",
++    privacy: "Política de Privacidad",
++    and2: " y la ",
++    refund: "Política de Reembolso",
++    suffix: " de Edumaster. *",
++    required: "Debes aceptar los Términos y Condiciones para continuar",
++  },
++};
++
++export function termsRequiredMessage(lang) {
++  return (TEXT[lang] || TEXT.en).required;
++}
++
++export default function TermsConsent({ checked, onChange, lang = "en", error = false, className = "" }) {
++  const t = TEXT[lang] || TEXT.en;
++  const linkCls = "text-[#003A91] font-semibold underline";
++  return (
++    <div className={className}>
++      <label
++        className={`flex items-start gap-2.5 text-xs sm:text-sm ${error ? "text-red-600" : "text-gray-600"}`}
++      >
++        <input
++          type="checkbox"
++          required
++          className="mt-0.5 w-4 h-4 shrink-0 accent-[#003A91]"
++          checked={checked}
++          onChange={(e) => onChange(e.target.checked)}
++          aria-invalid={error ? "true" : "false"}
++        />
++        <span>
++          {t.prefix}
++          <a href="/terms" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.terms}</a>
++          {t.and1}
++          <a href="/privacy" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.privacy}</a>
++          {t.and2}
++          <a href="/refund" target="_blank" rel="noopener noreferrer" className={linkCls}>{t.refund}</a>
++          {t.suffix}
++        </span>
++      </label>
++      {error && <p className="text-red-500 text-xs font-medium mt-1">{t.required}</p>}
++    </div>
++  );
++}
+diff --git a/app/components/auth/LoginRegisterForm.jsx b/app/components/auth/LoginRegisterForm.jsx
+index 958b129..f868c0a 100644
+--- a/app/components/auth/LoginRegisterForm.jsx
++++ b/app/components/auth/LoginRegisterForm.jsx
+@@ -3,6 +3,7 @@
+ import { useState, useEffect } from "react";
+ import { useRouter } from "next/navigation";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent, { termsRequiredMessage } from "@/app/components/TermsConsent";
+ import { signIn } from "next-auth/react";
+ 
+ /* ─────────────────────────────────────────
+@@ -374,6 +375,8 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
+   const [showPass, setShowPass] = useState(false);
+   const [error, setError] = useState("");
+   const [loading, setLoading] = useState(false);
++  // 🆕 الموافقة على الشروط والأحكام (إجبارية عند إنشاء حساب جديد)
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   // 🔒 SECURITY: لما يبقى فيه MFA مفعّل على حساب أدمن، أول محاولة (باسورد
+   // صح لسه من غير كود) بترجع "mfa_required" — بنعرض خطوة كود إضافية بدل ما
+@@ -544,6 +547,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
+     if (!form.name || !form.email || !form.phone || !form.password) { setError(tx.errEmpty); return; }
+     if (!isValidPhoneClient(form.phone)) { setError(tx.errInvalidPhone); return; }
+     if (form.password.length < 8) { setError(tx.errWeakPassword); return; }
++    if (!termsAccepted) { setError(termsRequiredMessage(language)); return; }
+ 
+     setLoading(true);
+     try {
+@@ -933,6 +937,17 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
+             )}
+           </div>
+ 
++          {!isLogin && (
++            <TermsConsent
++              checked={termsAccepted}
++              onChange={(v) => {
++                setTermsAccepted(v);
++                if (v) setError("");
++              }}
++              lang={language}
++            />
++          )}
++
+           {error && (
+             <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#C9A227" strokeWidth={2.5} strokeLinecap="round">
+diff --git a/app/components/callCenter/CallCenterForm.jsx b/app/components/callCenter/CallCenterForm.jsx
+index e31cbc9..d96aeef 100644
+--- a/app/components/callCenter/CallCenterForm.jsx
++++ b/app/components/callCenter/CallCenterForm.jsx
+@@ -17,6 +17,7 @@
+ 
+ import { useState } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { Loader, CheckCircle2 } from "lucide-react";
+ 
+ const COURSE_ID = "call-center-operations-level-1";
+@@ -295,6 +296,7 @@ export default function CallCenterForm({ onSuccess }) {
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState("");
+   const [success, setSuccess] = useState(false);
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   function set(key, value) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+@@ -356,7 +358,7 @@ export default function CallCenterForm({ onSuccess }) {
+       setError(t.required);
+       return;
+     }
+-    if (!form.privacyConsent) {
++    if (!form.privacyConsent || !termsAccepted) {
+       setError(t.required);
+       return;
+     }
+@@ -533,6 +535,8 @@ export default function CallCenterForm({ onSuccess }) {
+         </span>
+       </label>
+ 
++      <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
++
+       {error && (
+         <div role="alert" className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl">
+           {error}
+diff --git a/app/components/consultation/ConsultationForm.jsx b/app/components/consultation/ConsultationForm.jsx
+index 2983126..682c8dd 100644
+--- a/app/components/consultation/ConsultationForm.jsx
++++ b/app/components/consultation/ConsultationForm.jsx
+@@ -19,6 +19,7 @@
+ 
+ import { useState, useEffect, useRef, createContext, useContext } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { ChevronDown, Loader, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react";
+ import { getCurrencyForLanguage, convertPrice, formatPrice } from "@/app/lib/currency";
+ import { CONSULTATION_REQUIRED_FIELDS, CONSULTATION_SECTION_FIELDS } from "@/app/lib/consultationFields";
+@@ -366,6 +367,8 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
+   const [paymentError, setPaymentError] = useState("");
+   // 🆕 حالة المرفق الاختياري
+   const [errors, setErrors] = useState({});
++  // 🆕 الموافقة على الشروط والأحكام (إجبارية)
++  const [termsAccepted, setTermsAccepted] = useState(false);
+   const [file, setFile] = useState(null);
+   const [fileError, setFileError] = useState("");
+   const fileInputRef = useRef(null);
+@@ -452,6 +455,7 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
+     }
+     if (form.email.trim() && !SIMPLE_EMAIL_REGEX.test(form.email.trim())) missing.email = true;
+     if (!form.privacyConsent) missing.privacyConsent = true;
++    if (!termsAccepted) missing.terms = true;
+     // 🆕 المرفق إجباري
+     if (!file) missing.attachment = true;
+     setErrors(missing);
+@@ -795,6 +799,17 @@ export default function ConsultationForm({ onSuccess, initialService = "", initi
+             <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
+             {f.privacyConsent}
+           </label>
++          <div id="field-terms">
++            <TermsConsent
++              checked={termsAccepted}
++              onChange={(v) => {
++                setTermsAccepted(v);
++                if (v) setErrors((prev) => (prev.terms ? { ...prev, terms: false } : prev));
++              }}
++              lang={language}
++              error={Boolean(errors.terms)}
++            />
++          </div>
+         </div>
+       </Section>
+ 
+diff --git a/app/components/contact/SimpleInquiryForm.jsx b/app/components/contact/SimpleInquiryForm.jsx
+index 7aec371..ee31bea 100644
+--- a/app/components/contact/SimpleInquiryForm.jsx
++++ b/app/components/contact/SimpleInquiryForm.jsx
+@@ -9,6 +9,7 @@
+ // بيتبعت لنفس /api/data?collection=form زي الأول بالظبط، ومعاه حقل service.
+ 
+ import { useState, useRef } from "react";
++import TermsConsent from "@/app/components/TermsConsent";
+ 
+ function isValidEmail(email) {
+   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+@@ -61,6 +62,8 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
+   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+   const [status, setStatus] = useState("idle");
+   const [errors, setErrors] = useState({});
++  // 🆕 الموافقة على الشروط والأحكام (إجبارية قبل الإرسال)
++  const [termsAccepted, setTermsAccepted] = useState(false);
+   // 🆕 حالة المرفق الاختياري
+   const [file, setFile] = useState(null);
+   const [fileError, setFileError] = useState("");
+@@ -120,6 +123,7 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
+       message: !form.message.trim(),
+       // المرفق إجباري في /quick-inquiry
+       attachment: requireAttachment && !file,
++      terms: !termsAccepted,
+     };
+     setErrors(newErrors);
+     if (Object.values(newErrors).some(Boolean)) return;
+@@ -233,6 +237,17 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
+         {fileError && <span className="text-red-500 text-xs font-medium">{fileError}</span>}
+       </div>
+ 
++      {/* 🆕 موافقة على الشروط والأحكام (إجبارية) */}
++      <TermsConsent
++        checked={termsAccepted}
++        onChange={(v) => {
++          setTermsAccepted(v);
++          if (v) setErrors((prev) => (prev.terms ? { ...prev, terms: false } : prev));
++        }}
++        lang={lang}
++        error={Boolean(errors.terms)}
++      />
++
+       <button onClick={handleSubmit} disabled={status === "sending"}
+         className="inline-flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">
+         {status === "sending" ? (
+diff --git a/app/components/englishProgram/EnglishProgramForm.jsx b/app/components/englishProgram/EnglishProgramForm.jsx
+index 7c1c0da..b564ebd 100644
+--- a/app/components/englishProgram/EnglishProgramForm.jsx
++++ b/app/components/englishProgram/EnglishProgramForm.jsx
+@@ -14,6 +14,7 @@
+ 
+ import { useState } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
+ 
+ // نفس بنية المستوايات المقترحة في المستند المرفوع
+@@ -217,6 +218,7 @@ export default function EnglishProgramForm({ onSuccess }) {
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState("");
+   const [success, setSuccess] = useState(false);
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   function set(key, value) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+@@ -229,7 +231,7 @@ export default function EnglishProgramForm({ onSuccess }) {
+       setError(t.required);
+       return;
+     }
+-    if (!form.privacyConsent) {
++    if (!form.privacyConsent || !termsAccepted) {
+       setError(t.required);
+       return;
+     }
+@@ -361,6 +363,7 @@ export default function EnglishProgramForm({ onSuccess }) {
+           <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
+           {f.privacyConsent}
+         </label>
++        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
+       </Section>
+ 
+       {error && (
+diff --git a/app/components/languageCourses/LanguageProgramForm.jsx b/app/components/languageCourses/LanguageProgramForm.jsx
+index ad13666..c846093 100644
+--- a/app/components/languageCourses/LanguageProgramForm.jsx
++++ b/app/components/languageCourses/LanguageProgramForm.jsx
+@@ -13,6 +13,7 @@
+ 
+ import { useState } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
+ 
+ const PROGRAMS = {
+@@ -230,6 +231,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess })
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState("");
+   const [success, setSuccess] = useState(false);
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   function set(key, value) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+@@ -242,7 +244,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess })
+       setError(t.required);
+       return;
+     }
+-    if (!form.privacyConsent) {
++    if (!form.privacyConsent || !termsAccepted) {
+       setError(t.required);
+       return;
+     }
+@@ -373,6 +375,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess })
+           <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
+           {f.privacyConsent}
+         </label>
++        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
+       </Section>
+ 
+       {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}
+diff --git a/app/components/scholarship/ScholarshipForm.jsx b/app/components/scholarship/ScholarshipForm.jsx
+index 363f4e5..705a488 100644
+--- a/app/components/scholarship/ScholarshipForm.jsx
++++ b/app/components/scholarship/ScholarshipForm.jsx
+@@ -20,6 +20,7 @@
+ 
+ import { useState } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
+ 
+ // مستويات اللغة (CEFR) + "Native" — نفس الاختيارات لمستوى الإسباني والإنجليزي
+@@ -214,6 +215,7 @@ export default function ScholarshipForm({ onSuccess }) {
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState("");
+   const [success, setSuccess] = useState(false);
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   function set(key, value) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+@@ -232,7 +234,7 @@ export default function ScholarshipForm({ onSuccess }) {
+       setError(t.required);
+       return;
+     }
+-    if (!form.privacyConsent) {
++    if (!form.privacyConsent || !termsAccepted) {
+       setError(t.required);
+       return;
+     }
+@@ -353,6 +355,7 @@ export default function ScholarshipForm({ onSuccess }) {
+           />
+           {f.consent}
+         </label>
++        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
+       </Section>
+ 
+       {error && (
+diff --git a/app/components/translation/TranslationForm.jsx b/app/components/translation/TranslationForm.jsx
+index 4a2a814..245a78a 100644
+--- a/app/components/translation/TranslationForm.jsx
++++ b/app/components/translation/TranslationForm.jsx
+@@ -13,6 +13,7 @@
+ 
+ import { useState } from "react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import TermsConsent from "@/app/components/TermsConsent";
+ import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
+ 
+ const STRINGS = {
+@@ -423,6 +424,7 @@ export default function TranslationForm({ onSuccess }) {
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState("");
+   const [success, setSuccess] = useState(false);
++  const [termsAccepted, setTermsAccepted] = useState(false);
+ 
+   function set(key, value) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+@@ -443,7 +445,7 @@ export default function TranslationForm({ onSuccess }) {
+       setError(t.required);
+       return;
+     }
+-    if (!form.dataAccuracyConsent || !form.privacyConsent) {
++    if (!form.dataAccuracyConsent || !form.privacyConsent || !termsAccepted) {
+       setError(t.required);
+       return;
+     }
+@@ -615,6 +617,7 @@ export default function TranslationForm({ onSuccess }) {
+             <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
+             {f.declarations.authorization}
+           </label>
++          <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
+         </div>
+       </Section>
+ 

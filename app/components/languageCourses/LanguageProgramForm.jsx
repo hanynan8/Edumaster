@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent from "@/app/components/TermsConsent";
 import { ChevronDown, Loader, CheckCircle2 } from "lucide-react";
 
 const PROGRAMS = {
@@ -230,6 +231,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess }) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -242,7 +244,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess }) 
       setError(t.required);
       return;
     }
-    if (!form.privacyConsent) {
+    if (!form.privacyConsent || !termsAccepted) {
       setError(t.required);
       return;
     }
@@ -373,6 +375,7 @@ export default function LanguageProgramForm({ program = "spanish", onSuccess }) 
           <input type="checkbox" required className="mt-0.5" checked={form.privacyConsent} onChange={(e) => set("privacyConsent", e.target.checked)} />
           {f.privacyConsent}
         </label>
+        <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
       </Section>
 
       {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}

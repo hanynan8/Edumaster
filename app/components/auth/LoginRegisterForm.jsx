@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent, { termsRequiredMessage } from "@/app/components/TermsConsent";
 import { signIn } from "next-auth/react";
 
 /* ─────────────────────────────────────────
@@ -374,6 +375,8 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // 🆕 الموافقة على الشروط والأحكام (إجبارية عند إنشاء حساب جديد)
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // 🔒 SECURITY: لما يبقى فيه MFA مفعّل على حساب أدمن، أول محاولة (باسورد
   // صح لسه من غير كود) بترجع "mfa_required" — بنعرض خطوة كود إضافية بدل ما
@@ -544,6 +547,7 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
     if (!form.name || !form.email || !form.phone || !form.password) { setError(tx.errEmpty); return; }
     if (!isValidPhoneClient(form.phone)) { setError(tx.errInvalidPhone); return; }
     if (form.password.length < 8) { setError(tx.errWeakPassword); return; }
+    if (!termsAccepted) { setError(termsRequiredMessage(language)); return; }
 
     setLoading(true);
     try {
@@ -932,6 +936,17 @@ export default function LoginRegisterForm({ mode, onClose, onSwitch }) {
               </p>
             )}
           </div>
+
+          {!isLogin && (
+            <TermsConsent
+              checked={termsAccepted}
+              onChange={(v) => {
+                setTermsAccepted(v);
+                if (v) setError("");
+              }}
+              lang={language}
+            />
+          )}
 
           {error && (
             <div className="flex items-center gap-2 px-3 sm:px-4 py-3 rounded-xl bg-red-50 border border-red-100">

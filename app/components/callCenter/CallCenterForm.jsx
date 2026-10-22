@@ -17,6 +17,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TermsConsent from "@/app/components/TermsConsent";
 import { Loader, CheckCircle2 } from "lucide-react";
 
 const COURSE_ID = "call-center-operations-level-1";
@@ -295,6 +296,7 @@ export default function CallCenterForm({ onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -356,7 +358,7 @@ export default function CallCenterForm({ onSuccess }) {
       setError(t.required);
       return;
     }
-    if (!form.privacyConsent) {
+    if (!form.privacyConsent || !termsAccepted) {
       setError(t.required);
       return;
     }
@@ -532,6 +534,8 @@ export default function CallCenterForm({ onSuccess }) {
           {t.consent.suffix}
         </span>
       </label>
+
+      <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} lang={language} />
 
       {error && (
         <div role="alert" className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl">

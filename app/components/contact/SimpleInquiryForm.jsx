@@ -9,6 +9,7 @@
 // بيتبعت لنفس /api/data?collection=form زي الأول بالظبط، ومعاه حقل service.
 
 import { useState, useRef } from "react";
+import TermsConsent from "@/app/components/TermsConsent";
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -61,6 +62,8 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");
   const [errors, setErrors] = useState({});
+  // 🆕 الموافقة على الشروط والأحكام (إجبارية قبل الإرسال)
+  const [termsAccepted, setTermsAccepted] = useState(false);
   // 🆕 حالة المرفق الاختياري
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState("");
@@ -120,6 +123,7 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
       message: !form.message.trim(),
       // المرفق إجباري في /quick-inquiry
       attachment: requireAttachment && !file,
+      terms: !termsAccepted,
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
@@ -232,6 +236,17 @@ export default function SimpleInquiryForm({ t, lang, selectedService, requireAtt
         {errors.attachment && !file && <span className="text-red-500 text-xs font-medium">{req}</span>}
         {fileError && <span className="text-red-500 text-xs font-medium">{fileError}</span>}
       </div>
+
+      {/* 🆕 موافقة على الشروط والأحكام (إجبارية) */}
+      <TermsConsent
+        checked={termsAccepted}
+        onChange={(v) => {
+          setTermsAccepted(v);
+          if (v) setErrors((prev) => (prev.terms ? { ...prev, terms: false } : prev));
+        }}
+        lang={lang}
+        error={Boolean(errors.terms)}
+      />
 
       <button onClick={handleSubmit} disabled={status === "sending"}
         className="inline-flex items-center justify-center gap-2 bg-[#003A91] text-white font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base hover:bg-[#C9A84C] transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-1">

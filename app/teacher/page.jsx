@@ -544,14 +544,21 @@ function ProfileEditModal({ initialUser, onClose, onSaved, t }) {
   );
 }
 
-export default function TeacherCoursesPage() {
+export default function TeacherCoursesPage({ asModerator = false }) {
   const { language, isRTL } = useLanguage();
   const t = T[language] || T.en;
   const { data: session, status: sessionStatus } = useSession();
   // 🆕 الموديريتور/الأدمن بس يقدروا يضيفوا كورسات ويدخلوا الميتنجس — المدرّس
   // بيشوف الكورسات اللي الموديريتور عيّنها له فقط.
-  const isModerator = session?.user?.role === "moderator";
-  const canCreateCourse = isModerator || session?.user?.role === "admin";
+  // 🆕 asModerator: صفحة /moderator بتعرض نفس الداشبورد للأدمن بوضع الموديريتور
+  // (كل كورسات المدرّسين + اختيار المدرّس المشرف).
+  const isModerator =
+    session?.user?.role === "moderator" ||
+    (session?.user?.role === "admin" && asModerator);
+  // 🆕 "دورة جديدة" و"المحاضرات المباشرة" بقوا في داشبورد الموديريتور بس
+  // (/moderator للأدمن، و/teacher للموديريتور). داشبورد التيتشر مافيهاش الزرارين
+  // دول لأي دور، حتى الأدمن.
+  const canCreateCourse = isModerator;
   const [courses, setCourses] = useState(null);
   // 🆕 ترقيم الصفحات: "عرض المزيد" بيجيب الصفحة اللي بعدها ويضيفها للقايمة
   // لحد ما كل دورات المدرّس تظهر (total جاي من الـ API).
@@ -569,7 +576,7 @@ export default function TeacherCoursesPage() {
     // بتعرض كل كورسات الموقع لو الحساب أدمن. بنبعت ?teacher=<id الأدمن> عشان
     // تعرض كورساته هو بس (الـ API بيدعم الفلتر ده للأدمن).
     const teacherParam =
-      session?.user?.role === "admin" && session?.user?.id
+      session?.user?.role === "admin" && !asModerator && session?.user?.id
         ? `&teacher=${encodeURIComponent(session.user.id)}`
         : "";
     const res = await fetch(`/api/courses?page=${p}&limit=${PAGE_SIZE}${teacherParam}`);
@@ -779,7 +786,7 @@ export default function TeacherCoursesPage() {
               course={c}
               onEdit={setModalCourse}
               onDelete={handleDelete}
-              showTeacher={session?.user?.role === "moderator"}
+              showTeacher={isModerator}
             />
           ))}
         </div>
@@ -804,6 +811,7 @@ export default function TeacherCoursesPage() {
           course={modalCourse}
           onClose={() => setModalCourse(undefined)}
           onSaved={handleSaved}
+          moderatorMode={asModerator}
         />
       )}
     </div>

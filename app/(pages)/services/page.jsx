@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 const AuthModal = dynamic(() => import("@/app/components/auth/authModel"), { ssr: false });
-import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
+import { getPriceForCurrency, formatPrice, formatConsultationBadge } from "@/app/lib/currency";
 import { Check as CheckIcon, Crown, Loader, CheckCircle2, CalendarClock, Languages, GraduationCap, Award, Headphones } from "lucide-react";
 import LoadingScreen from "@/app/components/LoadingScreen";
 const ConsultationModal = dynamic(() => import("@/app/components/consultation/ConsultationModal"), { ssr: false });
@@ -24,9 +24,9 @@ import { useCollectionDoc, useCachedJson } from "@/app/lib/useCollection";
 import { getUnifiedServiceColor, fixLanguageDesc } from "@/app/lib/serviceUtils";
 
 const CONSULT_STRINGS = {
-  en: { cta: "Study abroad - book a consultation", badge: "45 min · 1300 EGP", forService: "Book a consultation" },
-  ar: { cta: "ادرس بالخارج - احجز استشارة", badge: "٤٥ دقيقة · ١٣٠٠ جنيه", forService: "احجز استشارة" },
-  es: { cta: "Estudiar en el extranjero - reserva su consulta", badge: "45 min · 1300 EGP", forService: "Reserva una consulta" },
+  en: { cta: "Study abroad - book a consultation", forService: "Book a consultation" },
+  ar: { cta: "ادرس بالخارج - احجز استشارة", forService: "احجز استشارة" },
+  es: { cta: "Estudiar en el extranjero - reserva su consulta", forService: "Reserva una consulta" },
 };
 
 // 🆕 نصوص زراير نموذج طلب الترجمة ونموذج التسجيل في برنامج اللغة الإنجليزية
@@ -220,7 +220,7 @@ function QuickFormsBanner({ language, onOpenTranslation, onOpenEnglishProgram, o
 }
 
 function ConsultationBanner({ language, onOpen }) {
-  const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
+  const cs = { ...(CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en), badge: formatConsultationBadge(language) };
   const [ref, visible] = useReveal();
   return (
     <section ref={ref} className="px-5 sm:px-10 md:px-16 -mt-1">
@@ -621,7 +621,7 @@ function getQuickInquiryService(service) {
 
 function ServiceRow({ service, index, onRequestConsultation, onOpenTranslation, onOpenEnglishProgram, onOpenScholarship, onOpenCallCenter, onOpenSpanishProgram, onOpenArabicProgram }) {
   const { language } = useLanguage();
-  const cs = CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en;
+  const cs = { ...(CONSULT_STRINGS[language] ?? CONSULT_STRINGS.en), badge: formatConsultationBadge(language) };
   const qf = QUICK_FORM_STRINGS[language] ?? QUICK_FORM_STRINGS.en;
   const [ref, visible] = useReveal(0.08);
   const isEven = index % 2 === 0;

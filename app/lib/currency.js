@@ -115,3 +115,21 @@ export function formatPrice(amount, currency, language = "en") {
   const formattedNum = Number.isInteger(num) ? num : num.toFixed(2);
   return `${formattedNum} ${getCurrencyLabel(currency, language)}`;
 }
+
+// 🆕 شارة سعر الاستشارة ("45 min · 27 USD") اللي بتظهر على زرار "احجز استشارة"
+// في الهوم وصفحة الخدمات. السعر الأساسي 1300 جنيه (نفس CONSULTATION_FEE في
+// ConsultationForm.jsx ونفس رسوم consultation-checkout)، ومتحوّل للعملة
+// حسب لغة الموقع بنفس convertPrice — فالمعروض هنا = المبلغ اللي هيتدفع فعلاً.
+export const CONSULTATION_FEE_EGP = 1300;
+export const CONSULTATION_DURATION_MINUTES = 45;
+
+export function formatConsultationBadge(language = "en") {
+  const currency = getCurrencyForLanguage(language);
+  const amount = convertPrice(CONSULTATION_FEE_EGP, "EGP", currency);
+  if (language === "ar") {
+    // الأرقام العربية (٤٥ / ١٣٠٠) زي باقي نصوص الشارة العربي.
+    const ar = (n) => Number(n).toLocaleString("ar-EG", { useGrouping: false });
+    return `${ar(CONSULTATION_DURATION_MINUTES)} دقيقة · ${ar(amount)} ${getCurrencyLabel(currency, "ar")}`;
+  }
+  return `${CONSULTATION_DURATION_MINUTES} min · ${formatPrice(amount, currency, language)}`;
+}

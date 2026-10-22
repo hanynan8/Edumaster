@@ -103,6 +103,8 @@ Miguel: ¡Hecho! Seguro que lo pasamos muy bien.`,
 const SCRIPTS = { a2: A2_SCRIPTS };
 
 // نص التسجيل لخانة معيّنة (أو null لو مفيش)
-export function getAudioScript(testId, slot) {
-  return SCRIPTS[testId]?.[slot] || null;
+// testOrId: "a2" أو تعريف اختبار مخصص (النصوص جواه: def.scripts — اللي الأدمن حطها في شيت Audio)
+export function getAudioScript(testOrId, slot) {
+  if (testOrId && typeof testOrId === "object") return testOrId.scripts?.[slot] || null;
+  return SCRIPTS[testOrId]?.[slot] || null;
 }

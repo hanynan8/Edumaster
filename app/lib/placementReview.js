@@ -55,10 +55,11 @@ export function legacyResults(answers, testId = "a1") {
 }
 
 // نتيجة قديمة من غير حقل test = اختبار A1 (الوحيد اللي كان موجود).
-export function resultsFromDoc(doc) {
+// testDef (اختياري): تعريف الاختبار المخصص لو النتيجة بتاعته (النتايج القديمة مفيهاش test = A1)
+export function resultsFromDoc(doc, testDef = null) {
   return Array.isArray(doc?.results) && doc.results.length
     ? doc.results
-    : legacyResults(doc?.answers, normalizeTestId(doc?.test));
+    : legacyResults(doc?.answers, testDef || normalizeTestId(doc?.test));
 }
 
 // خيارات السؤال للعرض. أسئلة الربط (bank): الخيارات حروف والنص بيتجاب من task.bank وقت العرض.
@@ -102,41 +103,57 @@ export function buildReview(results, testId = "a1") {
   return parts;
 }
 
-export function reviewFromDoc(doc) {
-  return buildReview(resultsFromDoc(doc), normalizeTestId(doc?.test));
+export function reviewFromDoc(doc, testDef = null) {
+  return buildReview(resultsFromDoc(doc, testDef), testDef || normalizeTestId(doc?.test));
 }
 
 // ───────────── إيميل النتيجة ─────────────
 
-const EMAIL_STRINGS = {
-  ar: {
-    dir: "rtl",
-    subject: (s, m, l) => `نتيجة اختبار تحديد المستوى في الإسبانية: ${s}/${m} (${l})`,
-    heading: "نتيجة اختبارك",
-    hello: (n) => `مرحبًا ${n}،`,
-    intro: "شكرًا لإكمالك اختبار تحديد المستوى في اللغة الإسبانية. هذه درجتك ومستواك، وبعدها إجاباتك على كل سؤال مع التصحيح.",
-    score: "درجتك",
-    level: "مستواك",
-  },
-  en: {
+// أسماء المادة (لغة الاختبار) بالـ 3 لغات — بتدخل في نصوص الإيميل. الاختبارات القديمة = إسباني.
+// subject مجهول أو "other" → نص عام من غير اسم لغة.
+export const SUBJECT_NAMES = {
+  es: { ar: "الإسبانية", en: "Spanish", es: "español" },
+  en: { ar: "الإنجليزية", en: "English", es: "inglés" },
+  fr: { ar: "الفرنسية", en: "French", es: "francés" },
+  de: { ar: "الألمانية", en: "German", es: "alemán" },
+  it: { ar: "الإيطالية", en: "Italian", es: "italiano" },
+  ar: { ar: "العربية", en: "Arabic", es: "árabe" },
+};
+
+function emailStrings(lang, subject) {
+  const n = SUBJECT_NAMES[subject]?.[lang] || "";
+  if (lang === "ar") {
+    return {
+      dir: "rtl",
+      subject: (s, m, l) => `نتيجة اختبار تحديد المستوى${n ? ` في ${n}` : ""}: ${s}/${m} (${l})`,
+      heading: "نتيجة اختبارك",
+      hello: (nm) => `مرحبًا ${nm}،`,
+      intro: `شكرًا لإكمالك اختبار تحديد المستوى${n ? ` في اللغة ${n}` : ""}. هذه درجتك ومستواك، وبعدها إجاباتك على كل سؤال مع التصحيح.`,
+      score: "درجتك",
+      level: "مستواك",
+    };
+  }
+  if (lang === "es") {
+    return {
+      dir: "ltr",
+      subject: (s, m, l) => `Tu resultado de la prueba de nivel${n ? ` de ${n}` : ""}: ${s}/${m} (${l})`,
+      heading: "Tu resultado",
+      hello: (nm) => `Hola ${nm},`,
+      intro: `Gracias por completar la prueba de nivel${n ? ` de ${n}` : ""}. Aquí tienes tu puntuación y tu nivel, y después tu respuesta a cada pregunta con su corrección.`,
+      score: "Tu puntuación",
+      level: "Tu nivel",
+    };
+  }
+  return {
     dir: "ltr",
-    subject: (s, m, l) => `Your Spanish level test result: ${s}/${m} (${l})`,
+    subject: (s, m, l) => `Your ${n ? `${n} ` : ""}level test result: ${s}/${m} (${l})`,
     heading: "Your test result",
-    hello: (n) => `Hi ${n},`,
-    intro: "Thanks for completing the Spanish placement test. Here are your score and level, followed by your answer to every question with the correction.",
+    hello: (nm) => `Hi ${nm},`,
+    intro: `Thanks for completing the ${n ? `${n} ` : ""}placement test. Here are your score and level, followed by your answer to every question with the correction.`,
     score: "Your score",
     level: "Your level",
-  },
-  es: {
-    dir: "ltr",
-    subject: (s, m, l) => `Tu resultado de la prueba de nivel de español: ${s}/${m} (${l})`,
-    heading: "Tu resultado",
-    hello: (n) => `Hola ${n},`,
-    intro: "Gracias por completar la prueba de nivel de español. Aquí tienes tu puntuación y tu nivel, y después tu respuesta a cada pregunta con su corrección.",
-    score: "Tu puntuación",
-    level: "Tu nivel",
-  },
-};
+  };
+}
 
 const esc = (s) =>
   String(s ?? "")
@@ -160,11 +177,13 @@ const TONES = {
   none: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", mark: "–" },
 };
 
-export function buildPlacementResultEmail({ name, language = "ar", score, maxScore, level, review }) {
-  const lang = EMAIL_STRINGS[language] ? language : "en";
-  const s = EMAIL_STRINGS[lang];
+// subject (اختياري): لغة الاختبار ("es" الافتراضي زي الاختبارات القديمة | "en" | ... | "other")
+// levels (اختياري): جدول مستويات الاختبار المخصص عشان وصف المستوى يظهر في الإيميل
+export function buildPlacementResultEmail({ name, language = "ar", score, maxScore, level, review, subject = "es", levels = null }) {
+  const lang = ["ar", "en", "es"].includes(language) ? language : "en";
+  const s = emailStrings(lang, subject);
   const r = REVIEW_STRINGS[lang];
-  const lvl = getLevelByCode(level);
+  const lvl = getLevelByCode(level, levels);
   const desc = lvl ? lvl.desc[lang] || lvl.desc.en : "";
 
   let correct = 0;

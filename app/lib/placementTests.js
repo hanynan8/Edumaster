@@ -69,29 +69,39 @@ export const PLACEMENT_TESTS = {
 
 export const TEST_IDS = Object.keys(PLACEMENT_TESTS);
 
-// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12)
-export function getAudioSlotNumbers(testId) {
-  return getPlacementTest(testId).audioSlots.map((a) => a.slot);
+// 🆕 تعريف اختبار مخصص (جاي من الداتابيز — الأدمن رفعه من ملف Excel): object فيه parts (وباقي حقول
+// الاختبار: id/label/title/audioSlots/audioDocId/...). كل الدوال تحت بتقبل id ("a1" | "a2") أو
+// تعريف اختبار مخصص مباشرة، فالمنطق المشترك (الأسئلة الظاهرة/التصحيح/المراجعة) واحد للنوعين.
+export function isTestDef(value) {
+  return Boolean(value) && typeof value === "object" && Array.isArray(value.parts);
 }
 
-// أي قيمة غريبة (أو ناقصة) → الاختبار الافتراضي a1
+// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12 · المخصص: اللي في ملفه)
+export function getAudioSlotNumbers(testOrId) {
+  return getPlacementTest(testOrId).audioSlots.map((a) => a.slot);
+}
+
+// أي قيمة غريبة (أو ناقصة) → الاختبار الافتراضي a1. (للاختبارات المدمجة بس — الاختبارات المخصصة
+// بتتحلّ من الداتابيز بـ resolveTestDef في customPlacementTests.js). لو اتدّى تعريف اختبار → id بتاعه.
 export function normalizeTestId(value) {
+  if (isTestDef(value)) return String(value.id);
   const id = String(value ?? "").toLowerCase();
   return PLACEMENT_TESTS[id] ? id : DEFAULT_TEST_ID;
 }
 
-export function getPlacementTest(testId) {
-  return PLACEMENT_TESTS[normalizeTestId(testId)];
+export function getPlacementTest(testOrId) {
+  if (isTestDef(testOrId)) return testOrId;
+  return PLACEMENT_TESTS[normalizeTestId(testOrId)];
 }
 
-export function getTestParts(testId) {
-  return getPlacementTest(testId).parts;
+export function getTestParts(testOrId) {
+  return getPlacementTest(testOrId).parts;
 }
 
 // الأجزاء/المهام الظاهرة فعلًا لاختبار معيّن: مهام الاستماع من غير صوت مرفوع بتتخفي.
 // audio = { [slot]: url }
-export function getVisiblePartsFor(testId, audio = {}) {
-  return getTestParts(testId)
+export function getVisiblePartsFor(testOrId, audio = {}) {
+  return getTestParts(testOrId)
     .map((p) => ({ ...p, tasks: getVisibleTasks(p, audio) }))
     .filter((p) => p.tasks.length);
 }

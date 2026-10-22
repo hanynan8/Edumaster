@@ -120,9 +120,9 @@ export async function sendPaymentSucceededEmail({ toEmail, name, itemLabel, amou
  * @param {string} p.level
  * @param {Array} p.review - من buildReview() في placementReview.js
  */
-export async function sendPlacementResultEmail({ toEmail, name, language, score, maxScore, level, review }) {
+export async function sendPlacementResultEmail({ toEmail, name, language, score, maxScore, level, review, subject, levels }) {
   try {
-    const mail = buildPlacementResultEmail({ name, language, score, maxScore, level, review });
+    const mail = buildPlacementResultEmail({ name, language, score, maxScore, level, review, subject, levels });
     return await sendTemplatedEmail({ to: toEmail, ...mail });
   } catch (err) {
     console.error("[sendPlacementResultEmail] error:", err);

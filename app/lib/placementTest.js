@@ -10,7 +10,7 @@
 
 import mongoose from "mongoose";
 import { PLACEMENT_TEST_FEE_USD } from "@/app/lib/spanishPlacementTest";
-import { getVisiblePartsFor, normalizeTestId, getPlacementTest, getAudioSlotNumbers } from "@/app/lib/placementTests";
+import { getVisiblePartsFor, normalizeTestId, getPlacementTest, getAudioSlotNumbers, isTestDef } from "@/app/lib/placementTests";
 import { getAnswerKey } from "@/app/lib/placementTestKeys";
 import { getCurrencyForLanguage, convertPrice, getPriceForCurrency } from "@/app/lib/currency";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
@@ -42,7 +42,8 @@ export function getVisibleQuestions(audio = {}, testId = "a1") {
 //            (اختبار A2 مفيهوش تقسيم للأسئلة فبيرجع 0)
 //   level: كود المستوى حسب جدول الاختبار (Pre-A1…A1.3 أو Pre-A2…A2.3)
 export function scoreAnswers(answers, audio = {}, testId = "a1") {
-  const tid = normalizeTestId(testId);
+  // testId = "a1" | "a2" أو تعريف اختبار مخصص (بنسيبه object عشان مفتاح إجاباته جواه)
+  const tid = isTestDef(testId) ? testId : normalizeTestId(testId);
   const ANSWER_KEY = getAnswerKey(tid);
   const questions = getVisibleQuestions(audio, tid);
   let rawScore = 0;
@@ -140,15 +141,27 @@ export async function getAudioMap(testId = "a1") {
 // - Pre-A1: بنبدأ من A1.1. Pre-A2: بنبدأ من A1.3 (مراجعة قبل A2) — حسب floorCode في placementLevels.js.
 // - مستوى الكورس بيتقرا من اسمه (كل اللغات) + slug + وسومه، وإلا من حقل level القديم.
 // - الترتيب: من الأقرب لمستوى الطالب للأعلى. الكورس الأنسب (الخطوة التالية حسب الجدول) بيتعلّم.
-export async function getRecommendedCourses(levelCode, language = "ar", limit = 12) {
-  const level = getLevelByCode(levelCode);
+// opts (اختياري — للاختبارات المخصصة):
+//   levels: جدول مستويات الاختبار المخصص (عشان Pre-B1 / B1.x تتعرف)
+//   courseLanguage: لغة الكورسات اللي بتتوصى (الافتراضي "es" زي الاختبارات القديمة) — null = أي لغة
+//   courseIds: لو متحدد → الكورسات دي بس هي المرشّحة (الكورسات اللي الأدمن ربطها بالاختبار)
+export async function getRecommendedCourses(levelCode, language = "ar", limit = 12, opts = {}) {
+  const level = getLevelByCode(levelCode, opts.levels);
   if (!level) return [];
   const floorRank = Math.max(levelRank(level.code), levelRank(level.floorCode || "A1.1"));
   const nextRank = levelRank(level.nextCode);
 
   getCategoryModel();
   const Course = getCourseModel();
-  const docs = await Course.find({ status: "published", language: "es" })
+  const courseLanguage = opts.courseLanguage === undefined ? "es" : opts.courseLanguage;
+  const query = { status: "published" };
+  if (courseLanguage) query.language = courseLanguage;
+  if (Array.isArray(opts.courseIds)) {
+    const ids = opts.courseIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (!ids.length) return [];
+    query._id = { $in: ids };
+  }
+  const docs = await Course.find(query)
     .populate("category", "slug")
     .sort({ displayOrder: 1, createdAt: -1 })
     .limit(200)
@@ -157,7 +170,8 @@ export async function getRecommendedCourses(levelCode, language = "ar", limit = 
   const currency = getCurrencyForLanguage(language);
   const out = [];
   for (const c of docs) {
-    if (c.category?.slug !== "language") continue;
+    // الاختبارات القديمة: كورسات تصنيف Language بس. لو الأدمن حدّد كورسات بالاسم (courseIds) مفيش فلتر تصنيف.
+    if (!Array.isArray(opts.courseIds) && c.category?.slug !== "language") continue;
     const i18n = c.i18n instanceof Map ? Object.fromEntries(c.i18n) : c.i18n || {};
     const names = [c.title, c.slug, ...(c.tags || []), ...Object.values(i18n).map((x) => x?.title)];
     let code = null;
@@ -167,7 +181,8 @@ export async function getRecommendedCourses(levelCode, language = "ar", limit = 
     }
     if (!code) code = fallbackLevelFromEnum(c.level);
     const rank = levelRank(code);
-    if (rank < floorRank) continue;
+    // كورسات مربوطة صراحةً من الأدمن بتفضل ظاهرة حتى لو مستواها أقل (هو اختارها بنفسه)
+    if (!Array.isArray(opts.courseIds) && rank < floorRank) continue;
     const entry = i18n[language] || i18n.en || null;
     out.push({
       id: c._id.toString(),

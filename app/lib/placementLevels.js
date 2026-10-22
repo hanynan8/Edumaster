@@ -151,16 +151,77 @@ export function levelRank(code) {
   return LEVEL_ORDER.indexOf(code);
 }
 
-// testId: "a1" (الافتراضي) | "a2" — كل اختبار له جدول مستويات
-export function getLevelByPercent(percent, testId = "a1") {
-  const levels = PLACEMENT_LEVELS_BY_TEST[testId] || A1_LEVELS;
+// بيرجّع جدول المستويات للاختبار: testOrLevels = id ("a1" | "a2") أو تعريف اختبار مخصص (فيه levels)
+// أو مصفوفة مستويات جاهزة.
+export function levelsFor(testOrLevels = "a1") {
+  if (Array.isArray(testOrLevels)) return testOrLevels;
+  if (testOrLevels && typeof testOrLevels === "object" && Array.isArray(testOrLevels.levels)) {
+    return testOrLevels.levels;
+  }
+  const id = testOrLevels && typeof testOrLevels === "object" ? testOrLevels.id : testOrLevels;
+  return PLACEMENT_LEVELS_BY_TEST[id] || A1_LEVELS;
+}
+
+// testOrLevels: "a1" (الافتراضي) | "a2" | تعريف اختبار مخصص | مصفوفة مستويات — كل اختبار له جدول مستويات
+export function getLevelByPercent(percent, testOrLevels = "a1") {
+  const levels = levelsFor(testOrLevels);
   const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   return levels.find((l) => p >= l.min && p <= l.max) || levels[0];
 }
 
-// أكواد المستويات فريدة عبر الاختبارين (Pre-A1 / A1.x / Pre-A2 / A2.x) فمش محتاجين testId هنا
-export function getLevelByCode(code) {
-  return ALL_LEVELS.find((l) => l.code === code) || null;
+// أكواد المستويات فريدة عبر الاختبارين (Pre-A1 / A1.x / Pre-A2 / A2.x) فمش محتاجين testId هنا.
+// extraLevels (اختياري): مستويات اختبار مخصص (Pre-B1 / B1.x ...) — بتتدوّر فيها لو الكود مش من A1/A2.
+export function getLevelByCode(code, extraLevels = null) {
+  return (
+    ALL_LEVELS.find((l) => l.code === code) ||
+    (Array.isArray(extraLevels) ? extraLevels.find((l) => l.code === code) : null) ||
+    null
+  );
+}
+
+// ───── جدول مستويات الاختبارات المخصصة (B1, B2, C1...) ─────
+// الأدمن بيختار المستوى (CEFR) من ملف الاختبار والنظام بيبني 4 مستويات: Pre-X / X.1 / X.2 / X.3
+// (الحدود الافتراضية 40 / 60 / 80 وممكن تتغيّر من ملف الاختبار).
+export const CEFR_BASES = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+export function buildStandardLevels(base, thresholds = [40, 60, 80]) {
+  const b = String(base || "").toUpperCase();
+  if (!CEFR_BASES.includes(b)) return null;
+  const [t1, t2, t3] = thresholds;
+  const idx = CEFR_BASES.indexOf(b);
+  const prev = idx > 0 ? CEFR_BASES[idx - 1] : null;
+  const next = idx < CEFR_BASES.length - 1 ? CEFR_BASES[idx + 1] : null;
+  const mk = (code, min, max, nextCode, extra, desc) => ({
+    code,
+    min,
+    max,
+    nextCourseName: nextCode,
+    nextCode,
+    ...extra,
+    desc,
+  });
+  return [
+    mk(`Pre-${b}`, 0, t1 - 1, `${b}.1`, prev ? { floorCode: `${prev}.3` } : {}, {
+      es: `Aún no domina los contenidos de ${b}. Se recomienda reforzar el nivel anterior antes de empezar un curso ${b}.`,
+      en: `You don't yet master the ${b} content. We recommend reinforcing the previous level before starting a ${b} course.`,
+      ar: `لم تتقن بعد محتوى المستوى ${b}. يُنصح بتقوية المستوى السابق قبل بدء كورس ${b}.`,
+    }),
+    mk(`${b}.1`, t1, t2 - 1, `${b}.2`, {}, {
+      es: `Nivel orientativo ${b}.1: domina parte de los contenidos de ${b} y necesita consolidar el resto.`,
+      en: `Indicative level ${b}.1: you master part of the ${b} content and need to consolidate the rest.`,
+      ar: `المستوى الإرشادي ${b}.1: تتقن جزءًا من محتوى ${b} وتحتاج إلى تثبيت الباقي.`,
+    }),
+    mk(`${b}.2`, t2, t3 - 1, `${b}.3`, {}, {
+      es: `Nivel orientativo ${b}.2: se desenvuelve con bastante seguridad en los contenidos de ${b}.`,
+      en: `Indicative level ${b}.2: you handle the ${b} content with fair confidence.`,
+      ar: `المستوى الإرشادي ${b}.2: تتعامل بثقة جيدة مع محتوى ${b}.`,
+    }),
+    mk(`${b}.3`, t3, 100, next ? `${next}.1` : `${b}.3`, {}, {
+      es: `Nivel orientativo ${b}.3: domina los contenidos de ${b}${next ? ` y puede pasar a ${next}` : ""}.`,
+      en: `Indicative level ${b}.3: you master the ${b} content${next ? ` and can move on to ${next}` : ""}.`,
+      ar: `المستوى الإرشادي ${b}.3: تتقن محتوى ${b}${next ? ` ويمكنك الانتقال إلى ${next}` : ""}.`,
+    }),
+  ];
 }
 
 // بيطلّع كود المستوى من نص (اسم الكورس/وسومه...). بيرجّع كود من LEVEL_ORDER أو null.
@@ -182,12 +243,15 @@ export function fallbackLevelFromEnum(level) {
   return "A1.1";
 }
 
-// أنهي اختبار تحديد مستوى بيظهر على الكورس ده؟ "a1" لكورسات A1 (Start A1.1 / Basic A1.2 /
-// Survival A1.3...) و"a2" لكورسات A2 (A2.1 / A2.2 / A2.3...) وإلا null (مفيش زرار اختبار).
+// أنهي اختبار تحديد مستوى بيظهر على الكورس ده؟
+//  1) 🆕 لو الأدمن ربط الكورس باختبار مخصص من لوحة الأدمن (course.placementTest = { id, path }) → id الاختبار ده.
+//  2) وإلا بالاسم: "a1" لكورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3...) و"a2" لكورسات A2
+//     (A2.1 / A2.2 / A2.3...) وإلا null (مفيش زرار اختبار).
 // بيقرا الكود من اسم الكورس (كل اللغات) أو الـ slug أو الوسوم. course = الكورس الخام جاي من
 // /api/courses. (مفيش import لبيانات الاختبارات هنا عشان صفحات الكورسات متتقلش.)
 export function getPlacementTestForCourse(course) {
   if (!course) return null;
+  if (course.placementTest?.id) return String(course.placementTest.id);
   const i18nTitles = Object.values(course.i18n || {}).map((x) => x?.title);
   const names = [course.title, course.slug, ...(course.tags || []), ...i18nTitles];
   for (const n of names) {
@@ -201,9 +265,16 @@ export function getPlacementTestForCourse(course) {
   return null;
 }
 
-// رابط صفحة الاختبار حسب id الاختبار
+// 🆕 هل الكورس ده مربوط باختبار مخصص من الأدمن؟ (بيظهر له زرار الاختبار حتى لو مش كورس إسباني)
+export function hasLinkedPlacementTest(course) {
+  return Boolean(course?.placementTest?.id);
+}
+
+// رابط صفحة الاختبار حسب id الاختبار: A1 و A2 صفحاتهم القديمة، وأي اختبار مخصص على /level-test/<id>
 export function getPlacementTestPath(testId) {
-  return testId === "a2" ? "/spanish-test/a2" : "/spanish-test";
+  if (testId === "a2") return "/spanish-test/a2";
+  if (!testId || testId === "a1") return "/spanish-test";
+  return `/level-test/${encodeURIComponent(testId)}`;
 }
 
 // (قديم) هل الكورس ده من كورسات A1 بس؟ — متسيب للتوافق.

@@ -8,6 +8,9 @@
 // - اختبار مدفوع: بيتسجّل بحالة "unpaid" 🔒 والراوت مبيرجعش الدرجة للـ client،
 //   والطالب مبيستلمها غير بعد نجاح الدفع (شوف ./result/route.js).
 //
+// 🆕 body.test = "a1" | "a2" (الافتراضي a1) — الأسئلة والمفتاح والصوتيات والمستوى بيتحددوا حسب الاختبار،
+// والنتيجة بتتخزن بحقل test.
+//
 // 🔐 لازم الطالب يكون مسجّل دخول: الاسم والإيميل والرقم (التليفون) بيتاخدوا من
 // الـ session على السيرفر — مش من الـ body — فمفيش حد يقدر يبعت بيانات مزيّفة، وبيانات
 // الطالب بتتسجّل مع النتيجة وتظهر للأدمن. فيه rate limit بالـ IP.
@@ -18,6 +21,7 @@ import { requireSession } from "@/app/lib/rbac";
 import { sendPlacementResultEmail } from "@/app/lib/emailHelpers";
 import { buildResults, buildReview } from "@/app/lib/placementReview";
 import { PLACEMENT_TEST_IS_FREE } from "@/app/lib/spanishPlacementTest";
+import { normalizeTestId } from "@/app/lib/placementTests";
 import {
   getAudioMap,
   getPlacementTestsCollection,
@@ -56,6 +60,7 @@ export async function POST(request) {
     const phone = String(user.phone || "").trim().slice(0, 60);
     const userId = String(user.id || "");
     const language = ["ar", "en", "es"].includes(body?.language) ? body.language : "ar";
+    const testId = normalizeTestId(body?.test);
 
     if (!name || !EMAIL_RE.test(email)) {
       return jsonResponse({ error: "invalid_profile" }, 400);
@@ -63,16 +68,17 @@ export async function POST(request) {
 
     await connectToMongo();
     // الأسئلة المصححة = الأسئلة الظاهرة فعلًا (مهام الاستماع من غير صوت مرفوع بتتخفي)
-    const audio = await getAudioMap();
-    const answers = sanitizeAnswers(body?.answers, audio);
-    const result = scoreAnswers(answers, audio);
+    const audio = await getAudioMap(testId);
+    const answers = sanitizeAnswers(body?.answers, audio, testId);
+    const result = scoreAnswers(answers, audio, testId);
     // لقطة التصحيح لكل سؤال (إجابة الطالب + الصحيحة) — بتتخزّن عشان الأدمن والطالب
     // يشوفوا الإجابات مع التصحيح، وتفضل مطابقة للدرجة المحسوبة دلوقتي.
-    const results = buildResults(answers, audio);
+    const results = buildResults(answers, audio, testId);
 
     const col = getPlacementTestsCollection();
     const inserted = await col.insertOne({
       userId,
+      test: testId,
       name,
       phone,
       email,
@@ -94,7 +100,7 @@ export async function POST(request) {
 
     const id = inserted.insertedId.toString();
     if (PLACEMENT_TEST_IS_FREE) {
-      const review = buildReview(results);
+      const review = buildReview(results, testId);
 
       // 📧 نسخة من النتيجة + الإجابات والتصحيح على إيميل الطالب المسجّل بيه (من الـ session).
       // best-effort: فشل الإرسال مبيوقّفش النتيجة، والـ client بيعرف لو اتبعت (emailSentTo).
@@ -117,6 +123,7 @@ export async function POST(request) {
         {
           id,
           free: true,
+          test: testId,
           name,
           score: result.score,
           maxScore: result.maxScore,

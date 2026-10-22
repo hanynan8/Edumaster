@@ -103,6 +103,27 @@ describe("POST /api/placement-tests", () => {
     expect(data).toMatchObject({ id: "test123", free: true, name: USER.name, score: 72 });
   });
 
+  it("🆕 test=a2 → بيتصحح ويتسجّل كاختبار A2 (والافتراضي a1 لو مفيش/غلط)", async () => {
+    const placement = await import("@/app/lib/placementTest");
+    mockGetServerSession.mockResolvedValue({ user: USER });
+
+    const res = await POST(post({ language: "es", answers: { 1: 1 }, test: "a2" }));
+    expect(res.status).toBe(201);
+    expect(placement.getAudioMap).toHaveBeenLastCalledWith("a2");
+    expect(placement.scoreAnswers).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), "a2");
+    expect(mockInsertOne.mock.calls[0][0]).toMatchObject({ test: "a2" });
+    expect((await res.json()).test).toBe("a2");
+
+    mockInsertOne.mockClear();
+    await POST(post({ language: "es", answers: { 1: 1 }, test: "zzz" }));
+    expect(placement.scoreAnswers).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), "a1");
+    expect(mockInsertOne.mock.calls[0][0]).toMatchObject({ test: "a1" });
+
+    mockInsertOne.mockClear();
+    await POST(post({ language: "es", answers: { 1: 1 } })); // من غير test = A1
+    expect(mockInsertOne.mock.calls[0][0]).toMatchObject({ test: "a1" });
+  });
+
   it("حساب من غير إيميل صالح → 400 invalid_profile", async () => {
     mockGetServerSession.mockResolvedValue({ user: { ...USER, email: "" } });
     const res = await POST(post({ language: "ar", answers: {} }));

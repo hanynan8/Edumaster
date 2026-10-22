@@ -30,7 +30,7 @@ import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "./LoadingScreen";
-import { isPlacementTestCourse } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
 
 // 🆕 زرار "اختبر مستواك" في كارت الكورس على الصفحة الرئيسية — نص بسيط
 // حسب اللغة (مش جوه ui المُمرّرة من الصفحة الأب عشان منضطرش نعدّل كل
@@ -82,7 +82,7 @@ function localizeCourse(c, language, ui) {
     categoryName,
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
-    hasPlacementTest: isPlacementTestCourse(c),
+    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | null
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -310,14 +310,15 @@ function CourseCard({ course, ui, lang, visible, delay }) {
   // بدل زرار ClassMarker القديم.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
   const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
-  // اختبار A1 بيظهر بس على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3)
-  const showSpanishTest = isSpanishCourse && course.hasPlacementTest;
+  // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
+  // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
+  const showSpanishTest = isSpanishCourse && Boolean(course.placementTestId);
   const levelTestLabel = LEVEL_TEST_BTN_LABEL[lang] || LEVEL_TEST_BTN_LABEL.en;
 
   function handleSpanishTestClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.open("/spanish-test", "_blank", "noopener,noreferrer");
+    window.open(getPlacementTestPath(course.placementTestId), "_blank", "noopener,noreferrer");
   }
 
   function handleLevelTestClick(e) {

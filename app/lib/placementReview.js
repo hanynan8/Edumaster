@@ -1,6 +1,7 @@
 // app/lib/placementReview.js
 //
 // 🔒 سيرفر بس (بيستورد مفتاح الإجابات — ممنوع من أي كومبوننت "use client").
+// 🆕 كل الدوال بتاخد testId ("a1" الافتراضي | "a2") — الأسئلة والمفتاح بيتحددوا حسب الاختبار.
 //
 // مراجعة اختبار تحديد المستوى (إسباني): لكل سؤال → إجابة الطالب + الإجابة الصحيحة + هل صح.
 //   1) buildResults(answers, audio) — "لقطة" مدمجة بتتخزّن في مستند النتيجة وقت التسليم:
@@ -10,8 +11,8 @@
 //   2) buildReview(results) — بتبني هيكل العرض (أجزاء → مهام → أسئلة بنصوصها وخياراتها).
 //   3) buildPlacementResultEmail(...) — إيميل النتيجة + الإجابات والتصحيح (3 لغات).
 
-import { PLACEMENT_PARTS, getVisibleParts } from "@/app/lib/spanishPlacementTest";
-import { ANSWER_KEY } from "@/app/lib/spanishPlacementTestKey";
+import { getTestParts, getVisiblePartsFor, normalizeTestId } from "@/app/lib/placementTests";
+import { getAnswerKey } from "@/app/lib/placementTestKeys";
 import { getLevelByCode } from "@/app/lib/placementLevels";
 import { REVIEW_STRINGS } from "@/app/lib/placementReviewStrings";
 
@@ -20,9 +21,10 @@ const LETTERS = "abcdefghijk";
 const toIndex = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
 
 // لقطة النتيجة للأسئلة الظاهرة فعلًا وقت الاختبار (نفس الأسئلة اللي اتحسبت منها الدرجة).
-export function buildResults(answers, audio = {}) {
+export function buildResults(answers, audio = {}, testId = "a1") {
+  const ANSWER_KEY = getAnswerKey(testId);
   const out = [];
-  for (const part of getVisibleParts(audio)) {
+  for (const part of getVisiblePartsFor(testId, audio)) {
     for (const task of part.tasks) {
       for (const q of task.questions) {
         out.push({ n: q.n, a: toIndex(answers?.[q.n]), c: ANSWER_KEY[q.n]?.a ?? null });
@@ -34,9 +36,10 @@ export function buildResults(answers, audio = {}) {
 
 // للنتايج القديمة (اتسجّلت قبل ما نخزّن اللقطة): بنعيد بناءها من answers المخزّنة.
 // مهام الاستماع بتظهر بس لو الطالب جاوب على سؤال منها (يعني كانت ظاهرة وقتها).
-export function legacyResults(answers) {
+export function legacyResults(answers, testId = "a1") {
+  const ANSWER_KEY = getAnswerKey(testId);
   const out = [];
-  for (const part of PLACEMENT_PARTS) {
+  for (const part of getTestParts(testId)) {
     for (const task of part.tasks) {
       const visible =
         task.audioSlot === undefined || task.questions.some((q) => answers?.[q.n] !== undefined);
@@ -49,8 +52,11 @@ export function legacyResults(answers) {
   return out;
 }
 
+// نتيجة قديمة من غير حقل test = اختبار A1 (الوحيد اللي كان موجود).
 export function resultsFromDoc(doc) {
-  return Array.isArray(doc?.results) && doc.results.length ? doc.results : legacyResults(doc?.answers);
+  return Array.isArray(doc?.results) && doc.results.length
+    ? doc.results
+    : legacyResults(doc?.answers, normalizeTestId(doc?.test));
 }
 
 // خيارات السؤال للعرض. أسئلة الربط (bank): الخيارات حروف والنص بيتجاب من task.bank وقت العرض.
@@ -59,10 +65,10 @@ function optionsFor(task, q) {
   return q.o.map((text, i) => ({ label: LETTERS[i], text }));
 }
 
-export function buildReview(results) {
+export function buildReview(results, testId = "a1") {
   const byN = new Map((results || []).map((r) => [r.n, r]));
   const parts = [];
-  for (const part of PLACEMENT_PARTS) {
+  for (const part of getTestParts(testId)) {
     const tasks = [];
     for (const task of part.tasks) {
       const questions = task.questions
@@ -95,7 +101,7 @@ export function buildReview(results) {
 }
 
 export function reviewFromDoc(doc) {
-  return buildReview(resultsFromDoc(doc));
+  return buildReview(resultsFromDoc(doc), normalizeTestId(doc?.test));
 }
 
 // ───────────── إيميل النتيجة ─────────────

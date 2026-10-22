@@ -12,6 +12,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { requireRole } from "@/app/lib/rbac";
 import { getPlacementTestsCollection } from "@/app/lib/placementTest";
 import { reviewFromDoc } from "@/app/lib/placementReview";
+import { normalizeTestId } from "@/app/lib/placementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -25,6 +26,7 @@ function toRow(d) {
   return {
     _id: d._id.toString(),
     userId: d.userId || null,
+    test: normalizeTestId(d.test), // نتيجة قديمة من غير test = A1
     name: d.name,
     // الرقم = تليفون الطالب من حسابه (النتايج القديمة كانت مخزّنة في studentNumber)
     phone: d.phone || d.studentNumber || "",

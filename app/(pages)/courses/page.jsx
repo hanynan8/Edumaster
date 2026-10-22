@@ -28,7 +28,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
 import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import { isPlacementTestCourse } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
 
 const FALLBACK_IMAGE =
   "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
@@ -173,7 +173,7 @@ function localizeCourse(c, language, t) {
     categoryName: categoryI18nEntry?.name || c.categoryName || "",
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
-    hasPlacementTest: isPlacementTestCourse(c),
+    placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | null
     classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
@@ -673,13 +673,14 @@ function CourseCard({ course, t }) {
   // (/spanish-test) جمب السعر، فبنخفي زرار ClassMarker القديم عنها عشان ميبقاش فيه اختبارين.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
   const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse;
-  // اختبار A1 بيظهر بس على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3)
-  const showSpanishTest = isSpanishCourse && course.hasPlacementTest;
+  // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
+  // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
+  const showSpanishTest = isSpanishCourse && Boolean(course.placementTestId);
 
   function handleSpanishTestClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.open("/spanish-test", "_blank", "noopener,noreferrer");
+    window.open(getPlacementTestPath(course.placementTestId), "_blank", "noopener,noreferrer");
   }
 
   function handleLevelTestClick(e) {

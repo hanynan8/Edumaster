@@ -9,11 +9,17 @@
 // البيانات GET /api/admin/placement-tests. الأدمن بيشوف الدرجة دايمًا حتى
 // لو الطالب لسه ماستلمهاش (لأنه لسه ما دفعش). فيه فلتر حالة الدفع،
 // تصدير Excel، وحذف نتيجة.
+//
+// 🆕 تبويبين: اختبار A1 / اختبار A2. كل تبويب ليه:
+//   - رفع صوتيات الاستماع بتاعته (4 خانات منفصلة) — في A2 بتظهر كمان "Script" لكل خانة
+//     (نص التسجيل اللي هتسجّله بنفسك، بييجي من API الأدمن بس).
+//   - نتائجه (النتايج القديمة من غير حقل test بتتحسب A1).
 
 import { useState, useEffect, useRef } from 'react';
 import ExcelJS from 'exceljs';
 import { Loader, AlertCircle, GraduationCap, Trash2, Download, Upload, Headphones, Eye, X } from 'lucide-react';
 import PlacementReview from '@/app/components/PlacementReview';
+import { PLACEMENT_TESTS, TEST_IDS, normalizeTestId } from '@/app/lib/placementTests';
 
 const PAY_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -35,33 +41,41 @@ function formatPaid(row) {
 }
 
 
-const AUDIO_SLOTS = [
-  { slot: 1, label: 'Audio 1 — Mensajes cortos', hint: 'Questions 1–5' },
-  { slot: 2, label: 'Audio 2 — Mensajes muy breves', hint: 'Questions 6–10' },
-  { slot: 3, label: 'Audio 3 — Carmen: su casa y su día', hint: 'Questions 11–18' },
-  { slot: 4, label: 'Audio 4 — Rosa y Miguel', hint: 'Questions 19–25' },
-];
-
 function formatSize(bytes) {
   if (!bytes) return '';
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 }
 
-// رفع صوتيات قسم الاستماع (4 خانات) — بتظهر في الاختبار فورًا أول ما تتّرفع.
-function ListeningAudioManager() {
+// رفع صوتيات قسم الاستماع (4 خانات لكل اختبار) — بتظهر في الاختبار فورًا أول ما تتّرفع.
+function ListeningAudioManager({ testId }) {
+  const testInfo = PLACEMENT_TESTS[testId];
+  const AUDIO_SLOTS = testInfo.audioSlots;
   const [tracks, setTracks] = useState({});
+  const [scripts, setScripts] = useState({}); // نص التسجيل لكل خانة (لو متاح — A2)
+  const [openScript, setOpenScript] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busySlot, setBusySlot] = useState(null);
   const [error, setError] = useState('');
   const inputs = useRef({});
 
   useEffect(() => {
-    fetch('/api/admin/placement-tests/audio')
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    setTracks({});
+    setScripts({});
+    setOpenScript(null);
+    fetch(`/api/admin/placement-tests/audio?test=${testId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
-      .then((d) => setTracks(d.tracks || {}))
-      .catch(() => setError('Could not load the audio files'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (cancelled) return;
+        setTracks(d.tracks || {});
+        setScripts(d.scripts || {});
+      })
+      .catch(() => { if (!cancelled) setError('Could not load the audio files'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [testId]);
 
   const upload = async (slot, file) => {
     if (!file) return;
@@ -69,6 +83,7 @@ function ListeningAudioManager() {
     setBusySlot(slot);
     try {
       const fd = new FormData();
+      fd.append('test', testId);
       fd.append('slot', String(slot));
       fd.append('file', file);
       const res = await fetch('/api/admin/placement-tests/audio', { method: 'POST', body: fd });
@@ -95,7 +110,7 @@ function ListeningAudioManager() {
     setError('');
     setBusySlot(slot);
     try {
-      const res = await fetch(`/api/admin/placement-tests/audio?slot=${slot}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/placement-tests/audio?test=${testId}&slot=${slot}`, { method: 'DELETE' });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error('failed');
       setTracks(data.tracks || {});
@@ -112,11 +127,11 @@ function ListeningAudioManager() {
     <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-5 mb-6">
       <div className="flex items-center gap-2 mb-1">
         <Headphones className="text-indigo-600" size={18} />
-        <h3 className="text-sm font-semibold text-gray-800">Listening audio (Part 2)</h3>
+        <h3 className="text-sm font-semibold text-gray-800">Listening audio (Part 2) — {testInfo.label} test</h3>
         <span className="text-xs text-gray-400">({uploadedCount}/4 uploaded)</span>
       </div>
       <p className="text-xs text-gray-500 mb-4">
-        Each audio appears in its place in the test as soon as it is uploaded. A task without audio stays hidden from the test.
+        Each audio appears in its place in the {testInfo.label} test as soon as it is uploaded. A task without audio stays hidden from the test (the score is then calculated out of 100 from the visible questions).
       </p>
 
       {error && (
@@ -166,6 +181,25 @@ function ListeningAudioManager() {
                     )}
                   </div>
                 </div>
+                {scripts[slot] && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpenScript(openScript === slot ? null : slot)}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                    >
+                      {openScript === slot ? 'Hide script' : 'Show script (to record)'}
+                    </button>
+                    {openScript === slot && (
+                      <pre
+                        dir="ltr"
+                        className="mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-gray-100 bg-gray-50 p-3 text-left text-xs leading-relaxed text-gray-700 font-sans"
+                      >
+                        {scripts[slot]}
+                      </pre>
+                    )}
+                  </div>
+                )}
                 {t ? (
                   <div className="mt-2.5">
                     <p className="text-[11px] text-gray-500 mb-1">{t.name} · {formatSize(t.size)}</p>
@@ -245,6 +279,7 @@ function ResultDetailModal({ row, detail, loading, error, onClose }) {
 }
 
 function PlacementTestsAdmin() {
+  const [testId, setTestId] = useState('a1'); // التبويب الحالي: اختبار A1 أو A2
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -263,7 +298,9 @@ function PlacementTestsAdmin() {
       .catch(() => { setError('Error fetching placement test results'); setLoading(false); });
   }, []);
 
-  const visible = filter === 'all' ? rows : rows.filter((r) => r.paymentStatus === filter);
+  const countFor = (id) => rows.filter((r) => normalizeTestId(r.test) === id).length;
+  const testRows = rows.filter((r) => normalizeTestId(r.test) === testId);
+  const visible = filter === 'all' ? testRows : testRows.filter((r) => r.paymentStatus === filter);
 
   const openDetail = async (row) => {
     setSelected(row);
@@ -300,7 +337,7 @@ function PlacementTestsAdmin() {
     try {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Edumaster Admin';
-      const sheet = workbook.addWorksheet('Spanish Tests', { views: [{ state: 'frozen', ySplit: 1 }] });
+      const sheet = workbook.addWorksheet(`Spanish Tests ${PLACEMENT_TESTS[testId].label}`, { views: [{ state: 'frozen', ySplit: 1 }] });
       sheet.columns = [
         { header: '#', key: 'index', width: 6 },
         { header: 'Name', key: 'name', width: 28 },
@@ -340,7 +377,7 @@ function PlacementTestsAdmin() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `spanish-test-results-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `spanish-test-${testId}-results-${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -356,11 +393,25 @@ function PlacementTestsAdmin() {
 
   return (
     <div className="p-4 sm:p-6">
-      <ListeningAudioManager />
+      <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 mb-5">
+        {TEST_IDS.map((id) => (
+          <button
+            key={id}
+            onClick={() => { setTestId(id); setFilter('all'); setSelected(null); }}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              testId === id ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {PLACEMENT_TESTS[id].label} test
+            <span className={`ml-1.5 text-xs ${testId === id ? 'text-indigo-200' : 'text-gray-400'}`}>({countFor(id)})</span>
+          </button>
+        ))}
+      </div>
+      <ListeningAudioManager testId={testId} />
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
           <GraduationCap className="text-indigo-600" size={22} />
-          <h2 className="text-lg font-semibold text-gray-800">Spanish Level Test Results</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Spanish Level Test Results — {PLACEMENT_TESTS[testId].label}</h2>
           <span className="text-xs text-gray-400">({visible.length})</span>
         </div>
         <div className="flex items-center gap-2">
@@ -391,7 +442,7 @@ function PlacementTestsAdmin() {
       )}
 
       {visible.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">No results yet.</div>
+        <div className="text-center py-16 text-gray-400">No {PLACEMENT_TESTS[testId].label} test results yet.</div>
       ) : (
         <div className="overflow-x-auto bg-white rounded-xl border border-gray-100">
           <table className="w-full text-sm text-left">

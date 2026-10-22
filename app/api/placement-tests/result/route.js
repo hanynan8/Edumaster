@@ -11,6 +11,7 @@ import { getPaymentModel } from "@/app/lib/models";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { getPlacementTestsCollection, getRecommendedCourses } from "@/app/lib/placementTest";
 import { getLevelByPercent } from "@/app/lib/placementLevels";
+import { normalizeTestId } from "@/app/lib/placementTests";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -41,9 +42,11 @@ export async function GET(request) {
     const doc = await getPlacementTestsCollection().findOne({ _id: payment.placementTest });
     if (!doc) return jsonResponse({ error: "not_found" }, 404);
 
-    const level = doc.level || getLevelByPercent(doc.score).code;
+    const testId = normalizeTestId(doc.test); // نتيجة قديمة من غير test = A1
+    const level = doc.level || getLevelByPercent(doc.score, testId).code;
     const recommended = await getRecommendedCourses(level, doc.language || "ar").catch(() => []);
     return jsonResponse({
+      test: testId,
       name: doc.name,
       score: doc.score,
       maxScore: doc.maxScore,

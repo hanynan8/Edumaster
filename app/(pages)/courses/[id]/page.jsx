@@ -32,7 +32,7 @@ import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
-import { isPlacementTestCourse } from "@/app/lib/placementLevels";
+import { getPlacementTestForCourse, getPlacementTestPath } from "@/app/lib/placementLevels";
 import {
   Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
@@ -625,8 +625,10 @@ function RealCourseDetail({ id }) {
   const coursePriceInfo = getPriceForCurrency(course.prices, language);
   // 🆕 كورس إسباني تحت Language → زرار اختبار المستوى (/spanish-test) جمب السعر
   const isSpanishCourse = course.categorySlug === "language" && course.language === "es";
-  // اختبار A1 بيظهر بس على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3)
-  const showSpanishTest = isSpanishCourse && isPlacementTestCourse(course);
+  // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
+  // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
+  const placementTestId = isSpanishCourse ? getPlacementTestForCourse(course) : null;
+  const showSpanishTest = Boolean(placementTestId);
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
@@ -697,7 +699,7 @@ function RealCourseDetail({ id }) {
                   </p>
                   {showSpanishTest && (
                     <Link
-                      href="/spanish-test"
+                      href={getPlacementTestPath(placementTestId)}
                       target="_blank"
                       className="inline-flex items-center border border-[#003A91]/30 text-[#003A91] text-xs font-bold px-3 py-2 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
                     >

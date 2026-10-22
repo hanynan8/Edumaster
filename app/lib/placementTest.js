@@ -2,12 +2,16 @@
 //
 // 🔒 منطق السيرفر لاختبار تحديد المستوى (إسباني): الوصول لكولكشن النتائج +
 // التصحيح + تحديد المستوى + الكورسات الموصى بها + حساب رسوم الاختبار (لو الاختبار
-// مدفوع). التصحيح هنا بس (مفتاح الإجابات app/lib/spanishPlacementTestKey.js
-// مش بيتحمّل في المتصفح أبدًا).
+// مدفوع). التصحيح هنا بس (مفاتيح الإجابات app/lib/spanishPlacementTestKey.js و
+// spanishPlacementTestKeyA2.js مش بيتحمّلوا في المتصفح أبدًا).
+//
+// 🆕 فيه اختبارين (a1 / a2 — شوف placementTests.js). كل دوال التصحيح/الصوتيات بتاخد testId
+// كآخر باراميتر (الافتراضي "a1" — فالكود القديم شغال زي ما هو).
 
 import mongoose from "mongoose";
-import { getVisibleParts, PLACEMENT_TEST_FEE_USD } from "@/app/lib/spanishPlacementTest";
-import { ANSWER_KEY } from "@/app/lib/spanishPlacementTestKey";
+import { PLACEMENT_TEST_FEE_USD } from "@/app/lib/spanishPlacementTest";
+import { getVisiblePartsFor, normalizeTestId, getPlacementTest } from "@/app/lib/placementTests";
+import { getAnswerKey } from "@/app/lib/placementTestKeys";
 import { getCurrencyForLanguage, convertPrice, getPriceForCurrency } from "@/app/lib/currency";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
 import { resolveSecureStoredUrl, buildStoragePublicUrl } from "@/app/lib/bunny";
@@ -27,17 +31,20 @@ export function getPlacementTestsCollection() {
 }
 
 // كل الأسئلة المعروضة فعليًا (مهام الاستماع من غير audioSrc بتتخفي).
-export function getVisibleQuestions(audio = {}) {
-  return getVisibleParts(audio).flatMap((p) => p.tasks.flatMap((t) => t.questions));
+export function getVisibleQuestions(audio = {}, testId = "a1") {
+  return getVisiblePartsFor(testId, audio).flatMap((p) => p.tasks.flatMap((t) => t.questions));
 }
 
 // بيصحّح answers = { [رقم السؤال]: index } ويرجع:
 //   score/maxScore: الدرجة من 100 (لو في مهام مخفية بتتحوّل لنسبة من 100)
 //   rawScore/rawMax: الدرجة الخام على الأسئلة الظاهرة
-//   a11/a12: عدد الإجابات الصحيحة في أسئلة A1.1 و A1.2 (من 51 / 49)
-//   level: كود المستوى حسب الجدول
-export function scoreAnswers(answers, audio = {}) {
-  const questions = getVisibleQuestions(audio);
+//   a11/a12: عدد الإجابات الصحيحة في أسئلة A1.1 و A1.2 (من 51 / 49) — اختبار A1 بس
+//            (اختبار A2 مفيهوش تقسيم للأسئلة فبيرجع 0)
+//   level: كود المستوى حسب جدول الاختبار (Pre-A1…A1.3 أو Pre-A2…A2.3)
+export function scoreAnswers(answers, audio = {}, testId = "a1") {
+  const tid = normalizeTestId(testId);
+  const ANSWER_KEY = getAnswerKey(tid);
+  const questions = getVisibleQuestions(audio, tid);
   let rawScore = 0;
   let answered = 0;
   let a11 = 0;
@@ -50,12 +57,12 @@ export function scoreAnswers(answers, audio = {}) {
     if (ans === key.a) {
       rawScore += 1;
       if (key.s === "A1.1") a11 += 1;
-      else a12 += 1;
+      else if (key.s === "A1.2") a12 += 1;
     }
   }
   const rawMax = questions.length;
   const score = rawMax ? Math.round((rawScore / rawMax) * 100) : 0;
-  const level = getLevelByPercent(score);
+  const level = getLevelByPercent(score, tid);
   return {
     score,
     maxScore: 100,
@@ -70,10 +77,10 @@ export function scoreAnswers(answers, audio = {}) {
 }
 
 // بيفلتر answers الجاية من الـ client: أرقام أسئلة معروفة بس وقيم صحيحة ضمن عدد الخيارات.
-export function sanitizeAnswers(input, audio = {}) {
+export function sanitizeAnswers(input, audio = {}, testId = "a1") {
   const clean = {};
   if (!input || typeof input !== "object") return clean;
-  for (const q of getVisibleQuestions(audio)) {
+  for (const q of getVisibleQuestions(audio, testId)) {
     const v = input[q.n];
     if (Number.isInteger(v) && v >= 0 && v < q.o.length) clean[q.n] = v;
   }
@@ -87,8 +94,9 @@ export function getPlacementTestFee(language) {
   return { currency, amount };
 }
 
-// ─── صوتيات الاختبار (4 خانات) ───
-// بتتخزن في كولكشن placement_settings (doc واحد _id="audio"):
+// ─── صوتيات الاختبار (4 خانات لكل اختبار) ───
+// بتتخزن في كولكشن placement_settings — doc لكل اختبار (_id شوف placementTests.js:
+// "audio" لـ A1 و"audio_a2" لـ A2):
 //   { tracks: { "1": { path, name, size, uploadedAt }, ... } }
 // الملف نفسه على Bunny Storage. بنخزّن المسار (path) مش الرابط، والرابط بيتبني
 // ويتوقّع وقت القراءة (resolveSecureStoredUrl) عشان Token Authentication لو مفعّل.
@@ -98,22 +106,26 @@ function getSettingsCollection() {
   return mongoose.connection.db.collection("placement_settings");
 }
 
-export async function getAudioTracks() {
-  const doc = await getSettingsCollection().findOne({ _id: "audio" });
+function audioDocId(testId) {
+  return getPlacementTest(testId).audioDocId;
+}
+
+export async function getAudioTracks(testId = "a1") {
+  const doc = await getSettingsCollection().findOne({ _id: audioDocId(testId) });
   return doc?.tracks || {};
 }
 
-export async function setAudioTrack(slot, track) {
+export async function setAudioTrack(slot, track, testId = "a1") {
   await getSettingsCollection().updateOne(
-    { _id: "audio" },
+    { _id: audioDocId(testId) },
     track ? { $set: { [`tracks.${slot}`]: track } } : { $unset: { [`tracks.${slot}`]: "" } },
     { upsert: true }
   );
 }
 
 // { [slot]: رابط جاهز للتشغيل } للمسارات المرفوعة بس
-export async function getAudioMap() {
-  const tracks = await getAudioTracks();
+export async function getAudioMap(testId = "a1") {
+  const tracks = await getAudioTracks(testId);
   const map = {};
   for (const slot of AUDIO_SLOTS) {
     const t = tracks[slot];
@@ -124,13 +136,13 @@ export async function getAudioMap() {
 
 // ─── الكورسات الموصى بها ───
 // كورسات الموقع المنشورة (إسباني تحت تصنيف Language) اللي مستواها نفس مستوى الطالب أو أعلى.
-// - Pre-A1: بنبدأ من A1.1.
+// - Pre-A1: بنبدأ من A1.1. Pre-A2: بنبدأ من A1.3 (مراجعة قبل A2) — حسب floorCode في placementLevels.js.
 // - مستوى الكورس بيتقرا من اسمه (كل اللغات) + slug + وسومه، وإلا من حقل level القديم.
 // - الترتيب: من الأقرب لمستوى الطالب للأعلى. الكورس الأنسب (الخطوة التالية حسب الجدول) بيتعلّم.
 export async function getRecommendedCourses(levelCode, language = "ar", limit = 12) {
   const level = getLevelByCode(levelCode);
   if (!level) return [];
-  const floorRank = Math.max(levelRank(level.code), levelRank("A1.1"));
+  const floorRank = Math.max(levelRank(level.code), levelRank(level.floorCode || "A1.1"));
   const nextRank = levelRank(level.nextCode);
 
   getCategoryModel();

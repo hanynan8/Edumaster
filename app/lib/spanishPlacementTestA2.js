@@ -9,8 +9,10 @@
 //                  ctx: نص يخص السؤال (اختياري)، o: الخيارات }
 //    - task.bank: سؤال "ربط": الخيارات حروف (A, B, C…) والنصوص في task.bank.
 //    - task.passage: نص مشترك لأسئلة المهمة.
-//    - task.audioSlot (1–4): مهام الاستماع. الصوت بيترفع من لوحة الأدمن (Placement Tests →
-//      تبويب A2 → Listening audio) وأي مهمة من غير صوت بتتخفي والدرجة بتتحسب كنسبة من 100.
+//    - q.audioSlot (1–10): Tarea 1 و Tarea 2 في الاستماع — كل سؤال/رسالة ليها تسجيل منفصل
+//      زي ملف الاختبار بالظبط (5 + 5). task.audioSlot (11–12): Tarea 3 و Tarea 4 — تسجيل واحد لكل مهمة.
+//      المجموع 12 تسجيل. الصوت بيترفع من لوحة الأدمن (Placement Tests → تبويب A2 → Listening audio)
+//      وأي سؤال/مهمة من غير صوت بتتخفي والدرجة بتتحسب كنسبة من 100.
 //  - 🔒 مفتاح الإجابات مش هنا (الملف ده بيتحمّل في المتصفح) — هو في
 //    app/lib/spanishPlacementTestKeyA2.js والتصحيح بيتم على السيرفر بس.
 //  - 🔒 كمان نصوص الاستماع (guiones) مش هنا — هي في app/lib/placementAudioScripts.js (سيرفر بس).
@@ -25,6 +27,8 @@ const letters = (k) => L.slice(0, k).split("");
 const mc = (n, ln, q, o, ctx) => (ctx ? { n, ln, q, ctx, o } : { n, ln, q, o });
 // سؤال ربط: الخيارات حروف
 const mt = (n, ln, q, k) => ({ n, ln, q, o: letters(k) });
+// 🎧 بيربط كل سؤال في المهمة بتسجيله الخاص: أول سؤال = خانة first، التاني first+1…
+const withSlots = (first, qs) => qs.map((q, i) => ({ ...q, audioSlot: first + i }));
 // بنك الربط من نصوص بالترتيب A, B, C…
 const bankOf = (texts) => texts.map((t, i) => ({ l: L[i], t }));
 
@@ -126,14 +130,13 @@ export const PLACEMENT_PARTS_A2 = [
       {
         title: "Tarea 1. Mensajes breves",
         intro: "Escucha cinco mensajes y elige A, B o C.",
-        audioSlot: 1, // 🎧 الصوت بيترفع من لوحة الأدمن (Placement Tests → A2 → Listening audio) — خانة 1
-        questions: [
+        questions: withSlots(1, [ // 🎧 خانات 1–5: تسجيل منفصل لكل رسالة (Audio 1…5)
           mc(26, 1, "¿Por qué llama la mujer al centro médico?", ["Para cancelar una consulta definitivamente.", "Para cambiar la hora de una consulta.", "Para pedir los resultados de unos análisis."]),
           mc(27, 2, "¿A qué hora sale el autobús?", ["A las 7:45.", "A las 8:00.", "A las 8:15."]),
           mc(28, 3, "¿Cuánto cuesta la chaqueta con el descuento?", ["24 euros.", "25 euros.", "30 euros."]),
           mc(29, 4, "¿Cuándo van a reunirse finalmente los compañeros?", ["El miércoles.", "El jueves.", "El viernes."]),
           mc(30, 5, "¿Qué problema tiene el hombre?", ["Ha perdido las llaves de casa.", "No puede encontrar su cartera.", "Ha olvidado su teléfono en el trabajo."])
-        ]
+        ])
       },
       {
         title: "Tarea 2. Mensajes y situaciones",
@@ -148,14 +151,13 @@ export const PLACEMENT_PARTS_A2 = [
           "Una persona pide información sobre un curso de español.",
           "Una persona necesita cambiar una cita médica."
         ]),
-        audioSlot: 2, // 🎧 خانة 2
-        questions: [
+        questions: withSlots(6, [ // 🎧 خانات 6–10: تسجيل منفصل لكل Mensaje (1…5)
           mt(31, 6, "Mensaje 1", 8),
           mt(32, 7, "Mensaje 2", 8),
           mt(33, 8, "Mensaje 3", 8),
           mt(34, 9, "Mensaje 4", 8),
           mt(35, 10, "Mensaje 5", 8)
-        ]
+        ])
       },
       {
         title: "Tarea 3. Una experiencia personal",
@@ -173,7 +175,7 @@ export const PLACEMENT_PARTS_A2 = [
           "Tarda unos veinte minutos en llegar al trabajo.",
           "Se mudó para encontrar mejores oportunidades laborales."
         ]),
-        audioSlot: 3, // 🎧 خانة 3
+        audioSlot: 11, // 🎧 خانة 11 — Carmen
         questions: [
           mt(36, 11, "Carmen decidió mudarse a la ciudad porque...", 11),
           mt(37, 12, "Actualmente vive en una casa donde...", 11),
@@ -198,7 +200,7 @@ export const PLACEMENT_PARTS_A2 = [
           "El domingo después de comer.",
           "Reservar el alojamiento por Internet."
         ]),
-        audioSlot: 4, // 🎧 خانة 4
+        audioSlot: 12, // 🎧 خانة 12 — Rosa y Miguel
         questions: [
           mt(44, 19, "¿Cuándo quieren salir?", 8),
           mt(45, 20, "¿Por qué prefieren viajar en tren?", 8),

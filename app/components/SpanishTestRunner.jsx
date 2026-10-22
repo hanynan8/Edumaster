@@ -378,6 +378,13 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                     {q.ctx && (
                       <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">{q.ctx}</p>
                     )}
+                    {q.audioSrc && (
+                      // 🎧 A2: تسجيل منفصل لكل سؤال/رسالة (Tarea 1 و 2 استماع)
+                      <div className="mb-3">
+                        <audio controls src={q.audioSrc} className="w-full" />
+                        <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
+                      </div>
+                    )}
                     <p className="text-sm font-semibold text-gray-900 mb-3">
                       {q.ln}. {q.q}
                     </p>

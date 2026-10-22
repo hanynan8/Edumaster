@@ -21,11 +21,21 @@ import {
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function formatMoney(minorUnits) {
-  return `${(Number(minorUnits || 0) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} EGP`;
+// 🩹 FIX (Total Revenue غلط): Payment.amount بالقروش/السنت — بنقسم على 100
+// ونعرض العملة الفعلية بدل ما نثبّت "EGP" على كل الأرقام.
+function formatMoney(minorUnits, currency = 'EGP') {
+  return `${(Number(minorUnits || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-function StatCard({ icon: Icon, label, value, accent }) {
+// الإيراد بالعملات التانية (USD/EUR) بيتعرض تحت رقم الجنيه، مش متجمّع معاه.
+function otherCurrenciesLine(revenueByCurrency = {}) {
+  return Object.entries(revenueByCurrency)
+    .filter(([currency, total]) => currency !== 'EGP' && Number(total) > 0)
+    .map(([currency, total]) => formatMoney(total, currency))
+    .join(' · ');
+}
+
+function StatCard({ icon: Icon, label, value, accent, sub }) {
   return (
     <div className="bg-white rounded-2xl border-2 border-gray-100 p-5 flex items-center gap-4">
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent}`}>
@@ -34,6 +44,7 @@ function StatCard({ icon: Icon, label, value, accent }) {
       <div className="min-w-0">
         <p className="text-xs font-semibold text-gray-400 mb-0.5">{label}</p>
         <p className="text-xl font-bold text-gray-800 truncate">{value}</p>
+        {sub ? <p className="text-[11px] font-semibold text-gray-400 truncate">{sub}</p> : null}
       </div>
     </div>
   );
@@ -158,7 +169,10 @@ export default function OverviewAdmin() {
         ['Total Courses', data.counts.totalCourses],
         ['Total Enrollments', data.counts.totalEnrollments],
         ['Certificates Issued', data.counts.certificatesIssued],
-        ['Total Revenue', formatMoney(data.totalRevenue)],
+        ['Total Revenue (EGP)', formatMoney(data.totalRevenue, 'EGP')],
+        ...Object.entries(data.revenueByCurrency || {})
+          .filter(([currency, total]) => currency !== 'EGP' && Number(total) > 0)
+          .map(([currency, total]) => [`Total Revenue (${currency})`, formatMoney(total, currency)]),
       ];
       rows.forEach(([metric, value], idx) => {
         const row = sheet.addRow({ metric, value });
@@ -268,7 +282,13 @@ export default function OverviewAdmin() {
         <StatCard icon={GraduationCap} label="Students" value={counts.students} accent="bg-blue-50 text-blue-600" />
         <StatCard icon={Users} label="Teachers" value={counts.teachers} accent="bg-purple-50 text-purple-600" />
         <StatCard icon={BookOpen} label="Total Courses" value={counts.totalCourses} accent="bg-amber-50 text-amber-600" />
-        <StatCard icon={DollarSign} label="Total Revenue" value={formatMoney(data.totalRevenue)} accent="bg-green-50 text-green-600" />
+        <StatCard
+          icon={DollarSign}
+          label="Total Revenue"
+          value={formatMoney(data.totalRevenue, 'EGP')}
+          sub={otherCurrenciesLine(data.revenueByCurrency)}
+          accent="bg-green-50 text-green-600"
+        />
         <StatCard icon={ClipboardList} label="Total Enrollments" value={counts.totalEnrollments} accent="bg-indigo-50 text-indigo-600" />
         <StatCard icon={Award} label="Certificates Issued" value={counts.certificatesIssued} accent="bg-rose-50 text-rose-600" />
       </div>

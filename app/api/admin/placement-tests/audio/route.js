@@ -1,8 +1,8 @@
 // app/api/admin/placement-tests/audio/route.js
 //
-// إدارة صوتيات اختبارات تحديد المستوى (أدمن بس) — 4 خانات (مهام الاستماع الأربعة) لكل اختبار.
+// إدارة صوتيات اختبارات تحديد المستوى (أدمن بس) — A1: 4 خانات · A2: 12 خانة (زي ملف الاختبار).
 //   GET ?test=a1|a2            → حالة الخانات (اسم الملف/الحجم/رابط التشغيل + نص التسجيل script لو متاح)
-//   POST (form)                → test (a1|a2) + slot (1–4) + file (صوت) → بيترفع على Bunny Storage
+//   POST (form)                → test (a1|a2) + slot (1–4 لـ A1 · 1–12 لـ A2) + file (صوت) → بيترفع على Bunny Storage
 //                                ويظهر في الاختبار فورًا
 //   DELETE ?test=a2&slot=N     → حذف الصوت (المهمة بتتخفي من الاختبار لحد ما يتّرفع غيره)
 // test مش موجود/غلط → a1 (توافق مع الكود القديم).
@@ -17,8 +17,8 @@ import {
   buildStoragePublicUrl,
   resolveSecureStoredUrl,
 } from "@/app/lib/bunny";
-import { AUDIO_SLOTS, getAudioTracks, setAudioTrack } from "@/app/lib/placementTest";
-import { getPlacementTest, normalizeTestId } from "@/app/lib/placementTests";
+import { getAudioTracks, setAudioTrack } from "@/app/lib/placementTest";
+import { getPlacementTest, normalizeTestId, getAudioSlotNumbers } from "@/app/lib/placementTests";
 import { getAudioScript } from "@/app/lib/placementAudioScripts";
 
 function jsonResponse(data, status = 200) {
@@ -42,14 +42,15 @@ const ALLOWED_MIME = [
   "audio/webm",
 ];
 
-function parseSlot(value) {
+// الخانة لازم تكون من خانات الاختبار نفسه (A1: 1–4 · A2: 1–12)
+function parseSlot(value, testId) {
   const slot = Number(value);
-  return AUDIO_SLOTS.includes(slot) ? slot : null;
+  return getAudioSlotNumbers(testId).includes(slot) ? slot : null;
 }
 
-function serialize(tracks) {
+function serialize(tracks, testId) {
   const out = {};
-  for (const slot of AUDIO_SLOTS) {
+  for (const slot of getAudioSlotNumbers(testId)) {
     const t = tracks[slot];
     out[slot] = t?.path
       ? {
@@ -66,7 +67,7 @@ function serialize(tracks) {
 // 🔒 نصوص التسجيل (للأدمن بس) — بنرجّعها من الـ API ده بس، مش من bundle المتصفح
 function scriptsFor(testId) {
   const out = {};
-  for (const slot of AUDIO_SLOTS) out[slot] = getAudioScript(testId, slot);
+  for (const slot of getAudioSlotNumbers(testId)) out[slot] = getAudioScript(testId, slot);
   return out;
 }
 
@@ -78,7 +79,7 @@ export async function GET(request) {
     await connectToMongo();
     return jsonResponse({
       test: testId,
-      tracks: serialize(await getAudioTracks(testId)),
+      tracks: serialize(await getAudioTracks(testId), testId),
       scripts: scriptsFor(testId),
     });
   } catch (err) {
@@ -103,7 +104,7 @@ export async function POST(request) {
 
     const formData = await request.formData().catch(() => null);
     const testId = normalizeTestId(formData?.get("test"));
-    const slot = parseSlot(formData?.get("slot"));
+    const slot = parseSlot(formData?.get("slot"), testId);
     const file = formData?.get("file");
     if (!slot) return jsonResponse({ error: "invalid_slot" }, 400);
     if (!file || typeof file.arrayBuffer !== "function") return jsonResponse({ error: "file_required" }, 400);
@@ -131,7 +132,7 @@ export async function POST(request) {
       },
       testId
     );
-    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId)) });
+    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId), testId) });
   } catch (err) {
     console.error("[/api/admin/placement-tests/audio] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
@@ -144,11 +145,11 @@ export async function DELETE(request) {
     if (auth.response) return auth.response;
     const params = new URL(request.url).searchParams;
     const testId = normalizeTestId(params.get("test"));
-    const slot = parseSlot(params.get("slot"));
+    const slot = parseSlot(params.get("slot"), testId);
     if (!slot) return jsonResponse({ error: "invalid_slot" }, 400);
     await connectToMongo();
     await setAudioTrack(slot, null, testId); // الملف القديم بيفضل على Bunny (ممكن يتمسح يدويًا) — بس مبقاش مربوط بالاختبار
-    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId)) });
+    return jsonResponse({ ok: true, test: testId, tracks: serialize(await getAudioTracks(testId), testId) });
   } catch (err) {
     console.error("[/api/admin/placement-tests/audio] DELETE error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

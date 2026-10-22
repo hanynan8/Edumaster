@@ -19,6 +19,7 @@
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getEnrollmentModel, getPaymentModel, getCertificateModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
+import { REVENUE_TRACKING_ENABLED } from "@/app/lib/revenueConfig";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -76,10 +77,17 @@ export async function GET() {
       Course.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
       Enrollment.countDocuments({}),
       Certificate.countDocuments({}),
-      Payment.aggregate([
-        { $match: { status: "succeeded" } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
-      ]),
+      // 🩹 FIX (Total Revenue غلط): الإجمالي القديم كان بيجمع كل الدفعات الناجحة
+      // مع بعض من غير ما يفرّق بين العملات (جنيه + دولار + يورو كانوا بيتجمعوا
+      // كأنهم كلهم EGP) وكمان بيحسب تفعيلات الأدمن اليدوية (provider manual)
+      // اللي مفيهاش فلوس فعلية اتحصّلت. دلوقتي: بنستبعد manual وبنجمّع لكل
+      // عملة لوحدها.
+      REVENUE_TRACKING_ENABLED
+        ? Payment.aggregate([
+            { $match: { status: "succeeded", provider: { $ne: "manual" } } },
+            { $group: { _id: { $ifNull: ["$currency", "EGP"] }, total: { $sum: "$amount" } } },
+          ])
+        : Promise.resolve([]),
       AuthModel.aggregate([
         { $match: { createdAt: { $gte: sixMonthsAgo } } },
         {
@@ -99,6 +107,8 @@ export async function GET() {
         },
       ]),
     ]);
+
+    const revenueByCurrency = Object.fromEntries(revenueTotal.map((r) => [r._id, r.total]));
 
     const roleMap = Object.fromEntries(roleCounts.map((r) => [r._id || "student", r.count]));
     const statusMap = Object.fromEntries(courseStatusCounts.map((c) => [c._id || "draft", c.count]));
@@ -121,7 +131,10 @@ export async function GET() {
         totalEnrollments,
         certificatesIssued,
       },
-      totalRevenue: revenueTotal[0]?.total || 0,
+      // totalRevenue = إجمالي الجنيه المصري (EGP) بس، بالقروش (للتوافق مع الواجهة).
+      // revenueByCurrency = الإجمالي لكل عملة لوحدها، بالقروش/السنت.
+      totalRevenue: revenueByCurrency.EGP || 0,
+      revenueByCurrency,
       signupsTrend: fillLastSixMonths(signupsRaw),
       enrollmentsTrend: fillLastSixMonths(enrollmentsRaw),
     });

@@ -10,7 +10,7 @@
 
 import mongoose from "mongoose";
 import { PLACEMENT_TEST_FEE_USD } from "@/app/lib/spanishPlacementTest";
-import { getVisiblePartsFor, normalizeTestId, getPlacementTest } from "@/app/lib/placementTests";
+import { getVisiblePartsFor, normalizeTestId, getPlacementTest, getAudioSlotNumbers } from "@/app/lib/placementTests";
 import { getAnswerKey } from "@/app/lib/placementTestKeys";
 import { getCurrencyForLanguage, convertPrice, getPriceForCurrency } from "@/app/lib/currency";
 import { getCourseModel, getCategoryModel } from "@/app/lib/models";
@@ -94,13 +94,14 @@ export function getPlacementTestFee(language) {
   return { currency, amount };
 }
 
-// ─── صوتيات الاختبار (4 خانات لكل اختبار) ───
+// ─── صوتيات الاختبار (A1: 4 خانات — A2: 12 خانة) ───
 // بتتخزن في كولكشن placement_settings — doc لكل اختبار (_id شوف placementTests.js:
 // "audio" لـ A1 و"audio_a2" لـ A2):
 //   { tracks: { "1": { path, name, size, uploadedAt }, ... } }
 // الملف نفسه على Bunny Storage. بنخزّن المسار (path) مش الرابط، والرابط بيتبني
 // ويتوقّع وقت القراءة (resolveSecureStoredUrl) عشان Token Authentication لو مفعّل.
-export const AUDIO_SLOTS = [1, 2, 3, 4];
+// أقصى نطاق للخانات عبر كل الاختبارات — الصالح لكل اختبار: getAudioSlotNumbers(testId).
+export const AUDIO_SLOTS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 function getSettingsCollection() {
   return mongoose.connection.db.collection("placement_settings");
@@ -127,7 +128,7 @@ export async function setAudioTrack(slot, track, testId = "a1") {
 export async function getAudioMap(testId = "a1") {
   const tracks = await getAudioTracks(testId);
   const map = {};
-  for (const slot of AUDIO_SLOTS) {
+  for (const slot of getAudioSlotNumbers(testId)) {
     const t = tracks[slot];
     if (t?.path) map[slot] = resolveSecureStoredUrl(buildStoragePublicUrl(t.path));
   }

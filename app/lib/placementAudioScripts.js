@@ -4,39 +4,43 @@
 //  ممنوع استيراد الملف ده من أي كومبوننت "use client" — النصوص فيها إجابات أسئلة الاستماع.
 //  بيتقرا من app/api/admin/placement-tests/audio/route.js وبيرجع للأدمن بس.
 //
-//  { [testId]: { [slot]: "النص" } }
+//  { [testId]: { [slot]: "النص" } } — A2: 12 خانة، كل تسجيل (Audio 1…5، Mensaje 1…5، Carmen، Rosa y Miguel) له نصه
 //  المصدر: "Anexo 1. Guiones de la comprensión auditiva" في ملف اختبار A2.
 //  (ملف A1 مفيهوش نصوص هنا — الأدمن مش هيشوف خانة Script لاختبار A1.)
 // ═══════════════════════════════════════════════
 
 const A2_SCRIPTS = {
-  // Tarea 1 — خمس مقاطع قصيرة في ملف صوتي واحد (سيب فاصل صمت قصير بين كل مقطع)
+  // Tarea 1 — تسجيل منفصل رقم 1 (سؤال الاستماع 1)
   1: `Audio 1. Cambiar una cita médica
 Mujer: Buenos días. Llamo porque tengo una consulta con la doctora Martín mañana a las diez, pero me han cambiado el horario de trabajo. ¿Sería posible venir por la tarde?
 Recepcionista: Déjeme comprobarlo. Sí, tenemos una hora libre a las cuatro y media.
-Mujer: Perfecto, entonces me viene mucho mejor. Muchas gracias.
+Mujer: Perfecto, entonces me viene mucho mejor. Muchas gracias.`,
 
-Audio 2. El autobús
+  // Tarea 1 — تسجيل منفصل رقم 2 (سؤال الاستماع 2)
+  2: `Audio 2. El autobús
 Hombre: Disculpe, ¿el autobús para Sevilla sale a las ocho?
 Empleada: Antes salía a esa hora, pero desde esta semana el horario ha cambiado.
 Hombre: ¿Y a qué hora sale ahora?
 Empleada: A las ocho y cuarto. Le recomiendo llegar diez minutos antes porque suele haber bastante gente.
-Hombre: De acuerdo, gracias por avisarme.
+Hombre: De acuerdo, gracias por avisarme.`,
 
-Audio 3. Una oferta en una tienda
+  // Tarea 1 — تسجيل منفصل رقم 3 (سؤال الاستماع 3)
+  3: `Audio 3. Una oferta en una tienda
 Dependienta: Esta chaqueta cuesta treinta euros, pero hoy tenemos un descuento del veinte por ciento.
 Cliente: ¿Y cuánto tendría que pagar entonces?
 Dependienta: Veinticuatro euros. Además, si compra dos prendas, puede participar en nuestra promoción de otoño.
-Cliente: Gracias. De momento me llevaré solo la chaqueta.
+Cliente: Gracias. De momento me llevaré solo la chaqueta.`,
 
-Audio 4. Una reunión
+  // Tarea 1 — تسجيل منفصل رقم 4 (سؤال الاستماع 4)
+  4: `Audio 4. Una reunión
 Mujer: ¿Seguimos con la reunión del miércoles por la tarde?
 Hombre: No, al final tenemos que cambiarla. El profesor no puede venir ese día y el jueves la sala está ocupada.
 Mujer: Entonces, ¿la hacemos el viernes?
 Hombre: Sí, el viernes a las cinco. Ya he enviado un mensaje al resto del grupo.
-Mujer: Perfecto, lo apunto.
+Mujer: Perfecto, lo apunto.`,
 
-Audio 5. Un problema en casa
+  // Tarea 1 — تسجيل منفصل رقم 5 (سؤال الاستماع 5)
+  5: `Audio 5. Un problema en casa
 Hombre: Hola, Laura. ¿Estás en casa? Tengo un problema.
 Mujer: ¿Qué ha pasado?
 Hombre: He vuelto del trabajo y no encuentro las llaves. He mirado en la mochila y en los bolsillos, pero no están.
@@ -44,24 +48,28 @@ Mujer: ¿Has llamado a la oficina de objetos perdidos?
 Hombre: Todavía no. Voy a llamar ahora, porque quizá se me cayeron en el autobús.
 Mujer: Vale. Si no aparecen, puedes venir a casa y esperar aquí.`,
 
-  // Tarea 2 — cinco mensajes (monólogos) en un ملف واحد
-  2: `Mensaje 1
-Hola, buenas tardes. Llamo para preguntar por las clases de español. Soy brasileño y llevo tres meses estudiando por mi cuenta, pero ahora quiero practicar conversación en un grupo pequeño. ¿Podrían decirme qué horarios tienen por la tarde y cuánto cuesta el curso? Mi número es 612 345 789. Muchas gracias.
+  // Tarea 2 — Mensaje 1 (سؤال الاستماع 6) تسجيل منفصل
+  6: `Mensaje 1
+Hola, buenas tardes. Llamo para preguntar por las clases de español. Soy brasileño y llevo tres meses estudiando por mi cuenta, pero ahora quiero practicar conversación en un grupo pequeño. ¿Podrían decirme qué horarios tienen por la tarde y cuánto cuesta el curso? Mi número es 612 345 789. Muchas gracias.`,
 
-Mensaje 2
-Atención, viajeros. El tren con destino a Córdoba, previsto para las 18:10, saldrá finalmente a las 18:50 debido a una incidencia técnica. Sentimos las molestias. Los pasajeros que necesiten más información pueden dirigirse al mostrador de atención al cliente situado junto a la entrada principal.
+  // Tarea 2 — Mensaje 2 (سؤال الاستماع 7) تسجيل منفصل
+  7: `Mensaje 2
+Atención, viajeros. El tren con destino a Córdoba, previsto para las 18:10, saldrá finalmente a las 18:50 debido a una incidencia técnica. Sentimos las molestias. Los pasajeros que necesiten más información pueden dirigirse al mostrador de atención al cliente situado junto a la entrada principal.`,
 
-Mensaje 3
-Hola, Marta. ¿Qué te parece si el sábado hacemos una ruta por la sierra? He encontrado un camino bastante fácil, de unas tres horas, con unas vistas preciosas. Podemos llevar bocadillos y comer allí. Si te apetece venir, avísame antes del viernes para organizar el transporte.
+  // Tarea 2 — Mensaje 3 (سؤال الاستماع 8) تسجيل منفصل
+  8: `Mensaje 3
+Hola, Marta. ¿Qué te parece si el sábado hacemos una ruta por la sierra? He encontrado un camino bastante fácil, de unas tres horas, con unas vistas preciosas. Podemos llevar bocadillos y comer allí. Si te apetece venir, avísame antes del viernes para organizar el transporte.`,
 
-Mensaje 4
-Buenas noches. Quería reservar una mesa para dos personas para este sábado, sobre las nueve y media. Preferimos sentarnos en la terraza si hace buen tiempo. ¿Podrían confirmarme si tienen sitio? Mi nombre es Andrés López y mi teléfono es el 600 234 567. Gracias.
+  // Tarea 2 — Mensaje 4 (سؤال الاستماع 9) تسجيل منفصل
+  9: `Mensaje 4
+Buenas noches. Quería reservar una mesa para dos personas para este sábado, sobre las nueve y media. Preferimos sentarnos en la terraza si hace buen tiempo. ¿Podrían confirmarme si tienen sitio? Mi nombre es Andrés López y mi teléfono es el 600 234 567. Gracias.`,
 
-Mensaje 5
+  // Tarea 2 — Mensaje 5 (سؤال الاستماع 10) تسجيل منفصل
+  10: `Mensaje 5
 Hola, soy Elena. Te llamo por los zapatos que compré ayer en vuestra tienda. Cuando llegué a casa, vi que me quedan pequeños y no encuentro la caja original. Tengo el recibo y los zapatos están sin usar. ¿Podría cambiarlos por un número más grande esta tarde?`,
 
-  // Tarea 3 — Carmen (monólogo)
-  3: `Audio: Carmen habla de su nueva vida
+  // Tarea 3 — Carmen (monólogo) — تسجيل واحد
+  11: `Audio: Carmen habla de su nueva vida
 
 Hola, me llamo Carmen y hace seis meses me mudé de un pueblo pequeño a una ciudad más grande. La verdad es que al principio estaba un poco nerviosa, porque no conocía a nadie, pero quería encontrar un trabajo con mejores oportunidades. En mi pueblo había pocas ofertas y llevaba varios meses buscando sin éxito.
 
@@ -73,8 +81,8 @@ Desde que llegué, también he conocido a gente de diferentes países. Algunas c
 
 Los sábados por la mañana voy a una academia de idiomas. Quiero mejorar mi inglés porque en mi trabajo hay clientes extranjeros. Después de las clases, a veces voy a tomar un café con otros estudiantes. Aunque echo de menos a mi familia, estoy contenta con mi decisión. Creo que esta experiencia me está ayudando a ser más independiente.`,
 
-  // Tarea 4 — Rosa y Miguel (diálogo)
-  4: `Audio: Rosa y Miguel preparan una escapada
+  // Tarea 4 — Rosa y Miguel (diálogo) — تسجيل واحد
+  12: `Audio: Rosa y Miguel preparan una escapada
 
 Rosa: Miguel, ¿has pensado cuándo podemos salir para nuestro viaje a Granada?
 Miguel: Sí. He mirado los horarios y creo que lo mejor es salir el viernes por la tarde. Así no tenemos que pedir permiso en el trabajo y aprovechamos todo el fin de semana.

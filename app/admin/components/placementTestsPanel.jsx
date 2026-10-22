@@ -46,7 +46,7 @@ function formatSize(bytes) {
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 }
 
-// رفع صوتيات قسم الاستماع (4 خانات لكل اختبار) — بتظهر في الاختبار فورًا أول ما تتّرفع.
+// رفع صوتيات قسم الاستماع (A1: 4 خانات · A2: 12 خانة زي ملف الاختبار) — بتظهر في الاختبار فورًا أول ما تتّرفع.
 function ListeningAudioManager({ testId }) {
   const testInfo = PLACEMENT_TESTS[testId];
   const AUDIO_SLOTS = testInfo.audioSlots;
@@ -128,10 +128,10 @@ function ListeningAudioManager({ testId }) {
       <div className="flex items-center gap-2 mb-1">
         <Headphones className="text-indigo-600" size={18} />
         <h3 className="text-sm font-semibold text-gray-800">Listening audio (Part 2) — {testInfo.label} test</h3>
-        <span className="text-xs text-gray-400">({uploadedCount}/4 uploaded)</span>
+        <span className="text-xs text-gray-400">({uploadedCount}/{AUDIO_SLOTS.length} uploaded)</span>
       </div>
       <p className="text-xs text-gray-500 mb-4">
-        Each audio appears in its place in the {testInfo.label} test as soon as it is uploaded. A task without audio stays hidden from the test (the score is then calculated out of 100 from the visible questions).
+        Each audio appears in its place in the {testInfo.label} test as soon as it is uploaded. A question or task without audio stays hidden from the test (the score is then calculated out of 100 from the visible questions).
       </p>
 
       {error && (

@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Receipt, Clock, XCircle, RefreshCcw, Loader, AlertCircle } from 'lucide-react';
 
 function formatMoney(minorUnits, currency = 'EGP') {
-  return `${(Number(minorUnits || 0) / 100).toFixed(2)} ${currency}`;
+  return `${(Number(minorUnits || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,6 +44,9 @@ function RevenueAdmin() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // 🩹 FIX (Total Revenue غلط): الإجماليات بقت لكل عملة لوحدها (EGP/USD/EUR)
+  // بدل ما كانت بتتجمع كلها كرقم واحد.
+  const [currency, setCurrency] = useState('EGP');
 
   const load = () => {
     setLoading(true);
@@ -91,14 +94,16 @@ function RevenueAdmin() {
     );
   }
 
-  // ⚠️ الإجماليات في /api/admin/revenue بتجمع كل العملات مع بعض كرقم واحد —
-  // معروض هنا بعملة أول دفعة ناجحة لقيناها (الغالب الأعم في المشروع عملة
-  // واحدة بس). لو المشروع بدأ يستخدم أكتر من عملة فعليًا، الـ API محتاج
-  // يتقسّم totals حسب currency كمان.
-  const currency = data.recentPayments?.[0]?.currency || 'EGP';
-  const maxMonthly = Math.max(1, ...data.monthly.map((m) => m.total));
-  const courseRevenue = data.byType.find((t) => t.type === 'course');
-  const membershipRevenue = data.byType.find((t) => t.type === 'membership');
+  const currencies = data.currencies?.length ? data.currencies : ['EGP'];
+  const current = data.byCurrency?.[currency] || {
+    totalRevenue: 0,
+    totalSucceededPayments: 0,
+    byType: [],
+    monthly: [],
+  };
+  const maxMonthly = Math.max(1, ...current.monthly.map((m) => m.total));
+  const courseRevenue = current.byType.find((t) => t.type === 'course');
+  const membershipRevenue = current.byType.find((t) => t.type === 'membership');
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,18 +122,37 @@ function RevenueAdmin() {
         </div>
       </div>
 
+      {/* Currency selector (يظهر بس لو في أكتر من عملة) */}
+      {currencies.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {currencies.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCurrency(c)}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm border-2 transition-colors ${
+                c === currency
+                  ? 'bg-blue-700 text-white border-blue-700'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           icon={DollarSign}
           label="Total Revenue"
-          value={formatMoney(data.totalRevenue, currency)}
+          value={formatMoney(current.totalRevenue, currency)}
           accent="bg-green-50 text-green-600"
         />
         <StatCard
           icon={Receipt}
           label="Successful Payments"
-          value={data.totalSucceededPayments}
+          value={current.totalSucceededPayments}
           accent="bg-blue-50 text-blue-600"
         />
         <StatCard
@@ -148,11 +172,11 @@ function RevenueAdmin() {
       {/* Monthly trend (simple CSS bar chart) */}
       <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-100 p-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-6">Last 6 Months</h3>
-        {data.monthly.length === 0 ? (
+        {current.monthly.length === 0 ? (
           <p className="text-center text-gray-400 py-10">No revenue recorded in the last 6 months</p>
         ) : (
           <div className="flex items-end justify-between gap-3 h-48">
-            {data.monthly.map((m, i) => {
+            {current.monthly.map((m, i) => {
               const heightPct = Math.max(4, Math.round((m.total / maxMonthly) * 100));
               return (
                 <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2">

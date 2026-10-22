@@ -45,6 +45,8 @@ export function legacyResults(answers, testId = "a1") {
         task.audioSlot === undefined || task.questions.some((q) => answers?.[q.n] !== undefined);
       if (!visible) continue;
       for (const q of task.questions) {
+        // 🆕 أسئلة A2 اللي ليها تسجيل خاص بتظهر بس لو الطالب جاوب عليها (كانت ظاهرة وقتها)
+        if (q.audioSlot !== undefined && answers?.[q.n] === undefined) continue;
         out.push({ n: q.n, a: toIndex(answers?.[q.n]), c: ANSWER_KEY[q.n]?.a ?? null });
       }
     }

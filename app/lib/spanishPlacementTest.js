@@ -1524,9 +1524,18 @@ export const PLACEMENT_PARTS = [
 // audio = { [slot]: url } — خريطة روابط الصوت المرفوعة (من /api/placement-tests/audio أو الداتابيز).
 // مهام الاستماع من غير صوت مرفوع بتتخفي، ومهام القراءة/القواعد بتظهر دايمًا.
 export function getVisibleTasks(part, audio = {}) {
-  return part.tasks
-    .filter((t) => (t.audioSlot === undefined ? true : Boolean(audio?.[t.audioSlot])))
-    .map((t) => (t.audioSlot === undefined ? t : { ...t, audioSrc: audio[t.audioSlot] }));
+  return part.tasks.flatMap((t) => {
+    // 🆕 A2: بعض المهام (Tarea 1/2 استماع) كل سؤال فيها له تسجيل خاص (q.audioSlot) —
+    // السؤال من غير صوت بيتخفي، والمهمة بتتخفي لو مفيش ولا سؤال ظاهر فيها.
+    if (t.questions.some((q) => q.audioSlot !== undefined)) {
+      const questions = t.questions
+        .filter((q) => q.audioSlot === undefined || Boolean(audio?.[q.audioSlot]))
+        .map((q) => (q.audioSlot === undefined ? q : { ...q, audioSrc: audio[q.audioSlot] }));
+      return questions.length ? [{ ...t, questions }] : [];
+    }
+    if (t.audioSlot === undefined) return [t];
+    return audio?.[t.audioSlot] ? [{ ...t, audioSrc: audio[t.audioSlot] }] : [];
+  });
 }
 
 // الأجزاء اللي فيها مهام ظاهرة فعلًا + المهام الظاهرة بس (ومعاها audioSrc لو في صوت)

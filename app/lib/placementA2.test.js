@@ -40,7 +40,7 @@ jest.mock("@/app/lib/currency", () => ({
   getPriceForCurrency: () => ({ amount: 0 }),
 }));
 
-const ALL_AUDIO = { 1: "a.mp3", 2: "b.mp3", 3: "c.mp3", 4: "d.mp3" };
+const ALL_AUDIO = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, `a${i + 1}.mp3`])); // A2: 12 تسجيل
 const allQuestions = PLACEMENT_PARTS_A2.flatMap((p) => p.tasks.flatMap((t) => t.questions.map((q) => ({ q, task: t, part: p }))));
 
 // إجابات كلها صح للأسئلة الظاهرة
@@ -77,10 +77,32 @@ describe("سلامة بيانات A2", () => {
     }
   });
 
-  it("مهام الاستماع الأربعة ليها audioSlot من 1 لـ 4 ومفيش غيرها", () => {
-    const slots = PLACEMENT_PARTS_A2.flatMap((p) => p.tasks).filter((t) => t.audioSlot !== undefined).map((t) => t.audioSlot);
-    expect(slots).toEqual([1, 2, 3, 4]);
-    expect(PLACEMENT_PARTS_A2.find((p) => p.id === "listen").tasks.every((t) => t.audioSlot)).toBe(true);
+  it("الاستماع 12 تسجيل زي ملف Word: Tarea 1 (5 منفصلة 1–5) + Tarea 2 (5 منفصلة 6–10) + Carmen (11) + Rosa y Miguel (12)", () => {
+    const [t1, t2, t3, t4] = PLACEMENT_PARTS_A2.find((p) => p.id === "listen").tasks;
+    expect(t1.questions.map((q) => q.audioSlot)).toEqual([1, 2, 3, 4, 5]);
+    expect(t2.questions.map((q) => q.audioSlot)).toEqual([6, 7, 8, 9, 10]);
+    expect(t1.audioSlot).toBeUndefined();
+    expect(t2.audioSlot).toBeUndefined();
+    expect(t3.audioSlot).toBe(11);
+    expect(t4.audioSlot).toBe(12);
+    expect(PLACEMENT_TESTS.a2.audioSlots.map((a) => a.slot)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(PLACEMENT_TESTS.a1.audioSlots.map((a) => a.slot)).toEqual([1, 2, 3, 4]); // A1 زي ما هو
+  });
+
+  it("خانات الصوت: السؤال من غير تسجيله بيتخفي، وA1 ما اتغيرش", () => {
+    const listenQs = (audio) =>
+      getVisiblePartsFor("a2", audio).find((p) => p.id === "listen")?.tasks.flatMap((t) => t.questions.map((q) => q.n)) ?? [];
+    expect(listenQs({})).toEqual([]);
+    expect(listenQs({ 1: "u1", 3: "u3", 12: "u12" })).toEqual([26, 28, 44, 45, 46, 47, 48, 49, 50]);
+    const all = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, `u${i + 1}`]));
+    expect(listenQs(all)).toHaveLength(25);
+    // كل سؤال بيشغّل تسجيله هو
+    const t1 = getVisiblePartsFor("a2", all).find((p) => p.id === "listen").tasks[0];
+    expect(t1.questions.map((q) => q.audioSrc)).toEqual(["u1", "u2", "u3", "u4", "u5"]);
+    // A1: مهمة كاملة بصوت واحد زي الأول
+    const a1 = getVisiblePartsFor("a1", { 1: "x" }).find((p) => p.id === "listen").tasks;
+    expect(a1).toHaveLength(1);
+    expect(a1[0].audioSrc).toBe("x");
   });
 
   it("إجابات مختارة من ملف Word (Anexo 2)", () => {
@@ -91,8 +113,9 @@ describe("سلامة بيانات A2", () => {
     expect([51, 62, 75, 76, 99, 100].map(letter)).toEqual(["B", "C", "B", "A", "C", "A"]);
   });
 
-  it("نصوص الاستماع (للأدمن) موجودة لخانات A2 الأربعة ومش موجودة لـ A1", () => {
-    for (const slot of [1, 2, 3, 4]) expect(getAudioScript("a2", slot).length).toBeGreaterThan(300);
+  it("نصوص الاستماع (للأدمن) موجودة لخانات A2 الـ 12 ومش موجودة لـ A1", () => {
+    for (let slot = 1; slot <= 12; slot++) expect(getAudioScript("a2", slot).length).toBeGreaterThan(150);
+    expect(getAudioScript("a2", 13)).toBeNull();
     expect(getAudioScript("a1", 1)).toBeNull();
   });
 });
@@ -108,7 +131,7 @@ describe("registry", () => {
 
   it("كل اختبار له صوتيات منفصلة (doc + فولدر مختلفين)", () => {
     expect(PLACEMENT_TESTS.a1.audioDocId).toBe("audio"); // زي ما كان — صوتيات A1 المرفوعة تفضل شغالة
-    expect(PLACEMENT_TESTS.a2.audioDocId).toBe("audio_a2");
+    expect(PLACEMENT_TESTS.a2.audioDocId).toBe("audio_a2_v2"); // مستند جديد: A2 بقى 12 خانة
     expect(PLACEMENT_TESTS.a1.audioPathPrefix).not.toBe(PLACEMENT_TESTS.a2.audioPathPrefix);
   });
 

@@ -7,7 +7,7 @@
 //    a1 → Prueba de nivel de español A1  (/spanish-test)     — بيظهر على كورسات A1
 //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
 //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
-//  (4 خانات لكل اختبار، بتترفع من لوحة الأدمن).
+//  (A1: 4 خانات — A2: 12 خانة زي ملف الاختبار، بتترفع من لوحة الأدمن).
 //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
 // ═══════════════════════════════════════════════
 
@@ -43,18 +43,36 @@ export const PLACEMENT_TESTS = {
     title: PLACEMENT_TEST_TITLE_A2,
     parts: PLACEMENT_PARTS_A2,
     path: "/spanish-test/a2",
-    audioDocId: "audio_a2",
+    // 🆕 audio_a2_v2: A2 بقى 12 تسجيل (زي ملف الاختبار) بدل 4 خانات — مستند جديد عشان صوتيات
+    // الخانات القديمة (1–4) ماتتعرضش في أماكن غلط. لازم تتّرفع تاني من لوحة الأدمن.
+    audioDocId: "audio_a2_v2",
     audioPathPrefix: "edumaster/placement-test-a2/audio",
     audioSlots: [
-      { slot: 1, label: "Audio 1 — Mensajes breves", hint: "Questions 1–5" },
-      { slot: 2, label: "Audio 2 — Mensajes y situaciones", hint: "Questions 6–10" },
-      { slot: 3, label: "Audio 3 — Carmen: una experiencia personal", hint: "Questions 11–18" },
-      { slot: 4, label: "Audio 4 — Rosa y Miguel: organizar un viaje", hint: "Questions 19–25" },
+      // Tarea 1 — 5 مقاطع منفصلة (Audio 1…5) ← أسئلة الاستماع 1–5
+      { slot: 1, label: "Audio 1 — Cambiar una cita médica", hint: "Tarea 1 · Question 1" },
+      { slot: 2, label: "Audio 2 — El autobús", hint: "Tarea 1 · Question 2" },
+      { slot: 3, label: "Audio 3 — Una oferta en una tienda", hint: "Tarea 1 · Question 3" },
+      { slot: 4, label: "Audio 4 — Una reunión", hint: "Tarea 1 · Question 4" },
+      { slot: 5, label: "Audio 5 — Un problema en casa", hint: "Tarea 1 · Question 5" },
+      // Tarea 2 — 5 رسائل منفصلة (Mensaje 1…5) ← أسئلة الاستماع 6–10
+      { slot: 6, label: "Mensaje 1", hint: "Tarea 2 · Question 6" },
+      { slot: 7, label: "Mensaje 2", hint: "Tarea 2 · Question 7" },
+      { slot: 8, label: "Mensaje 3", hint: "Tarea 2 · Question 8" },
+      { slot: 9, label: "Mensaje 4", hint: "Tarea 2 · Question 9" },
+      { slot: 10, label: "Mensaje 5", hint: "Tarea 2 · Question 10" },
+      // Tarea 3 و 4 — تسجيل واحد لكل مهمة
+      { slot: 11, label: "Audio — Carmen habla de su nueva vida", hint: "Tarea 3 · Questions 11–18" },
+      { slot: 12, label: "Audio — Rosa y Miguel preparan una escapada", hint: "Tarea 4 · Questions 19–25" },
     ],
   },
 };
 
 export const TEST_IDS = Object.keys(PLACEMENT_TESTS);
+
+// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12)
+export function getAudioSlotNumbers(testId) {
+  return getPlacementTest(testId).audioSlots.map((a) => a.slot);
+}
 
 // أي قيمة غريبة (أو ناقصة) → الاختبار الافتراضي a1
 export function normalizeTestId(value) {

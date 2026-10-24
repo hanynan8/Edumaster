@@ -121,12 +121,13 @@ describe("سلامة بيانات A2", () => {
 });
 
 describe("registry", () => {
-  it("normalizeTestId: a1/a2 وأي حاجة تانية → a1", () => {
+  it("normalizeTestId: a1/a2/b1 وأي حاجة تانية → a1", () => {
     expect(normalizeTestId("a2")).toBe("a2");
     expect(normalizeTestId("A2")).toBe("a2");
     expect(normalizeTestId("a1")).toBe("a1");
     expect(normalizeTestId(undefined)).toBe("a1");
-    expect(normalizeTestId("b1")).toBe("a1");
+    expect(normalizeTestId("b1")).toBe("b1"); // B1 بقى اختبار مدمج
+    expect(normalizeTestId("zz9")).toBe("a1");
   });
 
   it("كل اختبار له صوتيات منفصلة (doc + فولدر مختلفين)", () => {
@@ -138,7 +139,8 @@ describe("registry", () => {
   it("getTestIdForLevelCode", () => {
     expect(getTestIdForLevelCode("A1.3")).toBe("a1");
     expect(getTestIdForLevelCode("A2.1")).toBe("a2");
-    expect(getTestIdForLevelCode("B1.1")).toBeNull();
+    expect(getTestIdForLevelCode("B1.1")).toBe("b1");
+    expect(getTestIdForLevelCode("B2.1")).toBeNull();
   });
 });
 
@@ -234,13 +236,14 @@ describe("المراجعة (review) لاختبار A2", () => {
 
 describe("زرار الاختبار على الكورسات", () => {
   const c = (title, extra = {}) => ({ title, ...extra });
-  it("كورس A1 → a1 · كورس A2 → a2 · غيرهم → null", () => {
+  it("كورس A1 → a1 · كورس A2 → a2 · كورس B1 → b1 · غيرهم → null", () => {
     expect(getPlacementTestForCourse(c("Start A1.1"))).toBe("a1");
     expect(getPlacementTestForCourse(c("Survival A1.3"))).toBe("a1");
     expect(getPlacementTestForCourse(c("Everyday A2.1"))).toBe("a2");
     expect(getPlacementTestForCourse(c("Spanish A2"))).toBe("a2");
     expect(getPlacementTestForCourse(c("Advanced A2.3"))).toBe("a2");
-    expect(getPlacementTestForCourse(c("Intermediate B1.1"))).toBeNull();
+    expect(getPlacementTestForCourse(c("Intermediate B1.1"))).toBe("b1");
+    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBeNull();
     expect(getPlacementTestForCourse(c("Spanish for travel"))).toBeNull();
     expect(getPlacementTestForCourse(null)).toBeNull();
   });

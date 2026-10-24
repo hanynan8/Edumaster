@@ -25,7 +25,8 @@ async function makeFile({ settings, questions = [], bank = [], audio = [], skip 
   if (!skip.includes("Settings")) {
     const ws = wb.addWorksheet("Settings");
     ws.addRow(["Key", "Value"]);
-    const s = { "Test ID": "b1", "Level (CEFR)": "B1", "Test Title": "My B1 test", ...settings };
+    // "b1" بقى id مدمج (محجوز) — بنستخدم id مخصص تاني هنا
+    const s = { "Test ID": "b1-custom", "Level (CEFR)": "B1", "Test Title": "My B1 test", ...settings };
     for (const [k, v] of Object.entries(s)) if (v !== undefined) ws.addRow([k, v]);
   }
   if (!skip.includes("Questions")) {

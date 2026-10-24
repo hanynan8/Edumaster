@@ -166,7 +166,7 @@ export async function parsePlacementTestWorkbook(input) {
   const testId = idCell.value.toLowerCase().trim();
   if (!testId) err(SHEETS.settings, idCell.row, "Test ID is required.", "حقل Test ID مطلوب.");
   else if (!TEST_ID_RE.test(testId))
-    err(SHEETS.settings, idCell.row, "Test ID must be 1–30 lowercase letters/numbers/dashes (e.g. b1).", "الـ Test ID لازم يكون حروف إنجليزي صغيرة وأرقام وشرطة فقط (1–30 حرف)، مثال: b1.");
+    err(SHEETS.settings, idCell.row, "Test ID must be 1–30 lowercase letters/numbers/dashes (e.g. b2).", "الـ Test ID لازم يكون حروف إنجليزي صغيرة وأرقام وشرطة فقط (1–30 حرف)، مثال: b2.");
   else if (RESERVED_TEST_IDS.includes(testId))
     err(SHEETS.settings, idCell.row, `Test ID "${testId}" is reserved for the built-in test. Choose another (e.g. ${testId}-new).`, `الـ ID "${testId}" محجوز للاختبار الأصلي. اختار اسم تاني (مثلاً ${testId}-new).`);
 

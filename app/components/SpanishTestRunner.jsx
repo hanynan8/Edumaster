@@ -369,7 +369,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                 </div>
               )}
             </dl>
-            <p className="text-xs text-gray-500 leading-relaxed">{isBuiltin ? t.intro : t.introGeneric}</p>
+            <p className="text-xs text-gray-500 leading-relaxed">{isBuiltin && parts.length === 3 ? t.intro : t.introGeneric}</p>
             <button onClick={start} className={`${btn} bg-[#003A91] text-white`}>
               {t.start}
             </button>

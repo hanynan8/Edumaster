@@ -1,0 +1,1059 @@
+diff --git a/app/(pages)/spanish-test/b1/page.jsx b/app/(pages)/spanish-test/b1/page.jsx
+new file mode 100644
+index 0000000..f19276f
+--- /dev/null
++++ b/app/(pages)/spanish-test/b1/page.jsx
+@@ -0,0 +1,12 @@
++// app/(pages)/spanish-test/b1/page.jsx
++//
++// اختبار تحديد المستوى (إسباني) B1 — Prueba de nivel de español B1.
++// بنفس ميكانيزم ومنطق اختبار A1/A2 (الواجهة في app/components/SpanishTestRunner.jsx).
++// بيظهر زرار "اختبر مستواك" على كورسات الإسباني اللي اسمها B1.x
++// (Independent B1.1 / Fluency B1.2 / Professional B1.3 / Study & Work B1.4).
++
++import SpanishTestRunner from "@/app/components/SpanishTestRunner";
++
++export default function SpanishTestB1Page() {
++  return <SpanishTestRunner testId="b1" />;
++}
+diff --git a/app/components/SpanishTestRunner.jsx b/app/components/SpanishTestRunner.jsx
+index 9a05080..fcf5483 100644
+--- a/app/components/SpanishTestRunner.jsx
++++ b/app/components/SpanishTestRunner.jsx
+@@ -369,7 +369,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
+                 </div>
+               )}
+             </dl>
+-            <p className="text-xs text-gray-500 leading-relaxed">{isBuiltin ? t.intro : t.introGeneric}</p>
++            <p className="text-xs text-gray-500 leading-relaxed">{isBuiltin && parts.length === 3 ? t.intro : t.introGeneric}</p>
+             <button onClick={start} className={`${btn} bg-[#003A91] text-white`}>
+               {t.start}
+             </button>
+diff --git a/app/lib/placementA2.test.js b/app/lib/placementA2.test.js
+index 9929437..b029817 100644
+--- a/app/lib/placementA2.test.js
++++ b/app/lib/placementA2.test.js
+@@ -121,12 +121,13 @@ describe("سلامة بيانات A2", () => {
+ });
+ 
+ describe("registry", () => {
+-  it("normalizeTestId: a1/a2 وأي حاجة تانية → a1", () => {
++  it("normalizeTestId: a1/a2/b1 وأي حاجة تانية → a1", () => {
+     expect(normalizeTestId("a2")).toBe("a2");
+     expect(normalizeTestId("A2")).toBe("a2");
+     expect(normalizeTestId("a1")).toBe("a1");
+     expect(normalizeTestId(undefined)).toBe("a1");
+-    expect(normalizeTestId("b1")).toBe("a1");
++    expect(normalizeTestId("b1")).toBe("b1"); // B1 بقى اختبار مدمج
++    expect(normalizeTestId("zz9")).toBe("a1");
+   });
+ 
+   it("كل اختبار له صوتيات منفصلة (doc + فولدر مختلفين)", () => {
+@@ -138,7 +139,8 @@ describe("registry", () => {
+   it("getTestIdForLevelCode", () => {
+     expect(getTestIdForLevelCode("A1.3")).toBe("a1");
+     expect(getTestIdForLevelCode("A2.1")).toBe("a2");
+-    expect(getTestIdForLevelCode("B1.1")).toBeNull();
++    expect(getTestIdForLevelCode("B1.1")).toBe("b1");
++    expect(getTestIdForLevelCode("B2.1")).toBeNull();
+   });
+ });
+ 
+@@ -234,13 +236,14 @@ describe("المراجعة (review) لاختبار A2", () => {
+ 
+ describe("زرار الاختبار على الكورسات", () => {
+   const c = (title, extra = {}) => ({ title, ...extra });
+-  it("كورس A1 → a1 · كورس A2 → a2 · غيرهم → null", () => {
++  it("كورس A1 → a1 · كورس A2 → a2 · كورس B1 → b1 · غيرهم → null", () => {
+     expect(getPlacementTestForCourse(c("Start A1.1"))).toBe("a1");
+     expect(getPlacementTestForCourse(c("Survival A1.3"))).toBe("a1");
+     expect(getPlacementTestForCourse(c("Everyday A2.1"))).toBe("a2");
+     expect(getPlacementTestForCourse(c("Spanish A2"))).toBe("a2");
+     expect(getPlacementTestForCourse(c("Advanced A2.3"))).toBe("a2");
+-    expect(getPlacementTestForCourse(c("Intermediate B1.1"))).toBeNull();
++    expect(getPlacementTestForCourse(c("Intermediate B1.1"))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBeNull();
+     expect(getPlacementTestForCourse(c("Spanish for travel"))).toBeNull();
+     expect(getPlacementTestForCourse(null)).toBeNull();
+   });
+diff --git a/app/lib/placementB1.test.js b/app/lib/placementB1.test.js
+new file mode 100644
+index 0000000..500737a
+--- /dev/null
++++ b/app/lib/placementB1.test.js
+@@ -0,0 +1,274 @@
++// app/lib/placementB1.test.js
++//
++// اختبارات اختبار تحديد المستوى B1 (إسباني):
++//   - سلامة البيانات: 80 سؤال ظاهر (30 قراءة + 50 قواعد/مفردات) والاستماع (30) جاهز بس مش متفعّل.
++//   - مفتاح الإجابات: لكل سؤال ظاهر مفتاح ضمن عدد الخيارات، وماليش مفاتيح للاستماع لسه.
++//   - التصحيح: الدرجة نسبة من 100، والمستوى حسب جدول B1.
++//   - زرار الاختبار على كورسات B1.1 … B1.4 (الأسماء الحقيقية من الموقع).
++//   - A1/A2 ما اتأثروش.
++
++import { PLACEMENT_PARTS_B1, PLACEMENT_LISTENING_B1 } from "@/app/lib/spanishPlacementTestB1";
++import { ANSWER_KEY_B1 } from "@/app/lib/spanishPlacementTestKeyB1";
++import { PLACEMENT_TESTS, getVisiblePartsFor, normalizeTestId, getTestIdForLevelCode } from "@/app/lib/placementTests";
++import { getAnswerKey } from "@/app/lib/placementTestKeys";
++import {
++  getLevelByPercent,
++  getLevelByCode,
++  getPlacementTestForCourse,
++  getPlacementTestPath,
++  detectLevelCode,
++  levelRank,
++} from "@/app/lib/placementLevels";
++import { scoreAnswers, sanitizeAnswers, getVisibleQuestions } from "@/app/lib/placementTest";
++import { buildResults, buildReview } from "@/app/lib/placementReview";
++import { RESERVED_TEST_IDS } from "@/app/lib/placementTestSheetSpec";
++
++jest.mock("@/app/lib/bunny", () => ({
++  resolveSecureStoredUrl: (u) => u,
++  buildStoragePublicUrl: (p) => p,
++}));
++jest.mock("@/app/lib/models", () => ({ getCourseModel: jest.fn(), getCategoryModel: jest.fn() }));
++jest.mock("@/app/lib/currency", () => ({
++  getCurrencyForLanguage: () => "USD",
++  convertPrice: (a) => a,
++  getPriceForCurrency: () => ({ amount: 0 }),
++}));
++
++const questionsOf = (parts) => parts.flatMap((p) => p.tasks.flatMap((t) => t.questions.map((q) => ({ q, task: t, part: p }))));
++const allQuestions = questionsOf(PLACEMENT_PARTS_B1);
++const listeningQuestions = questionsOf([PLACEMENT_LISTENING_B1]);
++
++// إجابات كلها صح للأسئلة الظاهرة
++const perfect = (audio = {}) =>
++  Object.fromEntries(getVisibleQuestions(audio, "b1").map((q) => [q.n, getAnswerKey("b1")[q.n].a]));
++
++describe("سلامة بيانات B1", () => {
++  it("80 سؤال ظاهر: 30 قراءة + 50 قواعد ومفردات (الاستماع مش متفعّل لسه)", () => {
++    const count = (id) => PLACEMENT_PARTS_B1.find((p) => p.id === id).tasks.reduce((n, t) => n + t.questions.length, 0);
++    expect(allQuestions).toHaveLength(80);
++    expect(count("read")).toBe(30);
++    expect(count("gram")).toBe(50);
++    expect(PLACEMENT_PARTS_B1.find((p) => p.id === "listen")).toBeUndefined();
++  });
++
++  it("الترقيم: قراءة 1–30 وقواعد 61–110 (31–60 محجوزة للاستماع)", () => {
++    const ns = allQuestions.map((x) => x.q.n);
++    expect(ns.slice(0, 30)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
++    expect(ns.slice(30)).toEqual(Array.from({ length: 50 }, (_, i) => i + 61));
++    expect(new Set(ns).size).toBe(80);
++    // ln (الرقم جوه الجزء) زي ترقيم الملف: قراءة 1–30 وقواعد 1–50
++    const gram = allQuestions.filter((x) => x.part.id === "gram").map((x) => x.q.ln);
++    expect(gram).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
++  });
++
++  it("لكل سؤال ظاهر مفتاح صالح ضمن عدد خياراته، وكل سؤال له 3 خيارات (أو حروف الربط)", () => {
++    for (const { q } of allQuestions) {
++      const key = ANSWER_KEY_B1[q.n];
++      expect(key).toBeDefined();
++      expect(Number.isInteger(key.a)).toBe(true);
++      expect(key.a).toBeGreaterThanOrEqual(0);
++      expect(key.a).toBeLessThan(q.o.length);
++      expect(key.s).toBe("B1");
++    }
++    // مفاتيح الأسئلة الظاهرة بس (80) — مفيش مفتاح للاستماع لسه
++    expect(Object.keys(ANSWER_KEY_B1)).toHaveLength(80);
++    for (const { q } of listeningQuestions) expect(ANSWER_KEY_B1[q.n]).toBeUndefined();
++  });
++
++  it("أسئلة الربط: الخيارات حروف A.. بعدد عناصر bank وحروف bank متسلسلة", () => {
++    const withBank = PLACEMENT_PARTS_B1.flatMap((p) => p.tasks).filter((t) => t.bank);
++    expect(withBank).toHaveLength(3); // Tarea 1 (8) + Tarea 3 (3) + Tarea 4 (8)
++    expect(withBank.map((t) => t.bank.length)).toEqual([8, 3, 8]);
++    for (const t of withBank) {
++      expect(t.bank.map((b) => b.l).join("")).toBe("ABCDEFGHIJK".slice(0, t.bank.length));
++      for (const q of t.questions) expect(q.o).toEqual(t.bank.map((b) => b.l));
++    }
++  });
++
++  it("إجابات مختارة اتحلّت يدويًا من نصوص الأسئلة (قراءة + قواعد + مفردات)", () => {
++    const letter = (n) => "ABCDEFGHIJK"[ANSWER_KEY_B1[n].a];
++    // ربط Tarea 1: Marta→A, Daniel→B, Laura→E, Pérez→C, Andrés→F, Elena→H
++    expect([1, 2, 3, 4, 5, 6].map(letter)).toEqual(["A", "B", "E", "C", "F", "H"]);
++    // الجمل الناقصة (19–24): E D C A F B
++    expect([19, 20, 21, 22, 23, 24].map(letter)).toEqual(["E", "D", "C", "A", "F", "B"]);
++    // الرسالة: presentar / llegaría / estaba / me / habría / Agradeciéndoles
++    expect([25, 26, 27, 28, 29, 30].map(letter)).toEqual(["C", "B", "C", "C", "B", "B"]);
++    // قواعد: fui, vivía, he leído, iré, Podrías, iré
++    expect([61, 62, 63, 64, 65, 66].map(letter)).toEqual(["C", "C", "B", "A", "B", "C"]);
++    // مفردات: cita, empleado, tos, pasaporte, funciona
++    expect([86, 87, 88, 89, 90].map(letter)).toEqual(["B", "C", "A", "B", "C"]);
++    expect(letter(110)).toBe("A"); // hacer un máster
++  });
++
++  it("الإجابة الصحيحة موجودة فعلًا في خيارات الأسئلة العادية (نص الخيار مش فاضي)", () => {
++    for (const { q, task } of allQuestions) {
++      if (task.bank) continue;
++      expect(q.o).toHaveLength(3);
++      for (const o of q.o) expect(String(o).trim().length).toBeGreaterThan(0);
++    }
++  });
++});
++
++describe("الاستماع (جاهز بس مش متفعّل)", () => {
++  it("30 سؤال بأرقام 31–60 و5 مهام لكل واحدة خانة صوت 1–5", () => {
++    expect(listeningQuestions).toHaveLength(30);
++    expect(listeningQuestions.map((x) => x.q.n)).toEqual(Array.from({ length: 30 }, (_, i) => i + 31));
++    expect(listeningQuestions.map((x) => x.q.ln)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
++    expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.audioSlot)).toEqual([1, 2, 3, 4, 5]);
++  });
++
++  it("مش ظاهر في الاختبار حتى لو اترفع صوت (مفيش خانات صوت للاختبار)", () => {
++    expect(PLACEMENT_TESTS.b1.audioSlots).toEqual([]);
++    const visible = getVisiblePartsFor("b1", { 1: "x", 2: "x", 3: "x", 4: "x", 5: "x" });
++    expect(visible.map((p) => p.id)).toEqual(["read", "gram"]);
++    expect(getVisibleQuestions({ 1: "x" }, "b1")).toHaveLength(80);
++  });
++});
++
++describe("registry", () => {
++  it("b1 مدمج: normalizeTestId + مسار + صوتيات منفصلة عن a1/a2", () => {
++    expect(normalizeTestId("b1")).toBe("b1");
++    expect(normalizeTestId("B1")).toBe("b1");
++    expect(PLACEMENT_TESTS.b1).toMatchObject({ id: "b1", label: "B1", path: "/spanish-test/b1", audioDocId: "audio_b1" });
++    const docs = [PLACEMENT_TESTS.a1, PLACEMENT_TESTS.a2, PLACEMENT_TESTS.b1].map((t) => t.audioDocId);
++    expect(new Set(docs).size).toBe(3);
++    const prefixes = [PLACEMENT_TESTS.a1, PLACEMENT_TESTS.a2, PLACEMENT_TESTS.b1].map((t) => t.audioPathPrefix);
++    expect(new Set(prefixes).size).toBe(3);
++  });
++
++  it("b1 محجوز: مينفعش اختبار مخصص ياخد نفس الـ id", () => {
++    expect(RESERVED_TEST_IDS).toEqual(expect.arrayContaining(["a1", "a2", "b1"]));
++  });
++
++  it("getTestIdForLevelCode: B1.x → b1", () => {
++    for (const code of ["B1.1", "B1.2", "B1.3", "B1.4"]) expect(getTestIdForLevelCode(code)).toBe("b1");
++    expect(getTestIdForLevelCode("B2.1")).toBeNull();
++  });
++});
++
++describe("التصحيح والمستوى (B1)", () => {
++  it("كله صح → 80/80 → 100 / B1.3", () => {
++    const r = scoreAnswers(perfect(), {}, "b1");
++    expect(r).toMatchObject({ rawScore: 80, rawMax: 80, score: 100, maxScore: 100, totalQuestions: 80, level: "B1.3", a11: 0, a12: 0 });
++  });
++
++  it("من غير أي إجابة → 0 / Pre-B1", () => {
++    const r = scoreAnswers({}, {}, "b1");
++    expect(r).toMatchObject({ rawScore: 0, rawMax: 80, score: 0, answered: 0, level: "Pre-B1" });
++  });
++
++  it("حدود المستويات: <40 Pre-B1 · 40–59 B1.1 · 60–79 B1.2 · 80+ B1.3", () => {
++    const codes = [0, 39, 40, 59, 60, 79, 80, 100].map((p) => getLevelByPercent(p, "b1").code);
++    expect(codes).toEqual(["Pre-B1", "Pre-B1", "B1.1", "B1.1", "B1.2", "B1.2", "B1.3", "B1.3"]);
++  });
++
++  it("درجة جزئية: 48 صح من 80 = 60% → B1.2، و32 صح = 40% → B1.1", () => {
++    const wrongN = (count) => {
++      const answers = perfect();
++      for (const n of Object.keys(answers).slice(0, count)) answers[n] = (answers[n] + 1) % 3;
++      return answers;
++    };
++    const r48 = scoreAnswers(wrongN(32), {}, "b1");
++    expect(r48).toMatchObject({ rawScore: 48, score: 60, level: "B1.2" });
++    const r32 = scoreAnswers(wrongN(48), {}, "b1");
++    expect(r32).toMatchObject({ rawScore: 32, score: 40, level: "B1.1" });
++  });
++
++  it("إجابات A2 مش بتتحسب كويس على مفتاح B1 (مفتاح مختلف)", () => {
++    const a2Answers = Object.fromEntries(getVisibleQuestions({}, "a2").map((q) => [q.n, 0]));
++    expect(scoreAnswers(a2Answers, {}, "b1").rawScore).toBeLessThan(40);
++  });
++
++  it("sanitizeAnswers بيقبل أرقام B1 الظاهرة بس ضمن عدد الخيارات (والاستماع 31–60 مرفوض)", () => {
++    const clean = sanitizeAnswers({ 1: 7, 2: 9, 7: 2, 8: 5, 40: 1, 61: 2, 110: 3, 999: 1 }, {}, "b1");
++    // 1: ربط 8 حروف → 7 تمام · 2: 9 برا الحدود · 7: 3 خيارات → 2 تمام · 8: 5 برا · 40: استماع مخفي
++    // 61: 2 تمام · 110: 3 برا (3 خيارات بس) · 999 مجهول
++    expect(clean).toEqual({ 1: 7, 7: 2, 61: 2 });
++  });
++
++  it("A1 وA2 ما اتأثروش: الافتراضي a1 ومستويات A1/A2 زي ما هي", () => {
++    expect(getLevelByPercent(45).code).toBe("A1.1");
++    expect(getLevelByPercent(45, "a2").code).toBe("A2.1");
++    expect(getVisibleQuestions({}, "a2")).toHaveLength(75);
++  });
++});
++
++describe("جدول مستويات B1", () => {
++  it("getLevelByCode بيلاقي Pre-B1 وB1.1–B1.3 ولكل مستوى وصف بـ3 لغات", () => {
++    for (const code of ["Pre-B1", "B1.1", "B1.2", "B1.3"]) {
++      const lvl = getLevelByCode(code);
++      expect(lvl).toBeTruthy();
++      expect(Object.keys(lvl.desc).sort()).toEqual(["ar", "en", "es"]);
++    }
++  });
++
++  it("الخطوة التالية: كل مستوى بيوصّي بكورس B1 الصحيح (أسماء الكورسات الحقيقية)", () => {
++    const next = (code) => getLevelByCode(code);
++    expect(next("Pre-B1")).toMatchObject({ nextCode: "B1.1", nextCourseName: "Independent B1.1", floorCode: "A2.3" });
++    expect(next("B1.1")).toMatchObject({ nextCode: "B1.2", nextCourseName: "Fluency B1.2" });
++    expect(next("B1.2")).toMatchObject({ nextCode: "B1.3", nextCourseName: "Professional B1.3" });
++    expect(next("B1.3")).toMatchObject({ nextCode: "B1.4", nextCourseName: "Study & Work B1.4" });
++  });
++
++  it("ترتيب المستويات: B1.4 بين B1.3 وB2.1 (عشان التوصية بالكورسات تشتغل)", () => {
++    expect(levelRank("B1.3")).toBeLessThan(levelRank("B1.4"));
++    expect(levelRank("B1.4")).toBeLessThan(levelRank("B2.1"));
++    expect(levelRank("A2.3")).toBeLessThan(levelRank("B1.1"));
++  });
++
++  it("detectLevelCode: B1.4 يتعرف، وأرقام فرعية غير موجودة (A1.4) تفضل زي الأول (.1)", () => {
++    expect(detectLevelCode("Study & Work B1.4")).toBe("B1.4");
++    expect(detectLevelCode("B1")).toBe("B1.1");
++    expect(detectLevelCode("Survival A1.3")).toBe("A1.3");
++    expect(detectLevelCode("Course A1.4")).toBe("A1.1");
++  });
++});
++
++describe("المراجعة (review) لاختبار B1", () => {
++  it("buildResults بيستخدم مفتاح B1 والأسئلة الظاهرة بس (80)", () => {
++    const res = buildResults({ 1: 0 }, {}, "b1");
++    expect(res).toHaveLength(80);
++    expect(res[0]).toEqual({ n: 1, a: 0, c: ANSWER_KEY_B1[1].a });
++    expect(res.find((r) => r.n === 31)).toBeUndefined(); // الاستماع مش موجود
++  });
++
++  it("buildReview بيبني من أسئلة B1 (مش A1/A2)", () => {
++    const review = buildReview(buildResults({ 1: 0, 2: 0 }, {}, "b1"), "b1");
++    const qs = review.flatMap((p) => p.tasks.flatMap((t) => t.questions));
++    expect(qs).toHaveLength(80);
++    expect(qs.find((q) => q.n === 1)).toMatchObject({ isCorrect: true, yourIndex: 0 });
++    expect(qs.find((q) => q.n === 2)).toMatchObject({ isCorrect: false });
++    expect(qs.find((q) => q.n === 1).q).toMatch(/Marta/);
++  });
++});
++
++describe("زرار الاختبار على كورسات B1", () => {
++  const c = (title, extra = {}) => ({ title, ...extra });
++
++  it("كورسات الموقع الحقيقية B1.1 … B1.4 → b1", () => {
++    expect(getPlacementTestForCourse(c("Independent B1.1"))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Fluency B1.2"))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Professional B1.3"))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Study & Work B1.4"))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Spanish B1"))).toBe("b1");
++  });
++
++  it("بيقرا المستوى من slug/وسوم/ترجمات الكورس كمان، وكورسات A1/A2/B2 زي ما هي", () => {
++    expect(getPlacementTestForCourse(c("curso", { slug: "study-work-b1-4" }))).toBe("b1");
++    expect(getPlacementTestForCourse(c("curso", { tags: ["B1.2"] }))).toBe("b1");
++    expect(getPlacementTestForCourse(c("curso", { i18n: { ar: { title: "كورس B1.3" } } }))).toBe("b1");
++    expect(getPlacementTestForCourse(c("Start A1.1"))).toBe("a1");
++    expect(getPlacementTestForCourse(c("Everyday A2.1"))).toBe("a2");
++    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBeNull();
++  });
++
++  it("اختبار مخصص مربوط من الأدمن بيتقدّم على الاسم", () => {
++    expect(getPlacementTestForCourse(c("Fluency B1.2", { placementTest: { id: "custom-x" } }))).toBe("custom-x");
++  });
++
++  it("المسار", () => {
++    expect(getPlacementTestPath("b1")).toBe("/spanish-test/b1");
++    expect(getPlacementTestPath("a2")).toBe("/spanish-test/a2");
++    expect(getPlacementTestPath("a1")).toBe("/spanish-test");
++  });
++});
+diff --git a/app/lib/placementLevels.js b/app/lib/placementLevels.js
+index 3f5a260..2d25690 100644
+--- a/app/lib/placementLevels.js
++++ b/app/lib/placementLevels.js
+@@ -6,9 +6,11 @@
+ //  النتيجة من 100 → المستوى (لكل اختبار جدول مستقل):
+ //    اختبار A1: أقل من 40 → Pre-A1 | 40–59 → A1.1 | 60–79 → A1.2 | 80–100 → A1.3
+ //    اختبار A2: أقل من 40 → Pre-A2 | 40–59 → A2.1 | 60–79 → A2.2 | 80–100 → A2.3
+-//    (تقسيم A2.1/A2.2/A2.3 تقسيم داخلي لـ Edumaster — مش معيار رسمي من MCER/Instituto Cervantes)
++//    اختبار B1: أقل من 40 → Pre-B1 | 40–59 → B1.1 | 60–79 → B1.2 | 80–100 → B1.3
++//    (تقسيم A2.x / B1.x تقسيم داخلي لـ Edumaster — مش معيار رسمي من MCER/Instituto Cervantes.
++//     الحدود 40/60/80 هي الافتراضية للنظام؛ ومفيش جدول baremo رسمي في ملف B1.)
+ //  الكورسات الموصى بها = كورسات الموقع (إسباني) اللي مستواها نفس مستوى الطالب أو أعلى.
+-//  مستوى الكورس بيتقرا من اسمه/وسومه (A1.1, A1.2, A1.3, A2.1, B1, ...).
++//  مستوى الكورس بيتقرا من اسمه/وسومه (A1.1, A1.2, A1.3, A2.1, B1.1 … B1.4, ...).
+ // ═══════════════════════════════════════════════
+ 
+ const A1_LEVELS = [
+@@ -117,12 +119,67 @@ const A2_LEVELS = [
+   },
+ ];
+ 
++// ───── جدول مستويات اختبار B1 ─────
++// nextCourseName = أسماء كورسات B1 على الموقع (Independent B1.1 / Fluency B1.2 / Professional B1.3 / Study & Work B1.4).
++// B1.3 (80–100) بيوصّي بكورس B1.4 كخطوة تالية؛ مفيش نتيجة "B1.4" لأن الاختبار بيطلّع 4 مستويات بس.
++const B1_LEVELS = [
++  {
++    code: "Pre-B1",
++    min: 0,
++    max: 39,
++    nextCourseName: "Independent B1.1",
++    nextCode: "B1.1",
++    floorCode: "A2.3",
++    desc: {
++      es: "Aún no domina los contenidos de B1. Se recomienda reforzar los contenidos de A2 antes de empezar un curso B1.",
++      en: "You don't yet master the B1 content. We recommend reinforcing A2 content before starting a B1 course.",
++      ar: "لم تتقن بعد محتوى المستوى B1. يُنصح بتقوية محتوى A2 قبل بدء كورس B1.",
++    },
++  },
++  {
++    code: "B1.1",
++    min: 40,
++    max: 59,
++    nextCourseName: "Fluency B1.2",
++    nextCode: "B1.2",
++    desc: {
++      es: "Se desenvuelve en situaciones cotidianas y comprende textos sencillos, pero aún debe consolidar los tiempos del pasado, el subjuntivo y el vocabulario de uso frecuente. Nivel orientativo: B1.1.",
++      en: "You handle everyday situations and understand simple texts, but you still need to consolidate past tenses, the subjunctive and frequently used vocabulary. Indicative level: B1.1.",
++      ar: "تتعامل مع المواقف اليومية وتفهم النصوص البسيطة، لكنك ما زلت بحاجة إلى تثبيت أزمنة الماضي والمضارع الشرطي (subjuntivo) والمفردات الشائعة. المستوى الإرشادي: B1.1.",
++    },
++  },
++  {
++    code: "B1.2",
++    min: 60,
++    max: 79,
++    nextCourseName: "Professional B1.3",
++    nextCode: "B1.3",
++    desc: {
++      es: "Comprende textos y noticias de actualidad y usa con bastante seguridad los tiempos del pasado, los pronombres y las oraciones condicionales. Nivel orientativo: B1.2.",
++      en: "You understand texts and current-affairs news and use past tenses, pronouns and conditional sentences with fair confidence. Indicative level: B1.2.",
++      ar: "تفهم النصوص والأخبار الجارية وتستخدم أزمنة الماضي والضمائر والجمل الشرطية بثقة جيدة. المستوى الإرشادي: B1.2.",
++    },
++  },
++  {
++    code: "B1.3",
++    min: 80,
++    max: 100,
++    nextCourseName: "Study & Work B1.4",
++    nextCode: "B1.4",
++    desc: {
++      es: "Domina los contenidos de B1. Nivel orientativo: B1.3; conviene confirmarlo con producción escrita y expresión oral antes de pasar a B2.",
++      en: "You master the B1 content. Indicative level: B1.3; it should be confirmed with written and spoken production before moving on to B2.",
++      ar: "تتقن محتوى B1. المستوى الإرشادي: B1.3؛ ويُفضَّل تأكيده بالتعبير الكتابي والشفهي قبل الانتقال إلى B2.",
++    },
++  },
++];
++
+ // جداول المستويات لكل اختبار (المفتاح = id الاختبار في placementTests.js)
+-export const PLACEMENT_LEVELS_BY_TEST = { a1: A1_LEVELS, a2: A2_LEVELS };
++export const PLACEMENT_LEVELS_BY_TEST = { a1: A1_LEVELS, a2: A2_LEVELS, b1: B1_LEVELS };
+ 
+ // للتوافق مع الكود القديم: PLACEMENT_LEVELS = جدول A1
+ export const PLACEMENT_LEVELS = A1_LEVELS;
+-const ALL_LEVELS = [...A1_LEVELS, ...A2_LEVELS];
++const ALL_LEVELS = [...A1_LEVELS, ...A2_LEVELS, ...B1_LEVELS];
+ 
+ // ترتيب المستويات (للمقارنة): Pre-A1=0 ... C2
+ const LEVEL_ORDER = [
+@@ -136,6 +193,7 @@ const LEVEL_ORDER = [
+   "B1.1",
+   "B1.2",
+   "B1.3",
++  "B1.4",
+   "B2.1",
+   "B2.2",
+   "B2.3",
+@@ -225,15 +283,18 @@ export function buildStandardLevels(base, thresholds = [40, 60, 80]) {
+ }
+ 
+ // بيطلّع كود المستوى من نص (اسم الكورس/وسومه...). بيرجّع كود من LEVEL_ORDER أو null.
+-//   "A1.2" → "A1.2" · "A2" → "A2.1" · "B1" → "B1.1" · "A1" → "A1.1"
++//   "A1.2" → "A1.2" · "A2" → "A2.1" · "B1" → "B1.1" · "B1.4" → "B1.4" · "A1" → "A1.1"
++//   رقم فرعي مش موجود في LEVEL_ORDER (مثلًا A1.4) بيتعامل كـ ".1" زي ما كان قبل إضافة B1.4.
+ export function detectLevelCode(text) {
+   if (!text) return null;
+-  const m = String(text).match(/\b([ABC][12])(?:\s*[.\-_]\s*([123]))?(?![0-9])/i);
++  const m = String(text).match(/\b([ABC][12])(?:\s*[.\-_]\s*([1-4]))?(?![0-9])/i);
+   if (!m) return null;
+   const base = m[1].toUpperCase();
+   const sub = m[2] || "1";
+   const code = `${base}.${sub}`;
+-  return LEVEL_ORDER.includes(code) ? code : null;
++  if (LEVEL_ORDER.includes(code)) return code;
++  const first = `${base}.1`;
++  return LEVEL_ORDER.includes(first) ? first : null;
+ }
+ 
+ // احتياطي لو الكورس مالوش كود في اسمه: بنستخدم حقل level القديم (beginner/intermediate/advanced).
+@@ -246,7 +307,8 @@ export function fallbackLevelFromEnum(level) {
+ // أنهي اختبار تحديد مستوى بيظهر على الكورس ده؟
+ //  1) 🆕 لو الأدمن ربط الكورس باختبار مخصص من لوحة الأدمن (course.placementTest = { id, path }) → id الاختبار ده.
+ //  2) وإلا بالاسم: "a1" لكورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3...) و"a2" لكورسات A2
+-//     (A2.1 / A2.2 / A2.3...) وإلا null (مفيش زرار اختبار).
++//     (A2.1 / A2.2 / A2.3...) و"b1" لكورسات B1 (Independent B1.1 / Fluency B1.2 / Professional B1.3 /
++//     Study & Work B1.4) وإلا null (مفيش زرار اختبار).
+ // بيقرا الكود من اسم الكورس (كل اللغات) أو الـ slug أو الوسوم. course = الكورس الخام جاي من
+ // /api/courses. (مفيش import لبيانات الاختبارات هنا عشان صفحات الكورسات متتقلش.)
+ export function getPlacementTestForCourse(course) {
+@@ -259,6 +321,7 @@ export function getPlacementTestForCourse(course) {
+     if (code) {
+       if (code.startsWith("A1.")) return "a1";
+       if (code.startsWith("A2.")) return "a2";
++      if (code.startsWith("B1.")) return "b1";
+       return null;
+     }
+   }
+@@ -270,9 +333,10 @@ export function hasLinkedPlacementTest(course) {
+   return Boolean(course?.placementTest?.id);
+ }
+ 
+-// رابط صفحة الاختبار حسب id الاختبار: A1 و A2 صفحاتهم القديمة، وأي اختبار مخصص على /level-test/<id>
++// رابط صفحة الاختبار حسب id الاختبار: A1 و A2 و B1 صفحاتهم المدمجة، وأي اختبار مخصص على /level-test/<id>
+ export function getPlacementTestPath(testId) {
+   if (testId === "a2") return "/spanish-test/a2";
++  if (testId === "b1") return "/spanish-test/b1";
+   if (!testId || testId === "a1") return "/spanish-test";
+   return `/level-test/${encodeURIComponent(testId)}`;
+ }
+diff --git a/app/lib/placementTestImport.js b/app/lib/placementTestImport.js
+index de0ef75..33fc644 100644
+--- a/app/lib/placementTestImport.js
++++ b/app/lib/placementTestImport.js
+@@ -166,7 +166,7 @@ export async function parsePlacementTestWorkbook(input) {
+   const testId = idCell.value.toLowerCase().trim();
+   if (!testId) err(SHEETS.settings, idCell.row, "Test ID is required.", "حقل Test ID مطلوب.");
+   else if (!TEST_ID_RE.test(testId))
+-    err(SHEETS.settings, idCell.row, "Test ID must be 1–30 lowercase letters/numbers/dashes (e.g. b1).", "الـ Test ID لازم يكون حروف إنجليزي صغيرة وأرقام وشرطة فقط (1–30 حرف)، مثال: b1.");
++    err(SHEETS.settings, idCell.row, "Test ID must be 1–30 lowercase letters/numbers/dashes (e.g. b2).", "الـ Test ID لازم يكون حروف إنجليزي صغيرة وأرقام وشرطة فقط (1–30 حرف)، مثال: b2.");
+   else if (RESERVED_TEST_IDS.includes(testId))
+     err(SHEETS.settings, idCell.row, `Test ID "${testId}" is reserved for the built-in test. Choose another (e.g. ${testId}-new).`, `الـ ID "${testId}" محجوز للاختبار الأصلي. اختار اسم تاني (مثلاً ${testId}-new).`);
+ 
+diff --git a/app/lib/placementTestImport.test.js b/app/lib/placementTestImport.test.js
+index e166af0..954bb70 100644
+--- a/app/lib/placementTestImport.test.js
++++ b/app/lib/placementTestImport.test.js
+@@ -25,7 +25,8 @@ async function makeFile({ settings, questions = [], bank = [], audio = [], skip
+   if (!skip.includes("Settings")) {
+     const ws = wb.addWorksheet("Settings");
+     ws.addRow(["Key", "Value"]);
+-    const s = { "Test ID": "b1", "Level (CEFR)": "B1", "Test Title": "My B1 test", ...settings };
++    // "b1" بقى id مدمج (محجوز) — بنستخدم id مخصص تاني هنا
++    const s = { "Test ID": "b1-custom", "Level (CEFR)": "B1", "Test Title": "My B1 test", ...settings };
+     for (const [k, v] of Object.entries(s)) if (v !== undefined) ws.addRow([k, v]);
+   }
+   if (!skip.includes("Questions")) {
+diff --git a/app/lib/placementTestKeys.js b/app/lib/placementTestKeys.js
+index bfc1a7a..a99dbd0 100644
+--- a/app/lib/placementTestKeys.js
++++ b/app/lib/placementTestKeys.js
+@@ -7,11 +7,12 @@
+ 
+ import { ANSWER_KEY } from "@/app/lib/spanishPlacementTestKey";
+ import { ANSWER_KEY_A2 } from "@/app/lib/spanishPlacementTestKeyA2";
++import { ANSWER_KEY_B1 } from "@/app/lib/spanishPlacementTestKeyB1";
+ import { isTestDef, normalizeTestId } from "@/app/lib/placementTests";
+ 
+-const KEYS = { a1: ANSWER_KEY, a2: ANSWER_KEY_A2 };
++const KEYS = { a1: ANSWER_KEY, a2: ANSWER_KEY_A2, b1: ANSWER_KEY_B1 };
+ 
+-// testOrId = "a1" | "a2" أو تعريف اختبار مخصص (مفتاحه جوه التعريف نفسه: def.answerKey — السيرفر بس)
++// testOrId = "a1" | "a2" | "b1" أو تعريف اختبار مخصص (مفتاحه جوه التعريف نفسه: def.answerKey — السيرفر بس)
+ export function getAnswerKey(testOrId) {
+   if (isTestDef(testOrId)) return testOrId.answerKey || KEYS[normalizeTestId(testOrId)] || {};
+   return KEYS[normalizeTestId(testOrId)];
+diff --git a/app/lib/placementTestSheetSpec.js b/app/lib/placementTestSheetSpec.js
+index 7a02289..2069900 100644
+--- a/app/lib/placementTestSheetSpec.js
++++ b/app/lib/placementTestSheetSpec.js
+@@ -20,7 +20,8 @@ export const SHEETS = {
+   audio: "Audio",
+ };
+ 
+-export const RESERVED_TEST_IDS = ["a1", "a2"];
++// ids الاختبارات المدمجة (a1 / a2 / b1) — محجوزة: الاختبار المدمج بيتقدّم على أي اختبار مخصص بنفس الـ id.
++export const RESERVED_TEST_IDS = ["a1", "a2", "b1"];
+ export const TEST_ID_RE = /^[a-z0-9][a-z0-9-]{0,29}$/;
+ export const MAX_QUESTIONS = 400;
+ export const MAX_AUDIO_SLOT = 60;
+@@ -82,7 +83,7 @@ export const AUDIO_COLUMNS = [
+ ];
+ 
+ export const SETTINGS_ROWS = [
+-  { key: "Test ID", note: "معرّف قصير بالإنجليزي (حروف صغيرة وأرقام وشرطة) — بيظهر في رابط الاختبار. مثال: b1. ممنوع a1 و a2 (محجوزين).", required: true },
++  { key: "Test ID", note: "معرّف قصير بالإنجليزي (حروف صغيرة وأرقام وشرطة) — بيظهر في رابط الاختبار. مثال: b2. ممنوع a1 و a2 و b1 (محجوزين — اختبارات مدمجة).", required: true },
+   { key: "Level (CEFR)", note: "المستوى: A1 / A2 / B1 / B2 / C1 / C2 — بيحدد مستويات النتيجة (Pre-B1, B1.1, B1.2, B1.3).", required: true },
+   { key: "Test Title", note: "عنوان الاختبار اللي بيظهر للطالب. مثال: Prueba de nivel de español B1.", required: true },
+   { key: "Subject", note: "لغة الاختبار: es / en / fr / de / it / ar / other (بتظهر في الإيميل وفي الكورسات الموصى بها). الافتراضي es.", required: false },
+diff --git a/app/lib/placementTestTemplate.js b/app/lib/placementTestTemplate.js
+index f7d1e49..2b593f9 100644
+--- a/app/lib/placementTestTemplate.js
++++ b/app/lib/placementTestTemplate.js
+@@ -49,7 +49,7 @@ const README_LINES = [
+   ["h", "الفكرة"],
+   ["p", "املأ هذا الملف (بدون تغيير أسماء الشيتات أو أسماء الأعمدة) ثم ارفعه من: لوحة الأدمن ← Level Tests ← Manage tests. النظام بيعرض لك معاينة وأي أخطاء قبل ما يتم النشر."],
+   ["h", "1) شيت Settings"],
+-  ["p", "املأ: Test ID (مثلاً b1) · Level (CEFR) · Test Title · Subject (اختياري) · Level thresholds (اختياري)."],
++  ["p", "املأ: Test ID (مثلاً b2) · Level (CEFR) · Test Title · Subject (اختياري) · Level thresholds (اختياري)."],
+   ["h", "2) شيت Questions — صف لكل سؤال"],
+   ["p", "Part = الجزء (Reading / Listening / ...) · Task = المهمة داخل الجزء. الأسئلة اللي ليها نفس Task بتتجمع مع بعض. لو سبت Part أو Task فاضي بياخد نفس اللي فوقه."],
+   ["p", "Task Instructions و Passage: اكتبهم في أول سؤال من المهمة فقط (التعليمات + النص المشترك لأسئلة المهمة)."],
+diff --git a/app/lib/placementTests.js b/app/lib/placementTests.js
+index ad20cc3..27f8aad 100644
+--- a/app/lib/placementTests.js
++++ b/app/lib/placementTests.js
+@@ -3,9 +3,13 @@
+ //  سجل اختبارات تحديد المستوى (إسباني) — آمن للمتصفح والسيرفر (مفيش فيه مفتاح إجابات
+ //  ولا نصوص استماع).
+ //
+-//  حاليًا في اختبارين بنفس الميكانيزم (قراءة 25 + استماع 25 + قواعد ومفردات 50 = 100 نقطة):
++//  حاليًا في 3 اختبارات بنفس الميكانيزم (الدرجة دايمًا نسبة من 100):
+ //    a1 → Prueba de nivel de español A1  (/spanish-test)     — بيظهر على كورسات A1
++//         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
+ //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
++//         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
++//    b1 → Prueba de nivel de español B1  (/spanish-test/b1)  — بيظهر على كورسات B1.x
++//         (قراءة 30 + قواعد ومفردات 50 دلوقتي — الاستماع (30) جاهز بس مش متفعّل: شوف spanishPlacementTestB1.js)
+ //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
+ //  (A1: 4 خانات — A2: 12 خانة زي ملف الاختبار، بتترفع من لوحة الأدمن).
+ //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
+@@ -17,6 +21,7 @@ import {
+   getVisibleTasks,
+ } from "@/app/lib/spanishPlacementTest";
+ import { PLACEMENT_PARTS_A2, PLACEMENT_TEST_TITLE_A2 } from "@/app/lib/spanishPlacementTestA2";
++import { PLACEMENT_PARTS_B1, PLACEMENT_TEST_TITLE_B1 } from "@/app/lib/spanishPlacementTestB1";
+ 
+ export const DEFAULT_TEST_ID = "a1";
+ 
+@@ -65,6 +70,19 @@ export const PLACEMENT_TESTS = {
+       { slot: 12, label: "Audio — Rosa y Miguel preparan una escapada", hint: "Tarea 4 · Questions 19–25" },
+     ],
+   },
++  b1: {
++    id: "b1",
++    label: "B1",
++    title: PLACEMENT_TEST_TITLE_B1,
++    parts: PLACEMENT_PARTS_B1,
++    path: "/spanish-test/b1",
++    audioDocId: "audio_b1",
++    audioPathPrefix: "edumaster/placement-test-b1/audio",
++    // 🎧 الاستماع لسه مش متفعّل (مفتاح إجاباته ونصوص تسجيلاته مش في ملف الاختبار) → مفيش خانات صوت.
++    // لما نفعّله: ضيف 5 خانات هنا (واحدة لكل Tarea — audioSlot في PLACEMENT_LISTENING_B1) وشوف
++    // التعليق في آخر app/lib/spanishPlacementTestB1.js.
++    audioSlots: [],
++  },
+ };
+ 
+ export const TEST_IDS = Object.keys(PLACEMENT_TESTS);
+@@ -106,9 +124,9 @@ export function getVisiblePartsFor(testOrId, audio = {}) {
+     .filter((p) => p.tasks.length);
+ }
+ 
+-// "A1.2" → "a1" · "A2.1" → "a2" · غير كده → null
++// "A1.2" → "a1" · "A2.1" → "a2" · "B1.3" → "b1" · غير كده → null
+ export function getTestIdForLevelCode(code) {
+-  const m = /^(A[12])\./i.exec(String(code || ""));
++  const m = /^(A[12]|B1)\./i.exec(String(code || ""));
+   const id = m ? m[1].toLowerCase() : null;
+   return id && PLACEMENT_TESTS[id] ? id : null;
+ }
+diff --git a/app/lib/spanishPlacementTestB1.js b/app/lib/spanishPlacementTestB1.js
+new file mode 100644
+index 0000000..4a8d961
+--- /dev/null
++++ b/app/lib/spanishPlacementTestB1.js
+@@ -0,0 +1,356 @@
++// ═══════════════════════════════════════════════
++//  app/lib/spanishPlacementTestB1.js
++//  بيانات اختبار تحديد المستوى (إسباني) — Prueba de nivel de español B1
++//  المصدر: ملف "Prueba de nivel de español B1: cuadernillo del candidato" (docx).
++//
++//  نفس هيكل A1/A2 بالظبط (PLACEMENT_PARTS → tasks → questions):
++//    - question: { n: رقم السؤال العام، ln: رقم السؤال داخل الجزء (زي ترقيم الملف)، q، ctx، o }
++//    - task.bank: سؤال "ربط": الخيارات حروف (A, B, C…) والنصوص في task.bank.
++//    - task.passage: نص مشترك لأسئلة المهمة.
++//
++//  الترقيم العام (n):
++//    قراءة 1–30  ·  استماع 31–60  ·  قواعد ومفردات 61–110   (110 سؤال، كل سؤال بدرجة)
++//  الدرجة بتتحسب كنسبة مئوية من الأسئلة الظاهرة فعلًا (من 100) — زي A1/A2.
++//
++//  ⚠️ الاستماع (31–60) لسه مش متفعّل في الاختبار:
++//    ملف الاختبار كراسة المرشح بس — مفيهوش مفتاح إجابات الاستماع ولا نصوص التسجيلات (guiones).
++//    الأسئلة جاهزة تحت في PLACEMENT_LISTENING_B1، بس مش داخلة في PLACEMENT_PARTS_B1 لحد ما
++//    نضيف مفتاحها في spanishPlacementTestKeyB1.js (LISTENING) ونرفع الصوتيات.
++//    (التصحيح بيعتبر أي سؤال من غير مفتاح غلط، فمينفعش يظهر قبل المفتاح.)
++//    التفعيل: شوف التعليق في آخر الملف.
++//  ✍️🗣️ التعبير الكتابي (Parte 4) والشفهي (Parte 5) مش بيتصححوا آليًا، فمش جزء من الاختبار هنا
++//    (زي A1/A2).
++//  - 🔒 مفتاح الإجابات مش هنا (الملف ده بيتحمّل في المتصفح) — هو في spanishPlacementTestKeyB1.js
++// ═══════════════════════════════════════════════
++
++export const PLACEMENT_TEST_TITLE_B1 = "Prueba de nivel de español B1";
++
++const L = "ABCDEFGHIJK";
++// خيارات الربط: أول k حرف (A..)
++const letters = (k) => L.slice(0, k).split("");
++// سؤال اختيار من متعدد
++const mc = (n, ln, q, o, ctx) => (ctx ? { n, ln, q, ctx, o } : { n, ln, q, o });
++// سؤال ربط: الخيارات حروف
++const mt = (n, ln, q, k) => ({ n, ln, q, o: letters(k) });
++// بنك الربط من نصوص بالترتيب A, B, C…
++const bankOf = (texts) => texts.map((t, i) => ({ l: L[i], t }));
++
++export const PLACEMENT_PARTS_B1 = [
++  // ───────────────────────── PARTE 1. COMPRENSIÓN DE LECTURA (n 1–30) ─────────────────────────
++  {
++    id: "read",
++    title: "Comprensión de lectura",
++    minutes: 70,
++    tasks: [
++      {
++        title: "Tarea 1",
++        intro:
++          "Lee las declaraciones de seis personas (1–6) y los textos (A–H). Relaciona cada persona con el texto que le interesa. Hay dos textos que no necesitas. Escribe la letra.",
++        bank: bankOf([
++          "«Curso de cocina para principiantes. Aprende a preparar platos fáciles y sanos en solo cuatro semanas. Clases los martes y jueves de 19:00 a 21:00. Plazas limitadas: reserva ya llamando al 957 123 456.»",
++          "«Se necesita camarero/a para restaurante en el centro. Jornada de 6 horas, fines de semana incluidos. Se valora la experiencia y un nivel básico de inglés. Enviar currículum antes del 30 de noviembre.»",
++          "«Cine de verano en el parque. Todos los viernes de julio y agosto, a las 22:00. Entrada libre hasta completar el aforo. Trae una manta o una silla. En caso de lluvia, la sesión se cancela.»",
++          "«Aviso a los vecinos: el próximo lunes se cortará el agua en todo el edificio, de 9:00 a 14:00, por obras en la tubería. Disculpen las molestias. La comunidad.»",
++          "«Alquilo habitación en piso compartido con dos estudiantes. Luminosa y con balcón. 280 € al mes, gastos incluidos. Cerca de la universidad y del metro. No se admiten mascotas. Contacto: 622 000 111.»",
++          "«Gimnasio Aqua: promoción de otoño. Si te apuntas este mes, matrícula gratis y una semana de prueba sin compromiso. Piscina, sala de musculación y clases de yoga. De lunes a sábado.»",
++          "«Vendo bicicleta de montaña, casi nueva. La compré hace seis meses y la he usado muy poco. Incluye casco y candado. Precio: 220 €, negociable. Tengo la factura.»",
++          "«Concierto solidario de la banda \"Los Vecinos\". Sábado 12, a las 20:30, en el centro cultural. Entrada: 5 €. Todo el dinero se destinará a la biblioteca del barrio.»",
++        ]),
++        questions: [
++          mt(1, 1, "Marta: «Quiero aprender a cocinar, pero no sé casi nada. Prefiero ir por la tarde.»", 8),
++          mt(2, 2, "Daniel: «Busco trabajo los fines de semana y tengo experiencia en hostelería.»", 8),
++          mt(3, 3, "Laura: «Soy estudiante y necesito un sitio barato para vivir cerca de la universidad.»", 8),
++          mt(4, 4, "Los Pérez: «Nos gusta el cine y queremos ver una película al aire libre con los niños.»", 8),
++          mt(5, 5, "Andrés: «Quiero hacer deporte, pero antes de pagar me gustaría probar el gimnasio unos días.»", 8),
++          mt(6, 6, "Elena: «Quiero ayudar a mi barrio y, además, me encanta la música en directo.»", 8),
++        ],
++      },
++      {
++        title: "Tarea 2",
++        intro: "Lee el texto y responde a las preguntas. Elige la opción correcta (a, b o c).",
++        passage:
++          "Las ciudades españolas se llenan de bicicletas\n\n" +
++          "Hace diez años, ir en bicicleta por el centro de una ciudad española era algo poco común. Hoy el paisaje ha cambiado: en Sevilla, Valencia o Vitoria, miles de personas pedalean cada día para ir al trabajo, al colegio o a comprar el pan.\n\n" +
++          "Los expertos explican que el cambio se debe, sobre todo, a tres razones. La primera es la construcción de carriles bici seguros que unen los barrios con el centro. La segunda es el precio de la gasolina y del aparcamiento, que cada año es más caro. La tercera es una mayor preocupación por el medio ambiente y por la salud: una persona que pedalea media hora al día reduce el riesgo de muchas enfermedades.\n\n" +
++          "Sin embargo, no todo son ventajas. Muchos ciclistas se quejan de que los carriles bici se interrumpen de repente o de que algunos conductores no respetan su espacio. Por eso, varios ayuntamientos han puesto en marcha campañas para enseñar a convivir a coches, bicicletas y peatones. En algunas ciudades, además, se multa a quienes aparcan en el carril bici.\n\n" +
++          "Otro aspecto que ha ayudado mucho es el sistema de bicicletas públicas. Con una pequeña cuota anual, cualquier persona puede coger una bicicleta en una estación, usarla durante media hora y dejarla en otra. «Yo no tengo sitio en casa para guardar una bicicleta, y este servicio me resuelve el problema», cuenta Irene, una estudiante de 22 años que lo usa todos los días para ir a la facultad.\n\n" +
++          "Algunos comerciantes también han notado el cambio. Al principio temían que, sin coches en la puerta, venderían menos. Pero los estudios muestran lo contrario: los clientes que llegan en bicicleta o a pie compran con más frecuencia, aunque gasten menos en cada visita. «Pasan más tiempo en la calle y se paran a mirar los escaparates», explica Javier, dueño de una librería del centro.\n\n" +
++          "El próximo reto, según los especialistas, es conseguir que las bicicletas también lleguen a los pueblos pequeños y a las zonas rurales, donde las distancias son mayores y los caminos no siempre son seguros. Mientras tanto, en las ciudades, la bicicleta parece haber llegado para quedarse.",
++        questions: [
++          mc(7, 7, "Según el texto, hace diez años...", [
++            "mucha gente usaba la bicicleta en el centro.",
++            "no había bicicletas en España.",
++            "usar la bicicleta en el centro era poco habitual.",
++          ]),
++          mc(8, 8, "Una de las razones del cambio es...", [
++            "la construcción de carriles bici seguros.",
++            "la bajada del precio de la gasolina.",
++            "la prohibición de los coches.",
++          ]),
++          mc(9, 9, "Irene usa las bicicletas públicas porque...", [
++            "son gratis.",
++            "no sabe aparcar el coche.",
++            "no tiene sitio en casa para guardar una bicicleta.",
++          ]),
++          mc(10, 10, "Muchos ciclistas se quejan de que...", [
++            "los carriles bici son demasiado largos.",
++            "algunos conductores no respetan su espacio.",
++            "las multas son muy caras.",
++          ]),
++          mc(11, 11, "Los comerciantes han descubierto que los clientes que llegan en bicicleta...", [
++            "compran con más frecuencia.",
++            "gastan más en cada visita.",
++            "compran menos veces.",
++          ]),
++          mc(12, 12, "Según los especialistas, el próximo reto es...", [
++            "construir más estaciones de bicicletas en el centro.",
++            "llevar la bicicleta a los pueblos y a las zonas rurales.",
++            "eliminar los coches de las ciudades.",
++          ]),
++        ],
++      },
++      {
++        title: "Tarea 3",
++        intro:
++          "Lee los tres textos (A, B y C) y relaciona cada enunciado (13–18) con la persona que corresponde. Escribe la letra. Puedes usar cada letra más de una vez.",
++        bank: bankOf([
++          "Sara, estudiante Erasmus en Granada. «Llegué a Granada en septiembre sin conocer a nadie. Los primeros días me sentí un poco sola, pero pronto empecé a ir a un grupo de intercambio de idiomas en un bar cerca de la universidad. Allí conocí a gente de todo el mundo. Ahora comparto piso con una chica italiana y un chico alemán, y los fines de semana hacemos excursiones por la sierra. Lo único que no me gusta es que cenan muy tarde: ¡yo todavía no me acostumbro!»",
++          "Pablo, voluntario en Perú. «El año pasado pasé tres meses en un pueblo de los Andes dando clases de informática a niños. Al principio tenía problemas con la altura y me dolía la cabeza, pero la gente del pueblo me cuidó muchísimo. Aprendí a hablar un poco de quechua y a cocinar papas de mil maneras. Cuando me fui, todos lloraban. Espero volver algún día, aunque mi familia dice que estoy loco por querer subir otra vez a 3.500 metros.»",
++          "Aisha, ingeniera en Madrid. «Trabajo en una empresa española desde hace dos años. Lo más difícil fue entender el humor y los chistes de mis compañeros, que hablan muy rápido. Para mejorar, veo series en español con subtítulos y leo el periódico en el metro. Mi jefe dice que he mejorado mucho. Lo que más me gusta es la hora del café de la mañana, cuando hablamos de todo menos de trabajo.»",
++        ]),
++        questions: [
++          mt(13, 13, "Esta persona vive con compañeros de otros países.", 3),
++          mt(14, 14, "Esta persona estuvo tres meses ayudando en un pueblo.", 3),
++          mt(15, 15, "Esta persona trabaja en una empresa desde hace dos años.", 3),
++          mt(16, 16, "Esta persona tuvo problemas de salud al llegar.", 3),
++          mt(17, 17, "Esta persona practica el idioma viendo series y leyendo.", 3),
++          mt(18, 18, "A esta persona le resulta raro el horario de las comidas.", 3),
++        ],
++      },
++      {
++        title: "Tarea 4",
++        intro:
++          "Lee el texto. Faltan seis frases (19–24). Elige para cada hueco la frase correcta (A–H). Hay dos frases que no necesitas. Escribe la letra.",
++        passage:
++          "Cómo preparar bien un examen\n\n" +
++          "Estudiar mucho no siempre significa estudiar bien. Para aprovechar el tiempo, lo mejor es seguir unos consejos sencillos.\n\n" +
++          "Primero, organiza tu semana. Antes de empezar, haz un calendario con las fechas de los exámenes y reparte el trabajo en pequeñas tareas. (19) Así no tendrás que estudiarlo todo la noche anterior.\n\n" +
++          "Busca un lugar tranquilo. La biblioteca o tu habitación pueden ser buenos sitios, siempre que (20). Muchos estudiantes dejan el móvil fuera de la habitación durante una hora y descubren que trabajan mucho más rápido.\n\n" +
++          "No olvides descansar. Cada cincuenta minutos, para diez minutos y camina un poco. (21) Dormir entre siete y ocho horas también es muy importante, porque durante el sueño el cerebro guarda lo que has aprendido.\n\n" +
++          "Estudia en grupo de vez en cuando. Explicar un tema a un compañero es una forma excelente de comprobar si lo has entendido. (22), pero no conviene hacerlo todos los días.\n\n" +
++          "Por último, cuida tu alimentación. Desayuna bien antes del examen y bebe agua. (23) Y, sobre todo, mantén la calma: si has estudiado con orden, (24).",
++        bank: bankOf([
++          "Es un método muy útil si encuentras compañeros con tu mismo ritmo",
++          "tendrás más confianza el día del examen",
++          "Un cerebro cansado no aprende bien.",
++          "no haya distracciones cerca",
++          "Por ejemplo, dedica una hora diaria a cada asignatura.",
++          "Evita tomar demasiado café o bebidas energéticas, porque pueden ponerte nervioso.",
++          "Es mejor estudiar de noche porque hay más silencio.",
++          "Y no compres un libro nuevo para cada asignatura.",
++        ]),
++        questions: [
++          mt(19, 19, "Hueco (19)", 8),
++          mt(20, 20, "Hueco (20)", 8),
++          mt(21, 21, "Hueco (21)", 8),
++          mt(22, 22, "Hueco (22)", 8),
++          mt(23, 23, "Hueco (23)", 8),
++          mt(24, 24, "Hueco (24)", 8),
++        ],
++      },
++      {
++        title: "Tarea 5",
++        intro: "Lee la carta y elige la opción correcta para cada hueco (a, b o c).",
++        passage:
++          "Estimados señores:\n\n" +
++          "Les escribo para (25) una queja sobre el servicio que recibí el pasado 12 de octubre. Compré un teléfono móvil en su tienda online y me prometieron que (26) en tres días. Sin embargo, el paquete llegó con una semana de retraso y la pantalla (27) rota.\n\n" +
++          "Llamé varias veces al servicio de atención al cliente, pero nadie (28) contestó. Si hubiera sabido que iban a tardar tanto, (29) comprado el teléfono en otra tienda.\n\n" +
++          "Por todo ello, les pido que me devuelvan el dinero lo antes posible. (30) de antemano su atención, les saludo atentamente.",
++        questions: [
++          mc(25, 25, "Hueco (25)", ["hacer", "tener", "presentar"]),
++          mc(26, 26, "Hueco (26)", ["llegue", "llegaría", "llegó"]),
++          mc(27, 27, "Hueco (27)", ["era", "fue", "estaba"]),
++          mc(28, 28, "Hueco (28)", ["le", "se", "me"]),
++          mc(29, 29, "Hueco (29)", ["hubiera", "habría", "había"]),
++          mc(30, 30, "Hueco (30)", ["Agradecen", "Agradeciéndoles", "Agradecieron"]),
++        ],
++      },
++    ],
++  },
++
++  // ───────────────────────── PARTE 3. GRAMÁTICA Y VOCABULARIO (n 61–110) ─────────────────────────
++  // (ترقيم n بيبدأ من 61 عشان يفضل مكان الاستماع 31–60 محجوز — شوف تعليق الملف.)
++  {
++    id: "gram",
++    title: "Gramática y vocabulario",
++    minutes: 40,
++    tasks: [
++      {
++        title: "Tarea 1. Gramática I",
++        intro: "Elige la opción que completa correctamente cada frase (a, b o c).",
++        questions: [
++          mc(61, 1, "Ayer ___ a casa de mis abuelos.", ["he ido", "iba", "fui"]),
++          mc(62, 2, "Cuando era pequeño, ___ en un pueblo.", ["viví", "he vivido", "vivía"]),
++          mc(63, 3, "Todavía no ___ el correo de hoy.", ["leí", "he leído", "leía"]),
++          mc(64, 4, "Mañana ___ a visitarte.", ["iré", "fui", "iba"]),
++          mc(65, 5, "¿___ ayudarme con la maleta, por favor?", ["Pudiste", "Podrías", "Podías"]),
++          mc(66, 6, "Si tengo tiempo, ___ al cine esta tarde.", ["iría", "fui", "iré"]),
++          mc(67, 7, "___ la ventana, por favor, que hace frío.", ["Cierra", "Cierras", "Cerrar"]),
++          mc(68, 8, "No ___ tan deprisa, que hay mucho tráfico.", ["conduces", "conduce", "conduzcas"]),
++          mc(69, 9, "Mi hermana es más alta ___ yo.", ["como", "de", "que"]),
++          mc(70, 10, "¿Has visto a Pedro? No ___ he visto en toda la semana.", ["lo", "le", "la"]),
++          mc(71, 11, "A mis padres ___ regalé un viaje por su aniversario.", ["les", "los", "se"]),
++          mc(72, 12, "Hace dos años que ___ en esta ciudad.", ["vivía", "vivo", "vivir"]),
++          mc(73, 13, "Mis amigos ___ del cine cuando empezó a llover.", ["salieron", "salían", "han salido"]),
++        ],
++      },
++      {
++        title: "Tarea 2. Gramática II",
++        intro: "Elige la opción que completa correctamente cada frase (a, b o c).",
++        questions: [
++          mc(74, 14, "Es importante que ___ más agua.", ["bebes", "bebas", "bebiendo"]),
++          mc(75, 15, "Cuando ___ a casa, te llamo.", ["llegue", "llego", "llegaré"]),
++          mc(76, 16, "Espero que ___ buen tiempo el fin de semana.", ["hace", "hará", "haga"]),
++          mc(77, 17, "Me dijo que ___ al día siguiente.", ["vuelve", "volvería", "volverá"]),
++          mc(78, 18, "El libro ___ escrito por un autor argentino.", ["ha", "estaba", "fue"]),
++          mc(79, 19, "La chica ___ vive al lado es mi prima.", ["que", "quien", "cual"]),
++          mc(80, 20, "Llevo tres años ___ español.", ["estudio", "estudiar", "estudiando"]),
++          mc(81, 21, "Cuando llegué, el tren ya ___.", ["salió", "sale", "había salido"]),
++          mc(82, 22, "Si ___ más tiempo, viajaría más.", ["tuviera", "tengo", "tenía"]),
++          mc(83, 23, "___ llovía, salimos a pasear.", ["Porque", "Aunque", "Sino"]),
++          mc(84, 24, "Se ___ que mañana habrá huelga.", ["dijo", "dice", "dicen"]),
++          mc(85, 25, "Ese es el hotel ___ nos alojamos el año pasado.", ["que", "donde", "cuando"]),
++        ],
++      },
++      {
++        title: "Tarea 3. Vocabulario I",
++        intro: "Elige la opción que completa correctamente cada frase (a, b o c).",
++        questions: [
++          mc(86, 26, "Para ir al médico, pido una ___.", ["cuenta", "cita", "cola"]),
++          mc(87, 27, "Mi hermano trabaja en un banco: es ___.", ["cliente", "paciente", "empleado"]),
++          mc(88, 28, "Me duele la garganta y tengo ___. Voy a tomar un jarabe.", ["tos", "tren", "tienda"]),
++          mc(89, 29, "Para viajar en avión necesitas el ___ y el billete.", ["pasillo", "pasaporte", "paraguas"]),
++          mc(90, 30, "Mi ordenador no ___ porque no tiene batería.", ["cuesta", "vive", "funciona"]),
++          mc(91, 31, "Vamos a ___ una habitación en el hotel para el fin de semana.", ["reservar", "olvidar", "vender"]),
++          mc(92, 32, "En verano me gusta ir a la ___ y tomar el sol.", ["cocina", "playa", "oficina"]),
++          mc(93, 33, "Mi madre cocina muy bien: prepara unos platos ___.", ["nuevos", "deliciosos", "delgados"]),
++          mc(94, 34, "El profesor nos puso muchos ___ para hacer en casa.", ["regalos", "vacaciones", "deberes"]),
++          mc(95, 35, "Para pagar con tarjeta tienes que escribir tu ___ secreto.", ["código", "cumpleaños", "bolso"]),
++          mc(96, 36, "No puedo ir, estoy muy ___: tengo mucho trabajo.", ["cerca", "ocupado", "barato"]),
++          mc(97, 37, "Vivo en un ___ de diez plantas en el centro.", ["paisaje", "camino", "edificio"]),
++        ],
++      },
++      {
++        title: "Tarea 4. Vocabulario II",
++        intro: "Elige la opción que completa correctamente cada frase (a, b o c).",
++        questions: [
++          mc(98, 38, "Para conseguir un empleo, tienes que enviar tu ___ y una carta.", ["presupuesto", "horario", "currículum"]),
++          mc(99, 39, "Reciclar el vidrio y el papel ayuda a proteger el medio ___.", ["ambiente", "tiempo", "lugar"]),
++          mc(100, 40, "Si tienes fiebre, es mejor que te quedes en ___.", ["fiesta", "cama", "viaje"]),
++          mc(101, 41, "Ese actor es muy famoso: ha ___ en más de veinte películas.", ["ocupado", "participado", "perdido"]),
++          mc(102, 42, "Me han ___ el sueldo este mes: ahora cobro más.", ["bajado", "quitado", "subido"]),
++          mc(103, 43, "No estoy de acuerdo contigo, pero ___ tu opinión.", ["respeto", "rompo", "pierdo"]),
++          mc(104, 44, "El profesor ___ los ejercicios para saber si lo habíamos entendido.", ["cerró", "corrigió", "pegó"]),
++          mc(105, 45, "Los precios han ___ mucho este año por la inflación.", ["aumentado", "disminuido", "desaparecido"]),
++          mc(106, 46, "Voy a ___ este paquete a la oficina de correos.", ["enviar", "esperar", "acabar"]),
++          mc(107, 47, "Es una persona muy ___: siempre ayuda a los demás sin pedir nada.", ["perezosa", "tacaña", "generosa"]),
++          mc(108, 48, "El concierto fue un ___: no cabía ni una persona más en la sala.", ["error", "permiso", "éxito"]),
++          mc(109, 49, "Está ___ de que le suban los impuestos.", ["contento", "harto", "agradecido"]),
++          mc(110, 50, "Estoy pensando en ___ un máster el año que viene.", ["hacer", "dejar", "tirar"]),
++        ],
++      },
++    ],
++  },
++];
++
++// ───────────────────────── PARTE 2. COMPRENSIÓN AUDITIVA (n 31–60) — جاهزة بس مش متفعّلة ─────────────────────────
++// 🎧 لتفعيل الاستماع (بعد ما يوصلنا مفتاح الإجابات ونصوص/صوتيات التسجيلات):
++//   1) املا LISTENING في spanishPlacementTestKeyB1.js (30 حرف بترتيب الأسئلة 31–60) — الملف بيتجاهل الاستماع طول ما هو فاضي.
++//   2) ضيف PLACEMENT_LISTENING_B1 كجزء تاني في PLACEMENT_PARTS_B1 (بين "read" و"gram"):
++//        [readPart, PLACEMENT_LISTENING_B1, gramPart]
++//   3) في placementTests.js (سجل b1) حط audioSlots الخمسة (شوف audioSlot لكل مهمة تحت).
++//   4) ارفع الصوتيات من لوحة الأدمن (أي مهمة من غير صوت بتتخفي لوحدها).
++// الأسئلة دي بتتخفي لوحدها لو مفيش صوت، بس لو الصوت اترفع من غير مفتاح هتتحسب غلط — عشان كده مفصولة.
++export const PLACEMENT_LISTENING_B1 = {
++  id: "listen",
++  title: "Comprensión auditiva",
++  minutes: 40,
++  tasks: [
++    {
++      title: "Tarea 1",
++      intro: "Escucha seis mensajes breves. Elige la opción correcta (a, b o c).",
++      audioSlot: 1,
++      questions: [
++        mc(31, 1, "¿Qué se anuncia?", ["Un curso de cocina.", "Un restaurante nuevo.", "Un servicio de comida a domicilio."]),
++        mc(32, 2, "¿Por qué Jorge no va a la cena?", ["Tiene que recoger a su hermana.", "Está enfermo.", "Trabaja el sábado."]),
++        mc(33, 3, "¿Qué cambia en el aviso?", ["La hora del tren.", "El destino del tren.", "El andén de salida."]),
++        mc(34, 4, "¿Qué debe hacer una persona que quiere reservar una habitación?", ["Dejar sus datos.", "Llamar después de las seis.", "Escribir un correo."]),
++        mc(35, 5, "¿Qué tiempo hará mañana en el sur?", ["Lluvia débil.", "Nubes y frío.", "Sol y calor."]),
++        mc(36, 6, "¿Qué se informa en el aviso?", ["La tienda cambia de planta.", "La tienda cierra y hay descuentos.", "Hay nuevas ofertas con devolución."]),
++      ],
++    },
++    {
++      title: "Tarea 2",
++      intro: "Escucha a Lucas, que cuenta su experiencia en Buenos Aires. Elige la opción correcta (a, b o c).",
++      audioSlot: 2,
++      questions: [
++        mc(37, 7, "Lucas fue a Argentina para...", ["estudiar un máster.", "vivir con su familia.", "trabajar en un periódico con una beca."]),
++        mc(38, 8, "Cuando llegó, Lucas...", ["pasó mucho frío.", "tuvo problemas con algunas palabras.", "encontró la ciudad muy tranquila."]),
++        mc(39, 9, "Lo que más le sorprendió de las costumbres fue que...", ["la gente cenara muy tarde.", "la gente comiera muy poco.", "la gente se levantara muy pronto."]),
++        mc(40, 10, "Lucas se mudó de piso porque...", ["el alquiler era caro.", "no se llevaba bien con sus compañeros.", "el primer piso estaba lejos del trabajo."]),
++        mc(41, 11, "En el periódico, lo que más aprendió fue...", ["a escribir sobre deporte.", "a hacer entrevistas en la calle.", "a usar un programa nuevo."]),
++        mc(42, 12, "Sobre el futuro, Lucas...", ["prefiere vivir en España.", "quiere cambiar de profesión.", "quiere volver a trabajar en Buenos Aires."]),
++      ],
++    },
++    {
++      title: "Tarea 3",
++      intro: "Escucha seis noticias de un informativo de radio. Elige la opción correcta (a, b o c).",
++      audioSlot: 3,
++      questions: [
++        mc(43, 13, "¿Qué se ha inaugurado?", ["Un mercado.", "Un parque infantil.", "Un huerto urbano."]),
++        mc(44, 14, "¿Qué pasó anoche?", ["España se clasificó para las semifinales.", "España perdió contra Francia.", "Se canceló el partido."]),
++        mc(45, 15, "¿Qué podrán hacer los visitantes del museo el domingo?", ["Comprar entradas más baratas.", "Entrar gratis.", "Visitarlo solo con reserva."]),
++        mc(46, 16, "¿Qué opinan los usuarios de la subida de los abonos?", ["Están de acuerdo.", "No han opinado.", "Critican la medida."]),
++        mc(47, 17, "¿Qué dice el estudio sobre los jóvenes?", ["Duermen más que antes.", "Duermen menos de lo recomendado.", "Duermen mal por el ruido."]),
++        mc(48, 18, "¿Qué recomiendan los especialistas para ver las estrellas?", ["Mirar al cielo desde la ciudad.", "Salir al campo.", "Observarlas por la tarde."]),
++      ],
++    },
++    {
++      title: "Tarea 4",
++      intro:
++        "Escucharás a seis personas que hablan de su primer día de trabajo. Relaciona cada persona (19–24) con el enunciado correspondiente (A–H). Hay dos enunciados que no necesitas. Escribe la letra.",
++      audioSlot: 4,
++      bank: bankOf([
++        "Se sintió muy nervioso al empezar.",
++        "Sus compañeros le ayudaron mucho.",
++        "Llegó tarde por un problema de transporte.",
++        "El trabajo no era lo que esperaba.",
++        "Se equivocó de edificio.",
++        "Tuvo que hacer una presentación.",
++        "Perdió su teléfono.",
++        "Terminó antes de lo previsto.",
++      ]),
++      questions: [
++        mt(49, 19, "Persona 1", 8),
++        mt(50, 20, "Persona 2", 8),
++        mt(51, 21, "Persona 3", 8),
++        mt(52, 22, "Persona 4", 8),
++        mt(53, 23, "Persona 5", 8),
++        mt(54, 24, "Persona 6", 8),
++      ],
++    },
++    {
++      title: "Tarea 5",
++      intro: "Escucha la conversación entre Ana y Tomás. Elige la opción correcta (a, b o c).",
++      audioSlot: 5,
++      questions: [
++        mc(55, 25, "¿Qué oferta de trabajo comentan?", ["Una en una agencia de viajes.", "Una en una empresa de energía solar.", "Una en una panadería."]),
++        mc(56, 26, "¿Por qué duda Tomás?", ["No tiene experiencia.", "El sueldo es bajo.", "Tendría que mudarse y dejar su piso y a sus amigos."]),
++        mc(57, 27, "¿Qué opina Tomás de su trabajo actual?", ["Le gusta mucho.", "No le gusta su jefe.", "Está cansado del horario."]),
++        mc(58, 28, "¿Qué ventaja menciona Ana?", ["Vivir cerca de su familia.", "Tener horarios flexibles.", "Ganar más dinero."]),
++        mc(59, 29, "¿Quién es Lucía?", ["Una compañera de trabajo de Tomás.", "Una prima de Ana que vive en Valencia.", "La dueña de una panadería."]),
++        mc(60, 30, "¿Qué decide Tomás?", ["Rechazar la oferta.", "Esperar un mes.", "Enviar su currículum esa noche."]),
++      ],
++    },
++  ],
++};
+diff --git a/app/lib/spanishPlacementTestKeyB1.js b/app/lib/spanishPlacementTestKeyB1.js
+new file mode 100644
+index 0000000..f062b7b
+--- /dev/null
++++ b/app/lib/spanishPlacementTestKeyB1.js
+@@ -0,0 +1,44 @@
++// ═══════════════════════════════════════════════
++//  app/lib/spanishPlacementTestKeyB1.js
++//  🔒 مفتاح إجابات اختبار تحديد المستوى B1 (إسباني) — للسيرفر بس.
++//  ممنوع استيراد الملف ده من أي صفحة/كومبوننت "use client" — وإلا مفتاح
++//  الإجابات هيتنزل في متصفح الطالب.
++//
++//  { [رقم السؤال العام]: { a: index الإجابة الصحيحة (A=0, B=1, …), s: "B1" } }
++//
++//  ⚠️ مصدر المفتاح: ملف الاختبار كراسة المرشح بس ومفيهوش "clave de respuestas"، فإجابات
++//  القراءة (1–30) والقواعد والمفردات (61–110) اتحلّت يدويًا من نصوص الأسئلة — لازم تتراجع
++//  من مصدرك الرسمي قبل الاعتماد عليها. أسئلة فيها أكتر من احتمال مقبول لغويًا:
++//    n=70 (lo/le — leísmo)  ·  n=73 (salían/salieron)
++//  (راجع النوتس في الرد.)
++//  كل سؤال بدرجة واحدة. حقل s ثابت "B1" (التقسيم لـ B1.1/B1.2/B1.3 بيتم بالدرجة الكلية).
++// ═══════════════════════════════════════════════
++
++// حروف الإجابات بترتيب الأسئلة
++const READING =
++  "ABECFH" + // Tarea 1 (1–6)   ربط شخص ↔ نص
++  "CACBAB" + // Tarea 2 (7–12)  نص الدراجات
++  "ABCBCA" + // Tarea 3 (13–18) Sara / Pablo / Aisha
++  "EDCAFB" + // Tarea 4 (19–24) جمل ناقصة
++  "CBCCBB"; //  Tarea 5 (25–30) الرسالة
++// 6 + 6 + 6 + 6 + 6 = 30
++
++const GRAMMAR_VOCAB =
++  "CCBABCACCAABB" + // Gramática I   (61–73)  13
++  "BACBCACCABBB" + //  Gramática II  (74–85)  12
++  "BCABCABBCABC" + //  Vocabulario I (86–97)  12
++  "CABBCABAACCBA"; //  Vocabulario II(98–110) 13
++// 13 + 12 + 12 + 13 = 50
++
++// 🎧 الاستماع (31–60): 30 حرف بترتيب الأسئلة — فاضي لحد ما يوصلنا مفتاح الاستماع.
++// (طول ما هو فاضي، الاستماع مش داخل في الاختبار — شوف spanishPlacementTestB1.js)
++const LISTENING = "";
++
++const entries = [];
++READING.split("").forEach((letter, i) => entries.push([1 + i, letter]));
++LISTENING.split("").forEach((letter, i) => entries.push([31 + i, letter]));
++GRAMMAR_VOCAB.split("").forEach((letter, i) => entries.push([61 + i, letter]));
++
++export const ANSWER_KEY_B1 = Object.fromEntries(
++  entries.map(([n, letter]) => [n, { a: letter.charCodeAt(0) - 65, s: "B1" }])
++);

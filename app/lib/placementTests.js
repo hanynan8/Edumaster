@@ -3,9 +3,13 @@
 //  سجل اختبارات تحديد المستوى (إسباني) — آمن للمتصفح والسيرفر (مفيش فيه مفتاح إجابات
 //  ولا نصوص استماع).
 //
-//  حاليًا في اختبارين بنفس الميكانيزم (قراءة 25 + استماع 25 + قواعد ومفردات 50 = 100 نقطة):
+//  حاليًا في 3 اختبارات بنفس الميكانيزم (الدرجة دايمًا نسبة من 100):
 //    a1 → Prueba de nivel de español A1  (/spanish-test)     — بيظهر على كورسات A1
+//         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
 //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
+//         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
+//    b1 → Prueba de nivel de español B1  (/spanish-test/b1)  — بيظهر على كورسات B1.x
+//         (قراءة 30 + قواعد ومفردات 50 دلوقتي — الاستماع (30) جاهز بس مش متفعّل: شوف spanishPlacementTestB1.js)
 //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
 //  (A1: 4 خانات — A2: 12 خانة زي ملف الاختبار، بتترفع من لوحة الأدمن).
 //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
@@ -17,6 +21,7 @@ import {
   getVisibleTasks,
 } from "@/app/lib/spanishPlacementTest";
 import { PLACEMENT_PARTS_A2, PLACEMENT_TEST_TITLE_A2 } from "@/app/lib/spanishPlacementTestA2";
+import { PLACEMENT_PARTS_B1, PLACEMENT_TEST_TITLE_B1 } from "@/app/lib/spanishPlacementTestB1";
 
 export const DEFAULT_TEST_ID = "a1";
 
@@ -65,6 +70,19 @@ export const PLACEMENT_TESTS = {
       { slot: 12, label: "Audio — Rosa y Miguel preparan una escapada", hint: "Tarea 4 · Questions 19–25" },
     ],
   },
+  b1: {
+    id: "b1",
+    label: "B1",
+    title: PLACEMENT_TEST_TITLE_B1,
+    parts: PLACEMENT_PARTS_B1,
+    path: "/spanish-test/b1",
+    audioDocId: "audio_b1",
+    audioPathPrefix: "edumaster/placement-test-b1/audio",
+    // 🎧 الاستماع لسه مش متفعّل (مفتاح إجاباته ونصوص تسجيلاته مش في ملف الاختبار) → مفيش خانات صوت.
+    // لما نفعّله: ضيف 5 خانات هنا (واحدة لكل Tarea — audioSlot في PLACEMENT_LISTENING_B1) وشوف
+    // التعليق في آخر app/lib/spanishPlacementTestB1.js.
+    audioSlots: [],
+  },
 };
 
 export const TEST_IDS = Object.keys(PLACEMENT_TESTS);
@@ -106,9 +124,9 @@ export function getVisiblePartsFor(testOrId, audio = {}) {
     .filter((p) => p.tasks.length);
 }
 
-// "A1.2" → "a1" · "A2.1" → "a2" · غير كده → null
+// "A1.2" → "a1" · "A2.1" → "a2" · "B1.3" → "b1" · غير كده → null
 export function getTestIdForLevelCode(code) {
-  const m = /^(A[12])\./i.exec(String(code || ""));
+  const m = /^(A[12]|B1)\./i.exec(String(code || ""));
   const id = m ? m[1].toLowerCase() : null;
   return id && PLACEMENT_TESTS[id] ? id : null;
 }

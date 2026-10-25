@@ -36,6 +36,7 @@ const notificationSchema = new mongoose.Schema(
         "comment_approved", // 🆕 الأدمن وافق على تعليق/رد المستخدم — بقى ظاهر (لصاحب التعليق)
         "comment_rejected", // 🆕 الأدمن رفض تعليق/رد المستخدم (لصاحب التعليق)
         "message_new", // 🆕 رسالة مباشرة جديدة بين طالب ومدرس كورسه (للمستقبِل)
+        "course_access_granted", // 🆕 الموديريتور سجّل الطالب في كورس مجانًا — الكورس اتفتح عنده (للطالب)
       ],
       required: true,
     },

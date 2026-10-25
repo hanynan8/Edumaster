@@ -17,6 +17,7 @@ import { requireRole } from "@/app/lib/rbac";
 import { logAudit } from "@/app/lib/auditLog";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
+import { notifyGrantedStudents } from "@/app/lib/courseGrants";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -100,6 +101,10 @@ export async function POST(request, { params }) {
         course: course._id,
       }).catch((err) => console.error("[/api/admin/courses/[id]/approve] notify creator error:", err));
     }
+
+    // 🆕 الطلاب اللي الموديريتور سجّلهم مجانًا: الكورس بقى ظاهر ومفتوح عندهم
+    // (الـ enrollment موجود من وقت الإنشاء) — نبلّغهم دلوقتي. best-effort.
+    await notifyGrantedStudents({ course });
 
     return jsonResponse(serializeCourse(course));
   } catch (err) {

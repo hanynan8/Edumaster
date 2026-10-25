@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { X, Loader, Check, RotateCcw } from "lucide-react";
 import MediaUploader from "./MediaUploader";
+import StudentGrantPicker from "./StudentGrantPicker";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SUPPORTED_CURRENCIES, convertPrice } from "@/app/lib/currency";
 
@@ -138,6 +139,13 @@ const T = {
     teachersLoadError: "Couldn't load the teachers list, try again",
     noTeachers: "No registered teachers yet",
     teacherInvalid: "The selected teacher is not valid, choose another one",
+    grantLabel: "Enroll students for free (optional)",
+    grantHint: "Pick registered students (students only) by email. They are enrolled in this course as if they had bought it — it opens for them automatically once the admin approves the course, with no need to sign up.",
+    grantUnknownEmails: (list) => `These emails are not registered students on the platform: ${list}`,
+    grantInvalidEmails: (list) => `These emails are not valid: ${list}`,
+    grantTooMany: "Too many students in one request, add them in smaller batches",
+    grantDone: (n) => `${n} student(s) were enrolled for free.`,
+    grantFailed: "The course was saved but enrolling the selected students failed — open the course edit form and add them again.",
     classMarkerQuizId: "ClassMarker Test ID (optional)",
     classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
@@ -197,6 +205,13 @@ const T = {
     teachersLoadError: "تعذّر تحميل قائمة المدرّسين، حاول مرة أخرى",
     noTeachers: "لا يوجد مدرّسون مسجلون حتى الآن",
     teacherInvalid: "المدرّس المختار غير صالح، اختر مدرّسًا آخر",
+    grantLabel: "تسجيل طلاب مجانًا (اختياري)",
+    grantHint: "اختر طلابًا مسجّلين في المنصة بالإيميل. هيتسجّلوا في الكورس زي اللي اشتراه بالظبط — وهيتفتح عندهم تلقائيًا أول ما الأدمن يوافق على الكورس من غير ما يحتاجوا يشتركوا.",
+    grantUnknownEmails: (list) => `الإيميلات دي مش حسابات طلاب مسجّلة في المنصة: ${list}`,
+    grantInvalidEmails: (list) => `الإيميلات دي غير صالحة: ${list}`,
+    grantTooMany: "عدد الطلاب كبير في طلب واحد، أضفهم على دفعات أصغر",
+    grantDone: (n) => `تم تسجيل ${n} طالب مجانًا في الكورس.`,
+    grantFailed: "تم حفظ الكورس لكن تعذّر تسجيل الطلاب المختارين — افتح تعديل الكورس وأضفهم مرة أخرى.",
     classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
     classMarkerQuizIdHint: "الصق معرّف الاختبار (Quiz ID) من رابط اختبار ClassMarker الخاص بك (الجزء الذي يلي ?quiz= في رابط مثل https://www.classmarker.com/online-test/start?quiz=...). إذا تم إدخاله، سيظهر قسم \"اختبر مستواك\" في صفحة الدورة. اتركه فارغًا إذا لم ترغب في اختبار.",
     saveChanges: "حفظ التعديلات",
@@ -256,6 +271,13 @@ const T = {
     teachersLoadError: "No se pudo cargar la lista de profesores, inténtalo de nuevo",
     noTeachers: "Aún no hay profesores registrados",
     teacherInvalid: "El profesor seleccionado no es válido, elige otro",
+    grantLabel: "Inscribir estudiantes gratis (opcional)",
+    grantHint: "Elige estudiantes registrados por correo. Quedan inscritos en este curso como si lo hubieran comprado: se les abre automáticamente cuando el administrador apruebe el curso, sin necesidad de inscribirse.",
+    grantUnknownEmails: (list) => `Estos correos no son de estudiantes registrados en la plataforma: ${list}`,
+    grantInvalidEmails: (list) => `Estos correos no son válidos: ${list}`,
+    grantTooMany: "Demasiados estudiantes en una sola solicitud, añádelos en lotes más pequeños",
+    grantDone: (n) => `${n} estudiante(s) inscritos gratis.`,
+    grantFailed: "El curso se guardó pero falló la inscripción de los estudiantes seleccionados — abre la edición del curso y vuelve a añadirlos.",
     classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
     classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
@@ -305,6 +327,11 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
   // 🆕 قايمة المدرّسين (للموديريتور بس): null = لسه بيتحمّل، [] = فاضية.
   const [teachers, setTeachers] = useState(null);
   const [teachersError, setTeachersError] = useState(false);
+  // 🆕 طلاب هيتسجّلوا مجانًا في الكورس (إيميلات). مقصود إنهم برّه مسودة
+  // localStorage عشان إيميلات الطلاب ماتتخزّنش على الجهاز. alreadyGranted =
+  // اللي اتسجّلوا قبل كده (وضع التعديل بس).
+  const [grantedEmails, setGrantedEmails] = useState([]);
+  const [alreadyGranted, setAlreadyGranted] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("ar");
@@ -377,6 +404,22 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
       cancelled = true;
     };
   }, [isModerator]);
+
+  // 🆕 الموديريتور في وضع التعديل: نجيب الطلاب اللي اتسجّلوا مجانًا قبل كده.
+  useEffect(() => {
+    if (!isModerator || !isEdit) return;
+    let cancelled = false;
+    fetch(`/api/courses/${course.id}/grants`)
+      .then((r) => (r.ok ? r.json() : { students: [] }))
+      .then((data) => {
+        if (!cancelled) setAlreadyGranted(Array.isArray(data?.students) ? data.students : []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModerator, isEdit]);
 
   // 🆕 تحميل مسودة "دورة جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
   // بس في وضع "دورة جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
@@ -548,6 +591,11 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
       if (isModerator && (!isEdit || form.teacher !== course.teacher)) {
         payload.teacher = form.teacher;
       }
+      // 🆕 الطلاب اللي هيتسجّلوا مجانًا (موديريتور/أدمن بس) — بيتبعتوا بس لو
+      // اتختار حد، والسيرفر بيتحقق إنهم مسجّلين فعلًا في المنصة.
+      if (isModerator && grantedEmails.length > 0) {
+        payload.grantedEmails = grantedEmails;
+      }
 
       const res = await fetch(isEdit ? `/api/courses/${course.id}` : "/api/courses", {
         method: isEdit ? "PUT" : "POST",
@@ -555,7 +603,11 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "save_failed");
+      if (!res.ok) {
+        const failure = new Error(data?.error || "save_failed");
+        failure.invalid = data?.invalid;
+        throw failure;
+      }
 
       // 🆕 لو المدرس اختار "نشر" بس الباك إند حوّل الحالة لـ "قيد المراجعة"
       // (شوف تعليق app/api/courses/[id]/route.js PUT)، لازم يعرف إن الدورة
@@ -566,18 +618,32 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
         alert(t.submittedForReview);
       }
 
+      // 🆕 نتيجة تسجيل الطلاب المجاني.
+      if (data?.grantFailed) {
+        alert(t.grantFailed);
+      } else if (data?.grant?.granted > 0) {
+        alert(t.grantDone(data.grant.granted));
+      }
+
       // 🆕 الدورة اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
       if (!isEdit) clearNewCourseDraft();
 
       onSaved(data);
     } catch (err) {
       const teacherErrors = ["invalid_teacher", "teacher_not_found", "user_is_not_teacher", "teacher_suspended"];
+      const emailList = Array.isArray(err.invalid) ? err.invalid.slice(0, 5).join(", ") + (err.invalid.length > 5 ? "…" : "") : "";
       setError(
         err.message === "slug_taken"
           ? t.slugTaken
           : teacherErrors.includes(err.message)
             ? t.teacherInvalid
-            : t.genericError
+            : err.message === "unknown_emails"
+              ? t.grantUnknownEmails(emailList)
+              : err.message === "invalid_emails"
+                ? t.grantInvalidEmails(emailList)
+                : err.message === "too_many_emails"
+                  ? t.grantTooMany
+                  : t.genericError
       );
     } finally {
       setSaving(false);
@@ -653,6 +719,21 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
               {teachers && teachers.length === 0 && !teachersError && (
                 <p className="text-xs text-amber-600 mt-1">{t.noTeachers}</p>
               )}
+            </div>
+          )}
+
+          {/* 🆕 تسجيل طلاب مجانًا — موديريتور/أدمن بس. الطلاب بيتسجّلوا في الكورس
+              فعليًا وقت الحفظ فيتفتح عندهم أول ما الأدمن يوافق على الكورس. */}
+          {isModerator && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.grantLabel}</label>
+              <StudentGrantPicker
+                selected={grantedEmails}
+                onChange={setGrantedEmails}
+                alreadyGranted={alreadyGranted}
+                language={language}
+              />
+              <p className="text-xs text-gray-400 mt-1.5">{t.grantHint}</p>
             </div>
           )}
 

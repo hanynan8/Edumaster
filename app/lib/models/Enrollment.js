@@ -14,10 +14,20 @@ const enrollmentSchema = new mongoose.Schema(
 
     // إزاي الطالب اتسجل: شراء مباشر، عن طريق membership فعالة، مجاني
     // (كورس isFree)، أو الأدمن ضافه يدويًا (منحة/استثناء).
+    // 🆕 "moderator_grant": الموديريتور سجّله مجانًا في الكورس بالإيميل وقت
+    // إنشاء/تعديل الكورس (شوف app/lib/courseGrants.js) — بيتعامل زي اللي اشترى
+    // الكورس بالظبط (وصول كامل من غير ما يضغط "اشترك").
     source: {
       type: String,
-      enum: ["purchase", "membership", "free", "admin_grant"],
+      enum: ["purchase", "membership", "free", "admin_grant", "moderator_grant"],
       required: true,
+    },
+
+    // 🆕 مين سجّل الطالب (للمنح اليدوية بس: moderator_grant / admin_grant).
+    grantedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: USER_MODEL_NAME,
+      default: null,
     },
 
     status: {

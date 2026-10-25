@@ -12,12 +12,19 @@ import { deleteMeetingsForCourse } from "@/app/lib/meetingCleanup";
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, isOwnerOrStaff, isStaffRole } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisingTeacher } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 import { getPlacementLinksForCourses } from "@/app/lib/customPlacementTests";
+import {
+  parseGrantedEmails,
+  resolveGrantRecipients,
+  grantCourseAccess,
+  notifyGrantedStudents,
+  MAX_GRANT_EMAILS,
+} from "@/app/lib/courseGrants";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -173,6 +180,24 @@ export async function PUT(request, { params }) {
     for (const field of EDITABLE_FIELDS) {
       if (body[field] === undefined) continue;
       updates[field] = body[field];
+    }
+
+    // 🆕 تسجيل طلاب إضافيين مجانًا (موديريتور/أدمن بس — المدرّس بيتجاهل الحقل
+    // ده تمامًا). إضافة بس: مفيش حذف تسجيل من هنا. بنتحقق من الإيميلات قبل ما
+    // نعدّل أي حاجة في الكورس.
+    let grantRecipients = { users: [], unknown: [] };
+    if (isStaffRole(session.user.role) && body.grantedEmails !== undefined) {
+      const parsedGrant = parseGrantedEmails(body.grantedEmails);
+      if (parsedGrant.invalid.length > 0) {
+        return jsonResponse({ error: "invalid_emails", invalid: parsedGrant.invalid }, 400);
+      }
+      if (parsedGrant.emails.length > MAX_GRANT_EMAILS) {
+        return jsonResponse({ error: "too_many_emails", max: MAX_GRANT_EMAILS }, 400);
+      }
+      grantRecipients = await resolveGrantRecipients(parsedGrant.emails);
+      if (grantRecipients.unknown.length > 0) {
+        return jsonResponse({ error: "unknown_emails", invalid: grantRecipients.unknown }, 400);
+      }
     }
 
     if (updates.title !== undefined) {
@@ -350,7 +375,28 @@ export async function PUT(request, { params }) {
         .catch((err) => console.error("[/api/courses/[id]] PUT notify admins error:", err));
     }
 
-    return jsonResponse({ ...serializeCourse(populated), submittedForReview });
+    // 🆕 تسجيل الطلاب الإضافيين. لو الكورس منشور فعلًا بنبلّغهم فورًا؛ غير كده
+    // الإشعار بيتبعت وقت موافقة الأدمن (شوف approve/route.js).
+    let grant = null;
+    let grantFailed = false;
+    if (grantRecipients.users.length > 0) {
+      try {
+        const result = await grantCourseAccess({
+          course: existing,
+          users: grantRecipients.users,
+          grantedBy: session.user.id,
+        });
+        grant = { granted: result.granted, alreadyEnrolled: result.alreadyEnrolled, skipped: result.skipped };
+        if (populated.status === "published" && result.grantedUserIds.length > 0) {
+          await notifyGrantedStudents({ course: populated, userIds: result.grantedUserIds });
+        }
+      } catch (err) {
+        grantFailed = true;
+        console.error("[/api/courses/[id]] PUT grant access error:", err);
+      }
+    }
+
+    return jsonResponse({ ...serializeCourse(populated), submittedForReview, grant, grantFailed });
   } catch (err) {
     console.error("[/api/courses/[id]] PUT error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

@@ -177,6 +177,22 @@ const TEMPLATES = {
     }),
   },
 
+  // ── الموديريتور سجّل الطالب في الكورس مجانًا (للطالب) — بيتبعت لما الكورس يتنشر
+  course_access_granted: {
+    ar: (p) => ({
+      title: "تم فتح كورس جديد لك",
+      message: `تم تسجيلك في كورس "${p.courseTitle}" وأصبح متاحًا لك الآن — لا تحتاج إلى الاشتراك.`,
+    }),
+    en: (p) => ({
+      title: "A new course is open for you",
+      message: `You have been enrolled in "${p.courseTitle}" and it is available to you now — no purchase needed.`,
+    }),
+    es: (p) => ({
+      title: "Se abrió un nuevo curso para ti",
+      message: `Has sido inscrito en el curso "${p.courseTitle}" y ya está disponible para ti, sin necesidad de comprarlo.`,
+    }),
+  },
+
   // ── الأدمن رفض الكورس (للمدرس)
   course_rejected: {
     ar: (p) => ({

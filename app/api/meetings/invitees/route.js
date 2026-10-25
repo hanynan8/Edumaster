@@ -51,10 +51,17 @@ export async function GET(request) {
     const Auth = getAuthModel();
 
     const filter = { _id: { $ne: session.user.id }, email: { $type: "string", $ne: "" } };
+    const and = [];
+    // 🆕 ?role=student → الطلاب بس (منتقي تسجيل الكورس المجاني). الحسابات القديمة
+    // من غير role بتتعامل كطلاب (زي ما بنرجّعها تحت).
+    if (sp.get("role") === "student") {
+      and.push({ $or: [{ role: "student" }, { role: { $exists: false } }, { role: null }] });
+    }
     if (q) {
       const rx = new RegExp(escapeRegex(q), "i");
-      filter.$or = [{ name: rx }, { email: rx }];
+      and.push({ $or: [{ name: rx }, { email: rx }] });
     }
+    if (and.length > 0) filter.$and = and;
 
     // limit + 1 → نعرف فيه صفحة تانية ولا لأ من غير countDocuments.
     const rows = await Auth.find(filter, "name email role")

@@ -11,6 +11,11 @@
 //     بكل الحالات (مع فلترة اختيارية ?teacher= و ?status=)، من غير أي وصول
 //     للوحة الأدمن.
 //
+// 🆕 body.grantedEmails (موديريتور/أدمن): إيميلات طلاب مسجّلين في المنصة بيتسجّلوا
+// في الكورس مجانًا وقت الإنشاء (Enrollment بمصدر moderator_grant) — الكورس بيتفتح
+// عندهم أول ما الأدمن يوافق على نشره، من غير ما يضغطوا "اشترك". شوف
+// app/lib/courseGrants.js.
+//
 // POST: إنشاء كورس جديد — moderator/admin بس (🆕 المدرّس اتشالت منه صلاحية الإضافة)، والكورس بيتسجل دايمًا باسم
 // صاحب الـ session (مفيش تمرير teacher من الـ body، منعًا لأي حد يعمل كورس
 // باسم مدرس تاني).
@@ -32,6 +37,12 @@ import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
 import { getPlacementLinksForCourses } from "@/app/lib/customPlacementTests";
+import {
+  parseGrantedEmails,
+  resolveGrantRecipients,
+  grantCourseAccess,
+  MAX_GRANT_EMAILS,
+} from "@/app/lib/courseGrants";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -217,6 +228,20 @@ export async function POST(request) {
       createdById = session.user.id;
     }
 
+    // 🆕 الطلاب اللي هيتسجّلوا مجانًا: بنتحقق منهم *قبل* ما ننشئ الكورس، عشان
+    // إيميل غلط/مش مسجّل يرفض الطلب كله بدل ما نسيب كورس اتعمل ومنحة ناقصة.
+    const parsedGrant = parseGrantedEmails(body?.grantedEmails);
+    if (parsedGrant.invalid.length > 0) {
+      return jsonResponse({ error: "invalid_emails", invalid: parsedGrant.invalid }, 400);
+    }
+    if (parsedGrant.emails.length > MAX_GRANT_EMAILS) {
+      return jsonResponse({ error: "too_many_emails", max: MAX_GRANT_EMAILS }, 400);
+    }
+    const grantRecipients = await resolveGrantRecipients(parsedGrant.emails);
+    if (grantRecipients.unknown.length > 0) {
+      return jsonResponse({ error: "unknown_emails", invalid: grantRecipients.unknown }, 400);
+    }
+
     const category = await Category.findById(body.category).lean();
     if (!category) return jsonResponse({ error: "category_not_found" }, 404);
 
@@ -294,6 +319,24 @@ export async function POST(request) {
       { path: "teacher", select: "name" },
     ]);
 
+    // 🆕 تسجيل الطلاب المختارين مجانًا. فشله مايلغيش الكورس نفسه (اتعمل فعلًا) —
+    // بنرجّع grantFailed والموديريتور يقدر يضيفهم من تعديل الكورس.
+    let grant = null;
+    let grantFailed = false;
+    if (grantRecipients.users.length > 0) {
+      try {
+        const result = await grantCourseAccess({
+          course: created,
+          users: grantRecipients.users,
+          grantedBy: session.user.id,
+        });
+        grant = { granted: result.granted, alreadyEnrolled: result.alreadyEnrolled, skipped: result.skipped };
+      } catch (err) {
+        grantFailed = true;
+        console.error("[/api/courses] POST grant access error:", err);
+      }
+    }
+
     const submittedForReview = requestedStatus === "pending";
     if (submittedForReview) {
       getAdminUserIds()
@@ -314,7 +357,7 @@ export async function POST(request) {
         .catch((err) => console.error("[/api/courses] POST notify admins error:", err));
     }
 
-    return jsonResponse({ ...serializeCourse(populated), submittedForReview }, 201);
+    return jsonResponse({ ...serializeCourse(populated), submittedForReview, grant, grantFailed }, 201);
   } catch (err) {
     console.error("[/api/courses] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

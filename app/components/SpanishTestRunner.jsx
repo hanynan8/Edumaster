@@ -56,7 +56,9 @@ const STRINGS = {
     part: "Part",
     min: "min",
     audioNote: "You will hear each audio twice.",
-    next: "Continue",
+    next: "Next",
+    question: "Question",
+    answerThis: "Please answer this question to continue.",
     back: "Back",
     finish: "Finish the test",
     unanswered: "Unanswered questions",
@@ -89,7 +91,9 @@ const STRINGS = {
     part: "الجزء",
     min: "دقيقة",
     audioNote: "ستسمع كل مقطع صوتي مرتين.",
-    next: "متابعة",
+    next: "التالي",
+    question: "السؤال",
+    answerThis: "لازم تجاوب على السؤال ده الأول عشان تكمّل.",
     back: "رجوع",
     finish: "إنهاء الاختبار",
     unanswered: "أسئلة بدون إجابة",
@@ -122,7 +126,9 @@ const STRINGS = {
     part: "Parte",
     min: "min",
     audioNote: "Escucharás cada audio dos veces.",
-    next: "Seguir",
+    next: "Siguiente",
+    question: "Pregunta",
+    answerThis: "Responde a esta pregunta para continuar.",
     back: "Atrás",
     finish: "Terminar el examen",
     unanswered: "Preguntas sin responder",
@@ -160,7 +166,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   const autoPrompted = useRef(false);
 
   const [step, setStep] = useState("intro"); // intro | quiz | submitting | result (مجاني) | pay (مدفوع)
-  const [partIdx, setPartIdx] = useState(0);
+  const [qIdx, setQIdx] = useState(0); // 🆕 رقم السؤال الحالي (سؤال واحد في الصفحة)
   const [answers, setAnswers] = useState({}); // { [n]: optionIndex }
   const [resultId, setResultId] = useState(null); // id نتيجة الاختبار اللي اتسجّلت على السيرفر
   const [result, setResult] = useState(null); // اختبار مجاني: النتيجة اللحظية
@@ -213,6 +219,15 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
     [parts]
   );
 
+  // 🆕 قائمة مسطّحة: كل عنصر = سؤال واحد + الجزء/المهمة اللي تابع لها (عشان نعرض سياق المهمة معاه)
+  const flat = useMemo(
+    () =>
+      parts.flatMap((p, pi) =>
+        p.tasks.flatMap((tk, ti) => tk.questions.map((q) => ({ part: p, partIdx: pi, task: tk, taskIdx: ti, q })))
+      ),
+    [parts]
+  );
+
   const currency = getCurrencyForLanguage(language);
   const feeLabel = formatPrice(convertPrice(PLACEMENT_TEST_FEE_USD, "USD", currency), currency, language);
 
@@ -236,30 +251,28 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
     setStep("quiz");
   }
 
-  function goPart(idx) {
+  // كل سؤال إجباري: مينفعش يروح للي بعده (أو ينهي الاختبار) من غير ما يجاوب عليه.
+  // الرجوع للسؤال اللي قبله مسموح دايمًا.
+  function goTo(idx) {
     setShowMissing(false);
-    setPartIdx(idx);
+    setQIdx(idx);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // كل الأسئلة الظاهرة في الجزء الحالي إجبارية: مينفعش يكمّل/يخلّص من غير ما يجاوب عليها كلها.
-  // لو فيه ناقص → بنبرز الأسئلة ونسكرول لأول سؤال ناقص. (الرجوع للجزء اللي قبله مسموح دايمًا.)
-  function requireCurrentPart() {
-    const missing = (parts[partIdx]?.tasks || [])
-      .flatMap((tk) => tk.questions)
-      .filter((q) => answers[q.n] === undefined);
-    if (!missing.length) return true;
+  function requireCurrent() {
+    const cur = flat[qIdx];
+    if (!cur) return false;
+    if (answers[cur.q.n] !== undefined) return true;
     setShowMissing(true);
-    document.getElementById(`q-${missing[0].n}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     return false;
   }
 
-  function nextPart() {
-    if (requireCurrentPart()) goPart(partIdx + 1);
+  function nextQuestion() {
+    if (requireCurrent()) goTo(qIdx + 1);
   }
 
   async function submitTest() {
-    if (!requireCurrentPart()) return;
+    if (!requireCurrent()) return;
     setError("");
     setStep("submitting");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -316,7 +329,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   function startNew() {
     try { localStorage.removeItem(PENDING_KEY); } catch {}
     setAnswers({});
-    setPartIdx(0);
+    setQIdx(0);
     setShowMissing(false);
     setResultId(null);
     setResult(null);
@@ -325,10 +338,15 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const part = parts[partIdx];
-  const isLast = partIdx === parts.length - 1;
-  const unansweredCount = allQuestions.filter((q) => answers[q.n] === undefined).length;
-  const partMissing = (part?.tasks || []).flatMap((tk) => tk.questions).filter((q) => answers[q.n] === undefined).length;
+  const cur = flat[qIdx];
+  const part = cur?.part;
+  const task = cur?.task;
+  const q = cur?.q;
+  const isLast = qIdx === flat.length - 1;
+  // 🆕 راس المهمة (نص القراءة / صوت المهمة / قائمة الربط) بيظهر بس مع الأسئلة اللي محتاجاه
+  const needsHeader = Boolean(task && (task.passage || task.bank || (task.audioSrc && !task.sharedAudio)));
+  const currentMissing = Boolean(q) && answers[q.n] === undefined;
+  const answeredCount = flat.length - allQuestions.filter((x) => answers[x.n] === undefined).length;
   const dir = isRTL ? "rtl" : "ltr";
   const btn = "px-5 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60";
 
@@ -400,150 +418,141 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
           </div>
         )}
 
-        {step === "quiz" && part && (
+        {step === "quiz" && cur && (
           <div className="space-y-5">
-            {/* شريط الأجزاء */}
-            <div className="flex items-center gap-2" dir="ltr">
-              {parts.map((p, i) => (
-                <div
-                  key={p.id}
-                  className={`flex-1 h-1.5 rounded-full ${i <= partIdx ? "bg-[#003A91]" : "bg-gray-200"}`}
-                />
-              ))}
+            {/* شريط التقدّم: شريحة لكل سؤال */}
+            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden" dir="ltr">
+              <div
+                className="h-full bg-[#003A91] transition-all"
+                style={{ width: `${Math.round((answeredCount / flat.length) * 100)}%` }}
+              />
             </div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#003A91]" dir="ltr">
-              {t.part} {partIdx + 1}/{parts.length} · {part.title} · {part.minutes} {t.min}
+              {t.question} {qIdx + 1}/{flat.length} · {t.part} {cur.partIdx + 1}/{parts.length} · {part.title}
             </p>
 
-            {part.tasks.map((task, ti) => (
-              <div key={ti} className="space-y-4" dir="ltr">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left space-y-3">
-                  <p className="text-sm font-bold text-gray-900">{task.title}</p>
-                  <p className="text-sm text-gray-600">{task.intro}</p>
+            <div className="space-y-4" dir="ltr" key={q.n}>
+              {/* راس المهمة بيظهر بس لو السؤال محتاجه (قطعة / صوت / قائمة ربط) */}
+              {needsHeader && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left space-y-3">
+                <p className="text-sm font-bold text-gray-900">{task.title}</p>
+                <p className="text-sm text-gray-600">{task.intro}</p>
 
-                  {task.audioSrc && !task.sharedAudio && (
-                    <div>
-                      <audio controls src={task.audioSrc} className="w-full" />
-                      <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
-                    </div>
-                  )}
-
-                  {task.passage && (
-                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 text-sm text-gray-800 whitespace-pre-line">
-                      {task.passage}
-                    </div>
-                  )}
-
-                  {task.bank && (
-                    <ul className="space-y-1.5">
-                      {task.bank.map((b) => (
-                        <li key={b.l} className="flex gap-2.5 text-sm text-gray-800 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                          <span className="font-black text-[#003A91] shrink-0">{b.l}.</span>
-                          <span>{b.t}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {task.questions.map((q) => (
-                  <div
-                    key={q.n}
-                    id={`q-${q.n}`}
-                    className={`bg-white rounded-2xl border shadow-sm p-5 text-left ${
-                      showMissing && answers[q.n] === undefined ? "border-red-400 ring-1 ring-red-200" : "border-gray-100"
-                    }`}
-                  >
-                    {q.ctx && (
-                      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">{q.ctx}</p>
-                    )}
-                    {q.audioSrc && (
-                      // 🎧 A2: تسجيل منفصل لكل سؤال/رسالة (Tarea 1 و 2 استماع)
-                      <div className="mb-3">
-                        <audio controls src={q.audioSrc} className="w-full" />
-                        <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
-                      </div>
-                    )}
-                    <p className="text-sm font-semibold text-gray-900 mb-3">
-                      {q.ln}. {q.q}
-                    </p>
-
-                    {task.bank ? (
-                      // أسئلة الربط: حروف (A, B, C...) — النصوص فوق في القائمة
-                      <div className="flex flex-wrap gap-2">
-                        {q.o.map((letter, oi) => {
-                          const checked = answers[q.n] === oi;
-                          return (
-                            <button
-                              key={letter}
-                              type="button"
-                              onClick={() => setAnswers({ ...answers, [q.n]: oi })}
-                              className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
-                                checked
-                                  ? "border-[#003A91] bg-[#003A91] text-white"
-                                  : "border-gray-200 text-gray-700 hover:bg-gray-50"
-                              }`}
-                            >
-                              {letter}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {q.o.map((opt, oi) => {
-                          const checked = answers[q.n] === oi;
-                          return (
-                            <label
-                              key={oi}
-                              className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                                checked ? "border-[#003A91] bg-[#003A91]/5" : "border-gray-200 hover:bg-gray-50"
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name={`q${q.n}`}
-                                checked={checked}
-                                onChange={() => setAnswers({ ...answers, [q.n]: oi })}
-                              />
-                              <span>
-                                <span className="font-bold text-gray-500">{LETTERS[oi]})</span> {opt}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
+                {task.audioSrc && !task.sharedAudio && (
+                  <div>
+                    <audio controls src={task.audioSrc} className="w-full" />
+                    <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
                   </div>
-                ))}
+                )}
+
+                {task.passage && (
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 text-sm text-gray-800 whitespace-pre-line">
+                    {task.passage}
+                  </div>
+                )}
+
+                {task.bank && (
+                  <ul className="space-y-1.5">
+                    {task.bank.map((b) => (
+                      <li key={b.l} className="flex gap-2.5 text-sm text-gray-800 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        <span className="font-black text-[#003A91] shrink-0">{b.l}.</span>
+                        <span>{b.t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ))}
+              )}
+
+              <div
+                id={`q-${q.n}`}
+                className={`bg-white rounded-2xl border shadow-sm p-5 text-left ${
+                  showMissing && currentMissing ? "border-red-400 ring-1 ring-red-200" : "border-gray-100"
+                }`}
+              >
+                {q.ctx && (
+                  <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">{q.ctx}</p>
+                )}
+                {q.audioSrc && (
+                  // 🎧 A2: تسجيل منفصل لكل سؤال/رسالة (Tarea 1 و 2 استماع)
+                  <div className="mb-3">
+                    <audio controls src={q.audioSrc} className="w-full" />
+                    <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
+                  </div>
+                )}
+                <p className="text-sm font-semibold text-gray-900 mb-3">
+                  {q.ln}. {q.q}
+                </p>
+
+                {task.bank ? (
+                  // أسئلة الربط: حروف (A, B, C...) — النصوص فوق في القائمة
+                  <div className="flex flex-wrap gap-2">
+                    {q.o.map((letter, oi) => {
+                      const checked = answers[q.n] === oi;
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => setAnswers({ ...answers, [q.n]: oi })}
+                          className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
+                            checked
+                              ? "border-[#003A91] bg-[#003A91] text-white"
+                              : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {q.o.map((opt, oi) => {
+                      const checked = answers[q.n] === oi;
+                      return (
+                        <label
+                          key={oi}
+                          className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                            checked ? "border-[#003A91] bg-[#003A91]/5" : "border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`q${q.n}`}
+                            checked={checked}
+                            onChange={() => setAnswers({ ...answers, [q.n]: oi })}
+                          />
+                          <span>
+                            <span className="font-bold text-gray-500">{LETTERS[oi]})</span> {opt}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-3">
               {error && <p className="text-sm text-red-500 w-full">{error}</p>}
-              {showMissing && partMissing > 0 ? (
-                <p className="text-sm text-red-500 w-full">
-                  {t.answerAll} {partMissing}
-                </p>
-              ) : (
-                isLast &&
-                unansweredCount > 0 && (
-                  <p className="text-xs text-amber-600 w-full">
-                    {t.unanswered}: {unansweredCount}
-                  </p>
-                )
-              )}
-              {partIdx > 0 && (
-                <button onClick={() => goPart(partIdx - 1)} className={`${btn} border border-gray-300 text-gray-700`}>
+              {showMissing && currentMissing && <p className="text-sm text-red-500 w-full">{t.answerThis}</p>}
+              {qIdx > 0 && (
+                <button onClick={() => goTo(qIdx - 1)} className={`${btn} border border-gray-300 text-gray-700`}>
                   {t.back}
                 </button>
               )}
               {!isLast ? (
-                <button onClick={nextPart} className={`${btn} bg-[#003A91] text-white`}>
+                <button
+                  onClick={nextQuestion}
+                  className={`${btn} bg-[#003A91] text-white`}
+                >
                   {t.next}
                 </button>
               ) : (
-                <button onClick={submitTest} className={`${btn} bg-[#003A91] text-white`}>
+                <button
+                  onClick={submitTest}
+                  className={`${btn} bg-[#003A91] text-white`}
+                >
                   {t.finish}
                 </button>
               )}

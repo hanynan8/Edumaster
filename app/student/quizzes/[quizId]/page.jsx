@@ -53,6 +53,9 @@ const STRINGS = {
     questionOf: (i, n) => `سؤال ${i} من ${n}`,
     answered: (a, n) => `أجبت عن ${a} من ${n}`,
     submitQuiz: "تسليم الاختبار",
+    next: "التالي",
+    back: "السابق",
+    answerFirst: "لازم تجاوب على السؤال ده الأول عشان تكمّل",
   },
   en: {
     typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False", essay: "Essay" },
@@ -86,6 +89,9 @@ const STRINGS = {
     questionOf: (i, n) => `Question ${i} of ${n}`,
     answered: (a, n) => `Answered ${a} of ${n}`,
     submitQuiz: "Submit quiz",
+    next: "Next",
+    back: "Previous",
+    answerFirst: "Please answer this question to continue",
   },
 };
 
@@ -109,6 +115,8 @@ export default function TakeQuizPage({ params }) {
   const [result, setResult] = useState(null);
   const [submitError, setSubmitError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(null);
+  const [currentIdx, setCurrentIdx] = useState(0); // 🆕 سؤال واحد في الصفحة
+  const [showMissing, setShowMissing] = useState(false); // 🆕 تحديد أحمر لو ضغط التالي من غير إجابة
   const [openAttemptId, setOpenAttemptId] = useState(null); // 🆕 محاولة سابقة مفتوحة (مراجعة + محادثة)
   const timerRef = useRef(null);
 
@@ -130,6 +138,8 @@ export default function TakeQuizPage({ params }) {
 
   function handleStart() {
     setStarted(true);
+    setCurrentIdx(0);
+    setShowMissing(false);
     setAnswers({});
     setSubmitError("");
     if (quiz.timeLimitMinutes) {
@@ -339,11 +349,43 @@ export default function TakeQuizPage({ params }) {
     );
   }
 
-  // ── شاشة حل الأسئلة ───────────────────────────────────────────────
-  const answeredCount = Object.values(answers).filter((v) => (typeof v === "string" ? v.trim() : v !== undefined)).length;
+  // ── شاشة حل الأسئلة (سؤال واحد في الصفحة — لازم يتحل عشان يروح للي بعده) ──
+  const totalQ = quiz.questions.length;
+  const q = quiz.questions[currentIdx];
+  const isLastQ = currentIdx === totalQ - 1;
+  const isAnswered = (question) => {
+    const v = answers[question.id];
+    return typeof v === "string" ? v.trim().length > 0 : v !== undefined;
+  };
+  const currentAnswered = isAnswered(q);
+  const answeredCount = quiz.questions.filter(isAnswered).length;
+  const progressPct = Math.round((answeredCount / totalQ) * 100);
+
+  function goNext() {
+    if (!currentAnswered) {
+      setShowMissing(true);
+      return;
+    }
+    setShowMissing(false);
+    setCurrentIdx((i) => Math.min(i + 1, totalQ - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function trySubmit() {
+    if (!currentAnswered) {
+      setShowMissing(true);
+      return;
+    }
+    handleSubmit();
+  }
+  function goBack() {
+    setShowMissing(false);
+    setCurrentIdx((i) => Math.max(i - 1, 0));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 pb-28">
-      <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#f7f7f7] py-3 z-10">
+      <div className="flex items-center justify-between mb-3 sticky top-0 bg-[#f7f7f7] py-3 z-10">
         <h1 className="text-lg font-semibold text-gray-800 truncate">{quiz.title}</h1>
         {secondsLeft !== null && (
           <span
@@ -356,64 +398,93 @@ export default function TakeQuizPage({ params }) {
         )}
       </div>
 
+      <div className="h-1.5 bg-gray-200 rounded-full mb-6 overflow-hidden" dir="ltr">
+        <div className="h-full bg-[#003A91] transition-all" style={{ width: `${progressPct}%` }} />
+      </div>
+
       {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg mb-4">{submitError}</div>}
 
-      <div className="space-y-4">
-        {quiz.questions.map((q, idx) => (
-          <div key={q.id} className="bg-white rounded-2xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 mb-1">
-              {t.questionOf(idx + 1, quiz.questions.length)} · {TYPE_LABELS[q.type]}
-            </p>
-            <p className="text-sm font-semibold text-gray-800 mb-3 whitespace-pre-wrap">{q.text}</p>
-            {q.mediaUrl && (
-              <div className="mb-3">
-                <AssignmentMedia url={q.mediaUrl} type={q.mediaType} />
-              </div>
-            )}
-            {q.type === "essay" ? (
-              <textarea
-                rows={8}
-                maxLength={20000}
-                value={typeof answers[q.id] === "string" ? answers[q.id] : ""}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                placeholder={t.essayPlaceholder}
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#5279B4] resize-y"
-              />
-            ) : (
-            <div className="grid sm:grid-cols-2 gap-2">
-              {q.options.map((o) => (
-                <button
-                  key={o.index}
-                  type="button"
-                  onClick={() => selectAnswer(q.id, o.index)}
-                  className={`text-start text-sm px-3 py-2.5 rounded-lg border transition-colors ${
-                    answers[q.id] === o.index
-                      ? "bg-[#EBEFF6] border-[#5279B4] text-[#002E74] font-semibold"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {o.text}
-                </button>
-              ))}
-            </div>
-            )}
+      <div
+        key={q.id}
+        className={`bg-white rounded-2xl border p-4 ${
+          showMissing && !currentAnswered ? "border-red-400 ring-2 ring-red-200" : "border-gray-200"
+        }`}
+      >
+        <p className="text-xs font-bold text-gray-400 mb-1">
+          {t.questionOf(currentIdx + 1, totalQ)} · {TYPE_LABELS[q.type]}
+        </p>
+        <p className="text-sm font-semibold text-gray-800 mb-3 whitespace-pre-wrap">{q.text}</p>
+        {q.mediaUrl && (
+          <div className="mb-3">
+            <AssignmentMedia url={q.mediaUrl} type={q.mediaType} />
           </div>
-        ))}
+        )}
+        {q.type === "essay" ? (
+          <textarea
+            rows={8}
+            maxLength={20000}
+            value={typeof answers[q.id] === "string" ? answers[q.id] : ""}
+            onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+            placeholder={t.essayPlaceholder}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#5279B4] resize-y"
+          />
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-2">
+            {q.options.map((o) => (
+              <button
+                key={o.index}
+                type="button"
+                onClick={() => selectAnswer(q.id, o.index)}
+                className={`text-start text-sm px-3 py-2.5 rounded-lg border transition-colors ${
+                  answers[q.id] === o.index
+                    ? "bg-[#EBEFF6] border-[#5279B4] text-[#002E74] font-semibold"
+                    : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {o.text}
+              </button>
+            ))}
+          </div>
+        )}
+        {showMissing && !currentAnswered && (
+          <p className="text-sm font-semibold text-red-500 mt-3">{t.answerFirst}</p>
+        )}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <p className="text-xs text-gray-400 shrink-0">
-            {t.answered(answeredCount, quiz.questions.length)}
-          </p>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="flex-1 sm:flex-none sm:px-10 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
-          >
-            {submitting && <Loader size={16} className="animate-spin" />}
-            {t.submitQuiz}
-          </button>
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-400 shrink-0">{t.answered(answeredCount, totalQ)}</p>
+          <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+            {currentIdx > 0 && (
+              <button
+                type="button"
+                onClick={goBack}
+                disabled={submitting}
+                className="px-5 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-60"
+              >
+                {t.back}
+              </button>
+            )}
+            {!isLastQ ? (
+              <button
+                type="button"
+                onClick={goNext}
+                className="flex-1 sm:flex-none sm:px-10 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90"
+              >
+                {t.next}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={trySubmit}
+                disabled={submitting}
+                className="flex-1 sm:flex-none sm:px-10 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
+              >
+                {submitting && <Loader size={16} className="animate-spin" />}
+                {t.submitQuiz}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

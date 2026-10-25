@@ -60,6 +60,7 @@ const STRINGS = {
     back: "Back",
     finish: "Finish the test",
     unanswered: "Unanswered questions",
+    answerAll: "Please answer all the questions in this part before continuing. Unanswered:",
     submitting: "Submitting your answers...",
     doneTitle: "The test has been completed successfully",
     doneBody: "To receive your result, you need to pay the test fee:",
@@ -92,6 +93,7 @@ const STRINGS = {
     back: "رجوع",
     finish: "إنهاء الاختبار",
     unanswered: "أسئلة بدون إجابة",
+    answerAll: "لازم تجاوب على كل أسئلة هذا الجزء قبل ما تكمل. أسئلة بدون إجابة:",
     submitting: "جارٍ إرسال إجاباتك...",
     doneTitle: "تم انتهاء الاختبار بنجاح",
     doneBody: "لاستلام نتيجتك يجب دفع رسوم الاختبار:",
@@ -124,6 +126,7 @@ const STRINGS = {
     back: "Atrás",
     finish: "Terminar el examen",
     unanswered: "Preguntas sin responder",
+    answerAll: "Responde a todas las preguntas de esta parte antes de continuar. Sin responder:",
     submitting: "Enviando tus respuestas...",
     doneTitle: "La prueba se ha completado con éxito",
     doneBody: "Para recibir tu resultado debes pagar la tarifa de la prueba:",
@@ -163,6 +166,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   const [result, setResult] = useState(null); // اختبار مجاني: النتيجة اللحظية
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
+  const [showMissing, setShowMissing] = useState(false); // كل الأسئلة إجبارية: بنبرز الناقص بعد محاولة التقدّم
 
   // لو الطالب خلّص اختبار قبل كده وماكملش الدفع (رجع من صفحة فشل الدفع مثلًا)
   // نرجّعه مباشرة لخطوة الدفع بدل ما يعيد الاختبار.
@@ -233,11 +237,29 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   }
 
   function goPart(idx) {
+    setShowMissing(false);
     setPartIdx(idx);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // كل الأسئلة الظاهرة في الجزء الحالي إجبارية: مينفعش يكمّل/يخلّص من غير ما يجاوب عليها كلها.
+  // لو فيه ناقص → بنبرز الأسئلة ونسكرول لأول سؤال ناقص. (الرجوع للجزء اللي قبله مسموح دايمًا.)
+  function requireCurrentPart() {
+    const missing = (parts[partIdx]?.tasks || [])
+      .flatMap((tk) => tk.questions)
+      .filter((q) => answers[q.n] === undefined);
+    if (!missing.length) return true;
+    setShowMissing(true);
+    document.getElementById(`q-${missing[0].n}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  }
+
+  function nextPart() {
+    if (requireCurrentPart()) goPart(partIdx + 1);
+  }
+
   async function submitTest() {
+    if (!requireCurrentPart()) return;
     setError("");
     setStep("submitting");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -295,6 +317,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
     try { localStorage.removeItem(PENDING_KEY); } catch {}
     setAnswers({});
     setPartIdx(0);
+    setShowMissing(false);
     setResultId(null);
     setResult(null);
     setError("");
@@ -305,6 +328,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
   const part = parts[partIdx];
   const isLast = partIdx === parts.length - 1;
   const unansweredCount = allQuestions.filter((q) => answers[q.n] === undefined).length;
+  const partMissing = (part?.tasks || []).flatMap((tk) => tk.questions).filter((q) => answers[q.n] === undefined).length;
   const dir = isRTL ? "rtl" : "ltr";
   const btn = "px-5 py-2.5 rounded-xl font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60";
 
@@ -397,7 +421,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                   <p className="text-sm font-bold text-gray-900">{task.title}</p>
                   <p className="text-sm text-gray-600">{task.intro}</p>
 
-                  {task.audioSrc && (
+                  {task.audioSrc && !task.sharedAudio && (
                     <div>
                       <audio controls src={task.audioSrc} className="w-full" />
                       <p className="text-[11px] text-gray-400 mt-1">{t.audioNote}</p>
@@ -423,7 +447,13 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                 </div>
 
                 {task.questions.map((q) => (
-                  <div key={q.n} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left">
+                  <div
+                    key={q.n}
+                    id={`q-${q.n}`}
+                    className={`bg-white rounded-2xl border shadow-sm p-5 text-left ${
+                      showMissing && answers[q.n] === undefined ? "border-red-400 ring-1 ring-red-200" : "border-gray-100"
+                    }`}
+                  >
                     {q.ctx && (
                       <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">{q.ctx}</p>
                     )}
@@ -491,10 +521,17 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-3">
               {error && <p className="text-sm text-red-500 w-full">{error}</p>}
-              {isLast && unansweredCount > 0 && (
-                <p className="text-xs text-amber-600 w-full">
-                  {t.unanswered}: {unansweredCount}
+              {showMissing && partMissing > 0 ? (
+                <p className="text-sm text-red-500 w-full">
+                  {t.answerAll} {partMissing}
                 </p>
+              ) : (
+                isLast &&
+                unansweredCount > 0 && (
+                  <p className="text-xs text-amber-600 w-full">
+                    {t.unanswered}: {unansweredCount}
+                  </p>
+                )
               )}
               {partIdx > 0 && (
                 <button onClick={() => goPart(partIdx - 1)} className={`${btn} border border-gray-300 text-gray-700`}>
@@ -502,7 +539,7 @@ export default function SpanishTestRunner({ testId: testIdProp = "a1" }) {
                 </button>
               )}
               {!isLast ? (
-                <button onClick={() => goPart(partIdx + 1)} className={`${btn} bg-[#003A91] text-white`}>
+                <button onClick={nextPart} className={`${btn} bg-[#003A91] text-white`}>
                   {t.next}
                 </button>
               ) : (

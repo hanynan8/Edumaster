@@ -95,7 +95,7 @@ export function getPlacementTestFee(language) {
   return { currency, amount };
 }
 
-// ─── صوتيات الاختبار (A1: 4 خانات — A2: 12 خانة) ───
+// ─── صوتيات الاختبار (A1: 4 خانات — A2: 12 خانة — B1: 4 خانات) ───
 // بتتخزن في كولكشن placement_settings — doc لكل اختبار (_id شوف placementTests.js:
 // "audio" لـ A1 و"audio_a2" لـ A2):
 //   { tracks: { "1": { path, name, size, uploadedAt }, ... } }

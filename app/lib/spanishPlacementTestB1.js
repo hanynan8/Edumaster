@@ -12,12 +12,10 @@
 //    قراءة 1–30  ·  استماع 31–60  ·  قواعد ومفردات 61–110   (110 سؤال، كل سؤال بدرجة)
 //  الدرجة بتتحسب كنسبة مئوية من الأسئلة الظاهرة فعلًا (من 100) — زي A1/A2.
 //
-//  ⚠️ الاستماع (31–60) لسه مش متفعّل في الاختبار:
-//    ملف الاختبار كراسة المرشح بس — مفيهوش مفتاح إجابات الاستماع ولا نصوص التسجيلات (guiones).
-//    الأسئلة جاهزة تحت في PLACEMENT_LISTENING_B1، بس مش داخلة في PLACEMENT_PARTS_B1 لحد ما
-//    نضيف مفتاحها في spanishPlacementTestKeyB1.js (LISTENING) ونرفع الصوتيات.
-//    (التصحيح بيعتبر أي سؤال من غير مفتاح غلط، فمينفعش يظهر قبل المفتاح.)
-//    التفعيل: شوف التعليق في آخر الملف.
+//  🎧 الاستماع (31–60) متفعّل بنفس منطق A2: 20 تسجيل منفصل (شوف PARTE 2 تحت). الصوتيات بتترفع
+//    من لوحة الأدمن، وأي سؤال من غير صوت بيتخفي والدرجة بتتحسب كنسبة من 100.
+//    ⚠️ ملف الاختبار كراسة المرشح بس: مفيهوش مفتاح الاستماع ولا نصوص التسجيلات — الاتنين اتكتبوا
+//    بما يطابق أسئلة الملف (spanishPlacementTestKeyB1.js + placementAudioScripts.js).
 //  ✍️🗣️ التعبير الكتابي (Parte 4) والشفهي (Parte 5) مش بيتصححوا آليًا، فمش جزء من الاختبار هنا
 //    (زي A1/A2).
 //  - 🔒 مفتاح الإجابات مش هنا (الملف ده بيتحمّل في المتصفح) — هو في spanishPlacementTestKeyB1.js
@@ -263,17 +261,18 @@ const BASE_PARTS_B1 = [
   },
 ];
 
-// ───────────────────────── PARTE 2. COMPRENSIÓN AUDITIVA (n 31–60) — جاهزة بس مش متفعّلة ─────────────────────────
-// 🎧 الاستماع (B1): المنشور على الموقع Tarea 1 بس (6 أسئلة: 31–36) — صوت واحد (خانة 1).
-//   Tarea 2–5 (الأسئلة 37–60) مش هتتنزل: محفوظة تحت في PLACEMENT_LISTENING_B1_ALL للرجوع بس.
-//   الخطوات للتفعيل للطلاب:
-//   1) ارفع صوت Tarea 1 من لوحة الأدمن (Placement tests → B1 → Audio 1).
-//   2) املا LISTENING في spanishPlacementTestKeyB1.js بـ 6 حروف (الأسئلة 31–36).
-//   3) غيّر LISTENING_ENABLED_B1 تحت لـ true.
-//   لحد ما LISTENING_ENABLED_B1 تبقى true، الاستماع مش بيظهر للطلاب حتى لو الصوت اترفع
-//   (عشان أي سؤال من غير مفتاح بيتحسب غلط).
-export const LISTENING_ENABLED_B1 = false;
-export const PLACEMENT_LISTENING_B1_ALL = {
+// ───────────────────────── PARTE 2. COMPRENSIÓN AUDITIVA (n 31–60) ─────────────────────────
+// 🎧 4 تسجيلات بس، كل تسجيل على Tarea كاملة (الأدمن بيرفع 4 أوديو):
+//   خانة 1 → Tarea 1 كاملة (الرسائل الست · أسئلة 31–36)
+//   خانة 2 → Tarea 2 كاملة (Lucas · أسئلة 37–42)
+//   خانة 3 → Tarea 3 كاملة (الأخبار الست · أسئلة 43–48)
+//   خانة 4 → Tarea 4 + Tarea 5 مدموجتين في تسجيل واحد (6 أشخاص ثم حوار Ana y Tomás · أسئلة 49–60)
+//   الصوت بيترفع من لوحة الأدمن (Placement Tests → B1 → Listening audio) ونصوص التسجيلات (guiones)
+//   في placementAudioScripts.js. أي مهمة من غير صوت بتتخفي والدرجة بتتحسب كنسبة من 100.
+//   ⚠️ ملف B1 (cuadernillo del candidato) مفيهوش guiones ولا clave للاستماع: النصوص والمفتاح
+//   اتكتبوا ليتطابقوا مع أسئلة الملف ولازم يتراجعوا/يتبدلوا بالرسمي لو موجود.
+export const LISTENING_ENABLED_B1 = true;
+export const PLACEMENT_LISTENING_B1 = {
   id: "listen",
   title: "Comprensión auditiva",
   minutes: 40,
@@ -321,7 +320,6 @@ export const PLACEMENT_LISTENING_B1_ALL = {
       title: "Tarea 4",
       intro:
         "Escucharás a seis personas que hablan de su primer día de trabajo. Relaciona cada persona (19–24) con el enunciado correspondiente (A–H). Hay dos enunciados que no necesitas. Escribe la letra.",
-      audioSlot: 4,
       bank: bankOf([
         "Se sintió muy nervioso al empezar.",
         "Sus compañeros le ayudaron mucho.",
@@ -332,6 +330,7 @@ export const PLACEMENT_LISTENING_B1_ALL = {
         "Perdió su teléfono.",
         "Terminó antes de lo previsto.",
       ]),
+      audioSlot: 4,
       questions: [
         mt(49, 19, "Persona 1", 8),
         mt(50, 20, "Persona 2", 8),
@@ -344,7 +343,8 @@ export const PLACEMENT_LISTENING_B1_ALL = {
     {
       title: "Tarea 5",
       intro: "Escucha la conversación entre Ana y Tomás. Elige la opción correcta (a, b o c).",
-      audioSlot: 5,
+      audioSlot: 4, // نفس تسجيل Tarea 4 (مدموجين) — مش بيتعرض له مشغّل تاني
+      sharedAudio: true,
       questions: [
         mc(55, 25, "¿Qué oferta de trabajo comentan?", ["Una en una agencia de viajes.", "Una en una empresa de energía solar.", "Una en una panadería."]),
         mc(56, 26, "¿Por qué duda Tomás?", ["No tiene experiencia.", "El sueldo es bajo.", "Tendría que mudarse y dejar su piso y a sus amigos."]),
@@ -357,13 +357,7 @@ export const PLACEMENT_LISTENING_B1_ALL = {
   ],
 };
 
-// الاستماع المنشور فعلًا = Tarea 1 بس.
-export const PLACEMENT_LISTENING_B1 = {
-  ...PLACEMENT_LISTENING_B1_ALL,
-  tasks: PLACEMENT_LISTENING_B1_ALL.tasks.slice(0, 1),
-};
-
-// الأجزاء الفعلية للاختبار: الاستماع بيدخل بين القراءة والقواعد لما يتفعّل (مهمته بتتخفي لوحدها لو مفيش صوت).
+// الأجزاء الفعلية للاختبار: قراءة ← استماع ← قواعد ومفردات (مهام الاستماع من غير صوت بتتخفي لوحدها).
 export const PLACEMENT_PARTS_B1 = LISTENING_ENABLED_B1
   ? [BASE_PARTS_B1[0], PLACEMENT_LISTENING_B1, BASE_PARTS_B1[1]]
   : BASE_PARTS_B1;

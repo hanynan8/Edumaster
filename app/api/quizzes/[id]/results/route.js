@@ -66,6 +66,17 @@ export async function GET(request, { params }) {
         bestPassed: best.passed,
         latestScorePercent: latest.scorePercent,
         latestPassed: latest.passed,
+        // 🆕 كل محاولات الطالب (عشان المدرّس/الموديريتر يفتح المقالي ويصحّحه أو يبعت رسالة)
+        pendingReviewCount: sorted.filter((r) => r.status === "pending_review").length,
+        attempts: sorted.map((r) => ({
+          id: r._id.toString(),
+          attemptNumber: r.attemptNumber,
+          scorePercent: r.scorePercent,
+          passed: r.passed,
+          status: r.status || "graded",
+          submittedAt: r.submittedAt,
+          messagesCount: (r.messages || []).length,
+        })),
       };
     });
 
@@ -76,6 +87,7 @@ export async function GET(request, { params }) {
       courseTitle: course.title,
       totalStudents: rows.length,
       passedCount: rows.filter((r) => r.bestPassed).length,
+      pendingReviewCount: rows.reduce((n, r) => n + r.pendingReviewCount, 0),
       results: rows,
     });
   } catch (err) {

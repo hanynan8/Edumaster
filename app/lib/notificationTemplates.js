@@ -96,6 +96,20 @@ const TEMPLATES = {
     es: (p) => ({ title: p.assignmentTitle, message: `${p.score}/${p.maxScore}` }),
   },
 
+  // ── 🆕 رسالة جديدة في محادثة كويز/واجب (بين الطالب والمدرّس/الموديريتر)
+  thread_message: {
+    ar: (p) => ({ title: `${p.senderName || "رسالة جديدة"} — ${p.itemTitle}`, message: p.body }),
+    en: (p) => ({ title: `${p.senderName || "New message"} — ${p.itemTitle}`, message: p.body }),
+    es: (p) => ({ title: `${p.senderName || "Nuevo mensaje"} — ${p.itemTitle}`, message: p.body }),
+  },
+
+  // ── 🆕 تم تصحيح الأسئلة المقالية في كويز (للطالب)
+  essay_graded: {
+    ar: (p) => ({ title: p.quizTitle, message: `تم تصحيح إجاباتك المقالية — ${p.scorePercent}%` }),
+    en: (p) => ({ title: p.quizTitle, message: `Your essay answers were graded — ${p.scorePercent}%` }),
+    es: (p) => ({ title: p.quizTitle, message: `Tus respuestas de ensayo fueron calificadas — ${p.scorePercent}%` }),
+  },
+
   // ── شهادة جديدة (للطالب)
   certificate_issued: {
     ar: (p) => ({ title: p.courseTitle, message: "شهادتك جاهزة" }),

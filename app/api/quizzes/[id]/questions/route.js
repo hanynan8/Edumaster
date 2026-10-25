@@ -1,44 +1,25 @@
 // app/api/quizzes/[id]/questions/route.js
 //
-// Phase 4 — اليوم 33-34: إضافة سؤال (Multiple Choice / True-False) لكويز
+// Phase 4 — اليوم 33-34: إضافة سؤال (Multiple Choice / True-False / 🆕 Essay) لكويز
 // معيّن. صاحب الكورس أو أدمن بس.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import {
+  QUESTION_TYPES as ALLOWED_TYPES,
+  validateOptions,
+  normalizeOptions,
+  sanitizeQuestionMedia,
+  serializeQuestion,
+} from "@/app/lib/quizQuestionHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-const ALLOWED_TYPES = ["multiple_choice", "true_false"];
-
-function serializeQuestion(qq) {
-  return {
-    id: qq._id.toString(),
-    type: qq.type,
-    text: qq.text,
-    points: qq.points,
-    order: qq.order,
-    options: (qq.options || []).map((o, index) => ({ index, text: o.text, isCorrect: o.isCorrect })),
-  };
-}
-
-// بيتحقق إن شكل options صالح: 2 خيار على الأقل، وخيار صح واحد على الأقل،
-// ومفيش خيار نصه فاضي. لـ true_false بنفرض بالظبط خيارين ("صح"/"غلط").
-function validateOptions(type, options) {
-  if (!Array.isArray(options) || options.length < 2) return "options_required";
-  if (type === "true_false" && options.length !== 2) return "true_false_needs_two_options";
-  if (options.some((o) => !String(o?.text || "").trim())) return "empty_option_text";
-  if (!options.some((o) => Boolean(o?.isCorrect))) return "no_correct_option";
-  if (type === "true_false" && options.filter((o) => o.isCorrect).length !== 1) {
-    return "true_false_needs_one_correct";
-  }
-  return null;
 }
 
 export async function POST(request, { params }) {
@@ -66,12 +47,14 @@ export async function POST(request, { params }) {
     const text = String(body?.text || "").trim();
     if (!text) return jsonResponse({ error: "missing_text" }, 400);
 
-    const options = (Array.isArray(body?.options) ? body.options : []).map((o) => ({
-      text: String(o?.text || "").trim(),
-      isCorrect: Boolean(o?.isCorrect),
-    }));
+    // essay → من غير خيارات (تصحيح يدوي)
+    const options = type === "essay" ? [] : normalizeOptions(body?.options);
     const optionsError = validateOptions(type, options);
     if (optionsError) return jsonResponse({ error: optionsError }, 400);
+
+    // 🆕 فيديو/أوديو مرفق بالسؤال (اختياري)
+    const media = sanitizeQuestionMedia(body, auth.session.user.id);
+    if (!media.ok) return jsonResponse({ error: media.error }, 400);
 
     const Question = getQuestionModel();
     let order = Number.isFinite(Number(body?.order)) ? Number(body.order) : null;
@@ -82,6 +65,8 @@ export async function POST(request, { params }) {
       type,
       text,
       options,
+      mediaUrl: media.mediaUrl,
+      mediaType: media.mediaType,
       points: Number.isFinite(Number(body?.points)) ? Math.max(0, Number(body.points)) : 1,
       order,
     });

@@ -69,6 +69,16 @@ const submissionSchema = new mongoose.Schema(
     feedback: { type: String, default: null },
     gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, default: null },
     gradedAt: { type: Date, default: null },
+
+    // 🆕 محادثة نصية بين الطالب والمدرّس/الموديريتر على التسليم ده (رسائل طويلة مسموحة)
+    messages: [
+      {
+        sender: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
+        senderRole: { type: String, enum: ["student", "teacher", "moderator", "admin"], required: true },
+        text: { type: String, required: true, maxlength: 20000 },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

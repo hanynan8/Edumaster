@@ -2,7 +2,7 @@
 //
 // اختبارات اختبار تحديد المستوى B1 (إسباني):
 //   - سلامة البيانات: 110 سؤال زي ملف الاختبار (30 قراءة + 30 استماع + 50 قواعد/مفردات).
-//   - الاستماع: 4 تسجيلات، كل تسجيل على Tarea كاملة (Tarea 4+5 مدموجتين)، وأي مهمة
+//   - الاستماع: 5 تسجيلات، كل تسجيل على Tarea كاملة (Tarea 4 وTarea 5 منفصلتين)، وأي مهمة
 //     من غير صوت بتتخفي والدرجة نسبة من 100 (من غير صوتيات = 80 سؤال ظاهر).
 //   - مفتاح الإجابات: لكل سؤال مفتاح ضمن عدد الخيارات (110 مفتاح).
 //   - التصحيح: الدرجة نسبة من 100، والمستوى حسب جدول B1.
@@ -42,7 +42,7 @@ const allQuestions = questionsOf(PLACEMENT_PARTS_B1);
 const listeningQuestions = questionsOf([PLACEMENT_LISTENING_B1]);
 
 // إجابات كلها صح للأسئلة الظاهرة
-const ALL_AUDIO = Object.fromEntries(Array.from({ length: 4 }, (_, i) => [i + 1, `https://cdn.test/b1-${i + 1}.mp3`]));
+const ALL_AUDIO = Object.fromEntries(Array.from({ length: 5 }, (_, i) => [i + 1, `https://cdn.test/b1-${i + 1}.mp3`]));
 const perfect = (audio = {}) =>
   Object.fromEntries(getVisibleQuestions(audio, "b1").map((q) => [q.n, getAnswerKey("b1")[q.n].a]));
 
@@ -119,17 +119,17 @@ describe("سلامة بيانات B1", () => {
   });
 });
 
-describe("الاستماع (4 تسجيلات، كل تسجيل على Tarea كاملة)", () => {
+describe("الاستماع (5 تسجيلات، كل تسجيل على Tarea كاملة)", () => {
   it("5 مهام: 6 أسئلة لكل مهمة بأرقام 31–60", () => {
     expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.questions.length)).toEqual([6, 6, 6, 6, 6]);
     expect(listeningQuestions.map((x) => x.q.n)).toEqual(Array.from({ length: 30 }, (_, i) => i + 31));
   });
 
-  it("4 خانات صوت: Tarea 1 · Tarea 2 · Tarea 3 · وTarea 4+5 مدموجتين في الخانة 4 (مفيش audioSlot على مستوى السؤال)", () => {
-    expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.audioSlot)).toEqual([1, 2, 3, 4, 4]);
+  it("5 خانات صوت: لكل Tarea خانتها (Tarea 4 → 4 · Tarea 5 → 5) ومفيش audioSlot على مستوى السؤال", () => {
+    expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.audioSlot)).toEqual([1, 2, 3, 4, 5]);
     expect(PLACEMENT_LISTENING_B1.tasks.some((t) => t.questions.some((q) => q.audioSlot !== undefined))).toBe(false);
-    expect(PLACEMENT_TESTS.b1.audioSlots.map((a) => a.slot)).toEqual([1, 2, 3, 4]);
-    expect(PLACEMENT_TESTS.b1.audioDocId).toBe("audio_b1_v3");
+    expect(PLACEMENT_TESTS.b1.audioSlots.map((a) => a.slot)).toEqual([1, 2, 3, 4, 5]);
+    expect(PLACEMENT_TESTS.b1.audioDocId).toBe("audio_b1_v4");
   });
 
   it("من غير صوتيات → الاستماع مخفي كله (80 سؤال: قراءة + قواعد)", () => {
@@ -137,22 +137,22 @@ describe("الاستماع (4 تسجيلات، كل تسجيل على Tarea كا
     expect(getVisibleQuestions({}, "b1")).toHaveLength(80);
   });
 
-  it("الأربع صوتيات مرفوعة → 110 سؤال، وTarea 5 بتشارك صوت Tarea 4 من غير مشغّل تاني", () => {
+  it("الخمس صوتيات مرفوعة → 110 سؤال، ولكل Tarea مشغّلها بصوتها", () => {
     const parts = getVisiblePartsFor("b1", ALL_AUDIO);
     expect(parts.map((p) => p.id)).toEqual(["read", "listen", "gram"]);
     expect(getVisibleQuestions(ALL_AUDIO, "b1")).toHaveLength(110);
     const tasks = parts[1].tasks;
-    expect(tasks.map((t) => t.audioSrc)).toEqual([1, 2, 3, 4, 4].map((n) => ALL_AUDIO[n]));
-    expect(tasks[3].sharedAudio).toBeUndefined();
-    expect(tasks[4].sharedAudio).toBe(true);
+    expect(tasks.map((t) => t.audioSrc)).toEqual([1, 2, 3, 4, 5].map((n) => ALL_AUDIO[n]));
+    expect(tasks.some((t) => t.sharedAudio)).toBe(false);
   });
 
-  it("كل صوت بيفتح مهمته كاملة: صوت 1 → 31–36 · صوت 3 → 43–48 · صوت 4 → 49–60 · الباقي مخفي", () => {
+  it("كل صوت بيفتح مهمته كاملة: صوت 1 → 31–36 · صوت 3 → 43–48 · صوت 4 → 49–54 · صوت 5 → 55–60 · الباقي مخفي", () => {
     const only = (slot) => getVisibleQuestions({ [slot]: "x" }, "b1").map((q) => q.n).filter((n) => n > 30 && n < 61);
     expect(only(1)).toEqual([31, 32, 33, 34, 35, 36]);
     expect(only(2)).toEqual([37, 38, 39, 40, 41, 42]);
     expect(only(3)).toEqual([43, 44, 45, 46, 47, 48]);
-    expect(only(4)).toEqual(Array.from({ length: 12 }, (_, i) => i + 49));
+    expect(only(4)).toEqual([49, 50, 51, 52, 53, 54]);
+    expect(only(5)).toEqual([55, 56, 57, 58, 59, 60]);
   });
 
   it("صوت جزئي: الدرجة نسبة من 100 على الأسئلة الظاهرة بس", () => {
@@ -173,10 +173,12 @@ describe("الاستماع (4 تسجيلات، كل تسجيل على Tarea كا
     expect(sanitizeAnswers({ 40: 1, 49: 7 }, {}, "b1")).toEqual({});
   });
 
-  it("🔒 نص تسجيل (guion) لكل خانة من الـ 4 على السيرفر، ومفيش نصوص جوه بيانات الاختبار (المتصفح)", () => {
-    for (let slot = 1; slot <= 4; slot++) expect(String(getAudioScript("b1", slot)).length).toBeGreaterThan(500);
-    expect(getAudioScript("b1", 5)).toBeNull();
-    expect(getAudioScript("b1", 4)).toMatch(/Persona 6[\s\S]*Ana y Tomás/);
+  it("🔒 نص تسجيل (guion) لكل خانة من الـ 5 على السيرفر، ومفيش نصوص جوه بيانات الاختبار (المتصفح)", () => {
+    for (let slot = 1; slot <= 5; slot++) expect(String(getAudioScript("b1", slot)).length).toBeGreaterThan(500);
+    expect(getAudioScript("b1", 6)).toBeNull();
+    expect(getAudioScript("b1", 4)).toMatch(/Persona 6/);
+    expect(getAudioScript("b1", 4)).not.toMatch(/Ana y Tomás/);
+    expect(getAudioScript("b1", 5)).toMatch(/Ana:[\s\S]*Tomás:/);
     expect(JSON.stringify(PLACEMENT_PARTS_B1)).not.toMatch(/Hotel Mirador|Sabor en Casa/);
   });
 });
@@ -185,7 +187,7 @@ describe("registry", () => {
   it("b1 مدمج: normalizeTestId + مسار + صوتيات منفصلة عن a1/a2", () => {
     expect(normalizeTestId("b1")).toBe("b1");
     expect(normalizeTestId("B1")).toBe("b1");
-    expect(PLACEMENT_TESTS.b1).toMatchObject({ id: "b1", label: "B1", path: "/spanish-test/b1", audioDocId: "audio_b1_v3" });
+    expect(PLACEMENT_TESTS.b1).toMatchObject({ id: "b1", label: "B1", path: "/spanish-test/b1", audioDocId: "audio_b1_v4" });
     const docs = [PLACEMENT_TESTS.a1, PLACEMENT_TESTS.a2, PLACEMENT_TESTS.b1].map((t) => t.audioDocId);
     expect(new Set(docs).size).toBe(3);
     const prefixes = [PLACEMENT_TESTS.a1, PLACEMENT_TESTS.a2, PLACEMENT_TESTS.b1].map((t) => t.audioPathPrefix);

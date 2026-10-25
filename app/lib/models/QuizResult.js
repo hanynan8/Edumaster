@@ -27,6 +27,27 @@ const quizResultSchema = new mongoose.Schema(
         selectedOptionIndex: { type: Number, default: null }, // null = سؤال اتسيب فاضي
         isCorrect: { type: Boolean, required: true },
         pointsEarned: { type: Number, required: true, default: 0 },
+        // 🆕 أسئلة مقالية: نص إجابة الطالب + حالة التصحيح اليدوي + تعليق المصحّح
+        textAnswer: { type: String, default: null, maxlength: 20000 },
+        needsManualGrading: { type: Boolean, default: false },
+        manuallyGraded: { type: Boolean, default: false },
+        feedback: { type: String, default: null },
+      },
+    ],
+
+    // 🆕 graded = اتصحح بالكامل | pending_review = فيه أسئلة مقالية مستنية تصحيح المدرّس/الموديريتر
+    // (المحاولات القديمة من غير الحقل ده بتتعامل كـ graded)
+    status: { type: String, enum: ["graded", "pending_review"], default: "graded" },
+    gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, default: null },
+    gradedAt: { type: Date, default: null },
+
+    // 🆕 محادثة نصية بين الطالب والمدرّس/الموديريتر على المحاولة دي
+    messages: [
+      {
+        sender: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
+        senderRole: { type: String, enum: ["student", "teacher", "moderator", "admin"], required: true },
+        text: { type: String, required: true, maxlength: 20000 },
+        createdAt: { type: Date, default: Date.now },
       },
     ],
 

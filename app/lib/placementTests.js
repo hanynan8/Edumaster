@@ -9,7 +9,7 @@
 //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
 //         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
 //    b1 → Prueba de nivel de español B1  (/spanish-test/b1)  — بيظهر على كورسات B1.x
-//         (قراءة 30 + استماع 30 + قواعد ومفردات 50 — زي ملف الاختبار؛ الاستماع 4 تسجيلات: كل تسجيل على Tarea كاملة)
+//         (قراءة 30 + استماع 30 + قواعد ومفردات 50 — زي ملف الاختبار؛ الاستماع 5 تسجيلات: كل تسجيل على Tarea كاملة)
 //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
 //  (A1: 4 خانات — A2: 12 خانة — B1: 4 خانات، بتترفع من لوحة الأدمن).
 //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
@@ -76,15 +76,16 @@ export const PLACEMENT_TESTS = {
     title: PLACEMENT_TEST_TITLE_B1,
     parts: PLACEMENT_PARTS_B1,
     path: "/spanish-test/b1",
-    // 🆕 audio_b1_v3: B1 = 4 تسجيلات بس (كل تسجيل على Tarea كاملة؛ Tarea 4+5 مدموجتين) — مستند جديد عشان أي صوت
+    // 🆕 audio_b1_v4: B1 = 5 تسجيلات (كل تسجيل على Tarea كاملة؛ Tarea 4 وTarea 5 كل واحدة بصوتها) — مستند جديد عشان أي صوت
     // اترفع بتقسيم قديم (خانة لكل رسالة) ماييجيش مكان غلط. لازم يتّرفع من لوحة الأدمن.
-    audioDocId: "audio_b1_v3",
+    audioDocId: "audio_b1_v4",
     audioPathPrefix: "edumaster/placement-test-b1/audio",
     audioSlots: [
       { slot: 1, label: "Audio 1 — Seis mensajes breves", hint: "Tarea 1 · Questions 31–36" },
       { slot: 2, label: "Audio 2 — Lucas en Buenos Aires", hint: "Tarea 2 · Questions 37–42" },
       { slot: 3, label: "Audio 3 — Seis noticias de radio", hint: "Tarea 3 · Questions 43–48" },
-      { slot: 4, label: "Audio 4 — Primer día de trabajo (6 personas) + Ana y Tomás", hint: "Tarea 4 + Tarea 5 · Questions 49–60" },
+      { slot: 4, label: "Audio 4 — Primer día de trabajo (6 personas)", hint: "Tarea 4 · Questions 49–54" },
+      { slot: 5, label: "Audio 5 — Ana y Tomás", hint: "Tarea 5 · Questions 55–60" },
     ],
   },
 };
@@ -98,7 +99,7 @@ export function isTestDef(value) {
   return Boolean(value) && typeof value === "object" && Array.isArray(value.parts);
 }
 
-// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12 · B1: 1–4 · المخصص: اللي في ملفه)
+// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12 · B1: 1–5 · المخصص: اللي في ملفه)
 export function getAudioSlotNumbers(testOrId) {
   return getPlacementTest(testOrId).audioSlots.map((a) => a.slot);
 }

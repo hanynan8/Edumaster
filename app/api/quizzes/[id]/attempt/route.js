@@ -19,6 +19,7 @@ import { getCourseAccessForUser } from "@/app/lib/access";
 import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
+import { MAX_ESSAY_ANSWER_LENGTH } from "@/app/lib/quizQuestionHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -78,14 +79,35 @@ export async function POST(request, { params }) {
     const answerByQuestion = new Map(
       submittedAnswers
         .filter((a) => a && a.question)
-        .map((a) => [String(a.question), a.selectedOptionIndex])
+        .map((a) => [String(a.question), a])
     );
 
     let totalPoints = 0;
     let earnedPoints = 0;
+    let hasPendingEssay = false;
     const gradedAnswers = questions.map((q) => {
       totalPoints += q.points;
-      const rawSelected = answerByQuestion.get(String(q._id));
+      const submitted = answerByQuestion.get(String(q._id));
+
+      // 🆕 سؤال مقالي: بنخزّن نص الطالب والدرجة بتستنى تصحيح المدرّس/الموديريتر
+      if (q.type === "essay") {
+        const rawText = typeof submitted?.textAnswer === "string" ? submitted.textAnswer.replace(/\r\n/g, "\n").trim() : "";
+        const textAnswer = rawText ? rawText.slice(0, MAX_ESSAY_ANSWER_LENGTH) : null;
+        // إجابة فاضية = صفر مباشرة (مفيش حاجة تتصحح)
+        const needsManualGrading = Boolean(textAnswer);
+        if (needsManualGrading) hasPendingEssay = true;
+        return {
+          question: q._id,
+          selectedOptionIndex: null,
+          isCorrect: false,
+          pointsEarned: 0,
+          textAnswer,
+          needsManualGrading,
+          manuallyGraded: !needsManualGrading,
+        };
+      }
+
+      const rawSelected = submitted?.selectedOptionIndex;
       const selectedOptionIndex =
         Number.isInteger(rawSelected) && rawSelected >= 0 && rawSelected < q.options.length ? rawSelected : null;
 
@@ -102,7 +124,8 @@ export async function POST(request, { params }) {
     });
 
     const scorePercent = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
-    const passed = scorePercent >= quiz.passingScorePercent;
+    // 🆕 لو فيه مقالي مستني تصحيح → النتيجة مؤقتة (pending_review) والنجاح بيتحدد بعد التصحيح
+    const passed = !hasPendingEssay && scorePercent >= quiz.passingScorePercent;
 
     const result = await QuizResult.create({
       quiz: quiz._id,
@@ -114,6 +137,7 @@ export async function POST(request, { params }) {
       scorePercent,
       passed,
       attemptNumber: attemptsUsed + 1,
+      status: hasPendingEssay ? "pending_review" : "graded",
     });
 
     // لو الكويز مرتبط بدرس (lesson.type === "quiz")، بنعتبره "مكتمل"
@@ -131,7 +155,7 @@ export async function POST(request, { params }) {
 
     // 🔔 Phase 6 — اليوم 50-51: إشعار "نتيجة كويز" للطالب نفسه (best-effort،
     // مش لازم ينجح عشان النتيجة تترجع في الـ response أصلًا).
-    await createNotification({
+    if (!hasPendingEssay) await createNotification({
       user: session.user.id,
       type: "quiz_result",
       key: "quiz_result",
@@ -148,6 +172,7 @@ export async function POST(request, { params }) {
         scorePercent,
         passed,
         attemptNumber: result.attemptNumber,
+        status: result.status,
         attemptsRemaining: Math.max(0, quiz.maxAttempts - (attemptsUsed + 1)),
         // 🔒 كشف isCorrect لكل سؤال هنا مقبول (بعكس GET /api/quizzes/[id]
         // للطالب) لأن ده *بعد* التسليم — مراجعة إجاباته وقتها مش غش.
@@ -156,6 +181,8 @@ export async function POST(request, { params }) {
           selectedOptionIndex: a.selectedOptionIndex,
           isCorrect: a.isCorrect,
           pointsEarned: a.pointsEarned,
+          textAnswer: a.textAnswer ?? null,
+          needsManualGrading: Boolean(a.needsManualGrading),
         })),
         courseProgressPercent: enrollment?.progressPercent ?? null,
       },

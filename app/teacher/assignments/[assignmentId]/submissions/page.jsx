@@ -7,9 +7,10 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowLeft, FileText, Loader, CheckCircle2, Clock } from "lucide-react";
+import { ArrowRight, ArrowLeft, FileText, Loader, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
+import ThreadChat from "@/app/components/ThreadChat";
 
 const STRINGS = {
   ar: {
@@ -78,12 +79,14 @@ export default function AssignmentSubmissionsPage({ params }) {
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
+  const discussionLabel = language === "ar" ? "المحادثة مع الطالب" : "Discussion with student";
   const STATUS_LABELS = {
     submitted: { label: t.statusSubmitted, cls: "bg-[#EBEFF6] text-[#003A91]" },
     late: { label: t.statusLate, cls: "bg-amber-50 text-amber-600" },
     graded: { label: t.statusGraded, cls: "bg-green-50 text-green-600" },
   };
   const [data, setData] = useState(null);
+  const [openThreadId, setOpenThreadId] = useState(null); // 🆕
   const [error, setError] = useState("");
   const [drafts, setDrafts] = useState({}); // submissionId -> { score, feedback }
   const [savingId, setSavingId] = useState(null);
@@ -212,9 +215,10 @@ export default function AssignmentSubmissionsPage({ params }) {
                     value={draft.score}
                     onChange={(e) => updateDraft(s.id, "score", e.target.value)}
                   />
-                  <input
+                  <textarea
+                    rows={3}
                     placeholder={t.feedbackPlaceholder}
-                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5279B4]"
+                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5279B4] resize-y"
                     value={draft.feedback}
                     onChange={(e) => updateDraft(s.id, "feedback", e.target.value)}
                   />
@@ -227,6 +231,21 @@ export default function AssignmentSubmissionsPage({ params }) {
                     {s.status === "graded" ? t.update : t.grade}
                   </button>
                 </div>
+
+                {/* 🆕 محادثة نصية مع الطالب (المدرّس/الموديريتر ⇄ الطالب) */}
+                <button
+                  type="button"
+                  onClick={() => setOpenThreadId(openThreadId === s.id ? null : s.id)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-[#003A91] hover:underline mt-4"
+                >
+                  <MessageSquare size={13} /> {discussionLabel}
+                  {s.messagesCount > 0 ? ` (${s.messagesCount})` : ""}
+                </button>
+                {openThreadId === s.id && (
+                  <div className="mt-3">
+                    <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${s.id}/messages`} viewer="staff" />
+                  </div>
+                )}
               </div>
             );
           })}

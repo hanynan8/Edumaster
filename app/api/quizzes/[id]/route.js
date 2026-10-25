@@ -17,6 +17,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { serializeQuestion } from "@/app/lib/quizQuestionHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,28 +41,9 @@ function serializeQuizMeta(q) {
   };
 }
 
-function serializeQuestionForTeacher(qq) {
-  return {
-    id: qq._id.toString(),
-    type: qq.type,
-    text: qq.text,
-    points: qq.points,
-    order: qq.order,
-    options: (qq.options || []).map((o, index) => ({ index, text: o.text, isCorrect: o.isCorrect })),
-  };
-}
-
-function serializeQuestionForStudent(qq) {
-  return {
-    id: qq._id.toString(),
-    type: qq.type,
-    text: qq.text,
-    points: qq.points,
-    order: qq.order,
-    // 🔒 مفيش isCorrect هنا خالص — التصحيح بيحصل سيرفر-سايد بس وقت attempt
-    options: (qq.options || []).map((o, index) => ({ index, text: o.text })),
-  };
-}
+const serializeQuestionForTeacher = (qq) => serializeQuestion(qq);
+// 🔒 مفيش isCorrect هنا خالص — التصحيح بيحصل سيرفر-سايد بس وقت attempt
+const serializeQuestionForStudent = (qq) => serializeQuestion(qq, { forStudent: true });
 
 async function loadQuizWithCourse(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) return { quiz: null, course: null };
@@ -117,9 +99,27 @@ export async function GET(request, { params }) {
       attemptsRemaining: Math.max(0, quiz.maxAttempts - attemptsUsed),
       canAttempt: attemptsUsed < quiz.maxAttempts && questions.length > 0,
       lastResult: previousResults[0]
-        ? { scorePercent: previousResults[0].scorePercent, passed: previousResults[0].passed, attemptNumber: previousResults[0].attemptNumber }
+        ? {
+            id: previousResults[0]._id.toString(),
+            scorePercent: previousResults[0].scorePercent,
+            passed: previousResults[0].passed,
+            attemptNumber: previousResults[0].attemptNumber,
+            status: previousResults[0].status || "graded",
+          }
         : null,
       bestResult: bestResult ? { scorePercent: bestResult.scorePercent, passed: bestResult.passed } : null,
+      // 🆕 كل محاولات الطالب (عشان يفتح المحادثة/يشوف تصحيح المقالي لأي محاولة)
+      attempts: previousResults
+        .slice()
+        .sort((a, b) => a.attemptNumber - b.attemptNumber)
+        .map((r) => ({
+          id: r._id.toString(),
+          attemptNumber: r.attemptNumber,
+          scorePercent: r.scorePercent,
+          passed: r.passed,
+          status: r.status || "graded",
+          messagesCount: (r.messages || []).length,
+        })),
     });
   } catch (err) {
     console.error("[/api/quizzes/[id]] GET error:", err);

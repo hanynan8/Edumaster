@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import MediaUploader from "@/app/teacher/components/MediaUploader";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
+import ThreadChat from "@/app/components/ThreadChat";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -239,6 +240,13 @@ export default function SubmitAssignmentPage({ params }) {
               {mySubmission.feedback && <p className="text-sm text-green-800 mt-1">{mySubmission.feedback}</p>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 🆕 محادثة نصية مع المدرّس/الموديريتر على التسليم (بتظهر بعد أول تسليم) */}
+      {mySubmission?.id && (
+        <div className="mb-6">
+          <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`} viewer="student" />
         </div>
       )}
 

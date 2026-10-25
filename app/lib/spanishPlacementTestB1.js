@@ -262,11 +262,12 @@ const BASE_PARTS_B1 = [
 ];
 
 // ───────────────────────── PARTE 2. COMPRENSIÓN AUDITIVA (n 31–60) ─────────────────────────
-// 🎧 4 تسجيلات بس، كل تسجيل على Tarea كاملة (الأدمن بيرفع 4 أوديو):
+// 🎧 5 تسجيلات، كل تسجيل على Tarea كاملة وبصوت منفصل (الأدمن بيرفع 5 أوديو):
 //   خانة 1 → Tarea 1 كاملة (الرسائل الست · أسئلة 31–36)
 //   خانة 2 → Tarea 2 كاملة (Lucas · أسئلة 37–42)
 //   خانة 3 → Tarea 3 كاملة (الأخبار الست · أسئلة 43–48)
-//   خانة 4 → Tarea 4 + Tarea 5 مدموجتين في تسجيل واحد (6 أشخاص ثم حوار Ana y Tomás · أسئلة 49–60)
+//   خانة 4 → Tarea 4 كاملة (6 أشخاص · أسئلة 49–54)
+//   خانة 5 → Tarea 5 كاملة (حوار Ana y Tomás · أسئلة 55–60)
 //   الصوت بيترفع من لوحة الأدمن (Placement Tests → B1 → Listening audio) ونصوص التسجيلات (guiones)
 //   في placementAudioScripts.js. أي مهمة من غير صوت بتتخفي والدرجة بتتحسب كنسبة من 100.
 //   ⚠️ ملف B1 (cuadernillo del candidato) مفيهوش guiones ولا clave للاستماع: النصوص والمفتاح
@@ -343,8 +344,7 @@ export const PLACEMENT_LISTENING_B1 = {
     {
       title: "Tarea 5",
       intro: "Escucha la conversación entre Ana y Tomás. Elige la opción correcta (a, b o c).",
-      audioSlot: 4, // نفس تسجيل Tarea 4 (مدموجين) — مش بيتعرض له مشغّل تاني
-      sharedAudio: true,
+      audioSlot: 5,
       questions: [
         mc(55, 25, "¿Qué oferta de trabajo comentan?", ["Una en una agencia de viajes.", "Una en una empresa de energía solar.", "Una en una panadería."]),
         mc(56, 26, "¿Por qué duda Tomás?", ["No tiene experiencia.", "El sueldo es bajo.", "Tendría que mudarse y dejar su piso y a sus amigos."]),

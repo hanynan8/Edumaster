@@ -103,7 +103,7 @@ Miguel: ¡Hecho! Seguro que lo pasamos muy bien.`,
 // ───────────────────────── B1 ─────────────────────────
 // ⚠️ ملف B1 (cuadernillo del candidato) مفيهوش guiones ولا clave للاستماع، فالنصوص دي اتكتبت بحيث
 // تطابق أسئلة الملف وخياراتها بالظبط، ومفتاح الاستماع في spanishPlacementTestKeyB1.js مبني عليها.
-// لو عندك guiones رسمية بدّلها هنا وراجع المفتاح. كل تسجيل بيتشغّل مرتين (حسب تعليمات الملف). 4 تسجيلات: كل واحد على Tarea كاملة (Tarea 4 + 5 مدموجتين في تسجيل واحد).
+// لو عندك guiones رسمية بدّلها هنا وراجع المفتاح. كل تسجيل بيتشغّل مرتين (حسب تعليمات الملف). 5 تسجيلات: كل واحد على Tarea كاملة بصوت منفصل (Tarea 4 = خانة 4 · Tarea 5 = خانة 5).
 const B1_SCRIPTS = {
   // Tarea 1 كاملة (أسئلة 31–36) — 6 رسائل ورا بعض
   1: `Audio 1. Seis mensajes breves
@@ -163,10 +163,8 @@ Un estudio de la Universidad de Salamanca revela que los jóvenes de entre quinc
 Noticia 6
 Esta semana se podrá ver una lluvia de estrellas, una de las más espectaculares del año. Los especialistas recomiendan salir al campo, lejos de las luces de la ciudad, y mirar hacia el cielo después de medianoche, cuando la oscuridad es total. Aconsejan llevar ropa de abrigo y esperar unos veinte minutos hasta que los ojos se acostumbren.`,
 
-  // Tarea 4 + Tarea 5 مدموجتين (أسئلة 49–60) — 6 أشخاص ثم الحوار
-  4: `Audio 4. Primer día de trabajo (seis personas) + Ana y Tomás
-
-— PARTE A (Tarea 4): seis personas hablan de su primer día de trabajo —
+  // Tarea 4 كاملة (أسئلة 49–54) — 6 أشخاص
+  4: `Audio 4. Primer día de trabajo (seis personas)
 
 Persona 1
 Mi primer día de trabajo fue bastante decepcionante. En la entrevista me habían hablado de proyectos creativos, pero esa mañana me pusieron a archivar documentos y a contestar llamadas. La oficina estaba muy bien organizada, pero el trabajo no se parecía en nada a lo que yo había imaginado.
@@ -184,11 +182,10 @@ Persona 5
 Pensaba que el primer día me enseñarían la oficina y poco más, pero nada más llegar mi jefe me dijo que a las doce tenía que presentarme delante de todo el equipo y explicar mi experiencia anterior. Preparé unas diapositivas en un cuarto de hora y, aunque salió bien, no me lo esperaba para nada.
 
 Persona 6
-Yo estaba un poco perdida, porque no conocía ni el programa ni los procesos de la empresa. Pero desde el primer momento mis compañeros me ayudaron muchísimo: me enseñaron dónde estaba todo, me explicaron cómo funcionaban las cosas e incluso me invitaron a comer. Me sentí como en casa.
+Yo estaba un poco perdida, porque no conocía ni el programa ni los procesos de la empresa. Pero desde el primer momento mis compañeros me ayudaron muchísimo: me enseñaron dónde estaba todo, me explicaron cómo funcionaban las cosas e incluso me invitaron a comer. Me sentí como en casa.`,
 
-— PARTE B (Tarea 5): conversación entre Ana y Tomás —
-
-Ana y Tomás comentan una oferta de trabajo
+  // Tarea 5 كاملة (أسئلة 55–60) — حوار Ana y Tomás
+  5: `Audio 5. Ana y Tomás comentan una oferta de trabajo
 
 Ana: Tomás, ¿has visto la oferta que te mandé ayer?
 Tomás: Sí, la he leído un par de veces. Es de una empresa de energía solar, ¿verdad?

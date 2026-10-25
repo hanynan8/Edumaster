@@ -46,6 +46,7 @@ function serializeSubmissionForTeacher(s, studentById) {
     feedback: s.feedback,
     submittedAt: s.submittedAt,
     gradedAt: s.gradedAt,
+    messagesCount: (s.messages || []).length, // 🆕 عدد رسائل المحادثة
   };
 }
 

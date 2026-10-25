@@ -7,36 +7,19 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import {
+  QUESTION_TYPES as ALLOWED_TYPES,
+  validateOptions,
+  normalizeOptions,
+  sanitizeQuestionMedia,
+  serializeQuestion,
+} from "@/app/lib/quizQuestionHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-const ALLOWED_TYPES = ["multiple_choice", "true_false"];
-
-function serializeQuestion(qq) {
-  return {
-    id: qq._id.toString(),
-    type: qq.type,
-    text: qq.text,
-    points: qq.points,
-    order: qq.order,
-    options: (qq.options || []).map((o, index) => ({ index, text: o.text, isCorrect: o.isCorrect })),
-  };
-}
-
-function validateOptions(type, options) {
-  if (!Array.isArray(options) || options.length < 2) return "options_required";
-  if (type === "true_false" && options.length !== 2) return "true_false_needs_two_options";
-  if (options.some((o) => !String(o?.text || "").trim())) return "empty_option_text";
-  if (!options.some((o) => Boolean(o?.isCorrect))) return "no_correct_option";
-  if (type === "true_false" && options.filter((o) => o.isCorrect).length !== 1) {
-    return "true_false_needs_one_correct";
-  }
-  return null;
 }
 
 async function loadQuestionWithCourse(quizId, questionId) {
@@ -77,14 +60,25 @@ export async function PUT(request, { params }) {
       question.text = text;
     }
 
-    if (body?.options !== undefined) {
-      const options = (Array.isArray(body.options) ? body.options : []).map((o) => ({
-        text: String(o?.text || "").trim(),
-        isCorrect: Boolean(o?.isCorrect),
-      }));
+    if (type === "essay") {
+      // مقالي → مفيش خيارات
+      question.options = [];
+    } else if (body?.options !== undefined) {
+      const options = normalizeOptions(body.options);
       const optionsError = validateOptions(type, options);
       if (optionsError) return jsonResponse({ error: optionsError }, 400);
       question.options = options;
+    } else if (question.type === "essay") {
+      // تحويل من مقالي لنوع تاني لازم يبعت خيارات
+      return jsonResponse({ error: "options_required" }, 400);
+    }
+
+    // 🆕 فيديو/أوديو: لو الحقل اتبعت (حتى فاضي) بنستبدل/نمسح المرفق
+    if (body?.mediaUrl !== undefined) {
+      const media = sanitizeQuestionMedia(body, auth.session.user.id);
+      if (!media.ok) return jsonResponse({ error: media.error }, 400);
+      question.mediaUrl = media.mediaUrl;
+      question.mediaType = media.mediaType;
     }
 
     question.type = type;

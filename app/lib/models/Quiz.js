@@ -46,7 +46,8 @@ const questionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["multiple_choice", "true_false"],
+      // 🆕 essay = سؤال مقالي: الطالب بيكتب نص، والمدرّس/الموديريتر بيصحّحه يدويًا ويدّي درجة
+      enum: ["multiple_choice", "true_false", "essay"],
       required: true,
     },
 
@@ -62,6 +63,10 @@ const questionSchema = new mongoose.Schema(
         isCorrect: { type: Boolean, required: true, default: false },
       },
     ],
+
+    // 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) يرفقه المدرّس/الموديريتر مع السؤال
+    mediaUrl: { type: String, default: null },
+    mediaType: { type: String, enum: ["video", "audio", null], default: null },
 
     points: { type: Number, default: 1, min: 0 },
     order: { type: Number, default: 0 },

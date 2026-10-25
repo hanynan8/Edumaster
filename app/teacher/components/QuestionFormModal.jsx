@@ -9,13 +9,21 @@
 import { useState } from "react";
 import { X, Loader, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import MediaUploader from "@/app/teacher/components/MediaUploader";
+import AssignmentMedia from "@/app/components/AssignmentMedia";
 
 const STRINGS = {
   ar: {
     types: [
       { value: "multiple_choice", label: "اختيار من متعدد" },
       { value: "true_false", label: "صح / خطأ" },
+      { value: "essay", label: "مقالي" },
     ],
+    essayHint: "سؤال مقالي: الطالب يكتب إجابته نصًا، وتقوم أنت (أو الموديريتر) بمراجعتها وإعطائها درجة يدويًا.",
+    mediaSection: "فيديو أو أوديو مرفق بالسؤال (اختياري)",
+    videoLabel: "رفع فيديو",
+    audioLabel: "رفع أوديو",
+    removeMedia: "إزالة المرفق",
     trueLabel: "صح",
     falseLabel: "خطأ",
     textRequired: "نص السؤال مطلوب",
@@ -39,7 +47,13 @@ const STRINGS = {
     types: [
       { value: "multiple_choice", label: "Multiple choice" },
       { value: "true_false", label: "True / False" },
+      { value: "essay", label: "Essay" },
     ],
+    essayHint: "Essay question: the student writes a text answer, and you (or a moderator) review it and give a grade manually.",
+    mediaSection: "Video or audio attached to the question (optional)",
+    videoLabel: "Upload video",
+    audioLabel: "Upload audio",
+    removeMedia: "Remove attachment",
     trueLabel: "True",
     falseLabel: "False",
     textRequired: "Question text is required",
@@ -85,11 +99,13 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
   const [options, setOptions] = useState(
     question?.options?.length ? question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : defaultOptionsForType(type, t)
   );
+  const [media, setMedia] = useState({ url: question?.mediaUrl || "", type: question?.mediaType || "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function handleTypeChange(nextType) {
     setType(nextType);
+    if (nextType === "essay") return; // مفيش خيارات للمقالي
     // لو رجّعنا لنوع true_false، نرجّع الخيارات الافتراضية بتاعته
     if (nextType === "true_false") {
       setOptions(defaultOptionsForType("true_false", t));
@@ -128,9 +144,11 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
     setError("");
 
     if (!text.trim()) return setError(t.textRequired);
-    if (options.some((o) => !o.text.trim())) return setError(t.optionsNeedText);
-    if (!options.some((o) => o.isCorrect)) return setError(t.needCorrectAnswer);
-    if (type === "true_false" && options.length !== 2) return setError(t.trueFalseTwoOptions);
+    if (type !== "essay") {
+      if (options.some((o) => !o.text.trim())) return setError(t.optionsNeedText);
+      if (!options.some((o) => o.isCorrect)) return setError(t.needCorrectAnswer);
+      if (type === "true_false" && options.length !== 2) return setError(t.trueFalseTwoOptions);
+    }
 
     setSaving(true);
     try {
@@ -138,7 +156,10 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
         type,
         text: text.trim(),
         points: Number(points) || 1,
-        options: options.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect })),
+        options: type === "essay" ? [] : options.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect })),
+        // 🆕 فيديو/أوديو مرفق بالسؤال ("" = من غير مرفق / إزالة المرفق)
+        mediaUrl: media.url || "",
+        mediaType: media.url ? media.type : null,
       };
       const res = await fetch(
         isEdit ? `/api/quizzes/${quizId}/questions/${question.id}` : `/api/quizzes/${quizId}/questions`,
@@ -204,6 +225,9 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
             />
           </div>
 
+          {type === "essay" ? (
+            <p className="text-sm text-[#002E74] bg-[#EBEFF6] rounded-xl px-4 py-3">{t.essayHint}</p>
+          ) : (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-semibold text-gray-700">{t.optionsLabel}</label>
@@ -239,6 +263,40 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
                 </div>
               ))}
             </div>
+          </div>
+          )}
+
+          {/* 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) — واحد بس؛ رفع جديد بيستبدل القديم */}
+          <div className="space-y-3 border border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-gray-700">{t.mediaSection}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <MediaUploader
+                key={`video-${media.type === "video" ? "set" : "empty"}`}
+                kind="video"
+                label={t.videoLabel}
+                currentUrl={media.type === "video" ? media.url : ""}
+                onUploaded={(f) => setMedia({ url: f.url, type: "video" })}
+              />
+              <MediaUploader
+                key={`audio-${media.type === "audio" ? "set" : "empty"}`}
+                kind="audio"
+                label={t.audioLabel}
+                currentUrl={media.type === "audio" ? media.url : ""}
+                onUploaded={(f) => setMedia({ url: f.url, type: "audio" })}
+              />
+            </div>
+            {media.url && (
+              <div className="space-y-2">
+                <AssignmentMedia url={media.url} type={media.type} />
+                <button
+                  type="button"
+                  onClick={() => setMedia({ url: "", type: "" })}
+                  className="text-xs font-semibold text-red-500 hover:underline"
+                >
+                  {t.removeMedia}
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

@@ -10,12 +10,13 @@ import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, Loader, FileUp } from "lucide-react";
 import QuestionFormModal from "@/app/teacher/components/QuestionFormModal";
+import AssignmentMedia from "@/app/components/AssignmentMedia";
 import PdfImportModal from "@/app/teacher/components/PdfImportModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
   ar: {
-    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / خطأ" },
+    typeLabels: { multiple_choice: "اختيار من متعدد", true_false: "صح / خطأ", essay: "مقالي" },
     loadError: "تعذّر تحميل الاختبار",
     confirmDelete: "هل تريد حذف هذا السؤال؟",
     deleteError: "حدث خطأ أثناء الحذف",
@@ -29,7 +30,7 @@ const STRINGS = {
     empty: "لا توجد أسئلة بعد — لن يتمكن الطلاب من حل الاختبار إلا بعد وجود سؤال واحد على الأقل",
   },
   en: {
-    typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False" },
+    typeLabels: { multiple_choice: "Multiple choice", true_false: "True / False", essay: "Essay" },
     loadError: "Couldn't load the quiz",
     confirmDelete: "Delete this question?",
     deleteError: "Something went wrong while deleting",
@@ -151,7 +152,12 @@ export default function QuizQuestionsPage({ params }) {
                   <span className="text-xs font-bold text-gray-400">
                     {t.question(idx + 1)} · {t.typeLabels[q.type]} · {t.points(q.points)}
                   </span>
-                  <p className="text-sm font-semibold text-gray-800 mt-1">{q.text}</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-1 whitespace-pre-wrap">{q.text}</p>
+                  {q.mediaUrl && (
+                    <div className="mt-3 max-w-md">
+                      <AssignmentMedia url={q.mediaUrl} type={q.mediaType} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => setModal(q)} className="text-gray-400 hover:text-gray-700 p-1.5">

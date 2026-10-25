@@ -7,7 +7,7 @@
 //   - زرار الاختبار على كورسات B1.1 … B1.4 (الأسماء الحقيقية من الموقع).
 //   - A1/A2 ما اتأثروش.
 
-import { PLACEMENT_PARTS_B1, PLACEMENT_LISTENING_B1 } from "@/app/lib/spanishPlacementTestB1";
+import { PLACEMENT_PARTS_B1, PLACEMENT_LISTENING_B1, PLACEMENT_LISTENING_B1_ALL, LISTENING_ENABLED_B1 } from "@/app/lib/spanishPlacementTestB1";
 import { ANSWER_KEY_B1 } from "@/app/lib/spanishPlacementTestKeyB1";
 import { PLACEMENT_TESTS, getVisiblePartsFor, normalizeTestId, getTestIdForLevelCode } from "@/app/lib/placementTests";
 import { getAnswerKey } from "@/app/lib/placementTestKeys";
@@ -110,15 +110,17 @@ describe("سلامة بيانات B1", () => {
 });
 
 describe("الاستماع (جاهز بس مش متفعّل)", () => {
-  it("30 سؤال بأرقام 31–60 و5 مهام لكل واحدة خانة صوت 1–5", () => {
-    expect(listeningQuestions).toHaveLength(30);
-    expect(listeningQuestions.map((x) => x.q.n)).toEqual(Array.from({ length: 30 }, (_, i) => i + 31));
-    expect(listeningQuestions.map((x) => x.q.ln)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
-    expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.audioSlot)).toEqual([1, 2, 3, 4, 5]);
+  it("المنشور Tarea 1 بس: 6 أسئلة بأرقام 31–36 وخانة صوت 1 — وTarea 2–5 محفوظة بره الاختبار", () => {
+    expect(listeningQuestions).toHaveLength(6);
+    expect(listeningQuestions.map((x) => x.q.n)).toEqual([31, 32, 33, 34, 35, 36]);
+    expect(listeningQuestions.map((x) => x.q.ln)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(PLACEMENT_LISTENING_B1.tasks.map((t) => t.audioSlot)).toEqual([1]);
+    expect(questionsOf([PLACEMENT_LISTENING_B1_ALL])).toHaveLength(30);
   });
 
-  it("مش ظاهر في الاختبار حتى لو اترفع صوت (مفيش خانات صوت للاختبار)", () => {
-    expect(PLACEMENT_TESTS.b1.audioSlots).toEqual([]);
+  it("خانة صوت واحدة (Tarea 1)، والاستماع مش ظاهر للطلاب طول LISTENING_ENABLED_B1=false حتى لو اترفع صوت", () => {
+    expect(PLACEMENT_TESTS.b1.audioSlots.map((a) => a.slot)).toEqual([1]);
+    expect(LISTENING_ENABLED_B1).toBe(false);
     const visible = getVisiblePartsFor("b1", { 1: "x", 2: "x", 3: "x", 4: "x", 5: "x" });
     expect(visible.map((p) => p.id)).toEqual(["read", "gram"]);
     expect(getVisibleQuestions({ 1: "x" }, "b1")).toHaveLength(80);

@@ -35,7 +35,7 @@ const mt = (n, ln, q, k) => ({ n, ln, q, o: letters(k) });
 // بنك الربط من نصوص بالترتيب A, B, C…
 const bankOf = (texts) => texts.map((t, i) => ({ l: L[i], t }));
 
-export const PLACEMENT_PARTS_B1 = [
+const BASE_PARTS_B1 = [
   // ───────────────────────── PARTE 1. COMPRENSIÓN DE LECTURA (n 1–30) ─────────────────────────
   {
     id: "read",
@@ -54,7 +54,7 @@ export const PLACEMENT_PARTS_B1 = [
           "«Alquilo habitación en piso compartido con dos estudiantes. Luminosa y con balcón. 280 € al mes, gastos incluidos. Cerca de la universidad y del metro. No se admiten mascotas. Contacto: 622 000 111.»",
           "«Gimnasio Aqua: promoción de otoño. Si te apuntas este mes, matrícula gratis y una semana de prueba sin compromiso. Piscina, sala de musculación y clases de yoga. De lunes a sábado.»",
           "«Vendo bicicleta de montaña, casi nueva. La compré hace seis meses y la he usado muy poco. Incluye casco y candado. Precio: 220 €, negociable. Tengo la factura.»",
-          "«Concierto solidario de la banda \"Los Vecinos\". Sábado 12, a las 20:30, en el centro cultural. Entrada: 5 €. Todo el dinero se destinará a la biblioteca del barrio.»",
+          "«Concierto solidario de la banda “Los Vecinos”. Sábado 12, a las 20:30, en el centro cultural. Entrada: 5 €. Todo el dinero se destinará a la biblioteca del barrio.»",
         ]),
         questions: [
           mt(1, 1, "Marta: «Quiero aprender a cocinar, pero no sé casi nada. Prefiero ir por la tarde.»", 8),
@@ -264,14 +264,16 @@ export const PLACEMENT_PARTS_B1 = [
 ];
 
 // ───────────────────────── PARTE 2. COMPRENSIÓN AUDITIVA (n 31–60) — جاهزة بس مش متفعّلة ─────────────────────────
-// 🎧 لتفعيل الاستماع (بعد ما يوصلنا مفتاح الإجابات ونصوص/صوتيات التسجيلات):
-//   1) املا LISTENING في spanishPlacementTestKeyB1.js (30 حرف بترتيب الأسئلة 31–60) — الملف بيتجاهل الاستماع طول ما هو فاضي.
-//   2) ضيف PLACEMENT_LISTENING_B1 كجزء تاني في PLACEMENT_PARTS_B1 (بين "read" و"gram"):
-//        [readPart, PLACEMENT_LISTENING_B1, gramPart]
-//   3) في placementTests.js (سجل b1) حط audioSlots الخمسة (شوف audioSlot لكل مهمة تحت).
-//   4) ارفع الصوتيات من لوحة الأدمن (أي مهمة من غير صوت بتتخفي لوحدها).
-// الأسئلة دي بتتخفي لوحدها لو مفيش صوت، بس لو الصوت اترفع من غير مفتاح هتتحسب غلط — عشان كده مفصولة.
-export const PLACEMENT_LISTENING_B1 = {
+// 🎧 الاستماع (B1): المنشور على الموقع Tarea 1 بس (6 أسئلة: 31–36) — صوت واحد (خانة 1).
+//   Tarea 2–5 (الأسئلة 37–60) مش هتتنزل: محفوظة تحت في PLACEMENT_LISTENING_B1_ALL للرجوع بس.
+//   الخطوات للتفعيل للطلاب:
+//   1) ارفع صوت Tarea 1 من لوحة الأدمن (Placement tests → B1 → Audio 1).
+//   2) املا LISTENING في spanishPlacementTestKeyB1.js بـ 6 حروف (الأسئلة 31–36).
+//   3) غيّر LISTENING_ENABLED_B1 تحت لـ true.
+//   لحد ما LISTENING_ENABLED_B1 تبقى true، الاستماع مش بيظهر للطلاب حتى لو الصوت اترفع
+//   (عشان أي سؤال من غير مفتاح بيتحسب غلط).
+export const LISTENING_ENABLED_B1 = false;
+export const PLACEMENT_LISTENING_B1_ALL = {
   id: "listen",
   title: "Comprensión auditiva",
   minutes: 40,
@@ -354,3 +356,14 @@ export const PLACEMENT_LISTENING_B1 = {
     },
   ],
 };
+
+// الاستماع المنشور فعلًا = Tarea 1 بس.
+export const PLACEMENT_LISTENING_B1 = {
+  ...PLACEMENT_LISTENING_B1_ALL,
+  tasks: PLACEMENT_LISTENING_B1_ALL.tasks.slice(0, 1),
+};
+
+// الأجزاء الفعلية للاختبار: الاستماع بيدخل بين القراءة والقواعد لما يتفعّل (مهمته بتتخفي لوحدها لو مفيش صوت).
+export const PLACEMENT_PARTS_B1 = LISTENING_ENABLED_B1
+  ? [BASE_PARTS_B1[0], PLACEMENT_LISTENING_B1, BASE_PARTS_B1[1]]
+  : BASE_PARTS_B1;

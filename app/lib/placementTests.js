@@ -9,7 +9,7 @@
 //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
 //         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
 //    b1 → Prueba de nivel de español B1  (/spanish-test/b1)  — بيظهر على كورسات B1.x
-//         (قراءة 30 + قواعد ومفردات 50 دلوقتي — الاستماع (30) جاهز بس مش متفعّل: شوف spanishPlacementTestB1.js)
+//         (قراءة 30 + قواعد ومفردات 50 دلوقتي — الاستماع (30) خاناته جاهزة للرفع، وبيتفعّل بـ LISTENING_ENABLED_B1: شوف spanishPlacementTestB1.js)
 //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
 //  (A1: 4 خانات — A2: 12 خانة زي ملف الاختبار، بتترفع من لوحة الأدمن).
 //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
@@ -78,10 +78,9 @@ export const PLACEMENT_TESTS = {
     path: "/spanish-test/b1",
     audioDocId: "audio_b1",
     audioPathPrefix: "edumaster/placement-test-b1/audio",
-    // 🎧 الاستماع لسه مش متفعّل (مفتاح إجاباته ونصوص تسجيلاته مش في ملف الاختبار) → مفيش خانات صوت.
-    // لما نفعّله: ضيف 5 خانات هنا (واحدة لكل Tarea — audioSlot في PLACEMENT_LISTENING_B1) وشوف
-    // التعليق في آخر app/lib/spanishPlacementTestB1.js.
-    audioSlots: [],
+    // 🎧 B1: صوت واحد بس (Tarea 1) بيتّرفع من لوحة الأدمن. Tarea 2–5 مش بتتنزل على الموقع.
+    // الاستماع مش بيظهر للطلاب لحد ما LISTENING_ENABLED_B1 تبقى true ومفتاح Tarea 1 يتملى.
+    audioSlots: [{ slot: 1, label: "Audio 1 — Seis mensajes breves", hint: "Tarea 1 · Questions 1–6" }],
   },
 };
 

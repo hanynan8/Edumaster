@@ -1,3 +1,28 @@
+diff --git a/app/api/admin/enrollments/[id]/route.js b/app/api/admin/enrollments/[id]/route.js
+index c7e6adc..1bcce6d 100644
+--- a/app/api/admin/enrollments/[id]/route.js
++++ b/app/api/admin/enrollments/[id]/route.js
+@@ -18,6 +18,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getEnrollmentModel } from "@/app/lib/models";
+ import { requireRole } from "@/app/lib/rbac";
+ import { logAudit } from "@/app/lib/auditLog";
++import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
+ import { enforceRateLimit } from "@/app/lib/rateLimit";
+ 
+ function jsonResponse(data, status = 200) {
+@@ -77,6 +78,12 @@ export async function PATCH(request, { params }) {
+     }
+     await enrollment.save();
+ 
++    // ✅ إعادة تفعيل تسجيل كان ملغي: النسبة المخزّنة ممكن تكون قديمة (محتوى الكورس
++    // اتغيّر وقت الإلغاء، وإعادة الحساب الجماعية بتتخطّى الملغي) → نحسبها من جديد.
++    if (previousStatus === "cancelled" && body.status === "active") {
++      await recomputeEnrollmentProgress(enrollment.user, enrollment.course);
++    }
++
+     // 🔒 كل تغيير في enrollment.status (خصوصًا cancelled، اللي فعليًا بيسحب
+     // وصول طالب لمحتوى كورس دفعه) بيتسجل audit log — نفس مستوى الحساسية
+     // اللي بنعامل بيه تغييرات role/membership.
 diff --git a/app/api/admin/progress/recompute/route.js b/app/api/admin/progress/recompute/route.js
 new file mode 100644
 index 0000000..a288deb
@@ -336,19 +361,87 @@ index 650eb83..c54e0dc 100644
        const Enrollment = getEnrollmentModel();
        await Enrollment.updateOne(
          { user: session.user.id, course: course._id },
+diff --git a/app/api/quizzes/[id]/results/route.js b/app/api/quizzes/[id]/results/route.js
+index 7d8c7a6..40f378f 100644
+--- a/app/api/quizzes/[id]/results/route.js
++++ b/app/api/quizzes/[id]/results/route.js
+@@ -10,6 +10,7 @@ import mongoose from "mongoose";
+ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
+ import { getCourseModel, getQuizModel, getQuizResultModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
++import { pickBestQuizResult, isPendingReview } from "@/app/lib/progressMath";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -56,16 +57,20 @@ export async function GET(request, { params }) {
+     const rows = [...byStudent.entries()].map(([studentId, attempts]) => {
+       const sorted = attempts.slice().sort((a, b) => a.attemptNumber - b.attemptNumber);
+       const latest = sorted[sorted.length - 1];
+-      const best = sorted.reduce((b, r) => (!b || r.scorePercent > b.scorePercent ? r : b), null);
++      // 🔒 المحاولة المعلّقة (pending_review) درجتها مؤقتة (الاختياري بس) و passed=false
++      // لحد ما المقالي يتصحح → مبتدخلش في "أفضل نتيجة". لو دي المحاولة الوحيدة،
++      // best=null والصفحة بتعرض "بانتظار التصحيح".
++      const { best } = pickBestQuizResult(sorted);
++      const latestIsPending = isPendingReview(latest);
+       return {
+         studentId,
+         studentName: studentById[studentId]?.name || "—",
+         studentEmail: studentById[studentId]?.email || "—",
+         attemptsCount: sorted.length,
+-        bestScorePercent: best.scorePercent,
+-        bestPassed: best.passed,
+-        latestScorePercent: latest.scorePercent,
+-        latestPassed: latest.passed,
++        bestScorePercent: best ? best.scorePercent : null,
++        bestPassed: best ? Boolean(best.passed) : null,
++        latestScorePercent: latestIsPending ? null : latest.scorePercent,
++        latestPassed: latestIsPending ? null : latest.passed,
+         // 🆕 كل محاولات الطالب (عشان المدرّس/الموديريتر يفتح المقالي ويصحّحه أو يبعت رسالة)
+         pendingReviewCount: sorted.filter((r) => r.status === "pending_review").length,
+         attempts: sorted.map((r) => ({
+@@ -80,13 +85,13 @@ export async function GET(request, { params }) {
+       };
+     });
+ 
+-    rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
++    rows.sort((a, b) => a.studentName.localeCompare(b.studentName, "ar"));
+ 
+     return jsonResponse({
+       quizTitle: quiz.title,
+       courseTitle: course.title,
+       totalStudents: rows.length,
+-      passedCount: rows.filter((r) => r.bestPassed).length,
++      passedCount: rows.filter((r) => r.bestPassed === true).length,
+       pendingReviewCount: rows.reduce((n, r) => n + r.pendingReviewCount, 0),
+       results: rows,
+     });
 diff --git a/app/api/quizzes/[id]/route.js b/app/api/quizzes/[id]/route.js
-index 4a2de0d..5e58bd8 100644
+index 4a2de0d..d16934c 100644
 --- a/app/api/quizzes/[id]/route.js
 +++ b/app/api/quizzes/[id]/route.js
-@@ -16,6 +16,7 @@ import mongoose from "mongoose";
+@@ -16,6 +16,8 @@ import mongoose from "mongoose";
  import { connectToMongo } from "@/app/lib/mongodb";
  import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
  import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 +import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
++import { pickBestQuizResult } from "@/app/lib/progressMath";
  import { getCourseAccessForUser } from "@/app/lib/access";
  import { serializeQuestion } from "@/app/lib/quizQuestionHelpers";
  
-@@ -164,6 +165,8 @@ export async function PUT(request, { params }) {
+@@ -87,10 +89,8 @@ export async function GET(request, { params }) {
+       .sort({ attemptNumber: -1 })
+       .lean();
+     const attemptsUsed = previousResults.length;
+-    const bestResult = previousResults.reduce(
+-      (best, r) => (!best || r.scorePercent > best.scorePercent ? r : best),
+-      null
+-    );
++    // 🔒 المحاولة المعلّقة (pending_review) مبتدخلش في "أفضل نتيجة" (درجتها مؤقتة)
++    const { best: bestResult } = pickBestQuizResult(previousResults);
+ 
+     return jsonResponse({
+       ...serializeQuizMeta(quiz),
+@@ -164,6 +164,8 @@ export async function PUT(request, { params }) {
      }
  
      await quiz.save();
@@ -357,7 +450,7 @@ index 4a2de0d..5e58bd8 100644
      return jsonResponse(serializeQuizMeta(quiz));
    } catch (err) {
      console.error("[/api/quizzes/[id]] PUT error:", err);
-@@ -182,6 +185,7 @@ export async function DELETE(request, { params }) {
+@@ -182,6 +184,7 @@ export async function DELETE(request, { params }) {
      if (auth.response) return auth.response;
      if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
  
@@ -365,7 +458,7 @@ index 4a2de0d..5e58bd8 100644
      const Question = getQuestionModel();
      const QuizResult = getQuizResultModel();
      // 🔒 الحذف بيشيل معاه الأسئلة ونتائج الطلاب المرتبطة — منعًا لسجلات
-@@ -192,6 +196,9 @@ export async function DELETE(request, { params }) {
+@@ -192,6 +195,9 @@ export async function DELETE(request, { params }) {
        quiz.deleteOne(),
      ]);
  
@@ -1282,3 +1375,29 @@ index 7baec05..f478246 100644
                      </td>
                    ))}
                    {s.assignmentGrades.map((g) => {
+diff --git a/app/teacher/quizzes/[quizId]/results/page.jsx b/app/teacher/quizzes/[quizId]/results/page.jsx
+index 1d43f9e..04857ab 100644
+--- a/app/teacher/quizzes/[quizId]/results/page.jsx
++++ b/app/teacher/quizzes/[quizId]/results/page.jsx
+@@ -144,10 +144,18 @@ export default function QuizResultsPage({ params }) {
+                     <p className="text-xs text-gray-400">{r.studentEmail}</p>
+                   </td>
+                   <td className="px-4 py-3 text-gray-600">{r.attemptsCount}</td>
+-                  <td className="px-4 py-3 font-bold text-gray-800">{r.bestScorePercent}%</td>
+-                  <td className="px-4 py-3 text-gray-600">{r.latestScorePercent}%</td>
++                  <td className="px-4 py-3 font-bold text-gray-800">
++                    {r.bestScorePercent !== null ? `${r.bestScorePercent}%` : "—"}
++                  </td>
++                  <td className="px-4 py-3 text-gray-600">
++                    {r.latestScorePercent !== null ? `${r.latestScorePercent}%` : "—"}
++                  </td>
+                   <td className="px-4 py-3">
+-                    {r.bestPassed ? (
++                    {r.bestPassed === null ? (
++                      <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
++                        <Clock size={12} /> {t.awaitingGrading}
++                      </span>
++                    ) : r.bestPassed ? (
+                       <span className="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+                         <CheckCircle2 size={12} /> {t.passed}
+                       </span>

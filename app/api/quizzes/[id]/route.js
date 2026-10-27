@@ -17,6 +17,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+import { pickBestQuizResult } from "@/app/lib/progressMath";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { serializeQuestion } from "@/app/lib/quizQuestionHelpers";
 
@@ -88,10 +89,8 @@ export async function GET(request, { params }) {
       .sort({ attemptNumber: -1 })
       .lean();
     const attemptsUsed = previousResults.length;
-    const bestResult = previousResults.reduce(
-      (best, r) => (!best || r.scorePercent > best.scorePercent ? r : best),
-      null
-    );
+    // 🔒 المحاولة المعلّقة (pending_review) مبتدخلش في "أفضل نتيجة" (درجتها مؤقتة)
+    const { best: bestResult } = pickBestQuizResult(previousResults);
 
     return jsonResponse({
       ...serializeQuizMeta(quiz),

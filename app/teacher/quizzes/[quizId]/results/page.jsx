@@ -144,10 +144,18 @@ export default function QuizResultsPage({ params }) {
                     <p className="text-xs text-gray-400">{r.studentEmail}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{r.attemptsCount}</td>
-                  <td className="px-4 py-3 font-bold text-gray-800">{r.bestScorePercent}%</td>
-                  <td className="px-4 py-3 text-gray-600">{r.latestScorePercent}%</td>
+                  <td className="px-4 py-3 font-bold text-gray-800">
+                    {r.bestScorePercent !== null ? `${r.bestScorePercent}%` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {r.latestScorePercent !== null ? `${r.latestScorePercent}%` : "—"}
+                  </td>
                   <td className="px-4 py-3">
-                    {r.bestPassed ? (
+                    {r.bestPassed === null ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
+                        <Clock size={12} /> {t.awaitingGrading}
+                      </span>
+                    ) : r.bestPassed ? (
                       <span className="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
                         <CheckCircle2 size={12} /> {t.passed}
                       </span>

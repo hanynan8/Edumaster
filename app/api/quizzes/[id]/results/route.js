@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuizResultModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { pickBestQuizResult, isPendingReview } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -56,16 +57,20 @@ export async function GET(request, { params }) {
     const rows = [...byStudent.entries()].map(([studentId, attempts]) => {
       const sorted = attempts.slice().sort((a, b) => a.attemptNumber - b.attemptNumber);
       const latest = sorted[sorted.length - 1];
-      const best = sorted.reduce((b, r) => (!b || r.scorePercent > b.scorePercent ? r : b), null);
+      // 🔒 المحاولة المعلّقة (pending_review) درجتها مؤقتة (الاختياري بس) و passed=false
+      // لحد ما المقالي يتصحح → مبتدخلش في "أفضل نتيجة". لو دي المحاولة الوحيدة،
+      // best=null والصفحة بتعرض "بانتظار التصحيح".
+      const { best } = pickBestQuizResult(sorted);
+      const latestIsPending = isPendingReview(latest);
       return {
         studentId,
         studentName: studentById[studentId]?.name || "—",
         studentEmail: studentById[studentId]?.email || "—",
         attemptsCount: sorted.length,
-        bestScorePercent: best.scorePercent,
-        bestPassed: best.passed,
-        latestScorePercent: latest.scorePercent,
-        latestPassed: latest.passed,
+        bestScorePercent: best ? best.scorePercent : null,
+        bestPassed: best ? Boolean(best.passed) : null,
+        latestScorePercent: latestIsPending ? null : latest.scorePercent,
+        latestPassed: latestIsPending ? null : latest.passed,
         // 🆕 كل محاولات الطالب (عشان المدرّس/الموديريتر يفتح المقالي ويصحّحه أو يبعت رسالة)
         pendingReviewCount: sorted.filter((r) => r.status === "pending_review").length,
         attempts: sorted.map((r) => ({
@@ -80,13 +85,13 @@ export async function GET(request, { params }) {
       };
     });
 
-    rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    rows.sort((a, b) => a.studentName.localeCompare(b.studentName, "ar"));
 
     return jsonResponse({
       quizTitle: quiz.title,
       courseTitle: course.title,
       totalStudents: rows.length,
-      passedCount: rows.filter((r) => r.bestPassed).length,
+      passedCount: rows.filter((r) => r.bestPassed === true).length,
       pendingReviewCount: rows.reduce((n, r) => n + r.pendingReviewCount, 0),
       results: rows,
     });

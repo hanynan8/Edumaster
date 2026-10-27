@@ -18,6 +18,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getEnrollmentModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
 import { logAudit } from "@/app/lib/auditLog";
+import { recomputeEnrollmentProgress } from "@/app/lib/progressHelpers";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
@@ -76,6 +77,12 @@ export async function PATCH(request, { params }) {
       enrollment.completedAt = new Date();
     }
     await enrollment.save();
+
+    // ✅ إعادة تفعيل تسجيل كان ملغي: النسبة المخزّنة ممكن تكون قديمة (محتوى الكورس
+    // اتغيّر وقت الإلغاء، وإعادة الحساب الجماعية بتتخطّى الملغي) → نحسبها من جديد.
+    if (previousStatus === "cancelled" && body.status === "active") {
+      await recomputeEnrollmentProgress(enrollment.user, enrollment.course);
+    }
 
     // 🔒 كل تغيير في enrollment.status (خصوصًا cancelled، اللي فعليًا بيسحب
     // وصول طالب لمحتوى كورس دفعه) بيتسجل audit log — نفس مستوى الحساسية

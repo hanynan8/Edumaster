@@ -49,16 +49,30 @@ function ProgressBar({ percent }) {
   );
 }
 
-function QuizCell({ result }) {
+function QuizCell({ result, t }) {
   if (!result.attempted) return <Minus size={14} className="text-gray-300 mx-auto" />;
+
+  // محاولة فيها أسئلة مقالية لسه متصححتش: درجتها مؤقتة فمنعرضهاش ناجح/راسب
+  const pendingBadge = result.pendingReview ? (
+    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+      {t.grading}
+    </span>
+  ) : null;
+
+  // مفيش نتيجة متصححة لسه (المحاولة الوحيدة معلّقة)
+  if (result.bestScorePercent === null) return pendingBadge;
+
   return (
-    <div className="flex items-center justify-center gap-1">
-      {result.passed ? (
-        <CheckCircle2 size={13} className="text-green-500 shrink-0" />
-      ) : (
-        <XCircle size={13} className="text-red-400 shrink-0" />
-      )}
-      <span className="font-semibold text-gray-700">{result.bestScorePercent}%</span>
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center justify-center gap-1">
+        {result.passed ? (
+          <CheckCircle2 size={13} className="text-green-500 shrink-0" />
+        ) : (
+          <XCircle size={13} className="text-red-400 shrink-0" />
+        )}
+        <span className="font-semibold text-gray-700">{result.bestScorePercent}%</span>
+      </div>
+      {pendingBadge}
     </div>
   );
 }
@@ -153,7 +167,7 @@ export default function CoursePerformancePage({ params }) {
                   </td>
                   {s.quizResults.map((r) => (
                     <td key={r.quizId} className="px-4 py-3 text-center">
-                      <QuizCell result={r} />
+                      <QuizCell result={r} t={t} />
                     </td>
                   ))}
                   {s.assignmentGrades.map((g) => {

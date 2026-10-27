@@ -9,6 +9,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -85,6 +86,8 @@ export async function DELETE(request, { params }) {
 
     // ✅ لازم نحدّث عداد/مدة الكورس بعد ما مسحنا دروس
     await recomputeCourseTotals(course._id);
+    // ✅ مسح دروس بيغيّر "إجمالي عناصر الإكمال" → نسب كل الطلاب لازم تتحدّث
+    await recomputeCourseProgress(course._id);
 
     return jsonResponse({ success: true });
   } catch (err) {

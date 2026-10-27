@@ -143,7 +143,9 @@ export async function POST(request, { params }) {
     // لو الكويز مرتبط بدرس (lesson.type === "quiz")، بنعتبره "مكتمل"
     // ضمن completedLessons برضه عشان أي واجهة بتعرض دروس مكتملة تتظبط،
     // حتى لو مش لازم عشان نسبة التقدّم (اللي بتحسب نجاح الكويز مباشرة).
-    if (quiz.lesson) {
+    // 🔒 بس لما الطالب *ينجح* — قبل كده كان بيتعلّم مكتمل حتى لو سقط (ومحاولة
+    // فيها مقالي معلّق بتتعلّم لما تتصحح وينجح، شوف results/[resultId] PUT).
+    if (quiz.lesson && passed) {
       const Enrollment = getEnrollmentModel();
       await Enrollment.updateOne(
         { user: session.user.id, course: course._id },

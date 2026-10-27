@@ -1,6 +1,6 @@
 // app/api/sections/[id]/lessons/route.js
 //
-// اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/audio/pdf/text
+// اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/pdf/text
 // (والرابط الفعلي بييجي من رفع منفصل على Cloudinary — شوف
 // /api/upload/signature — مش بيتبعت كملف هنا، بس رابطه بعد الرفع).
 //
@@ -19,9 +19,9 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
-import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -30,7 +30,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
+const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
 // 🔒 نفس فكرة serializeLesson في courses/[id]/sections/route.js: الحقول
@@ -144,13 +144,6 @@ export async function POST(request, { params }) {
     if (type === "text" && !String(body?.textContent || "").trim()) {
       return jsonResponse({ error: "missing_text_content" }, 400);
     }
-    // 🆕 درس صوتي: الرابط لازم يكون ملف على Bunny Storage بتاعنا (شوف lessonAudio.js)
-    let audioUrl = null;
-    if (type === "audio") {
-      const audio = sanitizeLessonAudioUrl(body?.fileUrl);
-      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
-      audioUrl = audio.url;
-    }
 
     const videoProvider = ALLOWED_VIDEO_PROVIDERS.includes(body?.videoProvider)
       ? body.videoProvider
@@ -172,13 +165,15 @@ export async function POST(request, { params }) {
       videoUrl: type === "video" ? body.videoUrl : null,
       videoProvider: type === "video" ? videoProvider : null,
       durationSeconds: Math.max(0, Number(body?.durationSeconds) || 0),
-      fileUrl: type === "pdf" ? body.fileUrl : type === "audio" ? audioUrl : null,
+      fileUrl: type === "pdf" ? body.fileUrl : null,
       textContent: type === "text" ? String(body.textContent) : null,
       isPreview: Boolean(body?.isPreview),
       order,
     });
 
     await recomputeCourseTotals(course._id);
+    // ✅ درس جديد = عنصر إكمال جديد → نسب الطلاب (وحالة "مكتمل") لازم تتحدّث
+    await recomputeCourseProgress(course._id);
 
     return jsonResponse(serializeLesson(created, { revealProtectedContent: true }), 201);
   } catch (err) {

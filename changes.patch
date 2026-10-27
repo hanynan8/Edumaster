@@ -1,0 +1,1284 @@
+diff --git a/app/api/admin/progress/recompute/route.js b/app/api/admin/progress/recompute/route.js
+new file mode 100644
+index 0000000..a288deb
+--- /dev/null
++++ b/app/api/admin/progress/recompute/route.js
+@@ -0,0 +1,90 @@
++// app/api/admin/progress/recompute/route.js
++//
++// تصحيح لمرة واحدة (أو عند الحاجة) لنسب إكمال الطلاب المخزّنة (Enrollment.progressPercent
++// / status) في الكورسات اللي محتواها اتغيّر قبل ما إعادة الحساب التلقائي تتضاف
++// (شوف recomputeCourseProgress في app/lib/progressHelpers.js). من هنا ورا، أي
++// تعديل محتوى بيصحّح النسب تلقائيًا، فالـ route ده للبيانات القديمة بس.
++//
++// POST /api/admin/progress/recompute            → كل الكورسات
++// POST /api/admin/progress/recompute { courseId } → كورس واحد
++//
++// أدمن بس (middleware + requireRole). آمن يتكرر (idempotent): مبيكتبش غير اللي
++// فعلاً اتغيّر. بيرجّع ملخّص: عدد الكورسات، المسجّلين اللي اتحدّثوا، واللي بقوا مكتملين.
++//
++// من الكونسول وإنت مسجّل دخول كأدمن:
++//   fetch("/api/admin/progress/recompute", { method: "POST" }).then(r => r.json()).then(console.log)
++
++import mongoose from "mongoose";
++import { connectToMongo } from "@/app/lib/mongodb";
++import { getCourseModel } from "@/app/lib/models";
++import { requireRole } from "@/app/lib/rbac";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
++import { logAudit } from "@/app/lib/auditLog";
++import { enforceRateLimit } from "@/app/lib/rateLimit";
++
++function jsonResponse(data, status = 200) {
++  return new Response(JSON.stringify(data), {
++    status,
++    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
++  });
++}
++
++export async function POST(request) {
++  try {
++    const auth = await requireRole(["admin"]);
++    if (auth.response) return auth.response;
++    const { session } = auth;
++
++    // عملية تقيلة نسبيًا (بتعدّي على كل الكورسات) → حد منخفض
++    const rl = await enforceRateLimit(request, {
++      keyPrefix: "admin:progress-recompute",
++      limit: 5,
++      windowSeconds: 60,
++      extraKey: `user:${session.user.id}`,
++    });
++    if (rl) return rl;
++
++    const body = await request.json().catch(() => null);
++    const courseId = body?.courseId;
++    if (courseId !== undefined && courseId !== null && !mongoose.Types.ObjectId.isValid(courseId)) {
++      return jsonResponse({ error: "invalid_course" }, 400);
++    }
++
++    await connectToMongo();
++    const Course = getCourseModel();
++    let ids;
++    if (courseId) {
++      const exists = await Course.exists({ _id: courseId });
++      if (!exists) return jsonResponse({ error: "not_found" }, 404);
++      ids = [courseId];
++    } else {
++      ids = (await Course.find({}, "_id").lean()).map((c) => c._id);
++    }
++
++    let updated = 0;
++    let newlyCompleted = 0;
++    let failedCourses = 0;
++    // ورا بعض (مش Promise.all) عشان ما نضغطش الـ DB ولا مولّد الشهادات
++    for (const id of ids) {
++      const out = await recomputeCourseProgress(id);
++      if (out === null) failedCourses += 1;
++      else {
++        updated += out.updated;
++        newlyCompleted += out.newlyCompleted;
++      }
++    }
++
++    await logAudit({
++      request,
++      actor: session.user,
++      action: "progress.recomputed",
++      targetId: courseId ? String(courseId) : "all",
++      details: { courses: ids.length, updated, newlyCompleted, failedCourses },
++    });
++
++    return jsonResponse({ courses: ids.length, updated, newlyCompleted, failedCourses });
++  } catch (err) {
++    console.error("[/api/admin/progress/recompute] POST error:", err);
++    return jsonResponse({ error: "internal_error" }, 500);
++  }
++}
+diff --git a/app/api/courses/[id]/performance/route.js b/app/api/courses/[id]/performance/route.js
+index 31503d7..2d3570c 100644
+--- a/app/api/courses/[id]/performance/route.js
++++ b/app/api/courses/[id]/performance/route.js
+@@ -3,19 +3,28 @@
+ // Phase 4 — اليوم 41: "صفحة أداء الطلاب للمدرس" — نظرة شاملة على كل طالب
+ // مسجّل في الكورس: نسبة إكماله، نتايجه في كل كويز، ودرجاته في كل واجب.
+ //
+-// GET /api/courses/[id]/performance → صاحب الكورس أو أدمن بس.
++// GET /api/courses/[id]/performance → صاحب الكورس أو أدمن/موديريتور بس.
++//
++// قواعد الحساب (كلها في app/lib/progressMath.js عشان نفس الرقم يطلع في كل مكان):
++//   - نسبة الإكمال بتتحسب "حيّة" هنا من الدروس/الكويزات الحالية، مش بتتاخد من
++//     enrollment.progressPercent المخزّنة (اللي ممكن تكون قديمة لو المحتوى اتغيّر).
++//   - أفضل نتيجة كويز بتتجاهل المحاولات المعلّقة (pending_review)، وبتتبعت
++//     علامة pendingReview عشان الصفحة تعرض "قيد التصحيح".
++//   - التسجيلات الملغية (cancelled) مش بتظهر ومش بتتعدّ في عدد الطلاب.
+ 
+ import mongoose from "mongoose";
+ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
+ import {
+   getCourseModel,
+   getEnrollmentModel,
++  getLessonModel,
+   getQuizModel,
+   getQuizResultModel,
+   getAssignmentModel,
+   getSubmissionModel,
+ } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
++import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -26,6 +35,11 @@ function jsonResponse(data, status = 200) {
+ 
+ export async function GET(request, { params }) {
+   try {
++    // 🔒 الـ session الأول: غير المسجّل ياخد 401 بغض النظر عن وجود الكورس،
++    // فمفيش تسريب لوجود/عدم وجود كورس بمعرّف معيّن.
++    const auth = await requireSession();
++    if (auth.response) return auth.response;
++
+     const { id } = await params;
+     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_course" }, 400);
+ 
+@@ -33,29 +47,32 @@ export async function GET(request, { params }) {
+     const Course = getCourseModel();
+     const course = await Course.findById(id).lean();
+     if (!course) return jsonResponse({ error: "not_found" }, 404);
+-
+-    const auth = await requireSession();
+-    if (auth.response) return auth.response;
+     if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+ 
+     const Enrollment = getEnrollmentModel();
++    const Lesson = getLessonModel();
+     const Quiz = getQuizModel();
+     const QuizResult = getQuizResultModel();
+     const Assignment = getAssignmentModel();
+     const Submission = getSubmissionModel();
+     const AuthModel = getAuthModel();
+ 
+-    const [enrollments, quizzes, assignments] = await Promise.all([
+-      Enrollment.find({ course: id }).sort({ createdAt: 1 }).lean(),
++    const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
++      // 🔒 الملغي (cancelled) ملوش وصول للكورس → مش بيظهر في أداء الطلاب
++      Enrollment.find({ course: id, status: { $ne: "cancelled" } }).sort({ createdAt: 1 }).lean(),
++      Lesson.find({ course: id, type: { $ne: "quiz" } }, "_id").lean(),
+       Quiz.find({ course: id, isPublished: true }, "title").lean(),
+       Assignment.find({ course: id, isPublished: true }, "title maxScore").lean(),
+     ]);
+ 
++    const quizzesOut = quizzes.map((q) => ({ id: q._id.toString(), title: q.title }));
++    const assignmentsOut = assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore }));
++
+     if (enrollments.length === 0) {
+       return jsonResponse({
+         courseTitle: course.title,
+-        quizzes: quizzes.map((q) => ({ id: q._id.toString(), title: q.title })),
+-        assignments: assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore })),
++        quizzes: quizzesOut,
++        assignments: assignmentsOut,
+         students: [],
+       });
+     }
+@@ -63,20 +80,37 @@ export async function GET(request, { params }) {
+     const studentIds = enrollments.map((e) => e.user);
+     const quizIds = quizzes.map((q) => q._id);
+     const assignmentIds = assignments.map((a) => a._id);
++    const nonQuizLessonIds = nonQuizLessons.map((l) => l._id);
+ 
+     const [students, quizResults, submissions] = await Promise.all([
+       AuthModel.find({ _id: { $in: studentIds } }, "name email").lean(),
+-      QuizResult.find({ course: id, quiz: { $in: quizIds } }).lean(),
+-      Submission.find({ assignment: { $in: assignmentIds }, student: { $in: studentIds } }).lean(),
++      // projection خفيف: مش محتاجين answers/messages (ممكن تكون كبيرة)
++      quizIds.length > 0
++        ? QuizResult.find(
++            { course: id, quiz: { $in: quizIds }, student: { $in: studentIds } },
++            "student quiz scorePercent passed status"
++          ).lean()
++        : [],
++      assignmentIds.length > 0
++        ? Submission.find({ assignment: { $in: assignmentIds }, student: { $in: studentIds } }).lean()
++        : [],
+     ]);
+     const studentById = Object.fromEntries(students.map((s) => [s._id.toString(), s]));
+ 
+-    // أفضل نتيجة لكل (طالب، كويز)
+-    const bestQuizResult = new Map(); // key: `${studentId}:${quizId}` → result
++    // كل محاولات كل (طالب، كويز)
++    const attemptsByKey = new Map(); // `${studentId}:${quizId}` → result[]
++    // والكويزات اللي كل طالب نجح فيها (أي محاولة ناجحة) — لحساب التقدّم
++    const passedQuizIdsByStudent = new Map(); // studentId → quizId[]
+     for (const r of quizResults) {
+-      const key = `${r.student.toString()}:${r.quiz.toString()}`;
+-      const existing = bestQuizResult.get(key);
+-      if (!existing || r.scorePercent > existing.scorePercent) bestQuizResult.set(key, r);
++      const studentId = r.student.toString();
++      const key = `${studentId}:${r.quiz.toString()}`;
++      if (!attemptsByKey.has(key)) attemptsByKey.set(key, []);
++      attemptsByKey.get(key).push(r);
++
++      if (r.passed) {
++        if (!passedQuizIdsByStudent.has(studentId)) passedQuizIdsByStudent.set(studentId, []);
++        passedQuizIdsByStudent.get(studentId).push(r.quiz);
++      }
+     }
+ 
+     const submissionByKey = new Map(submissions.map((s) => [`${s.student.toString()}:${s.assignment.toString()}`, s]));
+@@ -86,12 +120,14 @@ export async function GET(request, { params }) {
+       const info = studentById[studentId];
+ 
+       const quizResultsForStudent = quizzes.map((q) => {
+-        const r = bestQuizResult.get(`${studentId}:${q._id.toString()}`);
++        const { best, hasPendingReview } = pickBestQuizResult(attemptsByKey.get(`${studentId}:${q._id.toString()}`) || []);
+         return {
+           quizId: q._id.toString(),
+-          attempted: Boolean(r),
+-          bestScorePercent: r ? r.scorePercent : null,
+-          passed: r ? r.passed : null,
++          // "اتحاول" = فيه نتيجة متصححة أو محاولة مستنية تصحيح
++          attempted: Boolean(best) || hasPendingReview,
++          bestScorePercent: best ? best.scorePercent : null,
++          passed: best ? Boolean(best.passed) : null,
++          pendingReview: hasPendingReview,
+         };
+       });
+ 
+@@ -105,28 +141,38 @@ export async function GET(request, { params }) {
+         };
+       });
+ 
++      const progress = computeProgress({
++        nonQuizLessonIds,
++        publishedQuizIds: quizIds,
++        completedLessonIds: e.completedLessons || [],
++        passedQuizIds: passedQuizIdsByStudent.get(studentId) || [],
++      });
++
+       return {
+         studentId,
+         studentName: info?.name || "—",
+         studentEmail: info?.email || "—",
+-        progressPercent: e.progressPercent || 0,
+-        status: e.status,
+-        completedLessonsCount: (e.completedLessons || []).length,
++        progressPercent: progress.progressPercent,
++        // الحالة مشتقة من نفس الحساب الحي (مش من الحقل المخزّن اللي ممكن يكون قديم)
++        status: progress.isComplete ? "completed" : "active",
++        // عدد الدروس (غير-الكويز) اللي الطالب كمّلها فعلاً من دروس الكورس الحالية
++        completedLessonsCount: progress.completedLessonItems,
+         quizResults: quizResultsForStudent,
+         assignmentGrades: assignmentGradesForStudent,
+       };
+     });
+ 
+-    rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
++    // ترتيب أبجدي عربي/إنجليزي ثابت (من غير ما يعتمد على لغة السيرفر)
++    rows.sort((a, b) => a.studentName.localeCompare(b.studentName, "ar"));
+ 
+     return jsonResponse({
+       courseTitle: course.title,
+-      quizzes: quizzes.map((q) => ({ id: q._id.toString(), title: q.title })),
+-      assignments: assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore })),
++      quizzes: quizzesOut,
++      assignments: assignmentsOut,
+       students: rows,
+     });
+   } catch (err) {
+     console.error("[/api/courses/[id]/performance] GET error:", err);
+     return jsonResponse({ error: "internal_error" }, 500);
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/app/api/lessons/[id]/route.js b/app/api/lessons/[id]/route.js
+index 313a770..8a695ac 100644
+--- a/app/api/lessons/[id]/route.js
++++ b/app/api/lessons/[id]/route.js
+@@ -15,6 +15,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getCourseModel, getLessonModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+ import { getCourseAccessForUser } from "@/app/lib/access";
+ import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
+ 
+@@ -138,6 +139,8 @@ export async function PUT(request, { params }) {
+ 
+     await lesson.save();
+     await recomputeCourseTotals(course._id);
++    // ✅ تغيير نوع الدرس (من/إلى quiz) بيغيّر عدّ عناصر الإكمال
++    if (body.type !== undefined) await recomputeCourseProgress(course._id);
+ 
+     return jsonResponse(serializeLesson(lesson));
+   } catch (err) {
+@@ -161,6 +164,8 @@ export async function DELETE(request, { params }) {
+ 
+     await lesson.deleteOne();
+     await recomputeCourseTotals(course._id);
++    // ✅ مسح درس بيغيّر إجمالي عناصر الإكمال → نسب كل الطلاب تتحدّث
++    await recomputeCourseProgress(course._id);
+ 
+     return jsonResponse({ success: true });
+   } catch (err) {
+diff --git a/app/api/quizzes/[id]/attempt/route.js b/app/api/quizzes/[id]/attempt/route.js
+index 650eb83..c54e0dc 100644
+--- a/app/api/quizzes/[id]/attempt/route.js
++++ b/app/api/quizzes/[id]/attempt/route.js
+@@ -143,7 +143,9 @@ export async function POST(request, { params }) {
+     // لو الكويز مرتبط بدرس (lesson.type === "quiz")، بنعتبره "مكتمل"
+     // ضمن completedLessons برضه عشان أي واجهة بتعرض دروس مكتملة تتظبط،
+     // حتى لو مش لازم عشان نسبة التقدّم (اللي بتحسب نجاح الكويز مباشرة).
+-    if (quiz.lesson) {
++    // 🔒 بس لما الطالب *ينجح* — قبل كده كان بيتعلّم مكتمل حتى لو سقط (ومحاولة
++    // فيها مقالي معلّق بتتعلّم لما تتصحح وينجح، شوف results/[resultId] PUT).
++    if (quiz.lesson && passed) {
+       const Enrollment = getEnrollmentModel();
+       await Enrollment.updateOne(
+         { user: session.user.id, course: course._id },
+diff --git a/app/api/quizzes/[id]/route.js b/app/api/quizzes/[id]/route.js
+index 4a2de0d..5e58bd8 100644
+--- a/app/api/quizzes/[id]/route.js
++++ b/app/api/quizzes/[id]/route.js
+@@ -16,6 +16,7 @@ import mongoose from "mongoose";
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+ import { getCourseAccessForUser } from "@/app/lib/access";
+ import { serializeQuestion } from "@/app/lib/quizQuestionHelpers";
+ 
+@@ -164,6 +165,8 @@ export async function PUT(request, { params }) {
+     }
+ 
+     await quiz.save();
++    // ✅ نشر/إلغاء نشر كويز بيغيّر عدّ عناصر الإكمال عند كل الطلاب
++    if (body?.isPublished !== undefined) await recomputeCourseProgress(course._id);
+     return jsonResponse(serializeQuizMeta(quiz));
+   } catch (err) {
+     console.error("[/api/quizzes/[id]] PUT error:", err);
+@@ -182,6 +185,7 @@ export async function DELETE(request, { params }) {
+     if (auth.response) return auth.response;
+     if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+ 
++    const wasPublished = Boolean(quiz.isPublished);
+     const Question = getQuestionModel();
+     const QuizResult = getQuizResultModel();
+     // 🔒 الحذف بيشيل معاه الأسئلة ونتائج الطلاب المرتبطة — منعًا لسجلات
+@@ -192,6 +196,9 @@ export async function DELETE(request, { params }) {
+       quiz.deleteOne(),
+     ]);
+ 
++    // ✅ مسح كويز منشور بيشيله من إجمالي عناصر الإكمال عند كل الطلاب
++    if (wasPublished) await recomputeCourseProgress(course._id);
++
+     return jsonResponse({ deleted: true });
+   } catch (err) {
+     console.error("[/api/quizzes/[id]] DELETE error:", err);
+diff --git a/app/api/quizzes/route.js b/app/api/quizzes/route.js
+index affa6fa..7c18cec 100644
+--- a/app/api/quizzes/route.js
++++ b/app/api/quizzes/route.js
+@@ -14,6 +14,7 @@ import mongoose from "mongoose";
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -126,6 +127,9 @@ export async function POST(request) {
+       isPublished: Boolean(body?.isPublished),
+     });
+ 
++    // ✅ كويز منشور جديد = عنصر إكمال جديد عند كل الطلاب
++    if (created.isPublished) await recomputeCourseProgress(courseId);
++
+     return jsonResponse(serializeQuiz(created, { questionsCount: 0 }), 201);
+   } catch (err) {
+     console.error("[/api/quizzes] POST error:", err);
+diff --git a/app/api/sections/[id]/lessons/route.js b/app/api/sections/[id]/lessons/route.js
+index b6b08e6..516f602 100644
+--- a/app/api/sections/[id]/lessons/route.js
++++ b/app/api/sections/[id]/lessons/route.js
+@@ -19,6 +19,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+ import { getCourseAccessForUser } from "@/app/lib/access";
+ import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
+ 
+@@ -171,6 +172,8 @@ export async function POST(request, { params }) {
+     });
+ 
+     await recomputeCourseTotals(course._id);
++    // ✅ درس جديد = عنصر إكمال جديد → نسب الطلاب (وحالة "مكتمل") لازم تتحدّث
++    await recomputeCourseProgress(course._id);
+ 
+     return jsonResponse(serializeLesson(created, { revealProtectedContent: true }), 201);
+   } catch (err) {
+diff --git a/app/api/sections/[id]/route.js b/app/api/sections/[id]/route.js
+index e083339..3878270 100644
+--- a/app/api/sections/[id]/route.js
++++ b/app/api/sections/[id]/route.js
+@@ -9,6 +9,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
+ import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
+ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
++import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -85,6 +86,8 @@ export async function DELETE(request, { params }) {
+ 
+     // ✅ لازم نحدّث عداد/مدة الكورس بعد ما مسحنا دروس
+     await recomputeCourseTotals(course._id);
++    // ✅ مسح دروس بيغيّر "إجمالي عناصر الإكمال" → نسب كل الطلاب لازم تتحدّث
++    await recomputeCourseProgress(course._id);
+ 
+     return jsonResponse({ success: true });
+   } catch (err) {
+diff --git a/app/api/student/grades/route.js b/app/api/student/grades/route.js
+index 40288fe..dc1ef3c 100644
+--- a/app/api/student/grades/route.js
++++ b/app/api/student/grades/route.js
+@@ -5,17 +5,26 @@
+ // الكورسات اللي الطالب مسجّل/عنده وصول فيها فعليًا (من واقع Enrollment).
+ //
+ // GET /api/student/grades → أي مستخدم مسجّل دخول (بياخد بياناته هو بس).
++//
++// قواعد الحساب (progressMath.js — نفس اللي بتستخدمه صفحات المدرس):
++//   - نسبة الإكمال بتتحسب حيًّا من الدروس/الكويزات الحالية.
++//   - أفضل نتيجة كويز بتتجاهل المحاولات المعلّقة (pending_review) — درجتها مؤقتة
++//     و passed=false لحد ما المقالي يتصحح — وبيتبعت pendingReview عشان الصفحة
++//     تعرض "قيد التصحيح". attemptsUsed بيعدّ كل المحاولات (المعلّقة كمان) لأنها
++//     بتستهلك من maxAttempts فعلاً.
+ 
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import {
+   getCourseModel,
+   getEnrollmentModel,
++  getLessonModel,
+   getQuizModel,
+   getQuizResultModel,
+   getAssignmentModel,
+   getSubmissionModel,
+ } from "@/app/lib/models";
+ import { requireSession } from "@/app/lib/rbac";
++import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -24,6 +33,11 @@ function jsonResponse(data, status = 200) {
+   });
+ }
+ 
++function pushTo(map, key, value) {
++  if (!map.has(key)) map.set(key, []);
++  map.get(key).push(value);
++}
++
+ export async function GET() {
+   try {
+     const auth = await requireSession();
+@@ -37,15 +51,20 @@ export async function GET() {
+ 
+     const courseIds = enrollments.map((e) => e.course);
+     const Course = getCourseModel();
++    const Lesson = getLessonModel();
+     const Quiz = getQuizModel();
+     const QuizResult = getQuizResultModel();
+     const Assignment = getAssignmentModel();
+     const Submission = getSubmissionModel();
+ 
+-    const [courses, quizzes, quizResults, assignments, submissions] = await Promise.all([
++    const [courses, nonQuizLessons, quizzes, quizResults, assignments, submissions] = await Promise.all([
+       Course.find({ _id: { $in: courseIds } }, "title").lean(),
++      Lesson.find({ course: { $in: courseIds }, type: { $ne: "quiz" } }, "course").lean(),
+       Quiz.find({ course: { $in: courseIds }, isPublished: true }).lean(),
+-      QuizResult.find({ student: session.user.id, course: { $in: courseIds } }).lean(),
++      QuizResult.find(
++        { student: session.user.id, course: { $in: courseIds } },
++        "quiz course scorePercent passed status"
++      ).lean(),
+       Assignment.find({ course: { $in: courseIds }, isPublished: true }).lean(),
+       Submission.find({ student: session.user.id }).lean(),
+     ]);
+@@ -53,31 +72,19 @@ export async function GET() {
+     const courseById = Object.fromEntries(courses.map((c) => [c._id.toString(), c]));
+     const enrollmentByCourse = Object.fromEntries(enrollments.map((e) => [e.course.toString(), e]));
+ 
++    const lessonIdsByCourse = new Map();
++    for (const l of nonQuizLessons) pushTo(lessonIdsByCourse, l.course.toString(), l._id);
++
+     const quizzesByCourse = new Map();
+-    for (const q of quizzes) {
+-      const key = q.course.toString();
+-      if (!quizzesByCourse.has(key)) quizzesByCourse.set(key, []);
+-      quizzesByCourse.get(key).push(q);
+-    }
++    for (const q of quizzes) pushTo(quizzesByCourse, q.course.toString(), q);
++
+     const assignmentsByCourse = new Map();
+-    for (const a of assignments) {
+-      const key = a.course.toString();
+-      if (!assignmentsByCourse.has(key)) assignmentsByCourse.set(key, []);
+-      assignmentsByCourse.get(key).push(a);
+-    }
+-
+-    // أفضل نتيجة لكل كويز
+-    const bestByQuiz = new Map();
+-    for (const r of quizResults) {
+-      const key = r.quiz.toString();
+-      const existing = bestByQuiz.get(key);
+-      if (!existing || r.scorePercent > existing.scorePercent) bestByQuiz.set(key, r);
+-    }
+-    const attemptsCountByQuiz = new Map();
+-    for (const r of quizResults) {
+-      const key = r.quiz.toString();
+-      attemptsCountByQuiz.set(key, (attemptsCountByQuiz.get(key) || 0) + 1);
+-    }
++    for (const a of assignments) pushTo(assignmentsByCourse, a.course.toString(), a);
++
++    // كل محاولات الطالب لكل كويز
++    const attemptsByQuiz = new Map();
++    for (const r of quizResults) pushTo(attemptsByQuiz, r.quiz.toString(), r);
++
+     const submissionByAssignment = new Map(submissions.map((s) => [s.assignment.toString(), s]));
+ 
+     const result = courseIds
+@@ -87,17 +94,20 @@ export async function GET() {
+         const course = courseById[cid];
+         if (!course) return null;
+         const enrollment = enrollmentByCourse[cid];
++        const publishedQuizzes = quizzesByCourse.get(cid) || [];
+ 
+-        const courseQuizzes = (quizzesByCourse.get(cid) || []).map((q) => {
+-          const best = bestByQuiz.get(q._id.toString());
++        const courseQuizzes = publishedQuizzes.map((q) => {
++          const attempts = attemptsByQuiz.get(q._id.toString()) || [];
++          const { best, hasPendingReview, attemptsCount } = pickBestQuizResult(attempts);
+           return {
+             quizId: q._id.toString(),
+             title: q.title,
+             maxAttempts: q.maxAttempts,
+             passingScorePercent: q.passingScorePercent,
+-            attemptsUsed: attemptsCountByQuiz.get(q._id.toString()) || 0,
++            attemptsUsed: attemptsCount,
+             bestScorePercent: best ? best.scorePercent : null,
+-            passed: best ? best.passed : null,
++            passed: best ? Boolean(best.passed) : null,
++            pendingReview: hasPendingReview,
+           };
+         });
+ 
+@@ -115,11 +125,22 @@ export async function GET() {
+           };
+         });
+ 
++        // نسبة الإكمال حيّة: الكويز المنجوح = أي محاولة ناجحة (مش لازم الأفضل)
++        const passedQuizIds = publishedQuizzes
++          .filter((q) => (attemptsByQuiz.get(q._id.toString()) || []).some((r) => r.passed))
++          .map((q) => q._id);
++        const progress = computeProgress({
++          nonQuizLessonIds: lessonIdsByCourse.get(cid) || [],
++          publishedQuizIds: publishedQuizzes.map((q) => q._id),
++          completedLessonIds: enrollment?.completedLessons || [],
++          passedQuizIds,
++        });
++
+         return {
+           courseId: cid,
+           courseTitle: course.title,
+-          progressPercent: enrollment?.progressPercent || 0,
+-          status: enrollment?.status || "active",
++          progressPercent: progress.progressPercent,
++          status: enrollment?.status === "cancelled" ? "cancelled" : progress.isComplete ? "completed" : "active",
+           quizzes: courseQuizzes,
+           assignments: courseAssignments,
+         };
+@@ -131,4 +152,4 @@ export async function GET() {
+     console.error("[/api/student/grades] GET error:", err);
+     return jsonResponse({ error: "internal_error" }, 500);
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/app/api/teacher/performance/route.js b/app/api/teacher/performance/route.js
+index 6d431c7..dc11e08 100644
+--- a/app/api/teacher/performance/route.js
++++ b/app/api/teacher/performance/route.js
+@@ -11,18 +11,28 @@
+ // GET /api/teacher/performance → صاحب السيشن (teacher) بيشوف كورساته هو
+ //   بس. أدمن يقدر يمرر ?teacher=<id> عشان يشوف أداء مدرس معيّن (زي منطق
+ //   ?teacher= الموجود في GET /api/courses أصلاً).
++//
++// قواعد الحساب (نفس قواعد /api/courses/[id]/performance — progressMath.js —
++// عشان الرقم يطلع واحد في الشاشتين):
++//   - الطلاب = التسجيلات غير الملغية بس (cancelled مش بتتعدّ ولا بتدخل في المتوسطات).
++//   - "مكتمل" بيتحسب حيًّا من الدروس/الكويزات الحالية، مش من enrollment.status المخزّنة.
++//   - متوسط الكويزات: أفضل نتيجة *متصححة* لكل (طالب، كويز) — المحاولات المعلّقة
++//     (pending_review) درجتها مؤقتة فبتتجاهل.
++//   - متوسط الواجبات: التسليمات المتصححة لطلاب الكورس الحاليين، بدرجة صالحة بس.
+ 
+ import mongoose from "mongoose";
+ import { connectToMongo } from "@/app/lib/mongodb";
+ import {
+   getCourseModel,
+   getEnrollmentModel,
++  getLessonModel,
+   getQuizModel,
+   getQuizResultModel,
+   getAssignmentModel,
+   getSubmissionModel,
+ } from "@/app/lib/models";
+ import { requireSession } from "@/app/lib/rbac";
++import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -36,6 +46,11 @@ function average(nums) {
+   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+ }
+ 
++function pushTo(map, key, value) {
++  if (!map.has(key)) map.set(key, []);
++  map.get(key).push(value);
++}
++
+ export async function GET(request) {
+   try {
+     const auth = await requireSession();
+@@ -71,13 +86,16 @@ export async function GET(request) {
+     const courseIds = courses.map((c) => c._id);
+ 
+     const Enrollment = getEnrollmentModel();
++    const Lesson = getLessonModel();
+     const Quiz = getQuizModel();
+     const QuizResult = getQuizResultModel();
+     const Assignment = getAssignmentModel();
+     const Submission = getSubmissionModel();
+ 
+-    const [enrollments, quizzes, assignments] = await Promise.all([
+-      Enrollment.find({ course: { $in: courseIds } }, "course status").lean(),
++    const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
++      // 🔒 الملغي (cancelled) ملوش وصول للكورس → برّه كل الإحصائيات
++      Enrollment.find({ course: { $in: courseIds }, status: { $ne: "cancelled" } }, "course user completedLessons").lean(),
++      Lesson.find({ course: { $in: courseIds }, type: { $ne: "quiz" } }, "course").lean(),
+       Quiz.find({ course: { $in: courseIds }, isPublished: true }, "course").lean(),
+       Assignment.find({ course: { $in: courseIds }, isPublished: true }, "course maxScore").lean(),
+     ]);
+@@ -86,52 +104,77 @@ export async function GET(request) {
+     const assignmentIds = assignments.map((a) => a._id);
+ 
+     const [quizResults, submissions] = await Promise.all([
+-      quizIds.length > 0 ? QuizResult.find({ quiz: { $in: quizIds } }, "course quiz student scorePercent").lean() : [],
++      quizIds.length > 0
++        ? QuizResult.find({ quiz: { $in: quizIds } }, "quiz student scorePercent passed status").lean()
++        : [],
+       assignmentIds.length > 0
+-        ? Submission.find({ assignment: { $in: assignmentIds }, status: "graded" }, "assignment score").lean()
++        ? Submission.find({ assignment: { $in: assignmentIds }, status: "graded" }, "assignment student score").lean()
+         : [],
+     ]);
+ 
+-    // أفضل نتيجة لكل (طالب، كويز) — نفس منطق /api/courses/[id]/performance،
+-    // عشان محاولات متكررة لنفس الكويز متأثّرش على المتوسط بالسلب.
+-    const bestQuizResult = new Map();
+-    for (const r of quizResults) {
+-      const key = `${r.student.toString()}:${r.quiz.toString()}`;
+-      const existing = bestQuizResult.get(key);
+-      if (!existing || r.scorePercent > existing.scorePercent) bestQuizResult.set(key, r);
+-    }
+-
++    const courseOfQuiz = new Map(quizzes.map((q) => [q._id.toString(), q.course.toString()]));
+     const assignmentById = Object.fromEntries(assignments.map((a) => [a._id.toString(), a]));
+ 
++    const lessonIdsByCourse = new Map();
++    for (const l of nonQuizLessons) pushTo(lessonIdsByCourse, l.course.toString(), l._id);
++    const quizIdsByCourse = new Map();
++    for (const q of quizzes) pushTo(quizIdsByCourse, q.course.toString(), q._id);
++
+     const enrollmentsByCourse = new Map();
++    const enrolledKeys = new Set(); // `${courseId}:${studentId}`
+     for (const e of enrollments) {
+-      const key = e.course.toString();
+-      if (!enrollmentsByCourse.has(key)) enrollmentsByCourse.set(key, []);
+-      enrollmentsByCourse.get(key).push(e);
++      pushTo(enrollmentsByCourse, e.course.toString(), e);
++      enrolledKeys.add(`${e.course.toString()}:${e.user.toString()}`);
+     }
+ 
++    // محاولات كل (كورس، طالب، كويز) — لطلاب الكورس الحاليين بس
++    const attemptsByKey = new Map(); // `${courseId}:${studentId}:${quizId}` → result[]
++    const passedQuizIdsByCourseStudent = new Map(); // `${courseId}:${studentId}` → quizId[]
++    for (const r of quizResults) {
++      const courseId = courseOfQuiz.get(r.quiz.toString());
++      if (!courseId) continue;
++      const studentId = r.student.toString();
++      if (!enrolledKeys.has(`${courseId}:${studentId}`)) continue;
++
++      pushTo(attemptsByKey, `${courseId}:${studentId}:${r.quiz.toString()}`, r);
++      if (r.passed) pushTo(passedQuizIdsByCourseStudent, `${courseId}:${studentId}`, r.quiz);
++    }
++
++    // أفضل نتيجة متصححة لكل (طالب، كويز) — محاولات متكررة متأثّرش على المتوسط
++    // بالسلب، والمعلّقة متدخلش المتوسط بدرجة مؤقتة.
+     const quizScoresByCourse = new Map();
+-    for (const r of bestQuizResult.values()) {
+-      const key = r.course.toString();
+-      if (!quizScoresByCourse.has(key)) quizScoresByCourse.set(key, []);
+-      quizScoresByCourse.get(key).push(r.scorePercent);
++    for (const [key, attempts] of attemptsByKey) {
++      const { best } = pickBestQuizResult(attempts);
++      if (!best) continue;
++      pushTo(quizScoresByCourse, key.split(":")[0], best.scorePercent);
+     }
+ 
+     const assignmentScoresByCourse = new Map();
+     for (const s of submissions) {
+       const assignment = assignmentById[s.assignment.toString()];
+       if (!assignment || !assignment.maxScore) continue;
+-      const key = assignment.course.toString();
+-      if (!assignmentScoresByCourse.has(key)) assignmentScoresByCourse.set(key, []);
+-      assignmentScoresByCourse.get(key).push((s.score / assignment.maxScore) * 100);
++      const courseId = assignment.course.toString();
++      if (!enrolledKeys.has(`${courseId}:${s.student.toString()}`)) continue;
++      if (typeof s.score !== "number" || !Number.isFinite(s.score)) continue;
++      pushTo(assignmentScoresByCourse, courseId, (s.score / assignment.maxScore) * 100);
+     }
+ 
+     const rows = courses.map((c) => {
+       const key = c._id.toString();
+       const courseEnrollments = enrollmentsByCourse.get(key) || [];
+-      const completedCount = courseEnrollments.filter((e) => e.status === "completed").length;
+-      const completionRate =
++
++      const completedCount = courseEnrollments.filter((e) => {
++        return computeProgress({
++          nonQuizLessonIds: lessonIdsByCourse.get(key) || [],
++          publishedQuizIds: quizIdsByCourse.get(key) || [],
++          completedLessonIds: e.completedLessons || [],
++          passedQuizIds: passedQuizIdsByCourseStudent.get(`${key}:${e.user.toString()}`) || [],
++        }).isComplete;
++      }).length;
++      // 🔒 نفس قاعدة التقريب: 100% بس لو كل الطلاب خلّصوا فعلاً (199/200 → 99%)
++      let completionRate =
+         courseEnrollments.length > 0 ? Math.round((completedCount / courseEnrollments.length) * 100) : 0;
++      if (completedCount < courseEnrollments.length && completionRate >= 100) completionRate = 99;
+ 
+       const avgQuizScore = average(quizScoresByCourse.get(key) || []);
+       const avgAssignmentScore = average(assignmentScoresByCourse.get(key) || []);
+@@ -156,4 +199,4 @@ export async function GET(request) {
+     console.error("[/api/teacher/performance] GET error:", err);
+     return jsonResponse({ error: "internal_error" }, 500);
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/app/lib/progressHelpers.js b/app/lib/progressHelpers.js
+index c0ca41d..ff24886 100644
+--- a/app/lib/progressHelpers.js
++++ b/app/lib/progressHelpers.js
+@@ -3,15 +3,25 @@
+ // Phase 4 — اليوم 42: "متابعة الـ Progress: نسبة إكمال الكورس (Lessons +
+ // Quizzes المكتملة)". بنفس فلسفة recomputeCourseTotals في courseHelpers.js
+ // — بنعيد حساب النسبة من واقع الداتابيز في كل مرة (lessons مكتملة +
+-// quizzes منجحّة) بدل ما نزوّد عداد يدوي، عشان مستحيل يطلع غلط.
++// quizzes منجّحة) بدل ما نزوّد عداد يدوي، عشان مستحيل يطلع غلط.
+ //
+ // عنصر "الإكمال" لكورس معيّن = مجموع (عدد الدروس غير-الكويز) + (عدد
+ // الكويزات المنشورة المرتبطة بالكورس). درس النوع "quiz" نفسه (لو موجود
+ // كـ lesson.type==="quiz") ما بيتحسبش مرتين — بيتحسب إكماله من نجاح
+ // الكويز المرتبط بيه، مش من completedLessons.
++//
++// القاعدة الحسابية نفسها في progressMath.js (دالة خالصة) عشان تتستخدم بنفس
++// الشكل في صفحة أداء الطلاب.
++//
++// الدالتين هنا:
++//   - recomputeEnrollmentProgress(userId, courseId): طالب واحد (لما هو يكمل درس/كويز).
++//   - recomputeCourseProgress(courseId): كل طلاب الكورس (لما المدرس يغيّر المحتوى:
++//     يضيف/يمسح/يعدّل درس، أو ينشر/يلغي نشر/يمسح كويز). من غيرها النسبة المخزّنة
++//     كانت بتفضل قديمة لحد ما كل طالب يعمل حاجة بنفسه.
+ 
+ import { getLessonModel, getEnrollmentModel, getQuizModel } from "@/app/lib/models";
+ import { getQuizResultModel } from "@/app/lib/models/QuizResult";
++import { computeProgress } from "@/app/lib/progressMath";
+ // Phase 5 — اليوم 44: "إصدار تلقائي للشهادة عند اكتمال الكورس 100%" — بمجرد
+ // ما enrollment.status يتحول لـ "completed" هنا تحت، بننادي الدالة دي عشان
+ // تصدر الشهادة أوتوماتيك من غير ما الطالب يعمل أي حاجة إضافية. الدالة
+@@ -33,37 +43,41 @@ export async function recomputeEnrollmentProgress(userId, courseId) {
+     Quiz.find({ course: courseId, isPublished: true }, "_id passingScorePercent").lean(),
+   ]);
+ 
+-  const completedLessonIds = new Set((enrollment.completedLessons || []).map((l) => l.toString()));
+-  const completedNonQuizCount = nonQuizLessons.filter((l) => completedLessonIds.has(l._id.toString())).length;
+-
+-  let passedQuizCount = 0;
++  let passedQuizIds = [];
+   if (quizzes.length > 0) {
+-    // آخر محاولة لكل كويز بس هي اللي بتحدد "نجح فيه ولا لأ" — لو أي محاولة
+-    // سابقة أو حالية وصلت للنجاح، يتحسب مكتمل (مش لازم آخر محاولة بالذات).
++    // لو أي محاولة (سابقة أو حالية) وصلت للنجاح، الكويز يتحسب مكتمل — مش
++    // لازم آخر محاولة بالذات. المحاولات المعلّقة (pending_review) passed=false
++    // لحد ما تتصحح، فمش بتتحسب.
+     const results = await QuizResult.find(
+       { student: userId, course: courseId, quiz: { $in: quizzes.map((q) => q._id) }, passed: true },
+       "quiz"
+     ).lean();
+-    const passedQuizIds = new Set(results.map((r) => r.quiz.toString()));
+-    passedQuizCount = passedQuizIds.size;
++    passedQuizIds = results.map((r) => r.quiz);
+   }
+ 
+-  const totalItems = nonQuizLessons.length + quizzes.length;
+-  const completedItems = completedNonQuizCount + passedQuizCount;
+-  const progressPercent = totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
++  const { progressPercent, isComplete: isNowComplete } = computeProgress({
++    nonQuizLessonIds: nonQuizLessons.map((l) => l._id),
++    publishedQuizIds: quizzes.map((q) => q._id),
++    completedLessonIds: enrollment.completedLessons || [],
++    passedQuizIds,
++  });
+ 
+-  const isNowComplete = totalItems > 0 && progressPercent >= 100;
+   const wasComplete = enrollment.status === "completed";
++  const isCancelled = enrollment.status === "cancelled";
+ 
+   enrollment.progressPercent = progressPercent;
+-  if (isNowComplete && !wasComplete) {
+-    enrollment.status = "completed";
+-    enrollment.completedAt = new Date();
+-  } else if (!isNowComplete && wasComplete) {
+-    // نادر (مثلاً المدرس ضاف درس جديد بعد ما الطالب خلّص) — نرجّعها active
+-    // عشان النسبة/الحالة يفضلوا متطابقين.
+-    enrollment.status = "active";
+-    enrollment.completedAt = null;
++  // 🔒 التسجيل الملغي (cancelled) ما بنغيّرش حالته من هنا أبدًا — الإلغاء قرار
++  // إداري، والنسبة بس هي اللي بتتحدّث.
++  if (!isCancelled) {
++    if (isNowComplete && !wasComplete) {
++      enrollment.status = "completed";
++      enrollment.completedAt = new Date();
++    } else if (!isNowComplete && wasComplete) {
++      // مثلاً المدرس ضاف درس جديد بعد ما الطالب خلّص — نرجّعها active
++      // عشان النسبة/الحالة يفضلوا متطابقين.
++      enrollment.status = "active";
++      enrollment.completedAt = null;
++    }
+   }
+ 
+   await enrollment.save();
+@@ -73,9 +87,99 @@ export async function recomputeEnrollmentProgress(userId, courseId) {
+   // متبوظش عملية تسجيل إكمال الدرس/الكويز اللي نادت الدالة دي أصلاً لو
+   // فشل توليد الشهادة لأي سبب (شوف تعليق issueCertificateForCompletedEnrollment
+   // في certificateHelpers.js).
+-  if (isNowComplete && !wasComplete) {
++  if (!isCancelled && isNowComplete && !wasComplete) {
+     await issueCertificateForCompletedEnrollment(userId, courseId);
+   }
+ 
+   return enrollment;
+-}
+\ No newline at end of file
++}
++
++/**
++ * يعيد حساب النسبة/الحالة لكل طلاب الكورس (غير الملغيين) دفعة واحدة — بـ 3
++ * queries + bulkWrite بدل N استدعاء لـ recomputeEnrollmentProgress. بتتنادى بعد
++ * أي تغيير في محتوى الكورس بيأثر على "إجمالي عناصر الإكمال".
++ *
++ * Best-effort: أي خطأ بيتسجّل ويتبلع، عشان تعديل المدرس للمحتوى ما يفشلش
++ * بسبب إعادة الحساب (والنسبة هتتصحح تلقائي في أول مرة طالب يكمل حاجة).
++ *
++ * @returns {Promise<{updated:number, newlyCompleted:number}|null>}
++ */
++export async function recomputeCourseProgress(courseId) {
++  try {
++    const Lesson = getLessonModel();
++    const Enrollment = getEnrollmentModel();
++    const Quiz = getQuizModel();
++    const QuizResult = getQuizResultModel();
++
++    const [nonQuizLessons, quizzes, enrollments] = await Promise.all([
++      Lesson.find({ course: courseId, type: { $ne: "quiz" } }, "_id").lean(),
++      Quiz.find({ course: courseId, isPublished: true }, "_id").lean(),
++      Enrollment.find(
++        { course: courseId, status: { $ne: "cancelled" } },
++        "user status progressPercent completedLessons"
++      ).lean(),
++    ]);
++    if (enrollments.length === 0) return { updated: 0, newlyCompleted: 0 };
++
++    const nonQuizLessonIds = nonQuizLessons.map((l) => l._id);
++    const publishedQuizIds = quizzes.map((q) => q._id);
++
++    const passedByStudent = new Map(); // studentId → [quizId]
++    if (publishedQuizIds.length > 0) {
++      const passed = await QuizResult.find(
++        {
++          course: courseId,
++          quiz: { $in: publishedQuizIds },
++          student: { $in: enrollments.map((e) => e.user) },
++          passed: true,
++        },
++        "student quiz"
++      ).lean();
++      for (const r of passed) {
++        const key = r.student.toString();
++        if (!passedByStudent.has(key)) passedByStudent.set(key, []);
++        passedByStudent.get(key).push(r.quiz);
++      }
++    }
++
++    const ops = [];
++    const newlyCompletedUsers = [];
++    for (const e of enrollments) {
++      const { progressPercent, isComplete } = computeProgress({
++        nonQuizLessonIds,
++        publishedQuizIds,
++        completedLessonIds: e.completedLessons || [],
++        passedQuizIds: passedByStudent.get(e.user.toString()) || [],
++      });
++
++      const wasComplete = e.status === "completed";
++      const $set = {};
++      if (progressPercent !== (e.progressPercent || 0)) $set.progressPercent = progressPercent;
++      if (isComplete && !wasComplete) {
++        $set.status = "completed";
++        $set.completedAt = new Date();
++        newlyCompletedUsers.push(e.user);
++      } else if (!isComplete && wasComplete) {
++        $set.status = "active";
++        $set.completedAt = null;
++      }
++
++      if (Object.keys($set).length > 0) {
++        ops.push({ updateOne: { filter: { _id: e._id }, update: { $set } } });
++      }
++    }
++
++    if (ops.length > 0) await Enrollment.bulkWrite(ops, { ordered: false });
++
++    // نفس سلوك recomputeEnrollmentProgress: اللي بقى مكتمل دلوقتي ياخد شهادته
++    // (مثلاً المدرس مسح آخر عنصر ناقص). بتتنفذ ورا بعض عشان ما نضغطش الـ DB.
++    for (const userId of newlyCompletedUsers) {
++      await issueCertificateForCompletedEnrollment(userId, courseId);
++    }
++
++    return { updated: ops.length, newlyCompleted: newlyCompletedUsers.length };
++  } catch (err) {
++    console.error("[progressHelpers] recomputeCourseProgress failed:", err);
++    return null;
++  }
++}
+diff --git a/app/lib/progressMath.js b/app/lib/progressMath.js
+new file mode 100644
+index 0000000..fbe2e57
+--- /dev/null
++++ b/app/lib/progressMath.js
+@@ -0,0 +1,84 @@
++// app/lib/progressMath.js
++//
++// منطق حساب خالص (من غير DB ولا imports) لنسبة إكمال الكورس واختيار "أفضل
++// نتيجة" كويز. اتفصل عن progressHelpers.js عشان:
++//   1) نفس القاعدة بالظبط تتستخدم في كل مكان (تحديث الـ enrollment، وصفحة
++//      أداء الطلاب للمدرس) فمستحيل الرقم يختلف من شاشة لشاشة.
++//   2) يتختبر بسهولة من غير mocks.
++
++/**
++ * نسبة إكمال الكورس.
++ *
++ * عنصر الإكمال = (دروس غير-الكويز) + (الكويزات المنشورة). درس النوع "quiz"
++ * نفسه ما بيتحسبش مرتين — إكماله بيتحدد من نجاح الكويز المرتبط بيه.
++ *
++ * 🔒 "مكتمل" بيتحدد بالعدّ الفعلي (completedItems >= totalItems) مش من النسبة
++ * المقرّبة. قبل كده Math.round كان بيطلّع 199/200 = 100% فيتعلّم الكورس مكتمل
++ * وتتصدر الشهادة وفاضل عنصر. ولو الكورس مش مكتمل فعليًا النسبة بتتسقّف عند 99%.
++ *
++ * @param {object} p
++ * @param {Array<string|object>} p.nonQuizLessonIds  دروس الكورس اللي type != quiz
++ * @param {Array<string|object>} p.publishedQuizIds  كويزات الكورس المنشورة
++ * @param {Array<string|object>} p.completedLessonIds enrollment.completedLessons
++ * @param {Array<string|object>} p.passedQuizIds     كويزات الطالب اللي نجح في أي محاولة منها
++ */
++export function computeProgress({
++  nonQuizLessonIds = [],
++  publishedQuizIds = [],
++  completedLessonIds = [],
++  passedQuizIds = [],
++}) {
++  const completedSet = new Set(completedLessonIds.map(String));
++  const passedSet = new Set(passedQuizIds.map(String));
++
++  const completedLessonItems = nonQuizLessonIds.filter((id) => completedSet.has(String(id))).length;
++  const passedQuizItems = publishedQuizIds.filter((id) => passedSet.has(String(id))).length;
++
++  const totalItems = nonQuizLessonIds.length + publishedQuizIds.length;
++  const completedItems = completedLessonItems + passedQuizItems;
++  const isComplete = totalItems > 0 && completedItems >= totalItems;
++
++  let progressPercent = totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
++  if (isComplete) progressPercent = 100;
++  else if (progressPercent >= 100) progressPercent = 99;
++
++  return { totalItems, completedItems, completedLessonItems, passedQuizItems, progressPercent, isComplete };
++}
++
++/** محاولة كويز لسه مستنية تصحيح يدوي (أسئلة مقالية). المحاولات القديمة من غير status = graded. */
++export function isPendingReview(result) {
++  return result?.status === "pending_review";
++}
++
++/**
++ * أفضل نتيجة لطالب في كويز واحد، من كل محاولاته.
++ *
++ * - المحاولات المعلّقة (pending_review) بتتتجاهل: درجتها مؤقتة (الاختياري بس)
++ *   و passed=false لحد ما المقالي يتصحح، فمينفعش تتعرض "راسب" ولا تغلب
++ *   محاولة سابقة اتصححت.
++ * - المحاولة الناجحة بتتفضّل على غير الناجحة (عشان العرض يطابق حساب التقدّم
++ *   اللي بيعتبر الكويز منجوح لو أي محاولة نجحت)، وبعدها الأعلى درجة.
++ *
++ * @param {Array<{scorePercent:number, passed:boolean, status?:string, attemptNumber?:number}>} results
++ * @returns {{ best: object|null, hasPendingReview: boolean, attemptsCount: number }}
++ */
++export function pickBestQuizResult(results = []) {
++  let best = null;
++  let hasPendingReview = false;
++
++  for (const r of results) {
++    if (isPendingReview(r)) {
++      hasPendingReview = true;
++      continue;
++    }
++    if (!best) {
++      best = r;
++      continue;
++    }
++    const rPassed = Boolean(r.passed);
++    const bestPassed = Boolean(best.passed);
++    if (rPassed !== bestPassed ? rPassed : r.scorePercent > best.scorePercent) best = r;
++  }
++
++  return { best, hasPendingReview, attemptsCount: results.length };
++}
+diff --git a/app/lib/progressMath.test.js b/app/lib/progressMath.test.js
+new file mode 100644
+index 0000000..4b7e95b
+--- /dev/null
++++ b/app/lib/progressMath.test.js
+@@ -0,0 +1,103 @@
++// app/lib/progressMath.test.js
++//
++// بيثبّت قواعد حساب أداء الطلاب: نسبة الإكمال (بدون تقريب بيكمّل كورس ناقص)
++// واختيار أفضل نتيجة كويز (من غير ما محاولة معلّقة تتعرض "راسب").
++
++import { computeProgress, pickBestQuizResult, isPendingReview } from "./progressMath.js";
++
++const ids = (n, prefix) => Array.from({ length: n }, (_, i) => `${prefix}${i}`);
++
++describe("computeProgress", () => {
++  it("returns 0% and not complete for a course with no items", () => {
++    expect(computeProgress({})).toMatchObject({ totalItems: 0, progressPercent: 0, isComplete: false });
++  });
++
++  it("counts non-quiz lessons plus published quizzes, each once", () => {
++    const r = computeProgress({
++      nonQuizLessonIds: ["l1", "l2"],
++      publishedQuizIds: ["q1"],
++      completedLessonIds: ["l1", "q-lesson-should-be-ignored"],
++      passedQuizIds: ["q1"],
++    });
++    expect(r).toMatchObject({ totalItems: 3, completedItems: 2, progressPercent: 67, isComplete: false });
++  });
++
++  it("ignores passed quizzes that are not published (not in publishedQuizIds)", () => {
++    const r = computeProgress({ publishedQuizIds: ["q1"], passedQuizIds: ["q1", "unpublished"] });
++    expect(r).toMatchObject({ totalItems: 1, completedItems: 1, isComplete: true, progressPercent: 100 });
++  });
++
++  it("does not double count duplicate completed lesson ids", () => {
++    const r = computeProgress({ nonQuizLessonIds: ["l1", "l2"], completedLessonIds: ["l1", "l1", "l1"] });
++    expect(r).toMatchObject({ completedItems: 1, progressPercent: 50 });
++  });
++
++  it("is complete only when every item is done", () => {
++    const r = computeProgress({
++      nonQuizLessonIds: ["l1", "l2"],
++      publishedQuizIds: ["q1"],
++      completedLessonIds: ["l1", "l2"],
++      passedQuizIds: ["q1"],
++    });
++    expect(r).toMatchObject({ progressPercent: 100, isComplete: true });
++  });
++
++  it("does NOT mark 199/200 as complete (rounding used to give 100%)", () => {
++    const lessons = ids(200, "l");
++    const r = computeProgress({ nonQuizLessonIds: lessons, completedLessonIds: lessons.slice(0, 199) });
++    expect(r.isComplete).toBe(false);
++    expect(r.progressPercent).toBe(99);
++  });
++
++  it("does NOT mark 299/300 as complete", () => {
++    const lessons = ids(300, "l");
++    const r = computeProgress({ nonQuizLessonIds: lessons, completedLessonIds: lessons.slice(0, 299) });
++    expect(r).toMatchObject({ isComplete: false, progressPercent: 99 });
++  });
++
++  it("accepts ObjectId-like values (compared by string)", () => {
++    const oid = (s) => ({ toString: () => s });
++    const r = computeProgress({ nonQuizLessonIds: [oid("a")], completedLessonIds: [oid("a")] });
++    expect(r.isComplete).toBe(true);
++  });
++});
++
++describe("pickBestQuizResult", () => {
++  it("returns null best for no attempts", () => {
++    expect(pickBestQuizResult([])).toEqual({ best: null, hasPendingReview: false, attemptsCount: 0 });
++  });
++
++  it("picks the highest score among graded attempts", () => {
++    const a = { scorePercent: 40, passed: false };
++    const b = { scorePercent: 90, passed: true };
++    const c = { scorePercent: 70, passed: true };
++    expect(pickBestQuizResult([a, b, c]).best).toBe(b);
++  });
++
++  it("treats legacy results without status as graded", () => {
++    const a = { scorePercent: 50, passed: false };
++    expect(isPendingReview(a)).toBe(false);
++    expect(pickBestQuizResult([a]).best).toBe(a);
++  });
++
++  it("ignores a pending_review attempt even if its temporary score is higher", () => {
++    const graded = { scorePercent: 70, passed: true, status: "graded" };
++    const pending = { scorePercent: 80, passed: false, status: "pending_review" };
++    const out = pickBestQuizResult([graded, pending]);
++    expect(out.best).toBe(graded);
++    expect(out.hasPendingReview).toBe(true);
++    expect(out.attemptsCount).toBe(2);
++  });
++
++  it("returns best=null with hasPendingReview when the only attempt is pending", () => {
++    const pending = { scorePercent: 30, passed: false, status: "pending_review" };
++    expect(pickBestQuizResult([pending])).toEqual({ best: null, hasPendingReview: true, attemptsCount: 1 });
++  });
++
++  it("prefers a passed attempt over a higher-scoring failed one (passing score was raised later)", () => {
++    const failedHigh = { scorePercent: 75, passed: false, status: "graded" };
++    const passedLow = { scorePercent: 65, passed: true, status: "graded" };
++    expect(pickBestQuizResult([failedHigh, passedLow]).best).toBe(passedLow);
++    expect(pickBestQuizResult([passedLow, failedHigh]).best).toBe(passedLow);
++  });
++});
+diff --git a/app/student/grades/page.jsx b/app/student/grades/page.jsx
+index 0faf580..adf28fa 100644
+--- a/app/student/grades/page.jsx
++++ b/app/student/grades/page.jsx
+@@ -38,6 +38,7 @@ const STRINGS = {
+     passed: "ناجح",
+     failed: "راسب",
+     notAttempted: "لم يتم حلّه بعد",
++    pendingReview: "قيد التصحيح",
+     solve: "حل الاختبار",
+     review: "مراجعة",
+     submitted: "مُسلَّم",
+@@ -69,6 +70,7 @@ const STRINGS = {
+     passed: "Passed",
+     failed: "Failed",
+     notAttempted: "Not attempted yet",
++    pendingReview: "Pending review",
+     solve: "Take quiz",
+     review: "Review",
+     submitted: "Submitted",
+@@ -155,7 +157,14 @@ export default function StudentGradesPage() {
+             quiz: q.title,
+             attempts: `${q.attemptsUsed}/${q.maxAttempts}`,
+             score: q.bestScorePercent !== null ? `${q.bestScorePercent}%` : "—",
+-            result: q.bestScorePercent === null ? "Not attempted" : q.passed ? "Passed" : "Failed",
++            result:
++              q.bestScorePercent !== null
++                ? q.passed
++                  ? "Passed"
++                  : "Failed"
++                : q.pendingReview
++                  ? "Pending review"
++                  : "Not attempted",
+           });
+           const isEven = quizRowIdx % 2 === 0;
+           row.eachCell((cell) => {
+@@ -300,14 +309,19 @@ export default function StudentGradesPage() {
+                                 {q.passed ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                 {q.bestScorePercent}% · {q.passed ? t.passed : t.failed}
+                               </span>
+-                            ) : (
++                            ) : q.pendingReview ? null : (
+                               <span className="text-xs text-gray-400">{t.notAttempted}</span>
+                             )}
++                            {q.pendingReview && (
++                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-600">
++                                {t.pendingReview}
++                              </span>
++                            )}
+                             <Link
+                               href={`/student/quizzes/${q.quizId}`}
+                               className="text-xs font-semibold text-[#003A91] hover:underline"
+                             >
+-                              {q.bestScorePercent !== null ? t.review : t.solve}
++                              {q.attemptsUsed > 0 ? t.review : t.solve}
+                             </Link>
+                           </div>
+                         </div>
+diff --git a/app/teacher/courses/[id]/performance/page.jsx b/app/teacher/courses/[id]/performance/page.jsx
+index 7baec05..f478246 100644
+--- a/app/teacher/courses/[id]/performance/page.jsx
++++ b/app/teacher/courses/[id]/performance/page.jsx
+@@ -49,16 +49,30 @@ function ProgressBar({ percent }) {
+   );
+ }
+ 
+-function QuizCell({ result }) {
++function QuizCell({ result, t }) {
+   if (!result.attempted) return <Minus size={14} className="text-gray-300 mx-auto" />;
++
++  // محاولة فيها أسئلة مقالية لسه متصححتش: درجتها مؤقتة فمنعرضهاش ناجح/راسب
++  const pendingBadge = result.pendingReview ? (
++    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full whitespace-nowrap">
++      {t.grading}
++    </span>
++  ) : null;
++
++  // مفيش نتيجة متصححة لسه (المحاولة الوحيدة معلّقة)
++  if (result.bestScorePercent === null) return pendingBadge;
++
+   return (
+-    <div className="flex items-center justify-center gap-1">
+-      {result.passed ? (
+-        <CheckCircle2 size={13} className="text-green-500 shrink-0" />
+-      ) : (
+-        <XCircle size={13} className="text-red-400 shrink-0" />
+-      )}
+-      <span className="font-semibold text-gray-700">{result.bestScorePercent}%</span>
++    <div className="flex flex-col items-center gap-1">
++      <div className="flex items-center justify-center gap-1">
++        {result.passed ? (
++          <CheckCircle2 size={13} className="text-green-500 shrink-0" />
++        ) : (
++          <XCircle size={13} className="text-red-400 shrink-0" />
++        )}
++        <span className="font-semibold text-gray-700">{result.bestScorePercent}%</span>
++      </div>
++      {pendingBadge}
+     </div>
+   );
+ }
+@@ -153,7 +167,7 @@ export default function CoursePerformancePage({ params }) {
+                   </td>
+                   {s.quizResults.map((r) => (
+                     <td key={r.quizId} className="px-4 py-3 text-center">
+-                      <QuizCell result={r} />
++                      <QuizCell result={r} t={t} />
+                     </td>
+                   ))}
+                   {s.assignmentGrades.map((g) => {

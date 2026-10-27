@@ -5,23 +5,37 @@
 // الكورسات اللي الطالب مسجّل/عنده وصول فيها فعليًا (من واقع Enrollment).
 //
 // GET /api/student/grades → أي مستخدم مسجّل دخول (بياخد بياناته هو بس).
+//
+// قواعد الحساب (progressMath.js — نفس اللي بتستخدمه صفحات المدرس):
+//   - نسبة الإكمال بتتحسب حيًّا من الدروس/الكويزات الحالية.
+//   - أفضل نتيجة كويز بتتجاهل المحاولات المعلّقة (pending_review) — درجتها مؤقتة
+//     و passed=false لحد ما المقالي يتصحح — وبيتبعت pendingReview عشان الصفحة
+//     تعرض "قيد التصحيح". attemptsUsed بيعدّ كل المحاولات (المعلّقة كمان) لأنها
+//     بتستهلك من maxAttempts فعلاً.
 
 import { connectToMongo } from "@/app/lib/mongodb";
 import {
   getCourseModel,
   getEnrollmentModel,
+  getLessonModel,
   getQuizModel,
   getQuizResultModel,
   getAssignmentModel,
   getSubmissionModel,
 } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+}
+
+function pushTo(map, key, value) {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key).push(value);
 }
 
 export async function GET() {
@@ -37,15 +51,20 @@ export async function GET() {
 
     const courseIds = enrollments.map((e) => e.course);
     const Course = getCourseModel();
+    const Lesson = getLessonModel();
     const Quiz = getQuizModel();
     const QuizResult = getQuizResultModel();
     const Assignment = getAssignmentModel();
     const Submission = getSubmissionModel();
 
-    const [courses, quizzes, quizResults, assignments, submissions] = await Promise.all([
+    const [courses, nonQuizLessons, quizzes, quizResults, assignments, submissions] = await Promise.all([
       Course.find({ _id: { $in: courseIds } }, "title").lean(),
+      Lesson.find({ course: { $in: courseIds }, type: { $ne: "quiz" } }, "course").lean(),
       Quiz.find({ course: { $in: courseIds }, isPublished: true }).lean(),
-      QuizResult.find({ student: session.user.id, course: { $in: courseIds } }).lean(),
+      QuizResult.find(
+        { student: session.user.id, course: { $in: courseIds } },
+        "quiz course scorePercent passed status"
+      ).lean(),
       Assignment.find({ course: { $in: courseIds }, isPublished: true }).lean(),
       Submission.find({ student: session.user.id }).lean(),
     ]);
@@ -53,31 +72,19 @@ export async function GET() {
     const courseById = Object.fromEntries(courses.map((c) => [c._id.toString(), c]));
     const enrollmentByCourse = Object.fromEntries(enrollments.map((e) => [e.course.toString(), e]));
 
-    const quizzesByCourse = new Map();
-    for (const q of quizzes) {
-      const key = q.course.toString();
-      if (!quizzesByCourse.has(key)) quizzesByCourse.set(key, []);
-      quizzesByCourse.get(key).push(q);
-    }
-    const assignmentsByCourse = new Map();
-    for (const a of assignments) {
-      const key = a.course.toString();
-      if (!assignmentsByCourse.has(key)) assignmentsByCourse.set(key, []);
-      assignmentsByCourse.get(key).push(a);
-    }
+    const lessonIdsByCourse = new Map();
+    for (const l of nonQuizLessons) pushTo(lessonIdsByCourse, l.course.toString(), l._id);
 
-    // أفضل نتيجة لكل كويز
-    const bestByQuiz = new Map();
-    for (const r of quizResults) {
-      const key = r.quiz.toString();
-      const existing = bestByQuiz.get(key);
-      if (!existing || r.scorePercent > existing.scorePercent) bestByQuiz.set(key, r);
-    }
-    const attemptsCountByQuiz = new Map();
-    for (const r of quizResults) {
-      const key = r.quiz.toString();
-      attemptsCountByQuiz.set(key, (attemptsCountByQuiz.get(key) || 0) + 1);
-    }
+    const quizzesByCourse = new Map();
+    for (const q of quizzes) pushTo(quizzesByCourse, q.course.toString(), q);
+
+    const assignmentsByCourse = new Map();
+    for (const a of assignments) pushTo(assignmentsByCourse, a.course.toString(), a);
+
+    // كل محاولات الطالب لكل كويز
+    const attemptsByQuiz = new Map();
+    for (const r of quizResults) pushTo(attemptsByQuiz, r.quiz.toString(), r);
+
     const submissionByAssignment = new Map(submissions.map((s) => [s.assignment.toString(), s]));
 
     const result = courseIds
@@ -87,17 +94,20 @@ export async function GET() {
         const course = courseById[cid];
         if (!course) return null;
         const enrollment = enrollmentByCourse[cid];
+        const publishedQuizzes = quizzesByCourse.get(cid) || [];
 
-        const courseQuizzes = (quizzesByCourse.get(cid) || []).map((q) => {
-          const best = bestByQuiz.get(q._id.toString());
+        const courseQuizzes = publishedQuizzes.map((q) => {
+          const attempts = attemptsByQuiz.get(q._id.toString()) || [];
+          const { best, hasPendingReview, attemptsCount } = pickBestQuizResult(attempts);
           return {
             quizId: q._id.toString(),
             title: q.title,
             maxAttempts: q.maxAttempts,
             passingScorePercent: q.passingScorePercent,
-            attemptsUsed: attemptsCountByQuiz.get(q._id.toString()) || 0,
+            attemptsUsed: attemptsCount,
             bestScorePercent: best ? best.scorePercent : null,
-            passed: best ? best.passed : null,
+            passed: best ? Boolean(best.passed) : null,
+            pendingReview: hasPendingReview,
           };
         });
 
@@ -115,11 +125,22 @@ export async function GET() {
           };
         });
 
+        // نسبة الإكمال حيّة: الكويز المنجوح = أي محاولة ناجحة (مش لازم الأفضل)
+        const passedQuizIds = publishedQuizzes
+          .filter((q) => (attemptsByQuiz.get(q._id.toString()) || []).some((r) => r.passed))
+          .map((q) => q._id);
+        const progress = computeProgress({
+          nonQuizLessonIds: lessonIdsByCourse.get(cid) || [],
+          publishedQuizIds: publishedQuizzes.map((q) => q._id),
+          completedLessonIds: enrollment?.completedLessons || [],
+          passedQuizIds,
+        });
+
         return {
           courseId: cid,
           courseTitle: course.title,
-          progressPercent: enrollment?.progressPercent || 0,
-          status: enrollment?.status || "active",
+          progressPercent: progress.progressPercent,
+          status: enrollment?.status === "cancelled" ? "cancelled" : progress.isComplete ? "completed" : "active",
           quizzes: courseQuizzes,
           assignments: courseAssignments,
         };

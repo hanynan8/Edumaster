@@ -14,6 +14,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -125,6 +126,9 @@ export async function POST(request) {
       maxAttempts: Number.isFinite(Number(body?.maxAttempts)) ? Math.max(1, Number(body.maxAttempts)) : 1,
       isPublished: Boolean(body?.isPublished),
     });
+
+    // ✅ كويز منشور جديد = عنصر إكمال جديد عند كل الطلاب
+    if (created.isPublished) await recomputeCourseProgress(courseId);
 
     return jsonResponse(serializeQuiz(created, { questionsCount: 0 }), 201);
   } catch (err) {

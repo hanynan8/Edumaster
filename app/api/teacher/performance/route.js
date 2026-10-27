@@ -11,18 +11,28 @@
 // GET /api/teacher/performance → صاحب السيشن (teacher) بيشوف كورساته هو
 //   بس. أدمن يقدر يمرر ?teacher=<id> عشان يشوف أداء مدرس معيّن (زي منطق
 //   ?teacher= الموجود في GET /api/courses أصلاً).
+//
+// قواعد الحساب (نفس قواعد /api/courses/[id]/performance — progressMath.js —
+// عشان الرقم يطلع واحد في الشاشتين):
+//   - الطلاب = التسجيلات غير الملغية بس (cancelled مش بتتعدّ ولا بتدخل في المتوسطات).
+//   - "مكتمل" بيتحسب حيًّا من الدروس/الكويزات الحالية، مش من enrollment.status المخزّنة.
+//   - متوسط الكويزات: أفضل نتيجة *متصححة* لكل (طالب، كويز) — المحاولات المعلّقة
+//     (pending_review) درجتها مؤقتة فبتتجاهل.
+//   - متوسط الواجبات: التسليمات المتصححة لطلاب الكورس الحاليين، بدرجة صالحة بس.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import {
   getCourseModel,
   getEnrollmentModel,
+  getLessonModel,
   getQuizModel,
   getQuizResultModel,
   getAssignmentModel,
   getSubmissionModel,
 } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -34,6 +44,11 @@ function jsonResponse(data, status = 200) {
 function average(nums) {
   if (nums.length === 0) return null;
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+function pushTo(map, key, value) {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key).push(value);
 }
 
 export async function GET(request) {
@@ -71,13 +86,16 @@ export async function GET(request) {
     const courseIds = courses.map((c) => c._id);
 
     const Enrollment = getEnrollmentModel();
+    const Lesson = getLessonModel();
     const Quiz = getQuizModel();
     const QuizResult = getQuizResultModel();
     const Assignment = getAssignmentModel();
     const Submission = getSubmissionModel();
 
-    const [enrollments, quizzes, assignments] = await Promise.all([
-      Enrollment.find({ course: { $in: courseIds } }, "course status").lean(),
+    const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
+      // 🔒 الملغي (cancelled) ملوش وصول للكورس → برّه كل الإحصائيات
+      Enrollment.find({ course: { $in: courseIds }, status: { $ne: "cancelled" } }, "course user completedLessons").lean(),
+      Lesson.find({ course: { $in: courseIds }, type: { $ne: "quiz" } }, "course").lean(),
       Quiz.find({ course: { $in: courseIds }, isPublished: true }, "course").lean(),
       Assignment.find({ course: { $in: courseIds }, isPublished: true }, "course maxScore").lean(),
     ]);
@@ -86,52 +104,77 @@ export async function GET(request) {
     const assignmentIds = assignments.map((a) => a._id);
 
     const [quizResults, submissions] = await Promise.all([
-      quizIds.length > 0 ? QuizResult.find({ quiz: { $in: quizIds } }, "course quiz student scorePercent").lean() : [],
+      quizIds.length > 0
+        ? QuizResult.find({ quiz: { $in: quizIds } }, "quiz student scorePercent passed status").lean()
+        : [],
       assignmentIds.length > 0
-        ? Submission.find({ assignment: { $in: assignmentIds }, status: "graded" }, "assignment score").lean()
+        ? Submission.find({ assignment: { $in: assignmentIds }, status: "graded" }, "assignment student score").lean()
         : [],
     ]);
 
-    // أفضل نتيجة لكل (طالب، كويز) — نفس منطق /api/courses/[id]/performance،
-    // عشان محاولات متكررة لنفس الكويز متأثّرش على المتوسط بالسلب.
-    const bestQuizResult = new Map();
-    for (const r of quizResults) {
-      const key = `${r.student.toString()}:${r.quiz.toString()}`;
-      const existing = bestQuizResult.get(key);
-      if (!existing || r.scorePercent > existing.scorePercent) bestQuizResult.set(key, r);
-    }
-
+    const courseOfQuiz = new Map(quizzes.map((q) => [q._id.toString(), q.course.toString()]));
     const assignmentById = Object.fromEntries(assignments.map((a) => [a._id.toString(), a]));
 
+    const lessonIdsByCourse = new Map();
+    for (const l of nonQuizLessons) pushTo(lessonIdsByCourse, l.course.toString(), l._id);
+    const quizIdsByCourse = new Map();
+    for (const q of quizzes) pushTo(quizIdsByCourse, q.course.toString(), q._id);
+
     const enrollmentsByCourse = new Map();
+    const enrolledKeys = new Set(); // `${courseId}:${studentId}`
     for (const e of enrollments) {
-      const key = e.course.toString();
-      if (!enrollmentsByCourse.has(key)) enrollmentsByCourse.set(key, []);
-      enrollmentsByCourse.get(key).push(e);
+      pushTo(enrollmentsByCourse, e.course.toString(), e);
+      enrolledKeys.add(`${e.course.toString()}:${e.user.toString()}`);
     }
 
+    // محاولات كل (كورس، طالب، كويز) — لطلاب الكورس الحاليين بس
+    const attemptsByKey = new Map(); // `${courseId}:${studentId}:${quizId}` → result[]
+    const passedQuizIdsByCourseStudent = new Map(); // `${courseId}:${studentId}` → quizId[]
+    for (const r of quizResults) {
+      const courseId = courseOfQuiz.get(r.quiz.toString());
+      if (!courseId) continue;
+      const studentId = r.student.toString();
+      if (!enrolledKeys.has(`${courseId}:${studentId}`)) continue;
+
+      pushTo(attemptsByKey, `${courseId}:${studentId}:${r.quiz.toString()}`, r);
+      if (r.passed) pushTo(passedQuizIdsByCourseStudent, `${courseId}:${studentId}`, r.quiz);
+    }
+
+    // أفضل نتيجة متصححة لكل (طالب، كويز) — محاولات متكررة متأثّرش على المتوسط
+    // بالسلب، والمعلّقة متدخلش المتوسط بدرجة مؤقتة.
     const quizScoresByCourse = new Map();
-    for (const r of bestQuizResult.values()) {
-      const key = r.course.toString();
-      if (!quizScoresByCourse.has(key)) quizScoresByCourse.set(key, []);
-      quizScoresByCourse.get(key).push(r.scorePercent);
+    for (const [key, attempts] of attemptsByKey) {
+      const { best } = pickBestQuizResult(attempts);
+      if (!best) continue;
+      pushTo(quizScoresByCourse, key.split(":")[0], best.scorePercent);
     }
 
     const assignmentScoresByCourse = new Map();
     for (const s of submissions) {
       const assignment = assignmentById[s.assignment.toString()];
       if (!assignment || !assignment.maxScore) continue;
-      const key = assignment.course.toString();
-      if (!assignmentScoresByCourse.has(key)) assignmentScoresByCourse.set(key, []);
-      assignmentScoresByCourse.get(key).push((s.score / assignment.maxScore) * 100);
+      const courseId = assignment.course.toString();
+      if (!enrolledKeys.has(`${courseId}:${s.student.toString()}`)) continue;
+      if (typeof s.score !== "number" || !Number.isFinite(s.score)) continue;
+      pushTo(assignmentScoresByCourse, courseId, (s.score / assignment.maxScore) * 100);
     }
 
     const rows = courses.map((c) => {
       const key = c._id.toString();
       const courseEnrollments = enrollmentsByCourse.get(key) || [];
-      const completedCount = courseEnrollments.filter((e) => e.status === "completed").length;
-      const completionRate =
+
+      const completedCount = courseEnrollments.filter((e) => {
+        return computeProgress({
+          nonQuizLessonIds: lessonIdsByCourse.get(key) || [],
+          publishedQuizIds: quizIdsByCourse.get(key) || [],
+          completedLessonIds: e.completedLessons || [],
+          passedQuizIds: passedQuizIdsByCourseStudent.get(`${key}:${e.user.toString()}`) || [],
+        }).isComplete;
+      }).length;
+      // 🔒 نفس قاعدة التقريب: 100% بس لو كل الطلاب خلّصوا فعلاً (199/200 → 99%)
+      let completionRate =
         courseEnrollments.length > 0 ? Math.round((completedCount / courseEnrollments.length) * 100) : 0;
+      if (completedCount < courseEnrollments.length && completionRate >= 100) completionRate = 99;
 
       const avgQuizScore = average(quizScoresByCourse.get(key) || []);
       const avgAssignmentScore = average(assignmentScoresByCourse.get(key) || []);

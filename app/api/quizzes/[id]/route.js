@@ -16,6 +16,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { serializeQuestion } from "@/app/lib/quizQuestionHelpers";
 
@@ -164,6 +165,8 @@ export async function PUT(request, { params }) {
     }
 
     await quiz.save();
+    // ✅ نشر/إلغاء نشر كويز بيغيّر عدّ عناصر الإكمال عند كل الطلاب
+    if (body?.isPublished !== undefined) await recomputeCourseProgress(course._id);
     return jsonResponse(serializeQuizMeta(quiz));
   } catch (err) {
     console.error("[/api/quizzes/[id]] PUT error:", err);
@@ -182,6 +185,7 @@ export async function DELETE(request, { params }) {
     if (auth.response) return auth.response;
     if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
+    const wasPublished = Boolean(quiz.isPublished);
     const Question = getQuestionModel();
     const QuizResult = getQuizResultModel();
     // 🔒 الحذف بيشيل معاه الأسئلة ونتائج الطلاب المرتبطة — منعًا لسجلات
@@ -191,6 +195,9 @@ export async function DELETE(request, { params }) {
       QuizResult.deleteMany({ quiz: quiz._id }),
       quiz.deleteOne(),
     ]);
+
+    // ✅ مسح كويز منشور بيشيله من إجمالي عناصر الإكمال عند كل الطلاب
+    if (wasPublished) await recomputeCourseProgress(course._id);
 
     return jsonResponse({ deleted: true });
   } catch (err) {

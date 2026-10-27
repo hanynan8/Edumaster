@@ -3,19 +3,28 @@
 // Phase 4 — اليوم 41: "صفحة أداء الطلاب للمدرس" — نظرة شاملة على كل طالب
 // مسجّل في الكورس: نسبة إكماله، نتايجه في كل كويز، ودرجاته في كل واجب.
 //
-// GET /api/courses/[id]/performance → صاحب الكورس أو أدمن بس.
+// GET /api/courses/[id]/performance → صاحب الكورس أو أدمن/موديريتور بس.
+//
+// قواعد الحساب (كلها في app/lib/progressMath.js عشان نفس الرقم يطلع في كل مكان):
+//   - نسبة الإكمال بتتحسب "حيّة" هنا من الدروس/الكويزات الحالية، مش بتتاخد من
+//     enrollment.progressPercent المخزّنة (اللي ممكن تكون قديمة لو المحتوى اتغيّر).
+//   - أفضل نتيجة كويز بتتجاهل المحاولات المعلّقة (pending_review)، وبتتبعت
+//     علامة pendingReview عشان الصفحة تعرض "قيد التصحيح".
+//   - التسجيلات الملغية (cancelled) مش بتظهر ومش بتتعدّ في عدد الطلاب.
 
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import {
   getCourseModel,
   getEnrollmentModel,
+  getLessonModel,
   getQuizModel,
   getQuizResultModel,
   getAssignmentModel,
   getSubmissionModel,
 } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,6 +35,11 @@ function jsonResponse(data, status = 200) {
 
 export async function GET(request, { params }) {
   try {
+    // 🔒 الـ session الأول: غير المسجّل ياخد 401 بغض النظر عن وجود الكورس،
+    // فمفيش تسريب لوجود/عدم وجود كورس بمعرّف معيّن.
+    const auth = await requireSession();
+    if (auth.response) return auth.response;
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) return jsonResponse({ error: "invalid_course" }, 400);
 
@@ -33,29 +47,32 @@ export async function GET(request, { params }) {
     const Course = getCourseModel();
     const course = await Course.findById(id).lean();
     if (!course) return jsonResponse({ error: "not_found" }, 404);
-
-    const auth = await requireSession();
-    if (auth.response) return auth.response;
     if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const Enrollment = getEnrollmentModel();
+    const Lesson = getLessonModel();
     const Quiz = getQuizModel();
     const QuizResult = getQuizResultModel();
     const Assignment = getAssignmentModel();
     const Submission = getSubmissionModel();
     const AuthModel = getAuthModel();
 
-    const [enrollments, quizzes, assignments] = await Promise.all([
-      Enrollment.find({ course: id }).sort({ createdAt: 1 }).lean(),
+    const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
+      // 🔒 الملغي (cancelled) ملوش وصول للكورس → مش بيظهر في أداء الطلاب
+      Enrollment.find({ course: id, status: { $ne: "cancelled" } }).sort({ createdAt: 1 }).lean(),
+      Lesson.find({ course: id, type: { $ne: "quiz" } }, "_id").lean(),
       Quiz.find({ course: id, isPublished: true }, "title").lean(),
       Assignment.find({ course: id, isPublished: true }, "title maxScore").lean(),
     ]);
 
+    const quizzesOut = quizzes.map((q) => ({ id: q._id.toString(), title: q.title }));
+    const assignmentsOut = assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore }));
+
     if (enrollments.length === 0) {
       return jsonResponse({
         courseTitle: course.title,
-        quizzes: quizzes.map((q) => ({ id: q._id.toString(), title: q.title })),
-        assignments: assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore })),
+        quizzes: quizzesOut,
+        assignments: assignmentsOut,
         students: [],
       });
     }
@@ -63,20 +80,37 @@ export async function GET(request, { params }) {
     const studentIds = enrollments.map((e) => e.user);
     const quizIds = quizzes.map((q) => q._id);
     const assignmentIds = assignments.map((a) => a._id);
+    const nonQuizLessonIds = nonQuizLessons.map((l) => l._id);
 
     const [students, quizResults, submissions] = await Promise.all([
       AuthModel.find({ _id: { $in: studentIds } }, "name email").lean(),
-      QuizResult.find({ course: id, quiz: { $in: quizIds } }).lean(),
-      Submission.find({ assignment: { $in: assignmentIds }, student: { $in: studentIds } }).lean(),
+      // projection خفيف: مش محتاجين answers/messages (ممكن تكون كبيرة)
+      quizIds.length > 0
+        ? QuizResult.find(
+            { course: id, quiz: { $in: quizIds }, student: { $in: studentIds } },
+            "student quiz scorePercent passed status"
+          ).lean()
+        : [],
+      assignmentIds.length > 0
+        ? Submission.find({ assignment: { $in: assignmentIds }, student: { $in: studentIds } }).lean()
+        : [],
     ]);
     const studentById = Object.fromEntries(students.map((s) => [s._id.toString(), s]));
 
-    // أفضل نتيجة لكل (طالب، كويز)
-    const bestQuizResult = new Map(); // key: `${studentId}:${quizId}` → result
+    // كل محاولات كل (طالب، كويز)
+    const attemptsByKey = new Map(); // `${studentId}:${quizId}` → result[]
+    // والكويزات اللي كل طالب نجح فيها (أي محاولة ناجحة) — لحساب التقدّم
+    const passedQuizIdsByStudent = new Map(); // studentId → quizId[]
     for (const r of quizResults) {
-      const key = `${r.student.toString()}:${r.quiz.toString()}`;
-      const existing = bestQuizResult.get(key);
-      if (!existing || r.scorePercent > existing.scorePercent) bestQuizResult.set(key, r);
+      const studentId = r.student.toString();
+      const key = `${studentId}:${r.quiz.toString()}`;
+      if (!attemptsByKey.has(key)) attemptsByKey.set(key, []);
+      attemptsByKey.get(key).push(r);
+
+      if (r.passed) {
+        if (!passedQuizIdsByStudent.has(studentId)) passedQuizIdsByStudent.set(studentId, []);
+        passedQuizIdsByStudent.get(studentId).push(r.quiz);
+      }
     }
 
     const submissionByKey = new Map(submissions.map((s) => [`${s.student.toString()}:${s.assignment.toString()}`, s]));
@@ -86,12 +120,14 @@ export async function GET(request, { params }) {
       const info = studentById[studentId];
 
       const quizResultsForStudent = quizzes.map((q) => {
-        const r = bestQuizResult.get(`${studentId}:${q._id.toString()}`);
+        const { best, hasPendingReview } = pickBestQuizResult(attemptsByKey.get(`${studentId}:${q._id.toString()}`) || []);
         return {
           quizId: q._id.toString(),
-          attempted: Boolean(r),
-          bestScorePercent: r ? r.scorePercent : null,
-          passed: r ? r.passed : null,
+          // "اتحاول" = فيه نتيجة متصححة أو محاولة مستنية تصحيح
+          attempted: Boolean(best) || hasPendingReview,
+          bestScorePercent: best ? best.scorePercent : null,
+          passed: best ? Boolean(best.passed) : null,
+          pendingReview: hasPendingReview,
         };
       });
 
@@ -105,24 +141,34 @@ export async function GET(request, { params }) {
         };
       });
 
+      const progress = computeProgress({
+        nonQuizLessonIds,
+        publishedQuizIds: quizIds,
+        completedLessonIds: e.completedLessons || [],
+        passedQuizIds: passedQuizIdsByStudent.get(studentId) || [],
+      });
+
       return {
         studentId,
         studentName: info?.name || "—",
         studentEmail: info?.email || "—",
-        progressPercent: e.progressPercent || 0,
-        status: e.status,
-        completedLessonsCount: (e.completedLessons || []).length,
+        progressPercent: progress.progressPercent,
+        // الحالة مشتقة من نفس الحساب الحي (مش من الحقل المخزّن اللي ممكن يكون قديم)
+        status: progress.isComplete ? "completed" : "active",
+        // عدد الدروس (غير-الكويز) اللي الطالب كمّلها فعلاً من دروس الكورس الحالية
+        completedLessonsCount: progress.completedLessonItems,
         quizResults: quizResultsForStudent,
         assignmentGrades: assignmentGradesForStudent,
       };
     });
 
-    rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    // ترتيب أبجدي عربي/إنجليزي ثابت (من غير ما يعتمد على لغة السيرفر)
+    rows.sort((a, b) => a.studentName.localeCompare(b.studentName, "ar"));
 
     return jsonResponse({
       courseTitle: course.title,
-      quizzes: quizzes.map((q) => ({ id: q._id.toString(), title: q.title })),
-      assignments: assignments.map((a) => ({ id: a._id.toString(), title: a.title, maxScore: a.maxScore })),
+      quizzes: quizzesOut,
+      assignments: assignmentsOut,
       students: rows,
     });
   } catch (err) {

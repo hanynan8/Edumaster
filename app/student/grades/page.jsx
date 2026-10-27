@@ -38,6 +38,7 @@ const STRINGS = {
     passed: "ناجح",
     failed: "راسب",
     notAttempted: "لم يتم حلّه بعد",
+    pendingReview: "قيد التصحيح",
     solve: "حل الاختبار",
     review: "مراجعة",
     submitted: "مُسلَّم",
@@ -69,6 +70,7 @@ const STRINGS = {
     passed: "Passed",
     failed: "Failed",
     notAttempted: "Not attempted yet",
+    pendingReview: "Pending review",
     solve: "Take quiz",
     review: "Review",
     submitted: "Submitted",
@@ -155,7 +157,14 @@ export default function StudentGradesPage() {
             quiz: q.title,
             attempts: `${q.attemptsUsed}/${q.maxAttempts}`,
             score: q.bestScorePercent !== null ? `${q.bestScorePercent}%` : "—",
-            result: q.bestScorePercent === null ? "Not attempted" : q.passed ? "Passed" : "Failed",
+            result:
+              q.bestScorePercent !== null
+                ? q.passed
+                  ? "Passed"
+                  : "Failed"
+                : q.pendingReview
+                  ? "Pending review"
+                  : "Not attempted",
           });
           const isEven = quizRowIdx % 2 === 0;
           row.eachCell((cell) => {
@@ -300,14 +309,19 @@ export default function StudentGradesPage() {
                                 {q.passed ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                 {q.bestScorePercent}% · {q.passed ? t.passed : t.failed}
                               </span>
-                            ) : (
+                            ) : q.pendingReview ? null : (
                               <span className="text-xs text-gray-400">{t.notAttempted}</span>
+                            )}
+                            {q.pendingReview && (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-600">
+                                {t.pendingReview}
+                              </span>
                             )}
                             <Link
                               href={`/student/quizzes/${q.quizId}`}
                               className="text-xs font-semibold text-[#003A91] hover:underline"
                             >
-                              {q.bestScorePercent !== null ? t.review : t.solve}
+                              {q.attemptsUsed > 0 ? t.review : t.solve}
                             </Link>
                           </div>
                         </div>

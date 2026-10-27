@@ -15,9 +15,9 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getLessonModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
-import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,7 +26,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
+const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
 // 🔒 Day 62: بيتنادى بس بعد ما GET/PUT يتأكدوا إن اللي طالب فعلاً عنده
@@ -137,17 +137,10 @@ export async function PUT(request, { params }) {
     if (body.isPreview !== undefined) lesson.isPreview = Boolean(body.isPreview);
     if (body.order !== undefined && Number.isFinite(body.order)) lesson.order = body.order;
 
-    // 🆕 درس صوتي: لو النوع أو الرابط اتغيّر، نتحقق من الرابط (ملف Bunny Storage
-    // بتاعنا) ونخزّن النسخة الأصلية من غير توكن التوقيع. (قبل lesson.save —
-    // لو فشل الفحص مفيش أي حاجة اتحفظت.)
-    if (lesson.type === "audio" && (body.fileUrl !== undefined || body.type !== undefined)) {
-      const audio = sanitizeLessonAudioUrl(lesson.fileUrl);
-      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
-      lesson.fileUrl = audio.url;
-    }
-
     await lesson.save();
     await recomputeCourseTotals(course._id);
+    // ✅ تغيير نوع الدرس (من/إلى quiz) بيغيّر عدّ عناصر الإكمال
+    if (body.type !== undefined) await recomputeCourseProgress(course._id);
 
     return jsonResponse(serializeLesson(lesson));
   } catch (err) {
@@ -171,6 +164,8 @@ export async function DELETE(request, { params }) {
 
     await lesson.deleteOne();
     await recomputeCourseTotals(course._id);
+    // ✅ مسح درس بيغيّر إجمالي عناصر الإكمال → نسب كل الطلاب تتحدّث
+    await recomputeCourseProgress(course._id);
 
     return jsonResponse({ success: true });
   } catch (err) {

@@ -1,19 +1,20 @@
 // app/api/admin/placement-tests/import/route.js
 //
 // POST (multipart/form-data) — رفع ملف Excel لاختبار تحديد مستوى مخصص (أدمن بس).
-//   file     : ملف .xlsx (بالشكل اللي في القالب)
+//   file     : ملف .pdf أو .txt (الصيغة الثابتة — placementTestPdfParser.js) أو .xlsx (القالب القديم)
 //   mode     : "preview" (الافتراضي) → بيقرا الملف ويرجّع المعاينة والأخطاء من غير ما يحفظ حاجة
 //              "save"                → بيقرا ويتحقق ويحفظ الاختبار (لو فيه أخطاء مبيحفظش)
 //   status   : "published" | "draft" (للاختبار الجديد بس — الافتراضي published)
 //   expectId : (اختياري) لو بتحدّث اختبار موجود: الـ Test ID اللي جوه الملف لازم يطابقه (بيمنع الكتابة فوق اختبار غلط)
 //
-// الرد: { ok, errors, warnings, summary, exists, saved?, created? } — الأخطاء { sheet, row, en, ar }.
+// الرد: { ok, errors, warnings, summary, exists, saved?, created?, format } — الأخطاء { sheet, row, en, ar } (+ line/excerpt للـ PDF/TXT).
 // 🔒 مفتاح الإجابات مبيرجعش في الرد.
 
 import { connectToMongo } from "@/app/lib/mongodb";
 import { requireRole } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { parsePlacementTestWorkbook } from "@/app/lib/placementTestImport";
+import { parsePlacementTestPdf, parsePlacementTestText } from "@/app/lib/placementTestPdfParser";
 import { saveCustomTest, getCustomTestDoc, countQuestions } from "@/app/lib/customPlacementTests";
 import { logAudit } from "@/app/lib/auditLog";
 
@@ -45,12 +46,16 @@ export async function POST(request) {
     if (file.size > MAX_BYTES) return jsonResponse({ error: "file_too_large", maxBytes: MAX_BYTES }, 400);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // .xlsx = ملف zip → لازم يبدأ بـ "PK"
-    if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+    // نوع الملف من محتواه: .xlsx = zip ("PK") · .pdf = "%PDF" · .txt = نص عادي (بس لو اسم الملف .txt)
+    let kind = null;
+    if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b) kind = "xlsx";
+    else if (buffer.length >= 5 && buffer.subarray(0, 5).toString("latin1") === "%PDF-") kind = "pdf";
+    else if (/\.(txt|text)$/i.test(String(file.name || ""))) kind = "txt";
+    if (!kind) {
       return jsonResponse(
         {
           ok: false,
-          errors: [{ sheet: "File", row: null, en: "This is not an .xlsx file. Save it as Excel Workbook (.xlsx).", ar: "الملف مش .xlsx. احفظه كـ Excel Workbook (.xlsx)." }],
+          errors: [{ sheet: "File", row: null, en: "Unsupported file. Upload a text PDF (or .txt) in the fixed format, or the Excel template (.xlsx).", ar: "نوع الملف مش مدعوم. ارفع PDF نصّي (أو .txt) بالصيغة الثابتة، أو قالب Excel (.xlsx)." }],
           warnings: [],
         },
         400
@@ -61,9 +66,14 @@ export async function POST(request) {
     const status = form.get("status") === "draft" ? "draft" : "published";
     const expectId = String(form.get("expectId") || "").toLowerCase().trim();
 
-    const parsed = await parsePlacementTestWorkbook(buffer);
+    const parsed =
+      kind === "pdf"
+        ? await parsePlacementTestPdf(buffer)
+        : kind === "txt"
+          ? await parsePlacementTestText(buffer.toString("utf8"))
+          : await parsePlacementTestWorkbook(buffer);
     const { errors, warnings } = parsed;
-    if (!parsed.ok) return jsonResponse({ ok: false, errors, warnings }, 200);
+    if (!parsed.ok) return jsonResponse({ ok: false, errors, warnings, format: kind }, 200);
 
     const t = parsed.test;
     if (expectId && t.id !== expectId) {
@@ -73,7 +83,7 @@ export async function POST(request) {
         en: `This file's Test ID is "${t.id}" but you are updating "${expectId}". Change Test ID in the file or use the "New test" upload.`,
         ar: `الـ Test ID في الملف "${t.id}" بس إنت بتحدّث "${expectId}". غيّر الـ Test ID في الملف أو ارفعه كاختبار جديد.`,
       });
-      return jsonResponse({ ok: false, errors, warnings }, 200);
+      return jsonResponse({ ok: false, errors, warnings, format: kind }, 200);
     }
 
     await connectToMongo();
@@ -99,7 +109,7 @@ export async function POST(request) {
     const exists = Boolean(existing);
 
     if (mode === "preview") {
-      return jsonResponse({ ok: true, errors, warnings, summary, exists, existingStatus: existing?.status || null });
+      return jsonResponse({ ok: true, errors, warnings, summary, exists, existingStatus: existing?.status || null, format: kind });
     }
 
     // save: لو الاختبار موجود ومش بنحدّثه صراحةً (expectId) → بنسمح بالتحديث بس لو الأدمن اتأكد في الواجهة (expectId)
@@ -121,10 +131,10 @@ export async function POST(request) {
       actor: auth.session.user,
       action: saved.created ? "placement_test.created" : "placement_test.updated",
       targetId: t.id,
-      details: { questions: countQuestions(t.parts), status: saved.status },
+      details: { questions: countQuestions(t.parts), status: saved.status, format: kind },
     });
 
-    return jsonResponse({ ok: true, errors, warnings, summary, saved: true, created: saved.created, status: saved.status });
+    return jsonResponse({ ok: true, errors, warnings, summary, saved: true, created: saved.created, status: saved.status, format: kind });
   } catch (err) {
     console.error("[/api/admin/placement-tests/import] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

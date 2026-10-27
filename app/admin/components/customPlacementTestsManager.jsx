@@ -3,8 +3,8 @@
 // app/admin/components/customPlacementTestsManager.jsx
 //
 // 🆕 تبويب "Manage tests" في لوحة اختبارات تحديد المستوى — الأدمن (من غير برمجة) يقدر:
-//   1) ينزّل قالب Excel جاهز (شيتات Settings / Questions / Bank / Audio + README بالعربي).
-//   2) يرفع ملفه → معاينة الأخطاء برقم الصف (بالعربي والإنجليزي) → حفظ لو مفيش أخطاء.
+//   1) ينزّل قالب PDF (أو TXT) بالصيغة الثابتة — أو قالب Excel القديم.
+//   2) يرفع ملفه (PDF / TXT / XLSX) → معاينة الأخطاء برقم السطر/الصف (بالعربي والإنجليزي) → حفظ لو مفيش أخطاء.
 //   3) يشوف قايمة الاختبارات المخصصة: نشر / إخفاء، تحديث من ملف، تصدير الاختبار كـ Excel، حذف (أرشفة لو ليه نتايج).
 //   4) يختار الكورسات اللي زرار "اختبر مستواك" بتاع الاختبار يظهر عليها.
 //   5) يروح لتبويب الاختبار نفسه لرفع صوتياته ومشاهدة نتايج الطلاب.
@@ -94,7 +94,7 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
         <input
           ref={input}
           type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept=".pdf,.txt,.xlsx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
           onChange={(e) => pick(e.target.files?.[0])}
         />
@@ -104,7 +104,7 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
           className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
         >
           {busy ? <Loader className="animate-spin" size={13} /> : <Upload size={13} />}
-          {file ? 'Choose another file' : expectId ? `Choose the updated file for "${expectId}"` : 'Choose the Excel file (.xlsx)'}
+          {file ? 'Choose another file' : expectId ? `Choose the updated file for "${expectId}"` : 'Choose the file (PDF / TXT / Excel)'}
         </button>
         {!expectId && (
           <select
@@ -140,8 +140,9 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
             {(result.errors || []).map((e, i) => (
               <li key={i} className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs">
                 <span className="font-bold text-red-700" dir="ltr">
-                  {e.sheet}{e.row ? ` · row ${e.row}` : ''}
+                  {e.line ? `PDF · line ${e.line}` : `${e.sheet}${e.row ? ` · row ${e.row}` : ''}`}
                 </span>
+                {e.excerpt && <code className="block mt-0.5 text-[11px] text-gray-500 truncate" dir="auto">{e.excerpt}</code>}
                 <p className="text-gray-800 mt-0.5" dir="rtl">{e.ar}</p>
                 <p className="text-gray-500" dir="ltr">{e.en}</p>
               </li>
@@ -156,7 +157,7 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
           <ul className="max-h-40 overflow-y-auto space-y-1">
             {result.warnings.map((w, i) => (
               <li key={i} className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-1.5 text-xs text-gray-700">
-                <span className="font-bold text-amber-700" dir="ltr">{w.sheet}{w.row ? ` · row ${w.row}` : ''}</span> — {w.ar}
+                <span className="font-bold text-amber-700" dir="ltr">{w.line ? `PDF · line ${w.line}` : `${w.sheet}${w.row ? ` · row ${w.row}` : ''}`}</span> — {w.ar}
               </li>
             ))}
           </ul>
@@ -360,6 +361,9 @@ function TestCard({ test, busy, onStatus, onDelete, onOpenTest, onChanged, setNo
           <button onClick={() => setPanel(panel === 'update' ? null : 'update')} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
             <RefreshCw size={13} /> Update from file
           </button>
+          <a href={`/api/admin/placement-tests/custom/export?id=${encodeURIComponent(test.id)}&format=pdf`} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
+            <Download size={13} /> PDF
+          </a>
           <a href={`/api/admin/placement-tests/custom/export?id=${encodeURIComponent(test.id)}`} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
             <Download size={13} /> Excel
           </a>
@@ -473,20 +477,34 @@ export default function CustomPlacementTestsManager({ tests, onChanged, onOpenTe
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FileSpreadsheet className="text-indigo-600" size={18} />
-              <h3 className="text-sm font-semibold text-gray-800">Add a new level test (B1, B2, …) from Excel</h3>
+              <h3 className="text-sm font-semibold text-gray-800">Add a new level test (B1, B2, …) from a PDF</h3>
             </div>
             <ol className="text-xs text-gray-500 space-y-0.5 list-decimal ps-4">
-              <li>نزّل القالب واملاه بأسئلتك (فيه شيت README بالعربي بيشرح كل حاجة).</li>
-              <li>ارفع الملف — هتشوف معاينة وأي أخطاء برقم الصف قبل الحفظ.</li>
+              <li>نزّل قالب الـ PDF (فيه شرح الصيغة ومثال)، اكتب أسئلتك في Word بنفس الصيغة وصدّرها PDF نصّي. أماكن الأوديو بتتحدد بعلامة [AUDIO] جوه الملف.</li>
+              <li>ارفع الملف — هتشوف معاينة وأي أخطاء برقم السطر قبل الحفظ.</li>
               <li>بعد الحفظ: ارفع التسجيلات الصوتية، واختار الكورسات اللي هيظهر عليها الاختبار، وانشره.</li>
             </ol>
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="/api/admin/placement-tests/template"
+              href="/api/admin/placement-tests/template?format=pdf"
               className="inline-flex items-center gap-1.5 border border-indigo-200 text-indigo-700 text-xs font-semibold px-3 py-2 rounded-lg hover:bg-indigo-50"
             >
-              <Download size={13} /> Download template
+              <Download size={13} /> PDF template
+            </a>
+            <a
+              href="/api/admin/placement-tests/template?format=txt"
+              className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-semibold px-2.5 py-2 rounded-lg hover:bg-gray-50"
+              title="Plain text — copy into Word / Google Docs"
+            >
+              TXT
+            </a>
+            <a
+              href="/api/admin/placement-tests/template?format=xlsx"
+              className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-semibold px-2.5 py-2 rounded-lg hover:bg-gray-50"
+              title="Old Excel template"
+            >
+              Excel
             </a>
             <button
               onClick={() => setShowNew((v) => !v)}

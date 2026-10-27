@@ -22,13 +22,12 @@ const nextConfig = {
   //   فاضلين).
   // - serverExternalPackages: مكتبات PDF/Excel التقيلة تفضل خارج bundle السيرفر
   //   (cold start أسرع وبناء أخف).
-  experimental: {
-    staleTimes: { dynamic: 180, static: 600 },
-    optimizePackageImports: ["lucide-react"],
-    // انتقال سلس بين الصفحات باستخدام View Transitions API (المتصفحات اللي
-    // مش بتدعمها بتتجاهلها تلقائيًا).
-    viewTransition: true,
-  },
+experimental: {
+  staleTimes: { dynamic: 180, static: 600 },
+  optimizePackageImports: ["lucide-react"],
+  cpus: 1,
+  workerThreads: false,
+},
   compiler: {
     removeConsole: { exclude: ["error", "warn"] },
   },

@@ -5,10 +5,12 @@
 //   mode     : "preview" (الافتراضي) → بيقرا الملف ويرجّع المعاينة والأخطاء من غير ما يحفظ حاجة
 //              "save"                → بيقرا ويتحقق ويحفظ الاختبار (لو فيه أخطاء مبيحفظش)
 //   status   : "published" | "draft" (للاختبار الجديد بس — الافتراضي published)
+//   edits    : (اختياري، mode=save بس) JSON بتعديلات الأدمن على الأسئلة بعد المراجعة { [رقم السؤال]: { q, ctx, options, correct } } —
+//              بتتطبّق فوق الملف المقروء وبتتحقق بنفس الحدود (placementTestEdits.js)، ولو فيها خطأ مفيش حاجة بتتحفظ.
 //   expectId : (اختياري) لو بتحدّث اختبار موجود: الـ Test ID اللي جوه الملف لازم يطابقه (بيمنع الكتابة فوق اختبار غلط)
 //
 // الرد: { ok, errors, warnings, summary, exists, saved?, created?, format } — الأخطاء { sheet, row, en, ar } (+ line/excerpt للـ PDF/TXT).
-// 🔒 مفتاح الإجابات مبيرجعش في الرد.
+// 🔒 في mode=save مفيش إجابات بترجع. في mode=preview (أدمن بس) بيرجع "review" لمراجعة الأسئلة والإجابات الصحيحة قبل النشر.
 
 import { connectToMongo } from "@/app/lib/mongodb";
 import { requireRole } from "@/app/lib/rbac";
@@ -16,6 +18,7 @@ import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { parsePlacementTestWorkbook } from "@/app/lib/placementTestImport";
 import { parsePlacementTestPdf, parsePlacementTestText } from "@/app/lib/placementTestPdfParser";
 import { saveCustomTest, getCustomTestDoc, countQuestions } from "@/app/lib/customPlacementTests";
+import { applyReviewEdits } from "@/app/lib/placementTestEdits";
 import { logAudit } from "@/app/lib/auditLog";
 
 function jsonResponse(data, status = 200) {
@@ -95,7 +98,8 @@ export async function POST(request) {
       subject: t.subject,
       ...parsed.stats,
       audio: t.audioSlots.map(({ slot, label, hint }) => ({ slot, label, hint })),
-      parts: t.parts.map((p) => ({
+      // ملاحظة: parts/tasks في stats أرقام (عدد) — التفاصيل في partList عشان ما نكتبش فوق العدد
+      partList: t.parts.map((p) => ({
         title: p.title,
         minutes: p.minutes,
         tasks: p.tasks.map((k) => ({
@@ -109,7 +113,29 @@ export async function POST(request) {
     const exists = Boolean(existing);
 
     if (mode === "preview") {
-      return jsonResponse({ ok: true, errors, warnings, summary, exists, existingStatus: existing?.status || null, format: kind });
+      // 🔍 مراجعة الأسئلة قبل النشر (أدمن بس): نص السؤال + الخيارات + الإجابة الصحيحة.
+      // الإجابة الصحيحة بترجع هنا بمفتاح "correct" (index الخيار) — مش بمفتاح answerKey، ومش بترجع للطلاب خالص.
+      const review = t.parts.map((p) => ({
+        title: p.title,
+        minutes: p.minutes,
+        tasks: p.tasks.map((k) => ({
+          title: k.title,
+          intro: k.intro || "",
+          passage: k.passage || "",
+          audio: k.audioSlot ?? null,
+          bank: k.bank || null,
+          questions: k.questions.map((q) => ({
+            n: q.n,
+            ln: q.ln,
+            q: q.q,
+            ctx: q.ctx || "",
+            options: q.o,
+            correct: t.answerKey?.[q.n]?.a ?? null,
+            audio: q.audioSlot ?? null,
+          })),
+        })),
+      }));
+      return jsonResponse({ ok: true, errors, warnings, summary, review, exists, existingStatus: existing?.status || null, format: kind });
     }
 
     // save: لو الاختبار موجود ومش بنحدّثه صراحةً (expectId) → بنسمح بالتحديث بس لو الأدمن اتأكد في الواجهة (expectId)
@@ -123,6 +149,22 @@ export async function POST(request) {
         200
       );
     }
+
+    // ✏️ تعديلات الأدمن من شاشة المراجعة (لو فيه)
+    let editedCount = 0;
+    const rawEdits = form.get("edits");
+    if (typeof rawEdits === "string" && rawEdits.trim()) {
+      let edits = null;
+      try {
+        edits = rawEdits.length <= 2 * 1024 * 1024 ? JSON.parse(rawEdits) : null;
+      } catch {
+        edits = null;
+      }
+      const applied = edits ? applyReviewEdits(t, edits) : { ok: false, errors: [{ sheet: "Review", row: null, en: "Invalid edits payload.", ar: "صيغة التعديلات غير صحيحة." }] };
+      if (!applied.ok) return jsonResponse({ ok: false, errors: applied.errors, warnings, edits: true }, 200);
+      editedCount = applied.count;
+    }
+
     const saved = await saveCustomTest(t, { mode: expectId ? "update" : "create", status });
     if (saved.error) return jsonResponse({ ok: false, errors: [{ sheet: "Settings", row: null, en: `Could not save (${saved.error}).`, ar: `تعذّر الحفظ (${saved.error}).` }], warnings }, 200);
 
@@ -131,10 +173,10 @@ export async function POST(request) {
       actor: auth.session.user,
       action: saved.created ? "placement_test.created" : "placement_test.updated",
       targetId: t.id,
-      details: { questions: countQuestions(t.parts), status: saved.status, format: kind },
+      details: { questions: countQuestions(t.parts), status: saved.status, format: kind, editedQuestions: editedCount },
     });
 
-    return jsonResponse({ ok: true, errors, warnings, summary, saved: true, created: saved.created, status: saved.status, format: kind });
+    return jsonResponse({ ok: true, errors, warnings, summary, saved: true, created: saved.created, status: saved.status, format: kind, editedQuestions: editedCount });
   } catch (err) {
     console.error("[/api/admin/placement-tests/import] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

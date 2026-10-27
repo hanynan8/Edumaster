@@ -54,6 +54,20 @@ describe("POST /api/admin/placement-tests/import", () => {
     expect(mockSave).not.toHaveBeenCalled();
   });
 
+  it("PDF: المعاينة بترجّع review فيه الأسئلة والإجابات الصحيحة، و mode=save مبيرجّعوش", async () => {
+    const pdf = await buildSampleTemplatePdf();
+    const data = await (await POST(uploadReq(pdf, "t.pdf"))).json();
+    const questions = data.review.flatMap((p) => p.tasks.flatMap((k) => k.questions));
+    expect(questions).toHaveLength(11);
+    for (const q of questions) {
+      expect(typeof q.q).toBe("string");
+      expect(Number.isInteger(q.correct)).toBe(true);
+      expect(q.correct).toBeLessThan(q.options.length);
+    }
+    const saved = await (await POST(uploadReq(pdf, "t.pdf", { mode: "save" }))).json();
+    expect(saved.review).toBeUndefined();
+  });
+
   it("PDF: mode=save بيحفظ الاختبار", async () => {
     const res = await POST(uploadReq(await buildSampleTemplatePdf(), "t.pdf", { mode: "save", status: "draft" }));
     const data = await res.json();
@@ -61,6 +75,30 @@ describe("POST /api/admin/placement-tests/import", () => {
     const [test, opts] = mockSave.mock.calls[0];
     expect(test.id).toBe("sample-b1");
     expect(opts).toEqual({ mode: "create", status: "draft" });
+  });
+
+  it("mode=save مع edits: التعديلات بتتطبّق قبل الحفظ", async () => {
+    const pdf = await buildSampleTemplatePdf();
+    const preview = await (await POST(uploadReq(pdf, "t.pdf"))).json();
+    const first = preview.review[0].tasks.find((k) => !k.bank).questions[0];
+    const edits = { [first.n]: { q: "Edited question?", options: ["x", "y"], correct: 1 } };
+    const res = await POST(uploadReq(pdf, "t.pdf", { mode: "save", edits: JSON.stringify(edits) }));
+    const data = await res.json();
+    expect(data).toMatchObject({ ok: true, saved: true, editedQuestions: 1 });
+    const [test] = mockSave.mock.calls[0];
+    const saved = test.parts.flatMap((p) => p.tasks.flatMap((k) => k.questions)).find((q) => q.n === first.n);
+    expect(saved.q).toBe("Edited question?");
+    expect(saved.o).toEqual(["x", "y"]);
+    expect(test.answerKey[first.n].a).toBe(1);
+  });
+
+  it("mode=save مع edits غير سليمة: بيرفض ومبيحفظش حاجة", async () => {
+    const pdf = await buildSampleTemplatePdf();
+    const res = await POST(uploadReq(pdf, "t.pdf", { mode: "save", edits: JSON.stringify({ 1: { q: "" } }) }));
+    const data = await res.json();
+    expect(data).toMatchObject({ ok: false, edits: true });
+    expect(data.errors).toHaveLength(1);
+    expect(mockSave).not.toHaveBeenCalled();
   });
 
   it("TXT بيتقري كمان، وأخطاؤه برقم السطر", async () => {

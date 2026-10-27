@@ -1,0 +1,46 @@
+From bb161c10311c24a7cb4f08630f5ebb9fbd9620b9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 28 Oct 2026 02:34:21 +0300
+Subject: [PATCH] Fix React child error in placement test import preview
+
+summary.parts (a count from stats) was being overwritten by the detailed
+parts array, so the UI rendered an array of objects as a React child.
+Rename the detailed array to partList and update the UI to use it.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01M5ovApmXiMwLLizrjsPGkJ
+---
+ app/admin/components/customPlacementTestsManager.jsx | 2 +-
+ app/api/admin/placement-tests/import/route.js        | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/app/admin/components/customPlacementTestsManager.jsx b/app/admin/components/customPlacementTestsManager.jsx
+index faf7c9b..8ffd8a8 100644
+--- a/app/admin/components/customPlacementTestsManager.jsx
++++ b/app/admin/components/customPlacementTestsManager.jsx
+@@ -178,7 +178,7 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
+             {s.matchingTasks ? ` (${s.matchingTasks} matching)` : ''} · {s.audioSlots} audio recording{s.audioSlots === 1 ? '' : 's'}
+           </p>
+           <ul className="mt-2 space-y-0.5 text-xs text-gray-600">
+-            {s.parts.map((p, i) => (
++            {(s.partList || []).map((p, i) => (
+               <li key={i}>
+                 <span className="font-semibold">{p.title}</span> ({p.minutes} min):{' '}
+                 {p.tasks.map((k) => `${k.title} · ${k.questions}Q${k.matching ? ' · matching' : ''}${k.audio ? ` · 🎧 ${k.audio === 'per-question' ? 'per question' : `#${k.audio}`}` : ''}`).join('  |  ')}
+diff --git a/app/api/admin/placement-tests/import/route.js b/app/api/admin/placement-tests/import/route.js
+index 21d6096..c5aaf21 100644
+--- a/app/api/admin/placement-tests/import/route.js
++++ b/app/api/admin/placement-tests/import/route.js
+@@ -95,7 +95,8 @@ export async function POST(request) {
+       subject: t.subject,
+       ...parsed.stats,
+       audio: t.audioSlots.map(({ slot, label, hint }) => ({ slot, label, hint })),
+-      parts: t.parts.map((p) => ({
++      // ملاحظة: parts/tasks في stats أرقام (عدد) — التفاصيل في partList عشان ما نكتبش فوق العدد
++      partList: t.parts.map((p) => ({
+         title: p.title,
+         minutes: p.minutes,
+         tasks: p.tasks.map((k) => ({
+-- 
+2.43.0
+

@@ -74,10 +74,16 @@ async function loadCourseAndCheckAccess(courseId) {
     // 🔒 لو صاحب الكورس أصلاً، مفيش داعي نفحص enrollment/membership (وهو
     // مش enrolled فيه عمليًا لأن /api/enrollments بيرفض تسجيل صاحب الكورس
     // في كورسه هو)
-    const hasAccess =
-      !canManage && !auth.response
-        ? (await getCourseAccessForUser({ userId: auth.session.user.id, courseId })).hasAccess
-        : false;
+    // 🩹 FIX: فشل فحص الوصول (membership/enrollment بايظ) ميوقّعش الـ endpoint
+    // كله — بنعامله كـ "مفيش وصول" بدل 500.
+    let hasAccess = false;
+    if (!canManage && !auth.response) {
+      try {
+        hasAccess = (await getCourseAccessForUser({ userId: auth.session.user.id, courseId })).hasAccess;
+      } catch (accessErr) {
+        console.error("[/api/courses/[id]/sections] access check failed:", accessErr?.message);
+      }
+    }
     return { course, canManage, hasAccess };
   }
 
@@ -107,9 +113,16 @@ export async function GET(request, { params }) {
     const revealProtectedContent = canManage || hasAccess;
     const lessonsBySection = new Map();
     for (const lesson of lessons) {
-      const key = lesson.section.toString();
-      if (!lessonsBySection.has(key)) lessonsBySection.set(key, []);
-      lessonsBySection.get(key).push(serializeLesson(lesson, { revealProtectedContent }));
+      // 🩹 FIX: درس يتيم (من غير section) أو بيانات قديمة بايظة كانت بترمي
+      // exception وتوقع الـ endpoint كله (500) — دلوقتي بنتخطّى الدرس المعيوب.
+      try {
+        if (!lesson.section) continue;
+        const key = lesson.section.toString();
+        if (!lessonsBySection.has(key)) lessonsBySection.set(key, []);
+        lessonsBySection.get(key).push(serializeLesson(lesson, { revealProtectedContent }));
+      } catch (lessonErr) {
+        console.error("[/api/courses/[id]/sections] skipped bad lesson:", lesson?._id, lessonErr?.message);
+      }
     }
 
     return jsonResponse(

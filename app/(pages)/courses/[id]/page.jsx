@@ -22,6 +22,7 @@
 "use client";
 
 import { useEffect, useRef, useState, use as usePromise } from "react";
+import { loadCoursePageData } from "@/app/lib/loadCoursePage";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -417,31 +418,20 @@ function RealCourseDetail({ id }) {
   // (progressPercent)، شوف app/lib/progressHelpers.js.
   const [markingLessonId, setMarkingLessonId] = useState(null);
 
+  // 🩹 FIX (Couldn't load this course): الكورس بس هو الطلب الأساسي (مع إعادة
+  // محاولة)، والأقسام/الكويزات/الواجبات اختيارية — شوف app/lib/loadCoursePage.js.
   async function loadAll() {
     try {
-      const [courseRes, sectionsRes, quizzesRes, assignmentsRes] = await Promise.all([
-        fetch(`/api/courses/${id}`),
-        fetch(`/api/courses/${id}/sections`),
-        fetch(`/api/quizzes?course=${id}`),
-        fetch(`/api/assignments?course=${id}`),
-      ]);
-      if (courseRes.status === 404) {
+      const data = await loadCoursePageData(id);
+      if (data.notFound) {
         setNotFound(true);
         return;
       }
-      const courseData = await courseRes.json();
-      const sectionsData = await sectionsRes.json();
-      if (!courseRes.ok) throw new Error(courseData?.error || "error");
-      setCourse(courseData);
-      setSections(Array.isArray(sectionsData) ? sectionsData : []);
-      if (quizzesRes.ok) {
-        const quizzesData = await quizzesRes.json();
-        setQuizzes(quizzesData.quizzes || []);
-      }
-      if (assignmentsRes.ok) {
-        const assignmentsData = await assignmentsRes.json();
-        setAssignments(assignmentsData.assignments || []);
-      }
+      setError("");
+      setCourse(data.course);
+      setSections(data.sections);
+      setQuizzes(data.quizzes);
+      setAssignments(data.assignments);
     } catch {
       setError(t.error);
     }

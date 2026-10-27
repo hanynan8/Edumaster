@@ -126,11 +126,18 @@ async function loadCourse(id) {
   const course = await findCourseFlexible(id);
   if (!course) return null;
   getCategoryModel();
-  return course.populate([
-    { path: "category", select: "name slug i18n" },
-    { path: "subcategory", select: "name slug i18n parent" },
-    { path: "teacher", select: "name" },
-  ]);
+  // 🩹 FIX: لو الـ populate فشل (تصنيف/مدرّس اتحذف أو id بايظ في كورس قديم)
+  // منرميش 500 — بنرجّع الكورس من غير populate بدل ما الصفحة كلها تبوظ.
+  try {
+    return await course.populate([
+      { path: "category", select: "name slug i18n" },
+      { path: "subcategory", select: "name slug i18n parent" },
+      { path: "teacher", select: "name" },
+    ]);
+  } catch (err) {
+    console.error("[/api/courses/[id]] populate failed, serving unpopulated:", err?.message);
+    return course;
+  }
 }
 
 export async function GET(request, { params }) {
@@ -143,7 +150,7 @@ export async function GET(request, { params }) {
     if (course.status !== "published") {
       const auth = await requireSession();
       if (auth.response) return jsonResponse({ error: "not_found" }, 404); // مش هنسرّب وجود كورس draft
-      if (!isOwnerOrStaff(auth.session, course.teacher._id || course.teacher)) {
+      if (!isOwnerOrStaff(auth.session, course.teacher?._id || course.teacher)) {
         return jsonResponse({ error: "not_found" }, 404);
       }
     }

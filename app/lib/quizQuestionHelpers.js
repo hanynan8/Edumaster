@@ -10,6 +10,10 @@ export const QUESTION_TYPES = ["multiple_choice", "true_false", "essay"];
 export const AUTO_GRADED_TYPES = ["multiple_choice", "true_false"];
 export const MAX_ESSAY_ANSWER_LENGTH = 20000;
 
+// أقصى عدد خيارات في سؤال الاختيار من متعدد — نفس الحد اللي فورم الإضافة اليدوية
+// (QuestionFormModal) بتفرضه (زرار "إضافة خيار" بيقف عند 6).
+export const MAX_OPTIONS = 6;
+
 // لـ essay مفيش خيارات خالص. باقي الأنواع: 2 خيار على الأقل، وخيار صح، ومفيش نص فاضي.
 export function validateOptions(type, options) {
   if (type === "essay") return null;
@@ -21,6 +25,33 @@ export function validateOptions(type, options) {
     return "true_false_needs_one_correct";
   }
   return null;
+}
+
+/**
+ * 🆕 تحقق "بنفس قيود الفورم اليدوي" — بيُستخدم في الاستيراد من PDF (وأي إضافة بالجملة).
+ *
+ * validateOptions فوق هو الحد الأدنى اللي الـ API بيقبله، لكن فورم الإضافة اليدوية
+ * (QuestionFormModal) أضيق منه: الاختيار من متعدد فيه *إجابة صح واحدة بالظبط*
+ * (setCorrectOption بيعلّم خيار واحد بس) و 6 خيارات بحد أقصى. عشان السؤال المستورد
+ * يطلع بنفس شكل ومنطق السؤال اللي اتضاف يدوي بالظبط، الاستيراد لازم يلتزم بنفس القيود.
+ */
+export function validateOptionsLikeForm(type, options) {
+  const base = validateOptions(type, options);
+  if (base) return base;
+  if (type === "multiple_choice") {
+    if (options.length > MAX_OPTIONS) return "too_many_options";
+    if (options.filter((o) => o.isCorrect).length !== 1) return "multiple_correct_answers";
+  }
+  return null;
+}
+
+/**
+ * 🆕 الدرجة بنفس معاملة الفورم اليدوي: رقم موجب، وغير كده (فاضي / 0 / سالب / مش رقم) = 1.
+ * (الفورم بيبعت Number(points) || 1، فالدرجة 0 مستحيل تتخزّن من الفورم.)
+ */
+export function normalizePoints(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 export function normalizeOptions(rawOptions) {

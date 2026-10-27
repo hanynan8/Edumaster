@@ -39,6 +39,32 @@ function normalizeForCompare(str) {
 }
 
 // ------------------------------------------------------------------------
+// 🆕 تنضيف النص المستخرج من الـ PDF — عشان النص المخزّن يطلع *زي اللي كان
+// هيتكتب يدوي في الفورم* بالظبط (من غير شوائب بتيجي من استخراج PDF):
+//   1) رموز اتجاه/عرض صفري (RLM/LRM/embedding/isolate/ZWSP/ZWNJ/ZWJ/BOM/soft-hyphen)
+//      — Word بيحطها حوالين العربي والأرقام، وهي مش بتبان بس بتفضل جوه النص
+//        وبتبوّظ المقارنة وبتتخزن في الداتابيز.
+//   2) أشكال الحروف العربية "Presentation Forms" (ﻣ ﺼ ﺮ ...) → الحرف الأصلي.
+//      كمان ligatures اللاتينية (ﬁ ﬂ) → حروفها العادية.
+//      بنطبّق NFKC على المدى ده بس (مش على النص كله) عشان NFKC العام كان
+//      هيحوّل x² لـ x2 و ½ لـ 1⁄2 ويبوّظ نص السؤال.
+//   3) مسافة غير قابلة للكسر (NBSP) وأشكال المسافات الغريبة → مسافة عادية.
+// ------------------------------------------------------------------------
+const INVISIBLE_CHARS_RE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
+const WEIRD_SPACES_RE = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g;
+const PRESENTATION_FORMS_RE = /[\uFB00-\uFB06\uFB50-\uFDFF\uFE70-\uFEFE]/g;
+
+export function sanitizeExtractedText(str) {
+  return String(str ?? "")
+    .replace(INVISIBLE_CHARS_RE, "")
+    .replace(PRESENTATION_FORMS_RE, (ch) => ch.normalize("NFKC"))
+    .replace(WEIRD_SPACES_RE, " ");
+}
+
+// سطر "رقم صفحة" تايه بين سطور الخيارات (٢ / 2 / - 2 - / Page 2 / 2/10) — مش جزء من أي خيار
+const PAGE_NOISE_RE = /^\s*(?:page|p[aá]gina|صفحة)?\s*[-–]?\s*[\d٠-٩]+\s*(?:\/\s*[\d٠-٩]+)?\s*[-–]?\s*$/i;
+
+// ------------------------------------------------------------------------
 // تعريفات اللغات — كل لغة عندها الكلمات المفتاحية بتاعتها لبداية السؤال،
 // سطر الإجابة، سطر الدرجة، ونص "صح/غلط" اللي هيتخزن في الأوبشنز
 // ------------------------------------------------------------------------
@@ -157,6 +183,10 @@ function parseBlock(block, forcedType, forcedLang, index) {
     // سطر مكمل لنص السؤال (سؤال بيمتد لأكتر من سطر قبل ما تيجي الخيارات/الإجابة)
     if (options.length === 0 && answerRaw === null) {
       textParts.push(line);
+    } else if (options.length > 0 && answerRaw === null && !PAGE_NOISE_RE.test(line)) {
+      // 🆕 سطر مكمل لآخر خيار: الخيار الطويل بيتكسر على سطرين في الـ PDF، وكان الجزء
+      // التاني بيتشال بصمت (الخيار يتخزّن مقطوع) بينما الخيار اليدوي بيتخزّن كامل.
+      options[options.length - 1].text += " " + line;
     }
   }
 
@@ -212,7 +242,10 @@ function parseBlock(block, forcedType, forcedLang, index) {
       text,
       points: points ?? 1,
       lang,
-      options: options.map((o, i) => ({ text: o.text, isCorrect: correctIdx.has(i) })),
+      options: options.map((o, i) => ({
+        text: o.text.replace(/\s+/g, " ").trim(),
+        isCorrect: correctIdx.has(i),
+      })),
     },
   };
 }
@@ -223,7 +256,7 @@ function parseBlock(block, forcedType, forcedLang, index) {
  * @returns {{ questions: Array, errors: Array }}
  */
 export function parseQuizPdfText(rawText, options = {}) {
-  const lines = String(rawText || "").split(/\r?\n/);
+  const lines = sanitizeExtractedText(rawText).split(/\r?\n/);
 
   let forcedType = options.forcedType || null;
   const forcedLang = LANG_ORDER.includes(options.forcedLang) ? options.forcedLang : null;

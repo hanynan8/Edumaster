@@ -8,15 +8,27 @@
 //   type       -> "multiple_choice" | "true_false" | "auto" (اختياري، افتراضي auto)
 //
 // نفس صلاحيات إضافة سؤال عادي: صاحب الكورس أو أدمن بس. بيتحقق من كل سؤال
-// بنفس قواعد /api/quizzes/[id]/questions (validateOptions) قبل ما يتحفظ,
-// وبيرجّع تقرير بالأسئلة اللي اتحفظت والأسئلة اللي فشل تحليلها (مع السبب)
-// عشان المدرس يقدر يصلّح الملف ويعيد المحاولة.
+// بنفس قواعد فورم الإضافة اليدوية (quizQuestionHelpers.validateOptionsLikeForm)
+// قبل ما يتحفظ، وبيرجّع تقرير بالأسئلة اللي اتحفظت والأسئلة اللي فشل تحليلها
+// (مع السبب) عشان المدرس يقدر يصلّح الملف ويعيد المحاولة.
+//
+// 🔒 قاعدة التطابق: السؤال المستورد لازم يتخزّن *بنفس شكل ومنطق* السؤال اللي
+// اتضاف يدوي من POST /api/quizzes/[id]/questions (نفس الحقول، نفس التطبيع،
+// نفس الـ serializer في الرد). عشان كده الـ helpers هنا مشتركة مع المسار
+// اليدوي — متكرّرش نسخة خاصة بالاستيراد (ده كان سبب الاختلافات قبل كده).
+// الاختبار app/lib/quizImportParity.test.js بيقارن المسارين مباشرةً.
 
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
 import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { parseQuizPdfText } from "@/app/lib/quizPdfParser";
+import {
+  validateOptionsLikeForm,
+  normalizeOptions,
+  normalizePoints,
+  serializeQuestion,
+} from "@/app/lib/quizQuestionHelpers";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -28,31 +40,6 @@ function jsonResponse(data, status = 200) {
 const ALLOWED_FORCED_TYPES = ["multiple_choice", "true_false"];
 const ALLOWED_FORCED_LANGS = ["ar", "en", "es"]; // نفس اللغات المدعومة في LanguageContext
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB كفاية جدًا لملف نصي بصيغة PDF
-
-// نفس منطق التحقق من الخيارات المستخدم في route.js الأساسي، مكرر هنا
-// عمدًا (بدل استيراده) عشان الاستيراد بالجملة يفضل مستقل وميتأثرش لو
-// حد عدّل شكل الـ validation بتاع الإنشاء الفردي من غير قصد.
-function validateOptions(type, options) {
-  if (!Array.isArray(options) || options.length < 2) return "options_required";
-  if (type === "true_false" && options.length !== 2) return "true_false_needs_two_options";
-  if (options.some((o) => !String(o?.text || "").trim())) return "empty_option_text";
-  if (!options.some((o) => Boolean(o?.isCorrect))) return "no_correct_option";
-  if (type === "true_false" && options.filter((o) => o.isCorrect).length !== 1) {
-    return "true_false_needs_one_correct";
-  }
-  return null;
-}
-
-function serializeQuestion(qq) {
-  return {
-    id: qq._id.toString(),
-    type: qq.type,
-    text: qq.text,
-    points: qq.points,
-    order: qq.order,
-    options: (qq.options || []).map((o, index) => ({ index, text: o.text, isCorrect: o.isCorrect })),
-  };
-}
 
 export async function POST(request, { params }) {
   try {
@@ -128,18 +115,23 @@ export async function POST(request, { params }) {
     const rejected = [...parseErrors]; // هنضيف عليها أي سؤال اتفهم لكن فشل في validateOptions
 
     for (const q of parsedQuestions) {
-      const options = q.options.map((o) => ({ text: String(o.text || "").trim(), isCorrect: Boolean(o.isCorrect) }));
-      const optionsError = validateOptions(q.type, options);
+      // نفس تطبيع الفورم/الـ API اليدوي (trim للنص + isCorrect كـ Boolean)
+      const options = normalizeOptions(q.options);
+      const optionsError = validateOptionsLikeForm(q.type, options);
       if (optionsError) {
         rejected.push({ reason: optionsError, preview: q.text.slice(0, 60) });
         continue;
       }
+      // نفس الحقول اللي POST /api/quizzes/[id]/questions بيحفظها (مرفق الفيديو/الأوديو
+      // فاضي هنا = null/null زي سؤال يدوي من غير مرفق)
       toInsert.push({
         quiz: quiz._id,
         type: q.type,
         text: q.text,
         options,
-        points: Number.isFinite(q.points) ? Math.max(0, q.points) : 1,
+        mediaUrl: null,
+        mediaType: null,
+        points: normalizePoints(q.points),
         order: order++,
       });
     }
@@ -152,7 +144,7 @@ export async function POST(request, { params }) {
 
     return jsonResponse(
       {
-        imported: created.map(serializeQuestion),
+        imported: created.map((qq) => serializeQuestion(qq)),
         importedCount: created.length,
         skippedCount: rejected.length,
         skipped: rejected,

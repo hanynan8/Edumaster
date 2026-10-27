@@ -35,11 +35,11 @@ import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
 import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
 import {
-  Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
+  Lock, PlayCircle, Headphones, FileText, FileType2, HelpCircle, ChevronDown,
   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
 } from "lucide-react";
 
-const LESSON_ICONS = { video: PlayCircle, pdf: FileType2, text: FileText, quiz: HelpCircle };
+const LESSON_ICONS = { video: PlayCircle, audio: Headphones, pdf: FileType2, text: FileText, quiz: HelpCircle };
 
 const STRINGS = {
   ar: {
@@ -212,12 +212,33 @@ function VideoEmbed({ lesson, onEnded }) {
   );
 }
 
+// 🆕 مشغّل درس الأوديو: <audio> عادي (الملف من Bunny Storage، والرابط جاي من
+// السيرفر موقّع ومؤقت). زي الفيديو، التقدّم بيتسجل لما الطالب يوصل لآخر الملف
+// (حدث "ended" بيوصلنا مباشرة لأن الملف مش جوه iframe).
+function AudioLesson({ lesson, onEnded }) {
+  if (!lesson.fileUrl) return null;
+  return (
+    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 sm:p-4">
+      <audio
+        key={lesson.id}
+        controls
+        controlsList="nodownload"
+        preload="metadata"
+        src={lesson.fileUrl}
+        onEnded={onEnded}
+        aria-label={lesson.title}
+        className="w-full"
+      />
+    </div>
+  );
+}
+
 function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMarkComplete }) {
   const Icon = LESSON_ICONS[lesson.type] || FileText;
 
   // تسجيل تقدّم الطالب أوتوماتيك:
   // - نص/PDF: بمجرد ما الطالب يفتح الدرس (isOpen بيتحول true).
-  // - فيديو: عند وصوله لآخره (VideoEmbed بينده onEnded تحت، مش هنا).
+  // - فيديو/أوديو: عند وصوله لآخره (VideoEmbed/AudioLesson بينادوا onEnded تحت، مش هنا).
   useEffect(() => {
     if (!hasAccess || isCompleted) return;
     if (isOpen && (lesson.type === "text" || lesson.type === "pdf")) {
@@ -264,7 +285,9 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
   }
 
   const unlocked = Boolean(lesson.videoUrl || lesson.textContent || lesson.fileUrl) || lesson.isPreview;
-  const canOpen = unlocked && (lesson.type === "video" ? Boolean(lesson.videoUrl) : true);
+  const canOpen =
+    unlocked &&
+    (lesson.type === "video" ? Boolean(lesson.videoUrl) : lesson.type === "audio" ? Boolean(lesson.fileUrl) : true);
 
   return (
     <div className="border-b border-gray-100 last:border-0">
@@ -289,7 +312,7 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
             {t.preview}
           </span>
         )}
-        {lesson.type === "video" && lesson.durationSeconds > 0 && (
+        {(lesson.type === "video" || lesson.type === "audio") && lesson.durationSeconds > 0 && (
           <span className="text-xs text-gray-400 shrink-0">{formatDuration(lesson.durationSeconds)}</span>
         )}
         {canOpen && (
@@ -301,6 +324,14 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
         <div className="px-4 sm:px-5 pb-4">
           {lesson.type === "video" && (
             <VideoEmbed
+              lesson={lesson}
+              onEnded={() => {
+                if (hasAccess && !isCompleted) onMarkComplete();
+              }}
+            />
+          )}
+          {lesson.type === "audio" && (
+            <AudioLesson
               lesson={lesson}
               onEnded={() => {
                 if (hasAccess && !isCompleted) onMarkComplete();

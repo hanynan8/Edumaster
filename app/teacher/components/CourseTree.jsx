@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Video, FileText, FileType2, ChevronDown, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Headphones, FileText, FileType2, ChevronDown, GripVertical } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileText, quiz: FileText };
+const LESSON_ICONS = { video: Video, audio: Headphones, pdf: FileType2, text: FileText, quiz: FileText };
 
 // 🆕 كل النصوص (عدد الدروس، "معاينة"، "لا توجد دروس بعد"، "إضافة قسم جديد")
 // كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
@@ -98,7 +98,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
                           {t.preview}
                         </span>
                       )}
-                      {lesson.type === "video" && lesson.durationSeconds > 0 && (
+                      {(lesson.type === "video" || lesson.type === "audio") && lesson.durationSeconds > 0 && (
                         <span className="text-xs text-gray-400">{formatDuration(lesson.durationSeconds)}</span>
                       )}
                       <button onClick={() => onEditLesson(section.id, lesson)} className="text-gray-400 hover:text-gray-700 p-1">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Pencil, Trash2, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
+import { Pencil, Trash2, Archive, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
@@ -22,6 +22,7 @@ const T = {
     content: "Content",
     edit: "Edit",
     delete: "Delete",
+    archive: "Archive",
   },
   ar: {
     status: { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" },
@@ -29,6 +30,7 @@ const T = {
     content: "المحتوى",
     edit: "تعديل",
     delete: "حذف",
+    archive: "أرشفة",
   },
   es: {
     status: { draft: "Borrador", pending: "En revisión", published: "Publicado", archived: "Archivado" },
@@ -36,6 +38,7 @@ const T = {
     content: "Contenido",
     edit: "Editar",
     delete: "Eliminar",
+    archive: "Archivar",
   },
 };
 
@@ -48,7 +51,9 @@ function formatDuration(seconds, language) {
 
 // 🆕 showTeacher: الموديريتور بيشوف كورسات كل المدرّسين فبيظهر اسم المدرّس
 // المشرف على الكارت عشان يعرف كل كورس تبع مين.
-export default function CourseCard({ course, onEdit, onDelete, showTeacher = false }) {
+// 🆕 onArchive (اختياري): لو اتبعت بيظهر زرار "أرشفة" على الكارت (للموديريتور
+// بس) — بيتخفى لو الكورس مؤرشف أصلًا. التأكيد بيتعمل في الـ handler اللي فوق.
+export default function CourseCard({ course, onEdit, onDelete, onArchive, showTeacher = false }) {
   const { language } = useLanguage();
   const t = T[language] || T.en;
 
@@ -113,6 +118,16 @@ export default function CourseCard({ course, onEdit, onDelete, showTeacher = fal
           >
             <Pencil size={15} />
           </button>
+          {onArchive && course.status !== "archived" && (
+            <button
+              onClick={() => onArchive(course)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50"
+              title={t.archive}
+              aria-label={t.archive}
+            >
+              <Archive size={15} />
+            </button>
+          )}
           <button
             onClick={() => onDelete(course)}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"

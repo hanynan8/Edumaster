@@ -1,6 +1,6 @@
 // app/lib/models/Lesson.js
 //
-// الدرس نفسه — فيديو، ملف PDF، أو محتوى نصي. بنحتفظ بـ courseId هنا كمان
+// الدرس نفسه — فيديو، ملف صوتي (audio)، ملف PDF، أو محتوى نصي. بنحتفظ بـ courseId هنا كمان
 // (denormalized) رغم إن الـ section أصلاً بيرجع للكورس، عشان نقدر نجيب كل
 // دروس كورس معين بـ query واحد بسيط (Lesson.find({course})) من غير ما
 // نعمل join مع الـ sections في كل مرة.
@@ -25,7 +25,7 @@ const lessonSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["video", "pdf", "text", "quiz"],
+      enum: ["video", "audio", "pdf", "text", "quiz"],
       required: true,
       default: "video",
     },
@@ -42,7 +42,7 @@ const lessonSchema = new mongoose.Schema(
     },
     durationSeconds: { type: Number, default: 0 },
 
-    // PDF / ملف مرفق
+    // PDF / ملف مرفق — وكمان رابط الملف الصوتي لو type === "audio" (Bunny Storage)
     fileUrl: { type: String, default: null },
 
     // درس نصي (بيتخزن كـ HTML بسيط أو Markdown)

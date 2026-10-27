@@ -9,15 +9,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
 const TYPE_LABELS = {
   video: { en: "Video", ar: "فيديو", es: "Video" },
+  audio: { en: "Audio", ar: "صوت", es: "Audio" },
   pdf: { en: "PDF file", ar: "ملف PDF", es: "Archivo PDF" },
   text: { en: "Text", ar: "نص", es: "Texto" },
 };
-const TYPES = ["video", "pdf", "text"];
+const TYPES = ["video", "audio", "pdf", "text"];
 
 const T = {
   en: {
     titleRequired: "Title is required",
     uploadVideoFirst: "Upload the video first",
+    uploadAudioFirst: "Upload the audio file first",
     uploadFileFirst: "Upload the file first",
     writeContent: "Write the lesson content",
     genericError: "Something went wrong, try again",
@@ -26,6 +28,8 @@ const T = {
     lessonTitle: "Lesson title *",
     lessonType: "Lesson type",
     videoFile: "Video file",
+    audioFile: "Audio file (MP3, M4A, WAV, OGG — up to 50MB)",
+    audioDuration: "Audio duration (seconds) — set automatically after upload",
     pdfFile: "PDF file",
     lessonContent: "Lesson content",
     videoDuration: "Video duration (seconds) — set automatically after upload",
@@ -36,6 +40,7 @@ const T = {
   ar: {
     titleRequired: "العنوان مطلوب",
     uploadVideoFirst: "ارفع الفيديو أولًا",
+    uploadAudioFirst: "ارفع الملف الصوتي أولًا",
     uploadFileFirst: "ارفع الملف أولًا",
     writeContent: "اكتب محتوى الدرس",
     genericError: "حدث خطأ، حاول مرة أخرى",
@@ -44,6 +49,8 @@ const T = {
     lessonTitle: "عنوان الدرس *",
     lessonType: "نوع الدرس",
     videoFile: "ملف الفيديو",
+    audioFile: "الملف الصوتي (MP3 أو M4A أو WAV أو OGG — حتى 50MB)",
+    audioDuration: "مدة الملف الصوتي (ثانية) — تُحدَّد تلقائيًا بعد الرفع",
     pdfFile: "ملف الـ PDF",
     lessonContent: "محتوى الدرس",
     videoDuration: "مدة الفيديو (ثانية) — تُحدَّد تلقائيًا بعد الرفع",
@@ -54,6 +61,7 @@ const T = {
   es: {
     titleRequired: "El título es obligatorio",
     uploadVideoFirst: "Sube el video primero",
+    uploadAudioFirst: "Sube primero el archivo de audio",
     uploadFileFirst: "Sube el archivo primero",
     writeContent: "Escribe el contenido de la lección",
     genericError: "Ocurrió un error, inténtalo de nuevo",
@@ -62,6 +70,8 @@ const T = {
     lessonTitle: "Título de la lección *",
     lessonType: "Tipo de lección",
     videoFile: "Archivo de video",
+    audioFile: "Archivo de audio (MP3, M4A, WAV, OGG — hasta 50MB)",
+    audioDuration: "Duración del audio (segundos) — se calcula automáticamente tras subirlo",
     pdfFile: "Archivo PDF",
     lessonContent: "Contenido de la lección",
     videoDuration: "Duración del video (segundos) — se calcula automáticamente tras subirlo",
@@ -80,7 +90,11 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
     type: lesson?.type || "video",
     videoUrl: lesson?.videoUrl || "",
     durationSeconds: lesson?.durationSeconds || 0,
-    fileUrl: lesson?.fileUrl || "",
+    // 🆕 رابط الـ PDF ورابط الأوديو منفصلين في الفورم (الاتنين بيتخزّنوا في
+    // lesson.fileUrl على السيرفر) — عشان تبديل نوع الدرس ما يخلّيش رابط PDF
+    // يتعامل كأنه ملف صوتي أو العكس.
+    fileUrl: lesson?.type === "audio" ? "" : lesson?.fileUrl || "",
+    audioUrl: lesson?.type === "audio" ? lesson?.fileUrl || "" : "",
     textContent: lesson?.textContent || "",
     isPreview: lesson?.isPreview || false,
   });
@@ -96,6 +110,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
     setError("");
     if (!form.title.trim()) return setError(t.titleRequired);
     if (form.type === "video" && !form.videoUrl) return setError(t.uploadVideoFirst);
+    if (form.type === "audio" && !form.audioUrl) return setError(t.uploadAudioFirst);
     if (form.type === "pdf" && !form.fileUrl) return setError(t.uploadFileFirst);
     if (form.type === "text" && !form.textContent.trim()) return setError(t.writeContent);
 
@@ -107,7 +122,8 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
         videoUrl: form.type === "video" ? form.videoUrl : null,
         videoProvider: form.type === "video" ? "bunny" : null,
         durationSeconds: form.durationSeconds,
-        fileUrl: form.type === "pdf" ? form.fileUrl : null,
+        // 🆕 درس الأوديو بيخزّن رابط الملف الصوتي في fileUrl زي الـ PDF
+        fileUrl: form.type === "pdf" ? form.fileUrl : form.type === "audio" ? form.audioUrl : null,
         textContent: form.type === "text" ? form.textContent : null,
         isPreview: form.isPreview,
       };
@@ -184,6 +200,18 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
             />
           )}
 
+          {form.type === "audio" && (
+            <MediaUploader
+              kind="audio"
+              label={t.audioFile}
+              currentUrl={form.audioUrl}
+              onUploaded={(f) => {
+                update("audioUrl", f.url);
+                if (f.durationSeconds) update("durationSeconds", f.durationSeconds);
+              }}
+            />
+          )}
+
           {form.type === "pdf" && (
             <MediaUploader
               kind="pdf"
@@ -205,10 +233,10 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
             </div>
           )}
 
-          {form.type === "video" && (
+          {(form.type === "video" || form.type === "audio") && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {t.videoDuration}
+                {form.type === "audio" ? t.audioDuration : t.videoDuration}
               </label>
               <input
                 type="number"

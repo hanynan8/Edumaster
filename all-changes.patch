@@ -1,0 +1,1173 @@
+From ef11f5405439ee0a915dc6e5997f830f58c18f13 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 21:58:47 +0000
+Subject: [PATCH 1/2] Allow moderators to archive published courses
+
+- PUT /api/courses/[id]: staff roles (admin + moderator) can archive any
+  course, including published ones and ones with enrolled students.
+  Teachers keep the existing cannot_archive restriction.
+- CourseFormModal: moderators always see 'Archive only' (unless already
+  archived), with a confirm step for published/enrolled courses.
+- CourseCard + teacher page: quick Archive button for moderators with
+  confirmation (ar/en/es).
+- Add courseArchiveRoute.test.js
+---
+ app/api/courses/[id]/route.js              |   8 +-
+ app/lib/courseArchiveRoute.test.js         | 164 +++++++++++++++++++++
+ app/teacher/components/CourseCard.jsx      |  19 ++-
+ app/teacher/components/CourseFormModal.jsx |  29 +++-
+ app/teacher/page.jsx                       |  29 ++++
+ 5 files changed, 240 insertions(+), 9 deletions(-)
+ create mode 100644 app/lib/courseArchiveRoute.test.js
+
+diff --git a/app/api/courses/[id]/route.js b/app/api/courses/[id]/route.js
+index e56e12e..e5fe0f0 100644
+--- a/app/api/courses/[id]/route.js
++++ b/app/api/courses/[id]/route.js
+@@ -280,11 +280,13 @@ export async function PUT(request, { params }) {
+       }
+     }
+     // 🔒 الأرشفة بتخفي الكورس فورًا عن كل الطلاب (بيرجّعلهم 404) — فمنعناها
+-    // على غير الأدمن لو الكورس منشور أو فيه طلاب مسجّلين. (قبل كده زرار "أرشفة
++    // على المدرّس لو الكورس منشور أو فيه طلاب مسجّلين. (قبل كده زرار "أرشفة
+     // فقط" في فورم التعديل كان بيخفي كورس منشور بضغطة من غير أي تأكيد.)
+-    // الأدمن لسه يقدر يأرشف أي كورس.
++    // 🆕 طاقم الإدارة (الأدمن + الموديريتور) يقدروا يأرشفوا أي كورس، حتى لو
++    // منشور أو فيه طلاب — الواجهة بتاخد تأكيد صريح قبل الإرسال، وتغيير الحالة
++    // بيتسجّل في الـ audit log (course.status_changed) تحت.
+     if (
+-      session.user.role !== "admin" &&
++      !isStaffRole(session.user.role) &&
+       updates.status === "archived" &&
+       existing.status !== "archived" &&
+       (existing.status === "published" || (Number(existing.studentsCount) || 0) > 0)
+diff --git a/app/lib/courseArchiveRoute.test.js b/app/lib/courseArchiveRoute.test.js
+new file mode 100644
+index 0000000..603436c
+--- /dev/null
++++ b/app/lib/courseArchiveRoute.test.js
+@@ -0,0 +1,164 @@
++// app/lib/courseArchiveRoute.test.js
++//
++// 🆕 PUT /api/courses/[id] — أرشفة الكورس (status = "archived"):
++//   - المدرّس: ممنوع يأرشف كورس منشور أو فيه طلاب (403 cannot_archive)، ومسموح
++//     لكورس مش منشور ومفيهوش طلاب.
++//   - الموديريتور والأدمن: مسموح لهم يأرشفوا كورس منشور حتى لو فيه طلاب، وتغيير
++//     الحالة بيتسجّل في الـ audit log.
++
++const mockGetServerSession = jest.fn();
++const mockFindById = jest.fn();
++const mockFindByIdAndUpdate = jest.fn();
++const mockLogAudit = jest.fn();
++
++jest.mock("next-auth", () => ({ getServerSession: (...a) => mockGetServerSession(...a) }));
++jest.mock("@/app/lib/authOptions", () => ({ authOptions: {} }));
++jest.mock("@/app/lib/mongodb", () => ({ connectToMongo: jest.fn().mockResolvedValue() }));
++jest.mock("@/app/lib/models", () => ({
++  getCourseModel: () => ({
++    findById: (...a) => mockFindById(...a),
++    findByIdAndUpdate: (...a) => mockFindByIdAndUpdate(...a),
++    exists: jest.fn().mockResolvedValue(null),
++  }),
++  getCategoryModel: () => ({ findById: () => ({ lean: () => Promise.resolve({ _id: "cat1" }) }) }),
++  getSectionModel: () => ({}),
++  getLessonModel: () => ({}),
++}));
++jest.mock("@/app/lib/courseHelpers", () => ({
++  slugify: (s) => s,
++  sanitizeCourseI18n: jest.fn().mockReturnValue({}),
++  resolveCourseSubcategory: jest.fn().mockResolvedValue({ ok: true }),
++  resolveSupervisingTeacher: jest.fn(),
++}));
++jest.mock("@/app/lib/bunny", () => ({ resolveSecureStoredUrl: (u) => u }));
++jest.mock("@/app/lib/notificationHelpers", () => ({
++  createNotification: jest.fn().mockResolvedValue(),
++  getAdminUserIds: jest.fn().mockResolvedValue([]),
++}));
++jest.mock("@/app/lib/auditLog", () => ({ logAudit: (...a) => mockLogAudit(...a) }));
++jest.mock("@/app/lib/meetingCleanup", () => ({ deleteMeetingsForCourse: jest.fn() }));
++jest.mock("@/app/lib/customPlacementTests", () => ({
++  getPlacementLinksForCourses: jest.fn().mockResolvedValue({}),
++}));
++jest.mock("@/app/lib/courseGrants", () => ({
++  parseGrantedEmails: jest.fn(),
++  resolveGrantRecipients: jest.fn(),
++  grantCourseAccess: jest.fn(),
++  notifyGrantedStudents: jest.fn(),
++  MAX_GRANT_EMAILS: 100,
++}));
++
++const COURSE_ID = "507f1f77bcf86cd799439011";
++const OWNER_ID = "507f1f77bcf86cd799439022";
++const OTHER_ID = "507f1f77bcf86cd799439033";
++
++const asUser = (role, id = OTHER_ID) =>
++  mockGetServerSession.mockResolvedValue({ user: { id, role } });
++
++function existingCourse(overrides = {}) {
++  return {
++    _id: { toString: () => COURSE_ID },
++    title: "Course",
++    slug: "course",
++    teacher: OWNER_ID,
++    status: "published",
++    studentsCount: 0,
++    ...overrides,
++  };
++}
++
++function mockUpdateReturns(status) {
++  const doc = {
++    _id: { toString: () => COURSE_ID },
++    title: "Course",
++    slug: "course",
++    teacher: { _id: { toString: () => OWNER_ID }, name: "Teacher" },
++    status,
++  };
++  mockFindByIdAndUpdate.mockResolvedValue({ ...doc, populate: () => Promise.resolve(doc) });
++}
++
++describe("PUT /api/courses/[id] — archive", () => {
++  let PUT;
++  beforeAll(async () => {
++    ({ PUT } = await import("@/app/api/courses/[id]/route.js"));
++  });
++
++  const call = () =>
++    PUT(
++      new Request(`http://x/api/courses/${COURSE_ID}`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ status: "archived" }),
++      }),
++      { params: Promise.resolve({ id: COURSE_ID }) }
++    );
++
++  it("المدرّس صاحب الكورس: ممنوع يأرشف كورس منشور (403 cannot_archive)", async () => {
++    asUser("teacher", OWNER_ID);
++    mockFindById.mockResolvedValue(existingCourse({ status: "published" }));
++    const res = await call();
++    expect(res.status).toBe(403);
++    expect((await res.json()).error).toBe("cannot_archive");
++    expect(mockFindByIdAndUpdate).not.toHaveBeenCalled();
++  });
++
++  it("المدرّس صاحب الكورس: ممنوع يأرشف كورس فيه طلاب حتى لو مش منشور", async () => {
++    asUser("teacher", OWNER_ID);
++    mockFindById.mockResolvedValue(existingCourse({ status: "pending", studentsCount: 3 }));
++    const res = await call();
++    expect(res.status).toBe(403);
++    expect((await res.json()).error).toBe("cannot_archive");
++  });
++
++  it("المدرّس صاحب الكورس: مسموح يأرشف كورس مش منشور ومفيهوش طلاب", async () => {
++    asUser("teacher", OWNER_ID);
++    mockFindById.mockResolvedValue(existingCourse({ status: "pending", studentsCount: 0 }));
++    mockUpdateReturns("archived");
++    const res = await call();
++    expect(res.status).toBe(200);
++    expect(mockFindByIdAndUpdate.mock.calls[0][1].$set.status).toBe("archived");
++  });
++
++  it("الموديريتور: يقدر يأرشف كورس منشور", async () => {
++    asUser("moderator");
++    mockFindById.mockResolvedValue(existingCourse({ status: "published" }));
++    mockUpdateReturns("archived");
++    const res = await call();
++    expect(res.status).toBe(200);
++    expect((await res.json()).status).toBe("archived");
++    expect(mockFindByIdAndUpdate.mock.calls[0][1].$set.status).toBe("archived");
++  });
++
++  it("الموديريتور: يقدر يأرشف كورس منشور فيه طلاب، والتغيير بيتسجّل في الـ audit log", async () => {
++    asUser("moderator");
++    mockFindById.mockResolvedValue(existingCourse({ status: "published", studentsCount: 12 }));
++    mockUpdateReturns("archived");
++    const res = await call();
++    expect(res.status).toBe(200);
++    expect(mockLogAudit).toHaveBeenCalledWith(
++      expect.objectContaining({
++        action: "course.status_changed",
++        details: expect.objectContaining({ from: "published", to: "archived" }),
++      })
++    );
++  });
++
++  it("الأدمن: لسه يقدر يأرشف كورس منشور", async () => {
++    asUser("admin");
++    mockFindById.mockResolvedValue(existingCourse({ status: "published", studentsCount: 5 }));
++    mockUpdateReturns("archived");
++    expect((await call()).status).toBe(200);
++  });
++
++  it("الطالب والمدرّس التاني: مرفوضين (403 forbidden)", async () => {
++    mockFindById.mockResolvedValue(existingCourse());
++    asUser("student");
++    expect((await call()).status).toBe(403);
++    asUser("teacher", OTHER_ID);
++    const res = await call();
++    expect(res.status).toBe(403);
++    expect((await res.json()).error).toBe("forbidden");
++    expect(mockFindByIdAndUpdate).not.toHaveBeenCalled();
++  });
++});
+diff --git a/app/teacher/components/CourseCard.jsx b/app/teacher/components/CourseCard.jsx
+index c4fc2c4..62dad4f 100644
+--- a/app/teacher/components/CourseCard.jsx
++++ b/app/teacher/components/CourseCard.jsx
+@@ -2,7 +2,7 @@
+ 
+ import Link from "next/link";
+ import Image from "next/image";
+-import { Pencil, Trash2, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
++import { Pencil, Trash2, Archive, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
+ import { useLanguage } from "@/contexts/LanguageContext";
+ 
+ const STATUS_STYLES = {
+@@ -22,6 +22,7 @@ const T = {
+     content: "Content",
+     edit: "Edit",
+     delete: "Delete",
++    archive: "Archive",
+   },
+   ar: {
+     status: { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" },
+@@ -29,6 +30,7 @@ const T = {
+     content: "المحتوى",
+     edit: "تعديل",
+     delete: "حذف",
++    archive: "أرشفة",
+   },
+   es: {
+     status: { draft: "Borrador", pending: "En revisión", published: "Publicado", archived: "Archivado" },
+@@ -36,6 +38,7 @@ const T = {
+     content: "Contenido",
+     edit: "Editar",
+     delete: "Eliminar",
++    archive: "Archivar",
+   },
+ };
+ 
+@@ -48,7 +51,9 @@ function formatDuration(seconds, language) {
+ 
+ // 🆕 showTeacher: الموديريتور بيشوف كورسات كل المدرّسين فبيظهر اسم المدرّس
+ // المشرف على الكارت عشان يعرف كل كورس تبع مين.
+-export default function CourseCard({ course, onEdit, onDelete, showTeacher = false }) {
++// 🆕 onArchive (اختياري): لو اتبعت بيظهر زرار "أرشفة" على الكارت (للموديريتور
++// بس) — بيتخفى لو الكورس مؤرشف أصلًا. التأكيد بيتعمل في الـ handler اللي فوق.
++export default function CourseCard({ course, onEdit, onDelete, onArchive, showTeacher = false }) {
+   const { language } = useLanguage();
+   const t = T[language] || T.en;
+ 
+@@ -113,6 +118,16 @@ export default function CourseCard({ course, onEdit, onDelete, showTeacher = fal
+           >
+             <Pencil size={15} />
+           </button>
++          {onArchive && course.status !== "archived" && (
++            <button
++              onClick={() => onArchive(course)}
++              className="w-9 h-9 flex items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50"
++              title={t.archive}
++              aria-label={t.archive}
++            >
++              <Archive size={15} />
++            </button>
++          )}
+           <button
+             onClick={() => onDelete(course)}
+             className="w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
+diff --git a/app/teacher/components/CourseFormModal.jsx b/app/teacher/components/CourseFormModal.jsx
+index f165b0c..c3d2d95 100644
+--- a/app/teacher/components/CourseFormModal.jsx
++++ b/app/teacher/components/CourseFormModal.jsx
+@@ -102,6 +102,7 @@ const T = {
+     titleRequiredAllLangs: "Please add a course title in all 3 languages (Arabic, English, Spanish)",
+     chooseCategory: "Choose a category",
+     submittedForReview: "The course was sent to the admin for review. It will appear to students once approved.",
++    confirmArchive: (n) => `Archive this course? It will be hidden from students immediately${n > 0 ? ` (${n} enrolled student(s) will lose access to it)` : ""}.`,
+     savedAsDraft:
+       "The course was saved as a draft when created. To send it to the admin for review, open the course, add content (sections & lessons), then choose \"Publish\" again.",
+     slugTaken: "This title is already used, try a different one",
+@@ -168,6 +169,7 @@ const T = {
+     titleRequiredAllLangs: "من فضلك اكتب عنوان الدورة باللغات الثلاث (العربية والإنجليزية والإسبانية)",
+     chooseCategory: "اختر تصنيفًا",
+     submittedForReview: "تم إرسال الدورة إلى الإدارة للمراجعة. ستظهر للطلاب بعد موافقتها عليها.",
++    confirmArchive: (n) => `هل تريد أرشفة هذه الدورة؟ ستختفي عن الطلاب فورًا${n > 0 ? ` (${n} طالب مسجّل لن يتمكنوا من الوصول إليها)` : ""}.`,
+     savedAsDraft:
+       "تم حفظ الدورة كمسودة عند إنشائها. لإرسالها إلى الإدارة للمراجعة، افتح الدورة وأضف المحتوى (الأقسام والدروس)، ثم اختر «نشر» مرة أخرى.",
+     slugTaken: "العنوان مستخدم بالفعل، جرّب عنوانًا مختلفًا",
+@@ -234,6 +236,7 @@ const T = {
+     titleRequiredAllLangs: "Agrega un título del curso en los 3 idiomas (árabe, inglés, español)",
+     chooseCategory: "Elige una categoría",
+     submittedForReview: "El curso se envió al administrador para su revisión. Aparecerá para los estudiantes una vez aprobado.",
++    confirmArchive: (n) => `¿Archivar este curso? Se ocultará a los estudiantes de inmediato${n > 0 ? ` (${n} estudiante(s) inscrito(s) perderán el acceso)` : ""}.`,
+     savedAsDraft:
+       "El curso se guardó como borrador al crearse. Para enviarlo a revisión, abre el curso, agrega contenido (secciones y lecciones) y luego elige \"Publicar\" de nuevo.",
+     slugTaken: "Este título ya está en uso, prueba con otro diferente",
+@@ -321,8 +324,13 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
+   // (2) أرشفة الكورس فقط. لو الكورس منشور فعلاً، الخيار الأول بيبقى "منشور"
+   // (من غير ما نرجّعه للمراجعة ونخفيه عن الطلاب) والتاني الأرشفة.
+   const primaryStatus = course?.status === "published" ? "published" : "pending";
+-  // 🔒 الأرشفة متاحة بس لكورس جديد أو كورس مش منشور ومفيهوش طلاب (الأدمن بيأرشف من لوحته).
+-  const canArchive = !(course?.status === "published" || Number(course?.studentsCount) > 0);
++  // 🔒 المدرّس: الأرشفة متاحة بس لكورس جديد أو كورس مش منشور ومفيهوش طلاب.
++  // 🆕 الموديريتور (والأدمن في وضع الموديريتور): يقدر يأرشف أي كورس حتى لو منشور
++  // أو فيه طلاب — بس بعد تأكيد صريح (شوف handleSubmit)، لأن الأرشفة بتخفيه عن
++  // الطلاب فورًا. لو الكورس مؤرشف أصلًا مفيش داعي للزرار.
++  const canArchive = isModerator
++    ? course?.status !== "archived"
++    : !(course?.status === "published" || Number(course?.studentsCount) > 0);
+   const submitStatusRef = useRef(null);
+   const isEdit = Boolean(course);
+   const [categories, setCategories] = useState([]);
+@@ -544,6 +552,18 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
+     if (hasSubcategories && !form.subcategory) return setError(t.chooseSubcategory);
+     if (isModerator && !form.teacher) return setError(t.chooseTeacherRequired);
+ 
++    // 🆕 أرشفة كورس منشور/فيه طلاب (للموديريتور بس) بتخفيه عن الطلاب فورًا —
++    // فبنطلب تأكيد صريح قبل الإرسال.
++    if (
++      chosenStatus === "archived" &&
++      isEdit &&
++      course.status !== "archived" &&
++      (course.status === "published" || Number(course.studentsCount) > 0) &&
++      !confirm(t.confirmArchive(Number(course.studentsCount) || 0))
++    ) {
++      return;
++    }
++
+     setSaving(true);
+     try {
+       const i18n = {};
+@@ -987,8 +1007,9 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
+               {primaryStatus === "published" ? t.saveChanges : t.submitForApproval}
+             </button>
+             <div className="flex gap-3">
+-              {/* 🔒 "أرشفة فقط" مخفي لو الكورس منشور أو فيه طلاب — الأرشفة بتخفيه عن
+-                  الطلاب فورًا (الـ API بيرفضها لغير الأدمن برضه: cannot_archive). */}
++              {/* 🔒 "أرشفة فقط" مخفي عن المدرّس لو الكورس منشور أو فيه طلاب — الأرشفة
++                  بتخفيه عن الطلاب فورًا (الـ API بيرفضها لغير طاقم الإدارة برضه:
++                  cannot_archive). الموديريتور بيشوفه دايمًا (إلا لو مؤرشف أصلًا). */}
+               {!canArchive ? null : (
+                 <button
+                   type="submit"
+diff --git a/app/teacher/page.jsx b/app/teacher/page.jsx
+index 0e88b21..52d05a6 100644
+--- a/app/teacher/page.jsx
++++ b/app/teacher/page.jsx
+@@ -55,6 +55,8 @@ const T = {
+     deleteFailed: "Delete failed on the server — try again, or contact support if it keeps happening.",
+     internalError: "A server error occurred while deleting. Try again shortly.",
+     confirmDelete: (title) => `Are you sure you want to delete "${title}"? This action cannot be undone.`,
++    confirmArchive: (title, n) => `Archive "${title}"? It will be hidden from students immediately${n > 0 ? ` (${n} enrolled student(s) will lose access to it)` : ""}.`,
++    archiveFailed: (code) => `Archiving failed${code ? ` (${code})` : ""}. Try again.`,
+     deleteErrorWithCode: (code) => `Something went wrong while deleting${code ? ` (${code})` : ""}`,
+     deleteErrorNetwork: "Something went wrong while deleting — check your internet connection and try again.",
+     myCourses: "My courses",
+@@ -106,6 +108,8 @@ const T = {
+     deleteFailed: "فشل الحذف من الخادم — حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع الدعم الفني.",
+     internalError: "حدث خطأ في الخادم أثناء الحذف. حاول مرة أخرى بعد قليل.",
+     confirmDelete: (title) => `هل أنت متأكد من حذف "${title}"؟ لا يمكن التراجع عن هذا الإجراء.`,
++    confirmArchive: (title, n) => `هل تريد أرشفة "${title}"؟ ستختفي عن الطلاب فورًا${n > 0 ? ` (${n} طالب مسجّل لن يتمكنوا من الوصول إليها)` : ""}.`,
++    archiveFailed: (code) => `فشلت الأرشفة${code ? ` (${code})` : ""}. حاول مرة أخرى.`,
+     deleteErrorWithCode: (code) => `حدث خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
+     deleteErrorNetwork: "حدث خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
+     myCourses: "دوراتي",
+@@ -157,6 +161,8 @@ const T = {
+     deleteFailed: "La eliminación falló en el servidor — inténtalo de nuevo, o contacta soporte si persiste.",
+     internalError: "Ocurrió un error del servidor al eliminar. Inténtalo en un momento.",
+     confirmDelete: (title) => `¿Seguro que quieres eliminar "${title}"? Esta acción no se puede deshacer.`,
++    confirmArchive: (title, n) => `¿Archivar "${title}"? Se ocultará a los estudiantes de inmediato${n > 0 ? ` (${n} estudiante(s) inscrito(s) perderán el acceso)` : ""}.`,
++    archiveFailed: (code) => `No se pudo archivar${code ? ` (${code})` : ""}. Inténtalo de nuevo.`,
+     deleteErrorWithCode: (code) => `Ocurrió un error al eliminar${code ? ` (${code})` : ""}`,
+     deleteErrorNetwork: "Ocurrió un error al eliminar — revisa tu conexión a internet e inténtalo de nuevo.",
+     myCourses: "Mis cursos",
+@@ -680,6 +686,28 @@ export default function TeacherCoursesPage({ asModerator = false }) {
+     internal_error: () => t.internalError,
+   };
+ 
++  // 🆕 أرشفة سريعة من الكارت (موديريتور/أدمن بس — الزرار ظاهر لهم بس). بتخفي
++  // الكورس عن الطلاب فورًا، فبنطلب تأكيد الأول. السيرفر بيسمح بيها لطاقم
++  // الإدارة حتى لو الكورس منشور أو فيه طلاب (PUT /api/courses/[id]).
++  async function handleArchive(course) {
++    if (!confirm(t.confirmArchive(course.title, Number(course.studentsCount) || 0))) return;
++    try {
++      const res = await fetch(`/api/courses/${course.id}`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ status: "archived" }),
++      });
++      const data = await res.json().catch(() => ({}));
++      if (!res.ok) {
++        alert(t.archiveFailed(data?.error));
++        return;
++      }
++      setCourses((prev) => (prev || []).map((c) => (c.id === course.id ? data : c)));
++    } catch {
++      alert(t.archiveFailed("network"));
++    }
++  }
++
+   async function handleDelete(course) {
+     if (!confirm(t.confirmDelete(course.title))) return;
+     try {
+@@ -786,6 +814,7 @@ export default function TeacherCoursesPage({ asModerator = false }) {
+               course={c}
+               onEdit={setModalCourse}
+               onDelete={handleDelete}
++              onArchive={isModerator ? handleArchive : undefined}
+               showTeacher={isModerator}
+             />
+           ))}
+-- 
+2.43.0
+
+
+From ac444eff44422180bf0a7ace2d23b362483ed14f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 22:06:06 +0000
+Subject: [PATCH 2/2] Add audio lesson type
+
+- Lesson.type now supports "audio" (file stored in fileUrl on Bunny Storage,
+  reusing the existing /api/upload/file kind=audio flow and signed URLs).
+- API (POST /api/sections/[id]/lessons, PUT /api/lessons/[id]) validates the
+  audio URL (our Pull Zone, under /edumaster/, no traversal) and strips the
+  signing token before storing.
+- LessonFormModal: new Audio type with uploader + auto-detected duration.
+- Student course page: <audio> player, completes progress when finished.
+- CourseTree / admin review panel: Headphones icon + duration.
+- Tests: lessonAudio.test.js
+---
+ app/(pages)/courses/[id]/page.jsx           |  41 +++-
+ app/admin/components/coursesReviewPanel.jsx |   6 +-
+ app/api/lessons/[id]/route.js               |  12 +-
+ app/api/sections/[id]/lessons/route.js      |  14 +-
+ app/lib/lessonAudio.js                      |  26 +++
+ app/lib/lessonAudio.test.js                 | 235 ++++++++++++++++++++
+ app/lib/models/Lesson.js                    |   6 +-
+ app/teacher/components/CourseTree.jsx       |   6 +-
+ app/teacher/components/LessonFormModal.jsx  |  38 +++-
+ app/teacher/components/MediaUploader.jsx    |  25 ++-
+ 10 files changed, 385 insertions(+), 24 deletions(-)
+ create mode 100644 app/lib/lessonAudio.js
+ create mode 100644 app/lib/lessonAudio.test.js
+
+diff --git a/app/(pages)/courses/[id]/page.jsx b/app/(pages)/courses/[id]/page.jsx
+index 21a5a3c..fc605fe 100644
+--- a/app/(pages)/courses/[id]/page.jsx
++++ b/app/(pages)/courses/[id]/page.jsx
+@@ -35,11 +35,11 @@ import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
+ import LessonComments from "@/app/components/LessonComments";
+ import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
+ import {
+-  Lock, PlayCircle, FileText, FileType2, HelpCircle, ChevronDown,
++  Lock, PlayCircle, Headphones, FileText, FileType2, HelpCircle, ChevronDown,
+   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
+ } from "lucide-react";
+ 
+-const LESSON_ICONS = { video: PlayCircle, pdf: FileType2, text: FileText, quiz: HelpCircle };
++const LESSON_ICONS = { video: PlayCircle, audio: Headphones, pdf: FileType2, text: FileText, quiz: HelpCircle };
+ 
+ const STRINGS = {
+   ar: {
+@@ -212,12 +212,33 @@ function VideoEmbed({ lesson, onEnded }) {
+   );
+ }
+ 
++// 🆕 مشغّل درس الأوديو: <audio> عادي (الملف من Bunny Storage، والرابط جاي من
++// السيرفر موقّع ومؤقت). زي الفيديو، التقدّم بيتسجل لما الطالب يوصل لآخر الملف
++// (حدث "ended" بيوصلنا مباشرة لأن الملف مش جوه iframe).
++function AudioLesson({ lesson, onEnded }) {
++  if (!lesson.fileUrl) return null;
++  return (
++    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 sm:p-4">
++      <audio
++        key={lesson.id}
++        controls
++        controlsList="nodownload"
++        preload="metadata"
++        src={lesson.fileUrl}
++        onEnded={onEnded}
++        aria-label={lesson.title}
++        className="w-full"
++      />
++    </div>
++  );
++}
++
+ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMarkComplete }) {
+   const Icon = LESSON_ICONS[lesson.type] || FileText;
+ 
+   // تسجيل تقدّم الطالب أوتوماتيك:
+   // - نص/PDF: بمجرد ما الطالب يفتح الدرس (isOpen بيتحول true).
+-  // - فيديو: عند وصوله لآخره (VideoEmbed بينده onEnded تحت، مش هنا).
++  // - فيديو/أوديو: عند وصوله لآخره (VideoEmbed/AudioLesson بينادوا onEnded تحت، مش هنا).
+   useEffect(() => {
+     if (!hasAccess || isCompleted) return;
+     if (isOpen && (lesson.type === "text" || lesson.type === "pdf")) {
+@@ -264,7 +285,9 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
+   }
+ 
+   const unlocked = Boolean(lesson.videoUrl || lesson.textContent || lesson.fileUrl) || lesson.isPreview;
+-  const canOpen = unlocked && (lesson.type === "video" ? Boolean(lesson.videoUrl) : true);
++  const canOpen =
++    unlocked &&
++    (lesson.type === "video" ? Boolean(lesson.videoUrl) : lesson.type === "audio" ? Boolean(lesson.fileUrl) : true);
+ 
+   return (
+     <div className="border-b border-gray-100 last:border-0">
+@@ -289,7 +312,7 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
+             {t.preview}
+           </span>
+         )}
+-        {lesson.type === "video" && lesson.durationSeconds > 0 && (
++        {(lesson.type === "video" || lesson.type === "audio") && lesson.durationSeconds > 0 && (
+           <span className="text-xs text-gray-400 shrink-0">{formatDuration(lesson.durationSeconds)}</span>
+         )}
+         {canOpen && (
+@@ -307,6 +330,14 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
+               }}
+             />
+           )}
++          {lesson.type === "audio" && (
++            <AudioLesson
++              lesson={lesson}
++              onEnded={() => {
++                if (hasAccess && !isCompleted) onMarkComplete();
++              }}
++            />
++          )}
+           {lesson.type === "text" && lesson.textContent && (
+             <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 rounded-xl p-4">
+               {lesson.textContent}
+diff --git a/app/admin/components/coursesReviewPanel.jsx b/app/admin/components/coursesReviewPanel.jsx
+index 7d34b2e..edabed0 100644
+--- a/app/admin/components/coursesReviewPanel.jsx
++++ b/app/admin/components/coursesReviewPanel.jsx
+@@ -18,7 +18,7 @@
+ import { useEffect, useState } from 'react';
+ import {
+   ClipboardCheck, Loader, AlertCircle, CheckCircle2, XCircle, X, BookOpen,
+-  Clock, User, Tag, Layers, Video, FileType2, FileText as FileTextIcon,
++  Clock, User, Tag, Layers, Video, Headphones, FileType2, FileText as FileTextIcon,
+   DollarSign, Link2, Save,
+ } from 'lucide-react';
+ 
+@@ -30,7 +30,7 @@ function formatDuration(seconds) {
+   return `${m}m`;
+ }
+ 
+-const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileTextIcon, quiz: FileTextIcon };
++const LESSON_ICONS = { video: Video, audio: Headphones, pdf: FileType2, text: FileTextIcon, quiz: FileTextIcon };
+ 
+ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
+   const [course, setCourse] = useState(null);
+@@ -250,7 +250,7 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
+                             {lesson.isPreview && (
+                               <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">preview</span>
+                             )}
+-                            {lesson.type === 'video' && lesson.durationSeconds > 0 && (
++                            {(lesson.type === 'video' || lesson.type === 'audio') && lesson.durationSeconds > 0 && (
+                               <span className="text-xs text-gray-400 flex items-center gap-1">
+                                 <Clock size={11} /> {formatDuration(lesson.durationSeconds)}
+                               </span>
+diff --git a/app/api/lessons/[id]/route.js b/app/api/lessons/[id]/route.js
+index 313a770..54f8cdd 100644
+--- a/app/api/lessons/[id]/route.js
++++ b/app/api/lessons/[id]/route.js
+@@ -17,6 +17,7 @@ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+ import { getCourseAccessForUser } from "@/app/lib/access";
+ import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
++import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -25,7 +26,7 @@ function jsonResponse(data, status = 200) {
+   });
+ }
+ 
+-const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
++const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
+ const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
+ 
+ // 🔒 Day 62: بيتنادى بس بعد ما GET/PUT يتأكدوا إن اللي طالب فعلاً عنده
+@@ -136,6 +137,15 @@ export async function PUT(request, { params }) {
+     if (body.isPreview !== undefined) lesson.isPreview = Boolean(body.isPreview);
+     if (body.order !== undefined && Number.isFinite(body.order)) lesson.order = body.order;
+ 
++    // 🆕 درس صوتي: لو النوع أو الرابط اتغيّر، نتحقق من الرابط (ملف Bunny Storage
++    // بتاعنا) ونخزّن النسخة الأصلية من غير توكن التوقيع. (قبل lesson.save —
++    // لو فشل الفحص مفيش أي حاجة اتحفظت.)
++    if (lesson.type === "audio" && (body.fileUrl !== undefined || body.type !== undefined)) {
++      const audio = sanitizeLessonAudioUrl(lesson.fileUrl);
++      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
++      lesson.fileUrl = audio.url;
++    }
++
+     await lesson.save();
+     await recomputeCourseTotals(course._id);
+ 
+diff --git a/app/api/sections/[id]/lessons/route.js b/app/api/sections/[id]/lessons/route.js
+index b6b08e6..64d295b 100644
+--- a/app/api/sections/[id]/lessons/route.js
++++ b/app/api/sections/[id]/lessons/route.js
+@@ -1,6 +1,6 @@
+ // app/api/sections/[id]/lessons/route.js
+ //
+-// اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/pdf/text
++// اليوم 8: إضافة/عرض دروس جوه section معيّنة. الدرس بياخد video/audio/pdf/text
+ // (والرابط الفعلي بييجي من رفع منفصل على Cloudinary — شوف
+ // /api/upload/signature — مش بيتبعت كملف هنا، بس رابطه بعد الرفع).
+ //
+@@ -21,6 +21,7 @@ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
+ import { getCourseAccessForUser } from "@/app/lib/access";
+ import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
++import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
+ 
+ function jsonResponse(data, status = 200) {
+   return new Response(JSON.stringify(data), {
+@@ -29,7 +30,7 @@ function jsonResponse(data, status = 200) {
+   });
+ }
+ 
+-const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
++const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
+ const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
+ 
+ // 🔒 نفس فكرة serializeLesson في courses/[id]/sections/route.js: الحقول
+@@ -143,6 +144,13 @@ export async function POST(request, { params }) {
+     if (type === "text" && !String(body?.textContent || "").trim()) {
+       return jsonResponse({ error: "missing_text_content" }, 400);
+     }
++    // 🆕 درس صوتي: الرابط لازم يكون ملف على Bunny Storage بتاعنا (شوف lessonAudio.js)
++    let audioUrl = null;
++    if (type === "audio") {
++      const audio = sanitizeLessonAudioUrl(body?.fileUrl);
++      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
++      audioUrl = audio.url;
++    }
+ 
+     const videoProvider = ALLOWED_VIDEO_PROVIDERS.includes(body?.videoProvider)
+       ? body.videoProvider
+@@ -164,7 +172,7 @@ export async function POST(request, { params }) {
+       videoUrl: type === "video" ? body.videoUrl : null,
+       videoProvider: type === "video" ? videoProvider : null,
+       durationSeconds: Math.max(0, Number(body?.durationSeconds) || 0),
+-      fileUrl: type === "pdf" ? body.fileUrl : null,
++      fileUrl: type === "pdf" ? body.fileUrl : type === "audio" ? audioUrl : null,
+       textContent: type === "text" ? String(body.textContent) : null,
+       isPreview: Boolean(body?.isPreview),
+       order,
+diff --git a/app/lib/lessonAudio.js b/app/lib/lessonAudio.js
+new file mode 100644
+index 0000000..dc3c889
+--- /dev/null
++++ b/app/lib/lessonAudio.js
+@@ -0,0 +1,26 @@
++// app/lib/lessonAudio.js
++//
++// 🆕 درس من نوع "audio": ملف صوتي (mp3/m4a/wav...) بيتخزّن على Bunny Storage
++// (نفس مسار رفع الـ PDF/أوديو الواجبات: POST /api/upload/file { kind: "audio" })
++// وبيتحفظ رابطه في lesson.fileUrl — فكل الـ routes اللي بتسرّب محتوى الدرس
++// (resolveSecureLessonMediaUrls) بتوقّع رابطه تلقائيًا من غير أي تعديل.
++//
++// 🔒 SECURITY: الـ API ما بيقبلش أي رابط جاي من الـ client زي ما هو. بنتحقق إنه
++// ملف على الـ Pull Zone بتاعنا تحت /edumaster/ (مفيش ".." ولا دومين تاني)،
++// وبنشيل أي ?token=...&expires=... قبل التخزين — الرابط الموقّع بينتهي بعد
++// ساعات، فبنخزّن الرابط الأصلي ونوقّعه من جديد وقت الإرسال للعميل.
++
++import { sanitizeAssignmentMedia } from "@/app/lib/assignmentMedia";
++
++/**
++ * @param {unknown} rawUrl
++ * @returns {{ ok: true, url: string } | { ok: false, error: "missing_audio_url" | "invalid_audio_url" }}
++ */
++export function sanitizeLessonAudioUrl(rawUrl) {
++  if (typeof rawUrl !== "string" || !rawUrl.trim()) {
++    return { ok: false, error: "missing_audio_url" };
++  }
++  const res = sanitizeAssignmentMedia(rawUrl, "audio");
++  if (!res.ok || !res.mediaUrl) return { ok: false, error: "invalid_audio_url" };
++  return { ok: true, url: res.mediaUrl };
++}
+diff --git a/app/lib/lessonAudio.test.js b/app/lib/lessonAudio.test.js
+new file mode 100644
+index 0000000..6b4d3cd
+--- /dev/null
++++ b/app/lib/lessonAudio.test.js
+@@ -0,0 +1,235 @@
++// app/lib/lessonAudio.test.js
++//
++// 🆕 دروس الأوديو (lesson.type === "audio"):
++//   - sanitizeLessonAudioUrl: بيقبل بس ملفات Bunny Storage بتاعتنا تحت /edumaster/،
++//     وبيشيل توكن التوقيع قبل التخزين.
++//   - POST /api/sections/[id]/lessons و PUT /api/lessons/[id]: نفس القواعد.
++
++const mockGetServerSession = jest.fn();
++const mockSectionFindById = jest.fn();
++const mockCourseFindById = jest.fn();
++const mockLessonCreate = jest.fn();
++const mockLessonCount = jest.fn();
++const mockLessonFindById = jest.fn();
++
++jest.mock("next-auth", () => ({ getServerSession: (...a) => mockGetServerSession(...a) }));
++jest.mock("@/app/lib/authOptions", () => ({ authOptions: {} }));
++jest.mock("@/app/lib/mongodb", () => ({ connectToMongo: jest.fn().mockResolvedValue() }));
++jest.mock("@/app/lib/models", () => ({
++  getSectionModel: () => ({ findById: (...a) => ({ lean: () => mockSectionFindById(...a) }) }),
++  getCourseModel: () => ({ findById: (...a) => mockCourseFindById(...a) }),
++  getLessonModel: () => ({
++    create: (...a) => mockLessonCreate(...a),
++    countDocuments: (...a) => mockLessonCount(...a),
++    findById: (...a) => mockLessonFindById(...a),
++  }),
++}));
++jest.mock("@/app/lib/courseHelpers", () => ({ recomputeCourseTotals: jest.fn().mockResolvedValue() }));
++jest.mock("@/app/lib/access", () => ({ getCourseAccessForUser: jest.fn() }));
++
++const HOST = "cdn.example-pull.net";
++const SECTION_ID = "507f1f77bcf86cd799439011";
++const COURSE_ID = "507f1f77bcf86cd799439022";
++const TEACHER_ID = "507f1f77bcf86cd799439033";
++const LESSON_ID = "507f1f77bcf86cd799439044";
++const AUDIO_URL = `https://${HOST}/edumaster/teachers/${TEACHER_ID}/audio/1700000000-lecture.mp3`;
++
++beforeAll(() => {
++  process.env.BUNNY_STORAGE_PULL_ZONE_HOSTNAME = HOST;
++});
++
++const asUser = (role, id = TEACHER_ID) => mockGetServerSession.mockResolvedValue({ user: { id, role } });
++
++describe("sanitizeLessonAudioUrl", () => {
++  let sanitizeLessonAudioUrl;
++  beforeAll(async () => {
++    ({ sanitizeLessonAudioUrl } = await import("@/app/lib/lessonAudio"));
++  });
++
++  it("بيقبل ملف Bunny Storage بتاعنا", () => {
++    expect(sanitizeLessonAudioUrl(AUDIO_URL)).toEqual({ ok: true, url: AUDIO_URL });
++  });
++
++  it("بيشيل توكن التوقيع (?token=&expires=) قبل التخزين", () => {
++    const signed = `${AUDIO_URL}?token=abc123&expires=1900000000`;
++    expect(sanitizeLessonAudioUrl(signed)).toEqual({ ok: true, url: AUDIO_URL });
++  });
++
++  it("بيرفض الفاضي (missing_audio_url)", () => {
++    expect(sanitizeLessonAudioUrl("")).toEqual({ ok: false, error: "missing_audio_url" });
++    expect(sanitizeLessonAudioUrl(null)).toEqual({ ok: false, error: "missing_audio_url" });
++  });
++
++  it("بيرفض أي دومين تاني، ومسار برّه /edumaster/، و path traversal", () => {
++    const bad = [
++      "https://evil.example.com/edumaster/x.mp3",
++      `https://${HOST}/other-folder/x.mp3`,
++      `https://${HOST}/edumaster/../secret/x.mp3`,
++      "javascript:alert(1)",
++    ];
++    for (const url of bad) {
++      expect(sanitizeLessonAudioUrl(url)).toEqual({ ok: false, error: "invalid_audio_url" });
++    }
++  });
++});
++
++describe("POST /api/sections/[id]/lessons — audio", () => {
++  let POST;
++  beforeAll(async () => {
++    ({ POST } = await import("@/app/api/sections/[id]/lessons/route.js"));
++  });
++
++  beforeEach(() => {
++    mockSectionFindById.mockResolvedValue({ _id: SECTION_ID, course: COURSE_ID });
++    mockCourseFindById.mockResolvedValue({ _id: COURSE_ID, teacher: TEACHER_ID, status: "draft" });
++    mockLessonCount.mockResolvedValue(0);
++    mockLessonCreate.mockImplementation(async (doc) => ({
++      _id: { toString: () => LESSON_ID },
++      section: { toString: () => SECTION_ID },
++      course: { toString: () => COURSE_ID },
++      ...doc,
++    }));
++  });
++
++  const call = (body) =>
++    POST(
++      new Request(`http://x/api/sections/${SECTION_ID}/lessons`, {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(body),
++      }),
++      { params: Promise.resolve({ id: SECTION_ID }) }
++    );
++
++  it("بينشئ درس صوتي ويخزّن الرابط في fileUrl (من غير videoUrl/textContent)", async () => {
++    asUser("teacher");
++    const res = await call({ title: "Lecture 1", type: "audio", fileUrl: `${AUDIO_URL}?token=t&expires=1`, durationSeconds: 125 });
++    expect(res.status).toBe(201);
++    const saved = mockLessonCreate.mock.calls[0][0];
++    expect(saved).toMatchObject({
++      type: "audio",
++      fileUrl: AUDIO_URL,
++      videoUrl: null,
++      videoProvider: null,
++      textContent: null,
++      durationSeconds: 125,
++    });
++    expect((await res.json()).type).toBe("audio");
++  });
++
++  it("الموديريتور كمان يقدر ينشئ درس صوتي", async () => {
++    asUser("moderator", "507f1f77bcf86cd799439099");
++    expect((await call({ title: "L", type: "audio", fileUrl: AUDIO_URL })).status).toBe(201);
++  });
++
++  it("بيرفض درس صوتي من غير ملف (400 missing_audio_url)", async () => {
++    asUser("teacher");
++    const res = await call({ title: "L", type: "audio" });
++    expect(res.status).toBe(400);
++    expect((await res.json()).error).toBe("missing_audio_url");
++    expect(mockLessonCreate).not.toHaveBeenCalled();
++  });
++
++  it("بيرفض رابط مش بتاعنا (400 invalid_audio_url)", async () => {
++    asUser("teacher");
++    const res = await call({ title: "L", type: "audio", fileUrl: "https://evil.example.com/a.mp3" });
++    expect(res.status).toBe(400);
++    expect((await res.json()).error).toBe("invalid_audio_url");
++    expect(mockLessonCreate).not.toHaveBeenCalled();
++  });
++
++  it("الـ PDF لسه شغال زي ما هو", async () => {
++    asUser("teacher");
++    const res = await call({ title: "Notes", type: "pdf", fileUrl: "https://x/y.pdf" });
++    expect(res.status).toBe(201);
++    expect(mockLessonCreate.mock.calls[0][0].fileUrl).toBe("https://x/y.pdf");
++  });
++});
++
++describe("PUT /api/lessons/[id] — audio", () => {
++  let PUT;
++  beforeAll(async () => {
++    ({ PUT } = await import("@/app/api/lessons/[id]/route.js"));
++  });
++
++  function lessonDoc(overrides = {}) {
++    const doc = {
++      _id: { toString: () => LESSON_ID },
++      section: { toString: () => SECTION_ID },
++      course: COURSE_ID,
++      title: "Lecture",
++      type: "audio",
++      fileUrl: AUDIO_URL,
++      videoUrl: null,
++      videoProvider: null,
++      textContent: null,
++      durationSeconds: 60,
++      isPreview: false,
++      order: 0,
++      save: jest.fn().mockResolvedValue(),
++      ...overrides,
++    };
++    return doc;
++  }
++
++  beforeEach(() => {
++    mockCourseFindById.mockResolvedValue({ _id: COURSE_ID, teacher: TEACHER_ID, status: "draft" });
++  });
++
++  const call = (body) =>
++    PUT(
++      new Request(`http://x/api/lessons/${LESSON_ID}`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(body),
++      }),
++      { params: Promise.resolve({ id: LESSON_ID }) }
++    );
++
++  it("تعديل العنوان بس (من غير ما الرابط يتغيّر) بيعدّي عادي", async () => {
++    asUser("teacher");
++    const lesson = lessonDoc();
++    mockLessonFindById.mockResolvedValue(lesson);
++    const res = await call({ title: "New title" });
++    expect(res.status).toBe(200);
++    expect(lesson.title).toBe("New title");
++    expect(lesson.fileUrl).toBe(AUDIO_URL);
++  });
++
++  it("استبدال الملف الصوتي بيتخزّن من غير توكن التوقيع", async () => {
++    asUser("teacher");
++    const lesson = lessonDoc();
++    mockLessonFindById.mockResolvedValue(lesson);
++    const newUrl = `https://${HOST}/edumaster/teachers/${TEACHER_ID}/audio/2-new.mp3`;
++    const res = await call({ type: "audio", fileUrl: `${newUrl}?token=zzz&expires=9` });
++    expect(res.status).toBe(200);
++    expect(lesson.fileUrl).toBe(newUrl);
++    expect(lesson.save).toHaveBeenCalled();
++  });
++
++  it("تحويل درس PDF لدرس صوتي من غير ملف صوتي → 400 ومفيش حفظ", async () => {
++    asUser("teacher");
++    const lesson = lessonDoc({ type: "pdf", fileUrl: null });
++    mockLessonFindById.mockResolvedValue(lesson);
++    const res = await call({ type: "audio" });
++    expect(res.status).toBe(400);
++    expect((await res.json()).error).toBe("missing_audio_url");
++    expect(lesson.save).not.toHaveBeenCalled();
++  });
++
++  it("رابط مش بتاعنا → 400 invalid_audio_url ومفيش حفظ", async () => {
++    asUser("teacher");
++    const lesson = lessonDoc();
++    mockLessonFindById.mockResolvedValue(lesson);
++    const res = await call({ fileUrl: "https://evil.example.com/a.mp3" });
++    expect(res.status).toBe(400);
++    expect((await res.json()).error).toBe("invalid_audio_url");
++    expect(lesson.save).not.toHaveBeenCalled();
++  });
++
++  it("type=audio مقبول كنوع صالح، و type غريب لسه مرفوض", async () => {
++    asUser("teacher");
++    mockLessonFindById.mockResolvedValue(lessonDoc({ type: "text", fileUrl: null }));
++    expect((await call({ type: "podcast" })).status).toBe(400);
++  });
++});
+diff --git a/app/lib/models/Lesson.js b/app/lib/models/Lesson.js
+index 1433ebb..85820f6 100644
+--- a/app/lib/models/Lesson.js
++++ b/app/lib/models/Lesson.js
+@@ -1,6 +1,6 @@
+ // app/lib/models/Lesson.js
+ //
+-// الدرس نفسه — فيديو، ملف PDF، أو محتوى نصي. بنحتفظ بـ courseId هنا كمان
++// الدرس نفسه — فيديو، ملف صوتي (audio)، ملف PDF، أو محتوى نصي. بنحتفظ بـ courseId هنا كمان
+ // (denormalized) رغم إن الـ section أصلاً بيرجع للكورس، عشان نقدر نجيب كل
+ // دروس كورس معين بـ query واحد بسيط (Lesson.find({course})) من غير ما
+ // نعمل join مع الـ sections في كل مرة.
+@@ -25,7 +25,7 @@ const lessonSchema = new mongoose.Schema(
+ 
+     type: {
+       type: String,
+-      enum: ["video", "pdf", "text", "quiz"],
++      enum: ["video", "audio", "pdf", "text", "quiz"],
+       required: true,
+       default: "video",
+     },
+@@ -42,7 +42,7 @@ const lessonSchema = new mongoose.Schema(
+     },
+     durationSeconds: { type: Number, default: 0 },
+ 
+-    // PDF / ملف مرفق
++    // PDF / ملف مرفق — وكمان رابط الملف الصوتي لو type === "audio" (Bunny Storage)
+     fileUrl: { type: String, default: null },
+ 
+     // درس نصي (بيتخزن كـ HTML بسيط أو Markdown)
+diff --git a/app/teacher/components/CourseTree.jsx b/app/teacher/components/CourseTree.jsx
+index 772b955..ac24e35 100644
+--- a/app/teacher/components/CourseTree.jsx
++++ b/app/teacher/components/CourseTree.jsx
+@@ -1,10 +1,10 @@
+ "use client";
+ 
+ import { useState } from "react";
+-import { Plus, Pencil, Trash2, Video, FileText, FileType2, ChevronDown, GripVertical } from "lucide-react";
++import { Plus, Pencil, Trash2, Video, Headphones, FileText, FileType2, ChevronDown, GripVertical } from "lucide-react";
+ import { useLanguage } from "@/contexts/LanguageContext";
+ 
+-const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileText, quiz: FileText };
++const LESSON_ICONS = { video: Video, audio: Headphones, pdf: FileType2, text: FileText, quiz: FileText };
+ 
+ // 🆕 كل النصوص (عدد الدروس، "معاينة"، "لا توجد دروس بعد"، "إضافة قسم جديد")
+ // كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
+@@ -98,7 +98,7 @@ export default function CourseTree({ sections, onAddSection, onEditSection, onDe
+                           {t.preview}
+                         </span>
+                       )}
+-                      {lesson.type === "video" && lesson.durationSeconds > 0 && (
++                      {(lesson.type === "video" || lesson.type === "audio") && lesson.durationSeconds > 0 && (
+                         <span className="text-xs text-gray-400">{formatDuration(lesson.durationSeconds)}</span>
+                       )}
+                       <button onClick={() => onEditLesson(section.id, lesson)} className="text-gray-400 hover:text-gray-700 p-1">
+diff --git a/app/teacher/components/LessonFormModal.jsx b/app/teacher/components/LessonFormModal.jsx
+index cf4e4b5..087f192 100644
+--- a/app/teacher/components/LessonFormModal.jsx
++++ b/app/teacher/components/LessonFormModal.jsx
+@@ -9,15 +9,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
+ // ثابت — دلوقتي بتتبع اللغة المختارة من الناف بار.
+ const TYPE_LABELS = {
+   video: { en: "Video", ar: "فيديو", es: "Video" },
++  audio: { en: "Audio", ar: "صوت", es: "Audio" },
+   pdf: { en: "PDF file", ar: "ملف PDF", es: "Archivo PDF" },
+   text: { en: "Text", ar: "نص", es: "Texto" },
+ };
+-const TYPES = ["video", "pdf", "text"];
++const TYPES = ["video", "audio", "pdf", "text"];
+ 
+ const T = {
+   en: {
+     titleRequired: "Title is required",
+     uploadVideoFirst: "Upload the video first",
++    uploadAudioFirst: "Upload the audio file first",
+     uploadFileFirst: "Upload the file first",
+     writeContent: "Write the lesson content",
+     genericError: "Something went wrong, try again",
+@@ -26,6 +28,8 @@ const T = {
+     lessonTitle: "Lesson title *",
+     lessonType: "Lesson type",
+     videoFile: "Video file",
++    audioFile: "Audio file (MP3, M4A, WAV, OGG — up to 50MB)",
++    audioDuration: "Audio duration (seconds) — set automatically after upload",
+     pdfFile: "PDF file",
+     lessonContent: "Lesson content",
+     videoDuration: "Video duration (seconds) — set automatically after upload",
+@@ -36,6 +40,7 @@ const T = {
+   ar: {
+     titleRequired: "العنوان مطلوب",
+     uploadVideoFirst: "ارفع الفيديو أولًا",
++    uploadAudioFirst: "ارفع الملف الصوتي أولًا",
+     uploadFileFirst: "ارفع الملف أولًا",
+     writeContent: "اكتب محتوى الدرس",
+     genericError: "حدث خطأ، حاول مرة أخرى",
+@@ -44,6 +49,8 @@ const T = {
+     lessonTitle: "عنوان الدرس *",
+     lessonType: "نوع الدرس",
+     videoFile: "ملف الفيديو",
++    audioFile: "الملف الصوتي (MP3 أو M4A أو WAV أو OGG — حتى 50MB)",
++    audioDuration: "مدة الملف الصوتي (ثانية) — تُحدَّد تلقائيًا بعد الرفع",
+     pdfFile: "ملف الـ PDF",
+     lessonContent: "محتوى الدرس",
+     videoDuration: "مدة الفيديو (ثانية) — تُحدَّد تلقائيًا بعد الرفع",
+@@ -54,6 +61,7 @@ const T = {
+   es: {
+     titleRequired: "El título es obligatorio",
+     uploadVideoFirst: "Sube el video primero",
++    uploadAudioFirst: "Sube primero el archivo de audio",
+     uploadFileFirst: "Sube el archivo primero",
+     writeContent: "Escribe el contenido de la lección",
+     genericError: "Ocurrió un error, inténtalo de nuevo",
+@@ -62,6 +70,8 @@ const T = {
+     lessonTitle: "Título de la lección *",
+     lessonType: "Tipo de lección",
+     videoFile: "Archivo de video",
++    audioFile: "Archivo de audio (MP3, M4A, WAV, OGG — hasta 50MB)",
++    audioDuration: "Duración del audio (segundos) — se calcula automáticamente tras subirlo",
+     pdfFile: "Archivo PDF",
+     lessonContent: "Contenido de la lección",
+     videoDuration: "Duración del video (segundos) — se calcula automáticamente tras subirlo",
+@@ -80,7 +90,11 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
+     type: lesson?.type || "video",
+     videoUrl: lesson?.videoUrl || "",
+     durationSeconds: lesson?.durationSeconds || 0,
+-    fileUrl: lesson?.fileUrl || "",
++    // 🆕 رابط الـ PDF ورابط الأوديو منفصلين في الفورم (الاتنين بيتخزّنوا في
++    // lesson.fileUrl على السيرفر) — عشان تبديل نوع الدرس ما يخلّيش رابط PDF
++    // يتعامل كأنه ملف صوتي أو العكس.
++    fileUrl: lesson?.type === "audio" ? "" : lesson?.fileUrl || "",
++    audioUrl: lesson?.type === "audio" ? lesson?.fileUrl || "" : "",
+     textContent: lesson?.textContent || "",
+     isPreview: lesson?.isPreview || false,
+   });
+@@ -96,6 +110,7 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
+     setError("");
+     if (!form.title.trim()) return setError(t.titleRequired);
+     if (form.type === "video" && !form.videoUrl) return setError(t.uploadVideoFirst);
++    if (form.type === "audio" && !form.audioUrl) return setError(t.uploadAudioFirst);
+     if (form.type === "pdf" && !form.fileUrl) return setError(t.uploadFileFirst);
+     if (form.type === "text" && !form.textContent.trim()) return setError(t.writeContent);
+ 
+@@ -107,7 +122,8 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
+         videoUrl: form.type === "video" ? form.videoUrl : null,
+         videoProvider: form.type === "video" ? "bunny" : null,
+         durationSeconds: form.durationSeconds,
+-        fileUrl: form.type === "pdf" ? form.fileUrl : null,
++        // 🆕 درس الأوديو بيخزّن رابط الملف الصوتي في fileUrl زي الـ PDF
++        fileUrl: form.type === "pdf" ? form.fileUrl : form.type === "audio" ? form.audioUrl : null,
+         textContent: form.type === "text" ? form.textContent : null,
+         isPreview: form.isPreview,
+       };
+@@ -184,6 +200,18 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
+             />
+           )}
+ 
++          {form.type === "audio" && (
++            <MediaUploader
++              kind="audio"
++              label={t.audioFile}
++              currentUrl={form.audioUrl}
++              onUploaded={(f) => {
++                update("audioUrl", f.url);
++                if (f.durationSeconds) update("durationSeconds", f.durationSeconds);
++              }}
++            />
++          )}
++
+           {form.type === "pdf" && (
+             <MediaUploader
+               kind="pdf"
+@@ -205,10 +233,10 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
+             </div>
+           )}
+ 
+-          {form.type === "video" && (
++          {(form.type === "video" || form.type === "audio") && (
+             <div>
+               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+-                {t.videoDuration}
++                {form.type === "audio" ? t.audioDuration : t.videoDuration}
+               </label>
+               <input
+                 type="number"
+diff --git a/app/teacher/components/MediaUploader.jsx b/app/teacher/components/MediaUploader.jsx
+index cbd6d7e..34bd350 100644
+--- a/app/teacher/components/MediaUploader.jsx
++++ b/app/teacher/components/MediaUploader.jsx
+@@ -88,6 +88,27 @@ function readVideoDuration(file) {
+   });
+ }
+ 
++// 🆕 نفس فكرة readVideoDuration لكن للملفات الصوتية (درس audio) — المدة بتتحسب
++// من الملف على جهاز المستخدم عشان durationSeconds يتعبّى فورًا. تسجيلات
++// المتصفح (webm) ساعات بترجّع Infinity، فبنرجّع 0 في الحالة دي.
++function readAudioDuration(file) {
++  return new Promise((resolve) => {
++    try {
++      const audio = document.createElement("audio");
++      audio.preload = "metadata";
++      audio.onloadedmetadata = () => {
++        const seconds = Number.isFinite(audio.duration) ? Math.round(audio.duration) : 0;
++        URL.revokeObjectURL(audio.src);
++        resolve(seconds);
++      };
++      audio.onerror = () => resolve(0);
++      audio.src = URL.createObjectURL(file);
++    } catch {
++      resolve(0);
++    }
++  });
++}
++
+ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
+   const { language } = useLanguage();
+   const t = T[language] || T.en;
+@@ -139,6 +160,8 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
+   }
+ 
+   async function uploadStorageFile(file) {
++    // 🆕 الملفات الصوتية بنقرأ مدتها محليًا (قبل الرفع) — درس الأوديو بيستخدمها.
++    const durationSeconds = kind === "audio" || kind === "submissionAudio" ? await readAudioDuration(file) : undefined;
+     const formData = new FormData();
+     formData.append("file", file);
+     formData.append("kind", kind);
+@@ -162,7 +185,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
+       xhr.send(formData);
+     });
+ 
+-    return { url: result.url, bytes: result.bytes, format: result.format };
++    return { url: result.url, bytes: result.bytes, format: result.format, durationSeconds };
+   }
+ 
+   async function handleFile(file) {
+-- 
+2.43.0
+

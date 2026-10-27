@@ -55,6 +55,8 @@ const T = {
     deleteFailed: "Delete failed on the server — try again, or contact support if it keeps happening.",
     internalError: "A server error occurred while deleting. Try again shortly.",
     confirmDelete: (title) => `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+    confirmArchive: (title, n) => `Archive "${title}"? It will be hidden from students immediately${n > 0 ? ` (${n} enrolled student(s) will lose access to it)` : ""}.`,
+    archiveFailed: (code) => `Archiving failed${code ? ` (${code})` : ""}. Try again.`,
     deleteErrorWithCode: (code) => `Something went wrong while deleting${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Something went wrong while deleting — check your internet connection and try again.",
     myCourses: "My courses",
@@ -106,6 +108,8 @@ const T = {
     deleteFailed: "فشل الحذف من الخادم — حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع الدعم الفني.",
     internalError: "حدث خطأ في الخادم أثناء الحذف. حاول مرة أخرى بعد قليل.",
     confirmDelete: (title) => `هل أنت متأكد من حذف "${title}"؟ لا يمكن التراجع عن هذا الإجراء.`,
+    confirmArchive: (title, n) => `هل تريد أرشفة "${title}"؟ ستختفي عن الطلاب فورًا${n > 0 ? ` (${n} طالب مسجّل لن يتمكنوا من الوصول إليها)` : ""}.`,
+    archiveFailed: (code) => `فشلت الأرشفة${code ? ` (${code})` : ""}. حاول مرة أخرى.`,
     deleteErrorWithCode: (code) => `حدث خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "حدث خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
     myCourses: "دوراتي",
@@ -157,6 +161,8 @@ const T = {
     deleteFailed: "La eliminación falló en el servidor — inténtalo de nuevo, o contacta soporte si persiste.",
     internalError: "Ocurrió un error del servidor al eliminar. Inténtalo en un momento.",
     confirmDelete: (title) => `¿Seguro que quieres eliminar "${title}"? Esta acción no se puede deshacer.`,
+    confirmArchive: (title, n) => `¿Archivar "${title}"? Se ocultará a los estudiantes de inmediato${n > 0 ? ` (${n} estudiante(s) inscrito(s) perderán el acceso)` : ""}.`,
+    archiveFailed: (code) => `No se pudo archivar${code ? ` (${code})` : ""}. Inténtalo de nuevo.`,
     deleteErrorWithCode: (code) => `Ocurrió un error al eliminar${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Ocurrió un error al eliminar — revisa tu conexión a internet e inténtalo de nuevo.",
     myCourses: "Mis cursos",
@@ -680,6 +686,28 @@ export default function TeacherCoursesPage({ asModerator = false }) {
     internal_error: () => t.internalError,
   };
 
+  // 🆕 أرشفة سريعة من الكارت (موديريتور/أدمن بس — الزرار ظاهر لهم بس). بتخفي
+  // الكورس عن الطلاب فورًا، فبنطلب تأكيد الأول. السيرفر بيسمح بيها لطاقم
+  // الإدارة حتى لو الكورس منشور أو فيه طلاب (PUT /api/courses/[id]).
+  async function handleArchive(course) {
+    if (!confirm(t.confirmArchive(course.title, Number(course.studentsCount) || 0))) return;
+    try {
+      const res = await fetch(`/api/courses/${course.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "archived" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(t.archiveFailed(data?.error));
+        return;
+      }
+      setCourses((prev) => (prev || []).map((c) => (c.id === course.id ? data : c)));
+    } catch {
+      alert(t.archiveFailed("network"));
+    }
+  }
+
   async function handleDelete(course) {
     if (!confirm(t.confirmDelete(course.title))) return;
     try {
@@ -786,6 +814,7 @@ export default function TeacherCoursesPage({ asModerator = false }) {
               course={c}
               onEdit={setModalCourse}
               onDelete={handleDelete}
+              onArchive={isModerator ? handleArchive : undefined}
               showTeacher={isModerator}
             />
           ))}

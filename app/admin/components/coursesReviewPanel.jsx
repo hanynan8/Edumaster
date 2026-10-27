@@ -18,7 +18,7 @@
 import { useEffect, useState } from 'react';
 import {
   ClipboardCheck, Loader, AlertCircle, CheckCircle2, XCircle, X, BookOpen,
-  Clock, User, Tag, Layers, Video, FileType2, FileText as FileTextIcon,
+  Clock, User, Tag, Layers, Video, Headphones, FileType2, FileText as FileTextIcon,
   DollarSign, Link2, Save,
 } from 'lucide-react';
 
@@ -30,7 +30,7 @@ function formatDuration(seconds) {
   return `${m}m`;
 }
 
-const LESSON_ICONS = { video: Video, pdf: FileType2, text: FileTextIcon, quiz: FileTextIcon };
+const LESSON_ICONS = { video: Video, audio: Headphones, pdf: FileType2, text: FileTextIcon, quiz: FileTextIcon };
 
 function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
   const [course, setCourse] = useState(null);
@@ -250,7 +250,7 @@ function CourseDetailModal({ courseId, onClose, onApprove, onReject, busy }) {
                             {lesson.isPreview && (
                               <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">preview</span>
                             )}
-                            {lesson.type === 'video' && lesson.durationSeconds > 0 && (
+                            {(lesson.type === 'video' || lesson.type === 'audio') && lesson.durationSeconds > 0 && (
                               <span className="text-xs text-gray-400 flex items-center gap-1">
                                 <Clock size={11} /> {formatDuration(lesson.durationSeconds)}
                               </span>

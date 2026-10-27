@@ -88,6 +88,27 @@ function readVideoDuration(file) {
   });
 }
 
+// 🆕 نفس فكرة readVideoDuration لكن للملفات الصوتية (درس audio) — المدة بتتحسب
+// من الملف على جهاز المستخدم عشان durationSeconds يتعبّى فورًا. تسجيلات
+// المتصفح (webm) ساعات بترجّع Infinity، فبنرجّع 0 في الحالة دي.
+function readAudioDuration(file) {
+  return new Promise((resolve) => {
+    try {
+      const audio = document.createElement("audio");
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => {
+        const seconds = Number.isFinite(audio.duration) ? Math.round(audio.duration) : 0;
+        URL.revokeObjectURL(audio.src);
+        resolve(seconds);
+      };
+      audio.onerror = () => resolve(0);
+      audio.src = URL.createObjectURL(file);
+    } catch {
+      resolve(0);
+    }
+  });
+}
+
 export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
   const { language } = useLanguage();
   const t = T[language] || T.en;
@@ -139,6 +160,8 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
   }
 
   async function uploadStorageFile(file) {
+    // 🆕 الملفات الصوتية بنقرأ مدتها محليًا (قبل الرفع) — درس الأوديو بيستخدمها.
+    const durationSeconds = kind === "audio" || kind === "submissionAudio" ? await readAudioDuration(file) : undefined;
     const formData = new FormData();
     formData.append("file", file);
     formData.append("kind", kind);
@@ -162,7 +185,7 @@ export default function MediaUploader({ kind, label, onUploaded, currentUrl }) {
       xhr.send(formData);
     });
 
-    return { url: result.url, bytes: result.bytes, format: result.format };
+    return { url: result.url, bytes: result.bytes, format: result.format, durationSeconds };
   }
 
   async function handleFile(file) {

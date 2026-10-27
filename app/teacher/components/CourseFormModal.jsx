@@ -102,6 +102,7 @@ const T = {
     titleRequiredAllLangs: "Please add a course title in all 3 languages (Arabic, English, Spanish)",
     chooseCategory: "Choose a category",
     submittedForReview: "The course was sent to the admin for review. It will appear to students once approved.",
+    confirmArchive: (n) => `Archive this course? It will be hidden from students immediately${n > 0 ? ` (${n} enrolled student(s) will lose access to it)` : ""}.`,
     savedAsDraft:
       "The course was saved as a draft when created. To send it to the admin for review, open the course, add content (sections & lessons), then choose \"Publish\" again.",
     slugTaken: "This title is already used, try a different one",
@@ -168,6 +169,7 @@ const T = {
     titleRequiredAllLangs: "من فضلك اكتب عنوان الدورة باللغات الثلاث (العربية والإنجليزية والإسبانية)",
     chooseCategory: "اختر تصنيفًا",
     submittedForReview: "تم إرسال الدورة إلى الإدارة للمراجعة. ستظهر للطلاب بعد موافقتها عليها.",
+    confirmArchive: (n) => `هل تريد أرشفة هذه الدورة؟ ستختفي عن الطلاب فورًا${n > 0 ? ` (${n} طالب مسجّل لن يتمكنوا من الوصول إليها)` : ""}.`,
     savedAsDraft:
       "تم حفظ الدورة كمسودة عند إنشائها. لإرسالها إلى الإدارة للمراجعة، افتح الدورة وأضف المحتوى (الأقسام والدروس)، ثم اختر «نشر» مرة أخرى.",
     slugTaken: "العنوان مستخدم بالفعل، جرّب عنوانًا مختلفًا",
@@ -234,6 +236,7 @@ const T = {
     titleRequiredAllLangs: "Agrega un título del curso en los 3 idiomas (árabe, inglés, español)",
     chooseCategory: "Elige una categoría",
     submittedForReview: "El curso se envió al administrador para su revisión. Aparecerá para los estudiantes una vez aprobado.",
+    confirmArchive: (n) => `¿Archivar este curso? Se ocultará a los estudiantes de inmediato${n > 0 ? ` (${n} estudiante(s) inscrito(s) perderán el acceso)` : ""}.`,
     savedAsDraft:
       "El curso se guardó como borrador al crearse. Para enviarlo a revisión, abre el curso, agrega contenido (secciones y lecciones) y luego elige \"Publicar\" de nuevo.",
     slugTaken: "Este título ya está en uso, prueba con otro diferente",
@@ -321,8 +324,13 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
   // (2) أرشفة الكورس فقط. لو الكورس منشور فعلاً، الخيار الأول بيبقى "منشور"
   // (من غير ما نرجّعه للمراجعة ونخفيه عن الطلاب) والتاني الأرشفة.
   const primaryStatus = course?.status === "published" ? "published" : "pending";
-  // 🔒 الأرشفة متاحة بس لكورس جديد أو كورس مش منشور ومفيهوش طلاب (الأدمن بيأرشف من لوحته).
-  const canArchive = !(course?.status === "published" || Number(course?.studentsCount) > 0);
+  // 🔒 المدرّس: الأرشفة متاحة بس لكورس جديد أو كورس مش منشور ومفيهوش طلاب.
+  // 🆕 الموديريتور (والأدمن في وضع الموديريتور): يقدر يأرشف أي كورس حتى لو منشور
+  // أو فيه طلاب — بس بعد تأكيد صريح (شوف handleSubmit)، لأن الأرشفة بتخفيه عن
+  // الطلاب فورًا. لو الكورس مؤرشف أصلًا مفيش داعي للزرار.
+  const canArchive = isModerator
+    ? course?.status !== "archived"
+    : !(course?.status === "published" || Number(course?.studentsCount) > 0);
   const submitStatusRef = useRef(null);
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
@@ -543,6 +551,18 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
     if (!form.category) return setError(t.chooseCategory);
     if (hasSubcategories && !form.subcategory) return setError(t.chooseSubcategory);
     if (isModerator && !form.teacher) return setError(t.chooseTeacherRequired);
+
+    // 🆕 أرشفة كورس منشور/فيه طلاب (للموديريتور بس) بتخفيه عن الطلاب فورًا —
+    // فبنطلب تأكيد صريح قبل الإرسال.
+    if (
+      chosenStatus === "archived" &&
+      isEdit &&
+      course.status !== "archived" &&
+      (course.status === "published" || Number(course.studentsCount) > 0) &&
+      !confirm(t.confirmArchive(Number(course.studentsCount) || 0))
+    ) {
+      return;
+    }
 
     setSaving(true);
     try {
@@ -987,8 +1007,9 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
               {primaryStatus === "published" ? t.saveChanges : t.submitForApproval}
             </button>
             <div className="flex gap-3">
-              {/* 🔒 "أرشفة فقط" مخفي لو الكورس منشور أو فيه طلاب — الأرشفة بتخفيه عن
-                  الطلاب فورًا (الـ API بيرفضها لغير الأدمن برضه: cannot_archive). */}
+              {/* 🔒 "أرشفة فقط" مخفي عن المدرّس لو الكورس منشور أو فيه طلاب — الأرشفة
+                  بتخفيه عن الطلاب فورًا (الـ API بيرفضها لغير طاقم الإدارة برضه:
+                  cannot_archive). الموديريتور بيشوفه دايمًا (إلا لو مؤرشف أصلًا). */}
               {!canArchive ? null : (
                 <button
                   type="submit"

@@ -321,6 +321,8 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
   // (2) أرشفة الكورس فقط. لو الكورس منشور فعلاً، الخيار الأول بيبقى "منشور"
   // (من غير ما نرجّعه للمراجعة ونخفيه عن الطلاب) والتاني الأرشفة.
   const primaryStatus = course?.status === "published" ? "published" : "pending";
+  // 🔒 الأرشفة متاحة بس لكورس جديد أو كورس مش منشور ومفيهوش طلاب (الأدمن بيأرشف من لوحته).
+  const canArchive = !(course?.status === "published" || Number(course?.studentsCount) > 0);
   const submitStatusRef = useRef(null);
   const isEdit = Boolean(course);
   const [categories, setCategories] = useState([]);
@@ -985,18 +987,22 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
               {primaryStatus === "published" ? t.saveChanges : t.submitForApproval}
             </button>
             <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                onClick={() => { submitStatusRef.current = "archived"; }}
-                className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium hover:bg-gray-200 hover:text-gray-700 disabled:opacity-60"
-              >
-                {t.archiveOnly}
-              </button>
+              {/* 🔒 "أرشفة فقط" مخفي لو الكورس منشور أو فيه طلاب — الأرشفة بتخفيه عن
+                  الطلاب فورًا (الـ API بيرفضها لغير الأدمن برضه: cannot_archive). */}
+              {!canArchive ? null : (
+                <button
+                  type="submit"
+                  disabled={saving}
+                  onClick={() => { submitStatusRef.current = "archived"; }}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium hover:bg-gray-200 hover:text-gray-700 disabled:opacity-60"
+                >
+                  {t.archiveOnly}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50"
+                className={`${canArchive ? "px-6" : "flex-1"} py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50`}
               >
                 {t.cancel}
               </button>

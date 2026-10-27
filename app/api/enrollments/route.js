@@ -96,9 +96,10 @@ export async function GET(request) {
       .populate("course", "title slug thumbnail totalLessonsCount status")
       .sort({ createdAt: -1 })
       .lean();
-    // 🆕 الموديريتور بيسجّل طلاب في كورس وهو لسه pending/draft (قبل موافقة الأدمن)
-    // — مانعرضهوش في "كورساتي" لحد ما يتنشر، وإلا هيظهر بلينك مش شغّال (404).
-    const visible = enrollments.filter((e) => !["pending", "draft"].includes(e.course?.status));
+    // 🆕 الموديريتور بيسجّل طلاب في كورس وهو لسه pending/draft/archived (قبل موافقة
+    // الأدمن أو بعد الأرشفة) — مانعرضهوش في "كورساتي" إلا لو الكورس منشور، لأن
+    // GET /api/courses/[id] بيرجّع 404 لأي كورس مش published للطالب (لينك مش شغّال).
+    const visible = enrollments.filter((e) => e.course?.status === "published");
     return jsonResponse({ enrollments: visible.map(serializeEnrollment) });
   } catch (err) {
     console.error("[/api/enrollments] GET error:", err);

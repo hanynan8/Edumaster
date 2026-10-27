@@ -16,6 +16,7 @@ import { requireSession, isOwnerOrStaff, isStaffRole } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisingTeacher } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
+import { logAudit } from "@/app/lib/auditLog";
 import { sanitizePrices, emptyPrices } from "@/app/lib/currency";
 import { getPlacementLinksForCourses } from "@/app/lib/customPlacementTests";
 import {
@@ -278,6 +279,19 @@ export async function PUT(request, { params }) {
         delete updates.status;
       }
     }
+    // 🔒 الأرشفة بتخفي الكورس فورًا عن كل الطلاب (بيرجّعلهم 404) — فمنعناها
+    // على غير الأدمن لو الكورس منشور أو فيه طلاب مسجّلين. (قبل كده زرار "أرشفة
+    // فقط" في فورم التعديل كان بيخفي كورس منشور بضغطة من غير أي تأكيد.)
+    // الأدمن لسه يقدر يأرشف أي كورس.
+    if (
+      session.user.role !== "admin" &&
+      updates.status === "archived" &&
+      existing.status !== "archived" &&
+      (existing.status === "published" || (Number(existing.studentsCount) || 0) > 0)
+    ) {
+      return jsonResponse({ error: "cannot_archive" }, 403);
+    }
+    const previousStatus = existing.status;
     if (updates.prices !== undefined) {
       updates.prices = sanitizePrices(updates.prices);
     }
@@ -359,6 +373,18 @@ export async function PUT(request, { params }) {
       await Course.collection.updateOne({ _id: existing._id }, { $set: rawUpdates });
       populated = await loadCourse(existing._id);
       if (!populated) return jsonResponse({ error: "not_found" }, 404);
+    }
+
+    // 🔒 سجل تغيير الحالة (published/pending/archived...) — عشان نعرف مين غيّر
+    // حالة كورس ومتى. logAudit بيمسك أي خطأ جواه ومابيوقفش الطلب.
+    if (updates.status !== undefined && updates.status !== previousStatus) {
+      await logAudit({
+        request,
+        actor: session.user,
+        action: "course.status_changed",
+        targetId: String(existing._id),
+        details: { title: populated?.title, from: previousStatus, to: updates.status },
+      });
     }
 
     // 🆕 best-effort: مش لازم نستنى الإشعارات دي أو نفشل الطلب لو فشلت —

@@ -348,7 +348,12 @@ export default function CoursesReviewPanel() {
       const res = await fetch(`/api/admin/courses/${courseId}/approve`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionError(data?.error === 'already_published' ? 'This course is already published.' : 'Failed to approve the course.');
+        console.error('approve failed', res.status, data);
+        setActionError(
+          data?.error === 'already_published'
+            ? 'This course is already published.'
+            : `Failed to approve the course. (${res.status}${data?.error ? ' ' + data.error : ''})`
+        );
         return;
       }
       setCourses((prev) => prev.filter((c) => c.id !== courseId));

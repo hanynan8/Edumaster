@@ -18,6 +18,7 @@ import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
+import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -26,7 +27,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
+const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
 // 🔒 Day 62: بيتنادى بس بعد ما GET/PUT يتأكدوا إن اللي طالب فعلاً عنده
@@ -114,15 +115,26 @@ export async function PUT(request, { params }) {
     const body = await request.json().catch(() => null);
     if (!body) return jsonResponse({ error: "invalid_body" }, 400);
 
+    // 🔒 كل التحققات قبل أي تعديل على الـ document، عشان رفض 400 ما يسيبش
+    // حالة نص-معدّلة في الذاكرة.
+    if (body.type !== undefined && !ALLOWED_TYPES.includes(body.type)) {
+      return jsonResponse({ error: "invalid_type" }, 400);
+    }
+    let audioUrl;
+    const effectiveType = body.type !== undefined ? body.type : lesson.type;
+    if (effectiveType === "audio" && (body.type !== undefined || body.fileUrl !== undefined)) {
+      const candidate = body.fileUrl !== undefined ? body.fileUrl : lesson.fileUrl;
+      const audio = sanitizeLessonAudioUrl(candidate);
+      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
+      audioUrl = audio.url;
+    }
+
     if (body.title !== undefined) {
       const title = String(body.title).trim();
       if (!title) return jsonResponse({ error: "invalid_title" }, 400);
       lesson.title = title;
     }
-    if (body.type !== undefined) {
-      if (!ALLOWED_TYPES.includes(body.type)) return jsonResponse({ error: "invalid_type" }, 400);
-      lesson.type = body.type;
-    }
+    if (body.type !== undefined) lesson.type = body.type;
     if (body.videoUrl !== undefined) lesson.videoUrl = body.videoUrl || null;
     if (body.videoProvider !== undefined) {
       lesson.videoProvider = ALLOWED_VIDEO_PROVIDERS.includes(body.videoProvider)
@@ -132,7 +144,8 @@ export async function PUT(request, { params }) {
     if (body.durationSeconds !== undefined) {
       lesson.durationSeconds = Math.max(0, Number(body.durationSeconds) || 0);
     }
-    if (body.fileUrl !== undefined) lesson.fileUrl = body.fileUrl || null;
+    if (audioUrl !== undefined) lesson.fileUrl = audioUrl;
+    else if (body.fileUrl !== undefined) lesson.fileUrl = body.fileUrl || null;
     if (body.textContent !== undefined) lesson.textContent = body.textContent || null;
     if (body.isPreview !== undefined) lesson.isPreview = Boolean(body.isPreview);
     if (body.order !== undefined && Number.isFinite(body.order)) lesson.order = body.order;

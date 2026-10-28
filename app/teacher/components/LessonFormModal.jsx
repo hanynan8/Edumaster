@@ -135,8 +135,9 @@ export default function LessonFormModal({ sectionId, lesson, onClose, onSaved })
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
       onSaved(data);
-    } catch {
-      setError(t.genericError);
+    } catch (err) {
+      // 🆕 نعرض كود الخطأ اللي رجّعه السيرفر (مثلاً invalid_audio_url) بدل رسالة عامة بس
+      setError(err?.message ? `${t.genericError} (${err.message})` : t.genericError);
     } finally {
       setSaving(false);
     }

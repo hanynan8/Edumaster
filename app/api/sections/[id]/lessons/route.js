@@ -21,6 +21,7 @@ import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
+import { sanitizeLessonAudioUrl } from "@/app/lib/lessonAudio";
 import { resolveSecureLessonMediaUrls } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
@@ -30,7 +31,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const ALLOWED_TYPES = ["video", "pdf", "text", "quiz"];
+const ALLOWED_TYPES = ["video", "audio", "pdf", "text", "quiz"];
 const ALLOWED_VIDEO_PROVIDERS = ["youtube", "vimeo", "bunny", "s3", "cloudinary", "other"];
 
 // 🔒 نفس فكرة serializeLesson في courses/[id]/sections/route.js: الحقول
@@ -141,6 +142,13 @@ export async function POST(request, { params }) {
     if (type === "pdf" && !body?.fileUrl) {
       return jsonResponse({ error: "missing_file_url" }, 400);
     }
+    // 🆕 درس صوتي: الرابط بيتخزّن في fileUrl بعد التحقق منه وشيل توكن التوقيع
+    let audioUrl = null;
+    if (type === "audio") {
+      const audio = sanitizeLessonAudioUrl(body?.fileUrl);
+      if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
+      audioUrl = audio.url;
+    }
     if (type === "text" && !String(body?.textContent || "").trim()) {
       return jsonResponse({ error: "missing_text_content" }, 400);
     }
@@ -165,7 +173,7 @@ export async function POST(request, { params }) {
       videoUrl: type === "video" ? body.videoUrl : null,
       videoProvider: type === "video" ? videoProvider : null,
       durationSeconds: Math.max(0, Number(body?.durationSeconds) || 0),
-      fileUrl: type === "pdf" ? body.fileUrl : null,
+      fileUrl: type === "pdf" ? body.fileUrl : type === "audio" ? audioUrl : null,
       textContent: type === "text" ? String(body.textContent) : null,
       isPreview: Boolean(body?.isPreview),
       order,

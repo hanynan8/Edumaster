@@ -3,8 +3,9 @@
 //  🆕 اختبارات تحديد المستوى المخصصة (B1, B2, ...) اللي الأدمن بيرفعها من ملف Excel — السيرفر بس.
 //
 //  بتتخزن في كولكشن "placement_test_defs" (مستند لكل اختبار):
-//    { testId, label, title, subject, thresholds, parts, answerKey, scripts, audioSlots,
+//    { testId, label, title, subject, thresholds, parts, answerKey, scripts, audioSlots, nextN,
 //      status: "published" | "draft" | "archived", courseIds: [string], createdAt, updatedAt }
+//  - nextN: أول رقم متاح لسؤال جديد (رقم السؤال n هو مفتاح الإجابات ونتايج الطلاب — مابيتعادش استخدامه حتى لو السؤال اتحذف).
 //  - parts: نفس هيكل PLACEMENT_PARTS لـ A1/A2 (فمنطق الأسئلة الظاهرة/التصحيح/المراجعة مشترك).
 //  - answerKey و scripts 🔒 بيفضلوا في السيرفر بس — النسخة العامة (toPublicTest) من غيرهم.
 //  - الصوتيات: كولكشن placement_settings (مستند "audio_custom_<id>") + Bunny Storage زي A1/A2.
@@ -18,6 +19,7 @@ import mongoose from "mongoose";
 import { normalizeTestId, PLACEMENT_TESTS } from "@/app/lib/placementTests";
 import { buildStandardLevels } from "@/app/lib/placementLevels";
 import { DEFAULT_THRESHOLDS, RESERVED_TEST_IDS, TEST_ID_RE } from "@/app/lib/placementTestSheetSpec";
+import { buildTestFromEditable, listQuestionNs, nextQuestionNumber, testToEditable } from "@/app/lib/placementTestEditor";
 
 export const DEFS_COLLECTION = "placement_test_defs";
 export const STATUSES = ["published", "draft", "archived"];
@@ -60,6 +62,7 @@ export function docToDef(doc) {
     answerKey: doc.answerKey || {}, // 🔒
     scripts: doc.scripts || {}, // 🔒
     audioSlots: doc.audioSlots || [],
+    nextN: Number.isInteger(doc.nextN) ? doc.nextN : undefined,
     levels: buildStandardLevels(doc.label, thresholds),
     audioDocId: customAudioDocId(doc.testId),
     audioPathPrefix: customAudioPrefix(doc.testId),
@@ -171,7 +174,7 @@ export async function listCustomTests() {
 export async function saveCustomTest(test, { mode = "auto", status = "published" } = {}) {
   if (RESERVED_TEST_IDS.includes(test.id) || PLACEMENT_TESTS[test.id]) return { error: "reserved_id" };
   const col = defsCollection();
-  const existing = await col.findOne({ testId: test.id }, { projection: { status: 1, courseIds: 1, createdAt: 1 } });
+  const existing = await col.findOne({ testId: test.id }, { projection: { status: 1, courseIds: 1, createdAt: 1, nextN: 1 } });
   if (mode === "create" && existing) return { error: "exists" };
   if (mode === "update" && !existing) return { error: "not_found" };
 
@@ -185,6 +188,8 @@ export async function saveCustomTest(test, { mode = "auto", status = "published"
     answerKey: test.answerKey,
     scripts: test.scripts || {},
     audioSlots: test.audioSlots || [],
+    // علامة "أول رقم سؤال متاح": مابتنزلش أبدًا (حتى لو الملف الجديد أقصر) عشان أرقام نتايج الطلاب القديمة ماتتعادش لأسئلة تانية
+    nextN: Math.max(Number.isInteger(existing?.nextN) ? existing.nextN : 0, nextQuestionNumber(test)),
     updatedAt: now,
   };
   if (existing) {
@@ -201,6 +206,80 @@ export async function saveCustomTest(test, { mode = "auto", status = "published"
     createdAt: now,
   });
   return { ok: true, created: true, id: test.id, status };
+}
+
+// ───────── 🆕 تعديل اختبار منشور (محرّر الهيكل الكامل) ─────────
+
+// بيرجّع الاختبار بشكل قابل للتعديل للأدمن (فيه الإجابات الصحيحة ونصوص التسجيلات — أدمن بس) + بيانات التعديل.
+export async function getCustomTestForEdit(testId) {
+  const doc = await getCustomTestDoc(testId);
+  if (!doc) return { error: "not_found" };
+  const resultsCount = await resultsCollection().countDocuments({ test: doc.testId });
+  return {
+    ok: true,
+    meta: {
+      id: doc.testId,
+      status: doc.status,
+      updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+      resultsCount,
+      path: customPath(doc.testId),
+    },
+    test: testToEditable(doc),
+  };
+}
+
+// بيطبّق تعديلات الأدمن على اختبار موجود (أي حاجة: الإعدادات، الأجزاء، المهام، الأسئلة، الخيارات، الإجابات، أماكن الصوت).
+//   - بيتحقق من الـ payload كله الأول (buildTestFromEditable) — لو فيه أي خطأ مفيش حاجة بتتحفظ.
+//   - الأسئلة الموجودة بتحتفظ برقمها (n)، والجديدة بتاخد أرقام جديدة → نتايج الطلاب القديمة والمفتاح مابيتلخبطوش.
+//   - الحالة والكورسات المربوطة والصوتيات المرفوعة بتفضل زي ما هي (الصوت مربوط برقم الخانة) — إلا تسجيل الأدمن حذفه صراحةً من المكتبة.
+//   - expectedUpdatedAt: لو أدمن تاني عدّل الاختبار بعد ما فتحته → { error: "conflict" } بدل ما نكتب فوق شغله.
+export async function editCustomTest(testId, payload, { expectedUpdatedAt = null } = {}) {
+  const id = String(testId || "").toLowerCase();
+  const col = defsCollection();
+  const doc = await col.findOne({ testId: id });
+  if (!doc) return { error: "not_found" };
+  if (expectedUpdatedAt && doc.updatedAt && new Date(doc.updatedAt).toISOString() !== expectedUpdatedAt) return { error: "conflict" };
+
+  const built = buildTestFromEditable(payload, { allowedNs: listQuestionNs(doc), nextN: nextQuestionNumber(doc) });
+  if (!built.ok) return { error: "invalid", errors: built.errors, warnings: built.warnings };
+
+  const t = built.test;
+  const now = new Date();
+  const filter = doc.updatedAt ? { testId: id, updatedAt: doc.updatedAt } : { testId: id };
+  const res = await col.updateOne(filter, {
+    $set: {
+      label: t.label,
+      title: t.title,
+      subject: t.subject,
+      thresholds: t.thresholds,
+      parts: t.parts,
+      answerKey: t.answerKey,
+      scripts: t.scripts,
+      audioSlots: t.audioSlots,
+      nextN: t.nextN,
+      updatedAt: now,
+    },
+  });
+  if (res && res.matchedCount === 0) return { error: "conflict" };
+
+  // تسجيلات الأدمن حذفها صراحةً من المكتبة → بنفك ارتباط الملف المرفوع (الملف نفسه بيفضل على Bunny زي DELETE الصوت)،
+  // عشان لو خانة بنفس الرقم اتضافت بعدين ماتاخدش صوت قديم بالغلط.
+  const removedSlots = (doc.audioSlots || []).map((a) => a.slot).filter((s) => !t.audioSlots.some((a) => a.slot === s));
+  if (removedSlots.length) {
+    await settingsCollection().updateOne(
+      { _id: customAudioDocId(id) },
+      { $unset: Object.fromEntries(removedSlots.map((slot) => [`tracks.${slot}`, ""])) }
+    );
+  }
+  return {
+    ok: true,
+    id,
+    status: doc.status,
+    updatedAt: now.toISOString(),
+    warnings: built.warnings,
+    stats: built.stats,
+    removedSlots,
+  };
 }
 
 // تعديل الحالة / الكورسات المربوطة. الكورس بيتربط باختبار مخصص واحد بس: ربطه بالاختبار ده بيشيله من أي اختبار تاني.

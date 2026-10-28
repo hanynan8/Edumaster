@@ -5,16 +5,19 @@
 // 🆕 تبويب "Manage tests" في لوحة اختبارات تحديد المستوى — الأدمن (من غير برمجة) يقدر:
 //   1) ينزّل قالب PDF (أو TXT) بالصيغة الثابتة — أو قالب Excel القديم.
 //   2) يرفع ملفه (PDF / TXT / XLSX) → معاينة الأخطاء برقم السطر/الصف (بالعربي والإنجليزي) → حفظ لو مفيش أخطاء.
+//      🆕 قبل الحفظ (شاشة Review) يقدر يعدّل الاختبار بالكامل في المحرّر: أجزاء/مهام/أسئلة/خيارات/إجابات/أماكن الأوديو.
 //   3) يشوف قايمة الاختبارات المخصصة: نشر / إخفاء، تحديث من ملف، تصدير الاختبار كـ Excel، حذف (أرشفة لو ليه نتايج).
 //   4) يختار الكورسات اللي زرار "اختبر مستواك" بتاع الاختبار يظهر عليها.
 //   5) يروح لتبويب الاختبار نفسه لرفع صوتياته ومشاهدة نتايج الطلاب.
-// مصدر البيانات: /api/admin/placement-tests/{template,import,custom,custom/export,courses}.
+//   6) 🆕 "Edit test": تعديل أي اختبار منشور بعد رفعه بنفس المحرّر الكامل (بدون إعادة رفع ملف).
+// مصدر البيانات: /api/admin/placement-tests/{template,import,custom,custom/[id],custom/export,courses,audio}.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader, AlertCircle, Upload, Download, FileSpreadsheet, CheckCircle2, Eye, EyeOff,
-  Archive, Trash2, Link2, BookOpen, RefreshCw, Headphones, Copy, X, Pencil, Plus, RotateCcw,
+  Archive, Trash2, Link2, BookOpen, RefreshCw, Headphones, Copy, X, Pencil,
 } from 'lucide-react';
+import PlacementTestEditor, { prepareEditable, serializeEditable, validateEditable } from './placementTestEditor';
 
 const STATUS_STYLES = {
   published: 'bg-green-100 text-green-700',
@@ -26,259 +29,6 @@ async function readJson(res) {
   return res.json().catch(() => null);
 }
 
-// ───────────────────────── مراجعة وتعديل الأسئلة قبل النشر ─────────────────────────
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-// نفس حدود السيرفر (placementTestSheetSpec) — السيرفر بيتحقق تاني قبل الحفظ
-const MAX_OPTIONS = 6;
-const MAX_QUESTION_LEN = 1000;
-const MAX_CONTEXT_LEN = 2000;
-const MAX_OPTION_LEN = 400;
-
-const baseOf = (item) => ({ q: item.q, ctx: item.ctx || '', options: [...item.options], correct: item.correct });
-const sameEdit = (a, b) =>
-  a.q === b.q && a.ctx === b.ctx && a.correct === b.correct &&
-  a.options.length === b.options.length && a.options.every((o, i) => o === b.options[i]);
-
-// بترجّع نص المشكلة (أو null لو التعديل سليم)
-function validateEdit(e, isMatching) {
-  if (!e.q.trim()) return 'Question text is empty · نص السؤال فاضي';
-  if (e.q.trim().length > MAX_QUESTION_LEN) return `Question is too long (max ${MAX_QUESTION_LEN})`;
-  if (e.ctx.trim().length > MAX_CONTEXT_LEN) return `Context is too long (max ${MAX_CONTEXT_LEN})`;
-  if (!isMatching) {
-    if (e.options.length < 2) return 'At least 2 options are required · لازم خيارين على الأقل';
-    if (e.options.some((o) => !o.trim())) return 'Options cannot be empty · الخيارات مينفعش تبقى فاضية';
-    if (e.options.some((o) => o.trim().length > MAX_OPTION_LEN)) return `An option is too long (max ${MAX_OPTION_LEN})`;
-  }
-  if (!Number.isInteger(e.correct) || e.correct < 0 || e.correct >= e.options.length) return 'Pick the correct answer · اختار الإجابة الصحيحة';
-  return null;
-}
-
-function QuestionItem({ item, task, edit, showAnswers, onChange, onReset }) {
-  const [open, setOpen] = useState(false);
-  const isMatching = Boolean(task.bank);
-  const base = baseOf(item);
-  const cur = edit || base;
-  const problem = edit ? validateEdit(edit, isMatching) : null;
-
-  const set = (patch) => {
-    const next = { ...cur, ...patch };
-    onChange(item.n, sameEdit(next, base) ? null : next);
-  };
-  const setOption = (i, v) => set({ options: cur.options.map((o, j) => (j === i ? v : o)) });
-  const addOption = () => set({ options: [...cur.options, ''] });
-  const removeOption = (i) =>
-    set({
-      options: cur.options.filter((_, j) => j !== i),
-      correct: cur.correct === i ? null : cur.correct > i ? cur.correct - 1 : cur.correct,
-    });
-
-  const optionLabel = (i) => (isMatching ? '' : `${LETTERS[i]}. `);
-
-  return (
-    <li className={`rounded-lg border px-3 py-2 ${problem ? 'border-red-200 bg-red-50/40' : edit ? 'border-amber-200 bg-amber-50/30' : 'border-gray-100'}`}>
-      <div className="flex items-start gap-2">
-        <p className="flex-1 text-sm text-gray-900" dir="auto">
-          <span className="font-bold text-gray-500" dir="ltr">Q{item.n} </span>
-          {cur.q}
-          {item.audio ? <span className="text-xs text-gray-400"> · 🎧 #{item.audio}</span> : null}
-          {edit && !problem && <span className="ml-1.5 text-[10px] font-bold uppercase text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">edited</span>}
-        </p>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900"
-        >
-          <Pencil size={12} /> {open ? 'Done' : 'Edit'}
-        </button>
-      </div>
-
-      {!open && (
-        <>
-          {cur.ctx && <p className="mt-0.5 text-xs text-gray-500" dir="auto">{cur.ctx}</p>}
-          <ul className="mt-1.5 space-y-0.5">
-            {cur.options.map((opt, oi) => {
-              const isCorrect = showAnswers && cur.correct === oi;
-              return (
-                <li key={oi} dir="auto" className={`text-xs rounded px-2 py-1 ${isCorrect ? 'bg-green-50 text-green-800 font-semibold' : 'text-gray-700'}`}>
-                  {optionLabel(oi)}{opt}
-                  {isCorrect && <CheckCircle2 size={12} className="inline ml-1.5 -mt-0.5" />}
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-
-      {open && (
-        <div className="mt-2 space-y-2">
-          <label className="block">
-            <span className="text-[11px] font-semibold text-gray-500">Question</span>
-            <textarea
-              value={cur.q}
-              onChange={(e) => set({ q: e.target.value })}
-              rows={2}
-              dir="auto"
-              className="mt-0.5 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm"
-            />
-          </label>
-          <label className="block">
-            <span className="text-[11px] font-semibold text-gray-500">Context (optional)</span>
-            <textarea
-              value={cur.ctx}
-              onChange={(e) => set({ ctx: e.target.value })}
-              rows={2}
-              dir="auto"
-              className="mt-0.5 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
-            />
-          </label>
-
-          <div>
-            <span className="text-[11px] font-semibold text-gray-500">
-              {isMatching ? 'Correct answer (from the Bank)' : 'Options — select the correct one'}
-            </span>
-            <ul className="mt-1 space-y-1">
-              {cur.options.map((opt, oi) => (
-                <li key={oi} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`correct-${item.n}`}
-                    checked={cur.correct === oi}
-                    onChange={() => set({ correct: oi })}
-                    className="accent-green-600"
-                    title="Mark as correct"
-                  />
-                  <span className="w-5 text-xs font-bold text-gray-500">{LETTERS[oi]}</span>
-                  {isMatching ? (
-                    <span className="text-xs text-gray-600 truncate" dir="auto">
-                      {(task.bank.find((b) => b.l === opt) || {}).t || ''}
-                    </span>
-                  ) : (
-                    <>
-                      <input
-                        value={opt}
-                        onChange={(e) => setOption(oi, e.target.value)}
-                        dir="auto"
-                        className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeOption(oi)}
-                        disabled={cur.options.length <= 2}
-                        className="text-gray-400 hover:text-red-600 disabled:opacity-30"
-                        title="Remove option"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {!isMatching && cur.options.length < MAX_OPTIONS && (
-              <button type="button" onClick={addOption} className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900">
-                <Plus size={12} /> Add option
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {problem && <p className="mt-1.5 text-xs font-semibold text-red-600">{problem}</p>}
-      {edit && (
-        <button type="button" onClick={() => onReset(item.n)} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-gray-800">
-          <RotateCcw size={11} /> Reset to the file&apos;s version
-        </button>
-      )}
-    </li>
-  );
-}
-
-function QuestionsReview({ review, edits, onChange, onReset, onResetAll }) {
-  const [showAnswers, setShowAnswers] = useState(true);
-  const [filter, setFilter] = useState('');
-  const q = filter.trim().toLowerCase();
-  const editedCount = Object.keys(edits).length;
-
-  const matches = (item) =>
-    !q || `${item.n} ${item.q} ${item.ctx || ''} ${(item.options || []).join(' ')}`.toLowerCase().includes(q);
-
-  return (
-    <div className="mt-3 rounded-lg border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-3 py-2">
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Search in questions…"
-          className="flex-1 min-w-[10rem] border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
-        />
-        <button
-          type="button"
-          onClick={() => setShowAnswers((v) => !v)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 px-2 py-1.5"
-        >
-          {showAnswers ? <EyeOff size={13} /> : <Eye size={13} />}
-          {showAnswers ? 'Hide correct answers' : 'Show correct answers'}
-        </button>
-        {editedCount > 0 && (
-          <button type="button" onClick={onResetAll} className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900 px-2 py-1.5">
-            <RotateCcw size={12} /> Discard {editedCount} edit{editedCount === 1 ? '' : 's'}
-          </button>
-        )}
-      </div>
-
-      <div className="max-h-[32rem] overflow-y-auto divide-y divide-gray-100">
-        {review.map((part, pi) => (
-          <div key={pi} className="px-3 py-3">
-            <p className="text-sm font-bold text-gray-800">
-              {part.title} <span className="text-xs font-normal text-gray-400">({part.minutes} min)</span>
-            </p>
-            {part.tasks.map((task, ti) => {
-              const shown = task.questions.filter(matches);
-              if (q && !shown.length) return null;
-              return (
-                <div key={ti} className="mt-3">
-                  <p className="text-xs font-semibold text-indigo-700">
-                    {task.title}
-                    {task.bank ? ' · matching' : ''}
-                    {task.audio ? ` · 🎧 #${task.audio}` : ''}
-                  </p>
-                  {task.intro && <p className="mt-1 text-xs text-gray-500 whitespace-pre-line" dir="auto">{task.intro}</p>}
-                  {task.passage && (
-                    <details className="mt-1">
-                      <summary className="cursor-pointer text-xs text-gray-500">Passage</summary>
-                      <p className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 whitespace-pre-line" dir="auto">{task.passage}</p>
-                    </details>
-                  )}
-                  {task.bank && (
-                    <ul className="mt-1.5 space-y-0.5 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                      {task.bank.map((b) => (
-                        <li key={b.l} dir="auto"><span className="font-bold">{b.l}.</span> {b.t}</li>
-                      ))}
-                    </ul>
-                  )}
-                  <ol className="mt-2 space-y-2.5">
-                    {shown.map((item) => (
-                      <QuestionItem
-                        key={item.n}
-                        item={item}
-                        task={task}
-                        edit={edits[item.n]}
-                        showAnswers={showAnswers}
-                        onChange={onChange}
-                        onReset={onReset}
-                      />
-                    ))}
-                  </ol>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ───────────────────────── رفع ملف + معاينة + حفظ ─────────────────────────
 // expectId: لو بنحدّث اختبار موجود (الـ Test ID جوه الملف لازم يطابقه).
 function ImportFlow({ expectId = null, onSaved, onCancel }) {
@@ -288,27 +38,15 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
   const [result, setResult] = useState(null); // رد الـ preview
   const [error, setError] = useState('');
   const [showReview, setShowReview] = useState(false);
-  const [edits, setEdits] = useState({}); // تعديلات الأدمن على الأسئلة: { [رقم السؤال]: { q, ctx, options, correct } }
+  const [editor, setEditor] = useState(null); // 🆕 الاختبار بعد ما الأدمن بيعدّله في المحرّر (payload المحرّر — شوف placementTestEditor.jsx)
+  const [baseline, setBaseline] = useState(''); // JSON الاختبار زي ما اتقرا من الملف (عشان نعرف لو اتعدّل)
   const [saveErrors, setSaveErrors] = useState([]); // أخطاء التحقق من التعديلات وقت الحفظ
   const input = useRef(null);
 
-  // رقم السؤال → هل هو في مهمة ربط (matching)؟ (مهام الربط خياراتها من الـ Bank فمبتتبعتش)
-  const matchingByN = useMemo(() => {
-    const m = {};
-    for (const part of result?.review || []) for (const task of part.tasks) for (const it of task.questions) m[it.n] = Boolean(task.bank);
-    return m;
-  }, [result]);
-  const editCount = Object.keys(edits).length;
-  const hasInvalidEdit = Object.entries(edits).some(([n, e]) => validateEdit(e, matchingByN[n]));
-
-  const changeEdit = (n, next) =>
-    setEdits((prev) => {
-      const copy = { ...prev };
-      if (next) copy[n] = next;
-      else delete copy[n];
-      return copy;
-    });
-  const resetEdit = (n) => changeEdit(n, null);
+  // التحقق اللحظي من تعديلات المحرّر (نفس قواعد السيرفر — والسيرفر بيتحقق تاني قبل الحفظ)
+  const check = useMemo(() => (editor ? validateEditable(editor) : null), [editor]);
+  const dirty = useMemo(() => Boolean(editor) && JSON.stringify(serializeEditable(editor)) !== baseline, [editor, baseline]);
+  const blockedByEdits = dirty && Boolean(check) && check.errors.length > 0;
 
   const send = async (mode, f = file) => {
     const fd = new FormData();
@@ -316,14 +54,8 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
     fd.append('mode', mode);
     fd.append('status', status);
     if (expectId) fd.append('expectId', expectId);
-    if (mode === 'save' && editCount) {
-      const payload = {};
-      for (const [n, e] of Object.entries(edits)) {
-        payload[n] = { q: e.q.trim(), ctx: e.ctx.trim(), correct: e.correct };
-        if (!matchingByN[n]) payload[n].options = e.options.map((o) => o.trim());
-      }
-      fd.append('edits', JSON.stringify(payload));
-    }
+    // 🆕 لو الأدمن عدّل في المحرّر: بنبعت الاختبار كله (السيرفر بيتحقق منه وبيحلّ محل محتوى الملف)
+    if (mode === 'save' && dirty && editor) fd.append('structure', JSON.stringify(serializeEditable(editor)));
     const res = await fetch('/api/admin/placement-tests/import', { method: 'POST', body: fd });
     const data = await readJson(res);
     if (!data) throw new Error('request_failed');
@@ -338,11 +70,18 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
     setResult(null);
     setError('');
     setShowReview(false);
-    setEdits({});
+    setEditor(null);
+    setBaseline('');
     setSaveErrors([]);
     setBusy(true);
     try {
-      setResult(await send('preview', f));
+      const data = await send('preview', f);
+      setResult(data);
+      if (data.ok && data.editable) {
+        const prepared = prepareEditable(data.editable);
+        setEditor(prepared);
+        setBaseline(JSON.stringify(serializeEditable(prepared)));
+      }
     } catch (e) {
       setError(e.message === 'request_failed' ? 'تعذّر قراءة الملف، حاول مرة أخرى · Could not read the file' : e.message);
     } finally {
@@ -473,28 +212,20 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
               </li>
             ))}
           </ul>
-          {(result.review || []).length > 0 && (
+          {editor && (
             <>
               <button
                 type="button"
                 onClick={() => setShowReview((v) => !v)}
                 className="mt-3 inline-flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-2 rounded-lg hover:bg-indigo-100"
               >
-                {showReview ? <EyeOff size={13} /> : <Eye size={13} />}
-                {showReview ? 'Hide questions' : `Review ${s.questions} questions before publishing`}
+                {showReview ? <EyeOff size={13} /> : <Pencil size={13} />}
+                {showReview ? 'Hide the editor' : `Review & edit the test (${s.questions} questions) before publishing`}
               </button>
-              {showReview && (
-                <QuestionsReview
-                  review={result.review}
-                  edits={edits}
-                  onChange={changeEdit}
-                  onReset={resetEdit}
-                  onResetAll={() => setEdits({})}
-                />
-              )}
-              {!showReview && editCount > 0 && (
+              {showReview && <PlacementTestEditor value={editor} onChange={setEditor} check={check} />}
+              {!showReview && dirty && (
                 <p className="mt-2 text-xs font-semibold text-amber-700">
-                  {editCount} edited question{editCount === 1 ? '' : 's'} will be saved with the test.
+                  عدّلت في الاختبار — التعديلات هتتحفظ مع الاختبار. · Your edits will be saved with the test.
                 </p>
               )}
             </>
@@ -508,17 +239,17 @@ function ImportFlow({ expectId = null, onSaved, onCancel }) {
           ) : (
             <button
               onClick={save}
-              disabled={busy || hasInvalidEdit}
+              disabled={busy || blockedByEdits}
               className="mt-3 inline-flex items-center gap-1.5 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
             >
               {busy ? <Loader className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
               {expectId ? 'Save the update' : status === 'draft' ? 'Save as draft' : 'Save & publish'}
-              {editCount > 0 ? ` (with ${editCount} edit${editCount === 1 ? '' : 's'})` : ''}
+              {dirty ? ' (with your edits)' : ''}
             </button>
           )}
-          {hasInvalidEdit && (
+          {blockedByEdits && (
             <p className="mt-2 text-xs text-red-600">
-              فيه تعديل مش سليم — افتح المراجعة وصلّحه عشان تقدر تحفظ · Fix the highlighted edits in the review to enable saving.
+              فيه تعديل مش سليم — افتح المحرّر وصلّح الأماكن المظلّلة عشان تقدر تحفظ · Fix the highlighted problems in the editor to enable saving.
             </p>
           )}
           {saveErrors.length > 0 && (

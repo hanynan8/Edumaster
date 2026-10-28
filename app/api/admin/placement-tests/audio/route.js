@@ -6,6 +6,7 @@
 //   POST (form)                → test (a1|a2) + slot (1–4 لـ A1 · 1–12 لـ A2 · 1–4 لـ B1) + file (صوت) → بيترفع على Bunny Storage
 //                                ويظهر في الاختبار فورًا
 //   DELETE ?test=a2&slot=N     → حذف الصوت (المهمة بتتخفي من الاختبار لحد ما يتّرفع غيره)
+//   PATCH (json)               → 🆕 { test, from, to } نقل ملف صوت مرفوع من خانة لخانة (أو تبديل الاتنين لو التانية فيها ملف) من غير إعادة رفع
 // test مش موجود/غلط → a1 (توافق مع الكود القديم).
 // الرفع بيعدي من السيرفر لأن مفتاح Bunny Storage سري (زي /api/upload/file).
 
@@ -18,7 +19,7 @@ import {
   buildStoragePublicUrl,
   resolveSecureStoredUrl,
 } from "@/app/lib/bunny";
-import { getAudioTracks, setAudioTrack } from "@/app/lib/placementTest";
+import { getAudioTracks, setAudioTrack, moveAudioTrack } from "@/app/lib/placementTest";
 import { getPlacementTest, getAudioSlotNumbers } from "@/app/lib/placementTests";
 import { resolveTest } from "@/app/lib/customPlacementTests";
 import { getAudioScript } from "@/app/lib/placementAudioScripts";
@@ -160,6 +161,29 @@ export async function DELETE(request) {
     return jsonResponse({ ok: true, test: resolved.id, tracks: serialize(await getAudioTracks(testId), testId) });
   } catch (err) {
     console.error("[/api/admin/placement-tests/audio] DELETE error:", err);
+    return jsonResponse({ error: "internal_error" }, 500);
+  }
+}
+
+// 🆕 نقل/تبديل ملف صوت بين خانتين (الاختبارات المخصصة بس — المدمجة أماكن صوتياتها ثابتة في الكود)
+export async function PATCH(request) {
+  try {
+    const auth = await requireRole(["admin"]);
+    if (auth.response) return auth.response;
+    const body = await request.json().catch(() => null);
+    await connectToMongo();
+    const resolved = await resolveTest(body?.test, { allowUnpublished: true, strict: true });
+    if (!resolved) return jsonResponse({ error: "test_not_found" }, 404);
+    if (!resolved.custom) return jsonResponse({ error: "not_custom_test" }, 400);
+    const testId = resolved.ref;
+    const from = parseSlot(body?.from, testId);
+    const to = parseSlot(body?.to, testId);
+    if (!from || !to || from === to) return jsonResponse({ error: "invalid_slot" }, 400);
+    const res = await moveAudioTrack(from, to, testId);
+    if (res.error) return jsonResponse({ error: res.error }, 400);
+    return jsonResponse({ ok: true, swapped: res.swapped, test: resolved.id, tracks: serialize(await getAudioTracks(testId), testId) });
+  } catch (err) {
+    console.error("[/api/admin/placement-tests/audio] PATCH error:", err);
     return jsonResponse({ error: "internal_error" }, 500);
   }
 }

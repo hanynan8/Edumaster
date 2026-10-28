@@ -125,6 +125,22 @@ export async function setAudioTrack(slot, track, testId = "a1") {
   );
 }
 
+// 🆕 نقل ملف صوت مرفوع من خانة لخانة تانية من غير إعادة رفع (لما الأدمن يغيّر أماكن الأوديو في الاختبار).
+//   لو الخانة الهدف فيها ملف → بيتبدّلوا (swap)، وإلا الملف بيتنقل والخانة القديمة بتفضل فاضية.
+//   الخانتين لازم يكونوا من خانات الاختبار (الراوت بيتحقق). { error: "empty_source" } لو الخانة المصدر مفيهاش ملف.
+export async function moveAudioTrack(from, to, testId = "a1") {
+  const tracks = await getAudioTracks(testId);
+  const src = tracks[from];
+  const dst = tracks[to];
+  if (!src?.path) return { error: "empty_source" };
+  const $set = { [`tracks.${to}`]: src };
+  const update = { $set };
+  if (dst?.path) $set[`tracks.${from}`] = dst;
+  else update.$unset = { [`tracks.${from}`]: "" };
+  await getSettingsCollection().updateOne({ _id: audioDocId(testId) }, update, { upsert: true });
+  return { ok: true, swapped: Boolean(dst?.path) };
+}
+
 // { [slot]: رابط جاهز للتشغيل } للمسارات المرفوعة بس
 export async function getAudioMap(testId = "a1") {
   const tracks = await getAudioTracks(testId);

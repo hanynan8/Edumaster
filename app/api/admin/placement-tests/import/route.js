@@ -5,8 +5,11 @@
 //   mode     : "preview" (الافتراضي) → بيقرا الملف ويرجّع المعاينة والأخطاء من غير ما يحفظ حاجة
 //              "save"                → بيقرا ويتحقق ويحفظ الاختبار (لو فيه أخطاء مبيحفظش)
 //   status   : "published" | "draft" (للاختبار الجديد بس — الافتراضي published)
-//   edits    : (اختياري، mode=save بس) JSON بتعديلات الأدمن على الأسئلة بعد المراجعة { [رقم السؤال]: { q, ctx, options, correct } } —
-//              بتتطبّق فوق الملف المقروء وبتتحقق بنفس الحدود (placementTestEdits.js)، ولو فيها خطأ مفيش حاجة بتتحفظ.
+//   structure: (اختياري، mode=save بس) 🆕 الاختبار كله بعد ما الأدمن عدّله في المحرّر (placementTestEditor.js): الإعدادات، الأجزاء،
+//              المهام، الأسئلة (إضافة/حذف/ترتيب/نقل)، الخيارات، الإجابات، وأماكن الأوديو. بيحلّ محل محتوى الملف المقروء،
+//              وبيتحقق بنفس قواعد المحرّر — ولو فيه خطأ مفيش حاجة بتتحفظ. (الـ Test ID بيفضل اللي في الملف.)
+//   edits    : (اختياري، قديم) JSON بتعديلات على نص/خيارات/إجابة الأسئلة { [رقم السؤال]: { q, ctx, options, correct } } — لسه مدعوم،
+//              بس بيتجاهل لو structure موجود.
 //   expectId : (اختياري) لو بتحدّث اختبار موجود: الـ Test ID اللي جوه الملف لازم يطابقه (بيمنع الكتابة فوق اختبار غلط)
 //
 // الرد: { ok, errors, warnings, summary, exists, saved?, created?, format } — الأخطاء { sheet, row, en, ar } (+ line/excerpt للـ PDF/TXT).
@@ -19,6 +22,7 @@ import { parsePlacementTestWorkbook } from "@/app/lib/placementTestImport";
 import { parsePlacementTestPdf, parsePlacementTestText } from "@/app/lib/placementTestPdfParser";
 import { saveCustomTest, getCustomTestDoc, countQuestions } from "@/app/lib/customPlacementTests";
 import { applyReviewEdits } from "@/app/lib/placementTestEdits";
+import { buildTestFromEditable, testToEditable } from "@/app/lib/placementTestEditor";
 import { logAudit } from "@/app/lib/auditLog";
 
 function jsonResponse(data, status = 200) {
@@ -135,7 +139,8 @@ export async function POST(request) {
           })),
         })),
       }));
-      return jsonResponse({ ok: true, errors, warnings, summary, review, exists, existingStatus: existing?.status || null, format: kind });
+      // 🆕 editable: نفس الاختبار بشكل قابل للتعديل الكامل في المحرّر (أدمن بس — فيه الإجابات ونصوص التسجيلات)
+      return jsonResponse({ ok: true, errors, warnings, summary, review, editable: testToEditable(t), exists, existingStatus: existing?.status || null, format: kind });
     }
 
     // save: لو الاختبار موجود ومش بنحدّثه صراحةً (expectId) → بنسمح بالتحديث بس لو الأدمن اتأكد في الواجهة (expectId)
@@ -150,9 +155,43 @@ export async function POST(request) {
       );
     }
 
-    // ✏️ تعديلات الأدمن من شاشة المراجعة (لو فيه)
+    // ✏️ 🆕 المحرّر الكامل: الأدمن عدّل الهيكل كله في شاشة المراجعة → بيحلّ محل الملف المقروء (بعد التحقق الكامل)
     let editedCount = 0;
-    const rawEdits = form.get("edits");
+    let finalWarnings = warnings;
+    const rawStructure = form.get("structure");
+    const hasStructure = typeof rawStructure === "string" && rawStructure.trim();
+    if (hasStructure) {
+      let structure = null;
+      try {
+        structure = rawStructure.length <= 2 * 1024 * 1024 ? JSON.parse(rawStructure) : null;
+      } catch {
+        structure = null;
+      }
+      if (!structure || typeof structure !== "object") {
+        return jsonResponse({ ok: false, errors: [{ sheet: "Editor", row: null, en: "Invalid edited test payload.", ar: "صيغة تعديلات الاختبار غير صحيحة." }], warnings, edits: true }, 200);
+      }
+      // اختبار جديد/محدّث من ملف: الأسئلة بتتـرقّم من 1 بالترتيب بعد التعديل (زي أي رفع من ملف)
+      const built = buildTestFromEditable(structure, { renumber: true });
+      if (!built.ok) return jsonResponse({ ok: false, errors: built.errors, warnings: built.warnings, edits: true }, 200);
+      const before = JSON.stringify([t.label, t.title, t.subject, t.thresholds, t.parts, t.answerKey, t.audioSlots, t.scripts]);
+      Object.assign(t, {
+        label: built.test.label,
+        title: built.test.title,
+        subject: built.test.subject,
+        thresholds: built.test.thresholds,
+        parts: built.test.parts,
+        answerKey: built.test.answerKey,
+        audioSlots: built.test.audioSlots,
+        scripts: built.test.scripts,
+        nextN: built.test.nextN,
+      });
+      const after = JSON.stringify([t.label, t.title, t.subject, t.thresholds, t.parts, t.answerKey, t.audioSlots, t.scripts]);
+      editedCount = before === after ? 0 : 1;
+      finalWarnings = [...warnings, ...built.warnings];
+    }
+
+    // ✏️ تعديلات الأدمن القديمة من شاشة المراجعة (نص/خيارات/إجابة) — لو مفيش structure
+    const rawEdits = hasStructure ? null : form.get("edits");
     if (typeof rawEdits === "string" && rawEdits.trim()) {
       let edits = null;
       try {
@@ -173,10 +212,10 @@ export async function POST(request) {
       actor: auth.session.user,
       action: saved.created ? "placement_test.created" : "placement_test.updated",
       targetId: t.id,
-      details: { questions: countQuestions(t.parts), status: saved.status, format: kind, editedQuestions: editedCount },
+      details: { questions: countQuestions(t.parts), status: saved.status, format: kind, editedQuestions: editedCount, editedInReview: Boolean(hasStructure && editedCount) },
     });
 
-    return jsonResponse({ ok: true, errors, warnings, summary, saved: true, created: saved.created, status: saved.status, format: kind, editedQuestions: editedCount });
+    return jsonResponse({ ok: true, errors, warnings: finalWarnings, summary: { ...summary, ...(hasStructure ? { questions: countQuestions(t.parts) } : {}) }, saved: true, created: saved.created, status: saved.status, format: kind, editedQuestions: editedCount });
   } catch (err) {
     console.error("[/api/admin/placement-tests/import] POST error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

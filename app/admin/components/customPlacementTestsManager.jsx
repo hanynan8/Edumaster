@@ -378,9 +378,190 @@ function CoursePicker({ test, onSaved, onClose }) {
   );
 }
 
+// ───────────────────────── تعديل اختبار منشور (نفس المحرّر الكامل) ─────────────────────────
+function EditPanel({ test, onSaved, onClose }) {
+  const [editor, setEditor] = useState(null);
+  const [baseline, setBaseline] = useState('');
+  const [meta, setMeta] = useState(null); // { updatedAt, resultsCount, status }
+  const [audioFiles, setAudioFiles] = useState(null); // { [slot]: { name } | null }
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [saveErrors, setSaveErrors] = useState([]);
+  const [saved, setSaved] = useState('');
+
+  const fetchAudio = () =>
+    fetch(`/api/admin/placement-tests/audio?test=${encodeURIComponent(test.id)}`)
+      .then(async (res) => {
+        const data = await readJson(res);
+        if (res.ok && data?.tracks) setAudioFiles(data.tracks);
+      })
+      .catch(() => {});
+
+  // تحميل الاختبار من السيرفر (promise chain — بيتنادى من الـ effect من غير setState متزامن)
+  const fetchTest = () =>
+    fetch(`/api/admin/placement-tests/custom/${encodeURIComponent(test.id)}`, { cache: 'no-store' })
+      .then(async (res) => {
+        const data = await readJson(res);
+        if (!res.ok || !data?.test) throw new Error('failed');
+        const prepared = prepareEditable(data.test);
+        setEditor(prepared);
+        setBaseline(JSON.stringify(serializeEditable(prepared)));
+        setMeta(data.meta || null);
+        await fetchAudio();
+      })
+      .catch(() => setError('تعذّر تحميل الاختبار · Could not load the test'))
+      .finally(() => setLoading(false));
+
+  // إعادة تحميل يدوية (زرار Reload / Discard)
+  const load = () => {
+    setLoading(true);
+    setError('');
+    return fetchTest();
+  };
+
+  useEffect(() => {
+    fetchTest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [test.id]);
+
+  const check = useMemo(() => (editor ? validateEditable(editor) : null), [editor]);
+  const dirty = useMemo(() => Boolean(editor) && JSON.stringify(serializeEditable(editor)) !== baseline, [editor, baseline]);
+  const blocked = Boolean(check) && check.errors.length > 0;
+
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    setSaveErrors([]);
+    setSaved('');
+    try {
+      const res = await fetch(`/api/admin/placement-tests/custom/${encodeURIComponent(test.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: serializeEditable(editor), expectedUpdatedAt: meta?.updatedAt || undefined }),
+      });
+      const data = await readJson(res);
+      if (res.status === 409) {
+        setError('أدمن تاني عدّل الاختبار ده بعد ما فتحته. أعد التحميل عشان ماتكتبش فوق شغله. · Another admin edited this test. Reload to see their changes.');
+        return;
+      }
+      if (res.status === 413) {
+        setError('الاختبار كبير جدًا · The test is too large to save');
+        return;
+      }
+      if (!data) throw new Error('failed');
+      if (data.ok === false) {
+        setSaveErrors(data.errors || []);
+        return;
+      }
+      if (!res.ok || !data.ok) throw new Error('failed');
+      // نعيد تحميل الاختبار من السيرفر: أرقام الأسئلة الجديدة + وقت آخر تعديل
+      await fetchTest();
+      setSaved('اتحفظت التعديلات · Changes saved');
+      onSaved?.(data);
+    } catch {
+      setError('تعذّر الحفظ، حاول مرة أخرى · Could not save, please try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // نقل ملف صوت مرفوع من تسجيل لتسجيل (من غير إعادة رفع). بيرمي Error لو فشل (المحرّر بيعرضه).
+  const swapAudio = async (from, to) => {
+    const res = await fetch('/api/admin/placement-tests/audio', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ test: test.id, from, to }),
+    });
+    const data = await readJson(res);
+    if (!res.ok || !data?.ok) throw new Error(data?.error === 'empty_source' ? 'مفيش ملف مرفوع في التسجيل ده · No uploaded file in this recording' : 'Could not move the file');
+    if (data.tracks) setAudioFiles(data.tracks);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-gray-800">
+          تعديل الاختبار &quot;{test.id}&quot; · Edit test
+        </p>
+        <button onClick={onClose} className="inline-flex items-center gap-1 text-gray-500 text-xs font-semibold px-2 py-1 hover:text-gray-800">
+          <X size={13} /> Close
+        </button>
+      </div>
+
+      {loading && !editor ? (
+        <div className="flex justify-center py-8"><Loader className="animate-spin text-indigo-600" size={20} /></div>
+      ) : (
+        editor && (
+          <>
+            <PlacementTestEditor
+              value={editor}
+              onChange={setEditor}
+              check={check}
+              audioFiles={audioFiles}
+              onSwapAudio={swapAudio}
+              resultsCount={meta?.resultsCount || 0}
+            />
+            <p className="mt-2 text-[11px] text-gray-500">
+              رفع ملفات الصوت من زرار &quot;Audio &amp; results&quot; (بعد حفظ التعديلات لو أضفت تسجيلات جديدة). · Upload audio files from “Audio &amp; results” (after saving if you added new recordings).
+            </p>
+          </>
+        )
+      )}
+
+      {error && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+          <AlertCircle size={15} /> <span className="flex-1">{error}</span>
+          <button onClick={load} className="text-xs font-semibold underline">Reload</button>
+        </div>
+      )}
+      {saved && !dirty && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+          <CheckCircle2 size={15} /> {saved}
+        </div>
+      )}
+      {saveErrors.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {saveErrors.map((e, i) => (
+            <li key={i} className="rounded-lg bg-red-50 border border-red-100 px-3 py-1.5 text-xs">
+              <p className="text-gray-800" dir="rtl">{e.ar}</p>
+              <p className="text-gray-500" dir="ltr">{e.en}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editor && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            onClick={save}
+            disabled={saving || !dirty || blocked}
+            className="inline-flex items-center gap-1.5 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? <Loader className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+            Save changes
+          </button>
+          <button
+            onClick={() => {
+              if (dirty && !window.confirm('Discard your unsaved edits?')) return;
+              load();
+            }}
+            disabled={saving || loading}
+            className="text-gray-500 text-xs font-semibold px-2 py-2 hover:text-gray-800 disabled:opacity-50"
+          >
+            {dirty ? 'Discard edits' : 'Reload'}
+          </button>
+          {blocked && <span className="text-xs text-red-600">فيه مشاكل لازم تتصلّح الأول · Fix the highlighted problems first</span>}
+          {dirty && !blocked && <span className="text-xs text-amber-700">فيه تعديلات لسه ما اتحفظتش · Unsaved changes</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ───────────────────────── كارت اختبار ─────────────────────────
 function TestCard({ test, busy, onStatus, onDelete, onOpenTest, onChanged, setNotice }) {
-  const [panel, setPanel] = useState(null); // 'update' | 'courses' | null
+  const [panel, setPanel] = useState(null); // 'edit' | 'update' | 'courses' | null
   const [copied, setCopied] = useState(false);
   const url = typeof window !== 'undefined' ? `${window.location.origin}${test.path}` : test.path;
 
@@ -415,6 +596,9 @@ function TestCard({ test, busy, onStatus, onDelete, onOpenTest, onChanged, setNo
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => onOpenTest(test.id)} className={`${btn} border-indigo-100 text-indigo-700 hover:bg-indigo-50`} title="Upload audio & see student results">
             <Headphones size={13} /> Audio & results
+          </button>
+          <button onClick={() => setPanel(panel === 'edit' ? null : 'edit')} className={`${btn} border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100`} title="Edit questions, answers, audio placement…">
+            <Pencil size={13} /> Edit test
           </button>
           <button onClick={() => setPanel(panel === 'courses' ? null : 'courses')} disabled={archived} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
             <BookOpen size={13} /> Courses
@@ -453,6 +637,16 @@ function TestCard({ test, busy, onStatus, onDelete, onOpenTest, onChanged, setNo
         </div>
       )}
 
+      {panel === 'edit' && (
+        <EditPanel
+          test={test}
+          onClose={() => setPanel(null)}
+          onSaved={async () => {
+            setNotice(`تم حفظ تعديلات الاختبار "${test.id}" · Test "${test.id}" saved`);
+            await onChanged();
+          }}
+        />
+      )}
       {panel === 'update' && (
         <div className="mt-3">
           <ImportFlow

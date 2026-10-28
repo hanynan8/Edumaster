@@ -338,8 +338,9 @@ function PartCard({ part, pi, partCount, c }) {
   const where = `Part ${pi + 1}`;
   const bad = c.isBad(where);
   const upd = (fn) => c.update((d) => fn(d.parts[pi], d));
-  let ln = 1;
   const qCount = part.tasks.reduce((s, t) => s + t.questions.length, 0);
+  // رقم أول سؤال في كل مهمة (للعرض) — محسوب من غير تعديل متغير وقت الرسم
+  const starts = part.tasks.map((_, i) => 1 + part.tasks.slice(0, i).reduce((s, t) => s + t.questions.length, 0));
 
   return (
     <section className={`rounded-xl border ${bad ? 'border-red-200' : 'border-gray-200'} bg-white`}>
@@ -364,11 +365,9 @@ function PartCard({ part, pi, partCount, c }) {
               <input type="number" min={1} max={300} value={part.minutes ?? ''} onChange={(e) => upd((p) => { p.minutes = e.target.value === '' ? '' : Number(e.target.value); })} className={inputCls} />
             </Field>
           </div>
-          {part.tasks.map((t, ti) => {
-            const start = ln;
-            ln += t.questions.length;
-            return <TaskCard key={t._k} task={t} ti={ti} pi={pi} taskCount={part.tasks.length} lnStart={start} c={c} />;
-          })}
+          {part.tasks.map((t, ti) => (
+            <TaskCard key={t._k} task={t} ti={ti} pi={pi} taskCount={part.tasks.length} lnStart={starts[ti]} c={c} />
+          ))}
           <button type="button" onClick={() => c.addTask(pi)} className={linkBtn}><Plus size={12} /> Add task</button>
         </div>
       )}
@@ -481,7 +480,7 @@ export default function PlacementTestEditor({ value, onChange, check, audioFiles
     onChange(next);
   };
 
-  const errors = check?.errors || [];
+  const errors = useMemo(() => check?.errors || [], [check]);
   const warnings = check?.warnings || [];
   const errWheres = useMemo(() => errors.map((e) => e.where || ''), [errors]);
   const isBad = (where) => errWheres.some((w) => w === where || w.startsWith(`${where} ›`));

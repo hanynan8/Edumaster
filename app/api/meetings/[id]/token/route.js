@@ -64,9 +64,8 @@ export async function GET(request, { params }) {
     });
     if (rl) return rl;
 
-    // 🆕 المدرّس مالوش صلاحية ميتنجس خالص (حتى لو الكورس بتاعه).
-    if (session.user.role === "teacher") return jsonResponse({ error: "forbidden" }, 403);
-
+    // 🆕 المدرّس بيدخل زي الطالب (مدعو بالإيميل / جلسة عامة / enrollment) —
+    // isManager بيفضل false له (مش owner token) لأن الإدارة للأدمن/الموديريتور.
     const isManager = isMeetingStaff(session);
     // 🔒 فحص الدخول الموحّد (app/lib/meetingInvites.js checkMeetingAccess):
     //   مدرس/أدمن صاحب الاجتماع، أو 🆕 مدعو بالإيميل (Meeting.invitedEmails)،

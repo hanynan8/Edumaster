@@ -8,8 +8,8 @@
 //     كان هيحتاج فحص لكل كورس على حدة (N+1) بدل استعلام واحد على
 //     Enrollment — لو طالب membership فتح كورس مباشرة من غير ما يسجل فيه
 //     صراحة، مش هيشوف اجتماعاته هنا لحد ما يبقى عنده enrollment حقيقي.
-//   - مدرس: اجتماعات كورساته هو بس (بكل حالات الكورس — draft/pending/
-//     published — عشان يقدر يحضّر معاد قبل النشر).
+//   - مدرس: زي الطالب بالظبط (حضور فقط) — جلسات عامة + ميتنجس اتدعى عليها
+//     بإيميله + كورسات مسجّل فيها enrollment. مالوش صلاحيات إدارة.
 //   - أدمن: كل الاجتماعات في المنصة (رقابة/إشراف عام).
 //   - 🆕 أي مستخدم (طالب/مدرس): كمان أي اجتماع إيميله مدعو عليه صراحةً
 //     (Meeting.invitedEmails) حتى لو مش مسجّل في الكورس.
@@ -55,17 +55,16 @@ export async function GET(request) {
     getCourseModel();
     getAuthModel();
 
-    // 🆕 المدرّس معندوش أي صلاحية على الميتنجس (عرض/إنشاء/دخول) — الميتنجس
-    // للأدمن والموديريتور والطلاب بس.
-    if (session.user.role === "teacher") return jsonResponse({ error: "forbidden" }, 403);
-
     const query = {};
     const userEmail = String(session.user.email || "").trim().toLowerCase();
     // 🆕 المدعوين بالإيميل — بيتضافوا لأي role غير الأدمن (الأدمن بيشوف كله أصلًا).
     const invitedClause = userEmail ? [{ invitedEmails: userEmail }] : [];
 
     // 🆕 الجلسات العامة (course = null) ظاهرة لكل المستخدمين.
-    if (session.user.role === "student") {
+    // 🆕 المدرّس بيتعامل زي الطالب بالظبط في الحضور: الجلسات العامة + الميتنجس
+    // اللي اتدعى عليها بإيميله + كورسات هو مسجّل فيها (من غير صلاحيات إدارة —
+    // الإدارة للأدمن/الموديريتور بس).
+    if (!isStaffRole(session.user.role)) {
       const Enrollment = getEnrollmentModel();
       const enrollments = await Enrollment.find(
         { user: session.user.id, status: { $ne: "cancelled" } },

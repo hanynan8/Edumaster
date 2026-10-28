@@ -60,9 +60,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    // 🆕 المدرّس مالوش صلاحية ميتنجس خالص (حتى لو الكورس بتاعه).
-    if (session.user.role === "teacher") return jsonResponse({ error: "forbidden" }, 403);
-
+    // 🆕 المدرّس بيتعامل زي الطالب: لازم يكون له وصول فعلي على الكورس.
     const canManage = isMeetingStaff(session);
     if (!canManage) {
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: id });

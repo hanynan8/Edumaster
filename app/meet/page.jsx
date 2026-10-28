@@ -1453,7 +1453,7 @@ export default function MeetPage() {
               busyId={busyId}
               emptyText={t.noLiveNow}
               getMeetingPhase={getMeetingPhase}
-              isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
+              isTeacherView={role === "moderator" || role === "admin"}
               t={t}
               language={language}
             />
@@ -1468,7 +1468,7 @@ export default function MeetPage() {
               busyId={busyId}
               emptyText={t.noUpcoming}
               getMeetingPhase={getMeetingPhase}
-              isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
+              isTeacherView={role === "moderator" || role === "admin"}
               t={t}
               language={language}
             />
@@ -1484,7 +1484,7 @@ export default function MeetPage() {
                 busyId={busyId}
                 emptyText=""
                 getMeetingPhase={getMeetingPhase}
-                isTeacherView={role === "teacher" || role === "moderator" || role === "admin"}
+                isTeacherView={role === "moderator" || role === "admin"}
                 t={t}
                 language={language}
               />
@@ -1519,7 +1519,7 @@ export default function MeetPage() {
           meetingId={joinedMeeting.id}
           title={joinedMeeting.title}
           onClose={() => setJoinedMeeting(null)}
-          isTeacher={role === "teacher" || role === "moderator" || role === "admin"}
+          isTeacher={role === "moderator" || role === "admin"}
         />
       )}
     </div>

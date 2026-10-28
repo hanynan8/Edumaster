@@ -751,14 +751,12 @@ export default function TeacherCoursesPage({ asModerator = false }) {
           >
             <MessageCircle size={16} /> {t.messages}
           </Link>
-          {canCreateCourse && (
-            <Link
-              href="/meet"
-              className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
-            >
-              <Video size={16} /> {t.liveLectures}
-            </Link>
-          )}
+          <Link
+            href="/meet"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl hover:border-[#003A91]/50 hover:text-[#003A91] transition-colors"
+          >
+            <Video size={16} /> {t.liveLectures}
+          </Link>
           {canCreateCourse && (
             <button
               onClick={() => setModalCourse(null)}

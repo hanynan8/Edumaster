@@ -18,7 +18,7 @@ export const TEMPLATE_GUIDE = [
   "Lines starting with # are comments and are ignored. Do not use scanned images. Use single line spacing, and no headers / footers.",
   "",
   "KEYWORDS (one per line):",
-  "TEST: b2 | LEVEL: B2 | TITLE: ... | LANGUAGE: es | THRESHOLDS: 40,60,80   <- first line (LANGUAGE and THRESHOLDS are optional)",
+  "TEST: c1 | LEVEL: C1 | TITLE: ... | LANGUAGE: es | THRESHOLDS: 40,60,80   <- first line (LANGUAGE and THRESHOLDS are optional)",
   "PART: name | minutes      TASK: name      INSTRUCTIONS: ...      PASSAGE: ...   (INSTRUCTIONS / PASSAGE are shared by the whole task)",
   "Q: question text      CONTEXT: text for this question only (optional)      a) ... b) ... c) ... (2 to 6 options)      ANSWER: b",
   "Matching task: write BANK: and then one line per text, like (A) text, then questions with no options: Q: ... ANSWER: C",

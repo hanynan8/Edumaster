@@ -7,8 +7,9 @@
 //    اختبار A1: أقل من 40 → Pre-A1 | 40–59 → A1.1 | 60–79 → A1.2 | 80–100 → A1.3
 //    اختبار A2: أقل من 40 → Pre-A2 | 40–59 → A2.1 | 60–79 → A2.2 | 80–100 → A2.3
 //    اختبار B1: أقل من 40 → Pre-B1 | 40–59 → B1.1 | 60–79 → B1.2 | 80–100 → B1.3
-//    (تقسيم A2.x / B1.x تقسيم داخلي لـ Edumaster — مش معيار رسمي من MCER/Instituto Cervantes.
-//     الحدود 40/60/80 هي الافتراضية للنظام؛ ومفيش جدول baremo رسمي في ملف B1.)
+//    اختبار B2: أقل من 40 → Pre-B2 | 40–59 → B2.1 | 60–79 → B2.2 | 80–100 → B2.3
+//    (تقسيم A2.x / B1.x / B2.x تقسيم داخلي لـ Edumaster — مش معيار رسمي من MCER/Instituto Cervantes.
+//     الحدود 40/60/80 هي الافتراضية للنظام؛ ومفيش جدول baremo رسمي في ملفات B1/B2.)
 //  الكورسات الموصى بها = كورسات الموقع (إسباني) اللي مستواها نفس مستوى الطالب أو أعلى.
 //  مستوى الكورس بيتقرا من اسمه/وسومه (A1.1, A1.2, A1.3, A2.1, B1.1 … B1.4, ...).
 // ═══════════════════════════════════════════════
@@ -174,12 +175,69 @@ const B1_LEVELS = [
   },
 ];
 
+
+// ───── جدول مستويات اختبار B2 ─────
+// nextCourseName = أسماء كورسات B2 على الموقع (Advanced B2.1 / Advanced Plus B2.2 / Advanced Pro B2.3 / Advanced Mastery B2.4 —
+// شوف SpanishCurriculum.jsx). B2.3 (80–100) بيوصّي بكورس B2.4 كخطوة تالية؛ مفيش نتيجة "B2.4" لأن الاختبار
+// بيطلّع 4 مستويات بس (زي B1). Pre-B2 بيرجّع للطالب كورسات من B1.4 وفوق (floorCode).
+const B2_LEVELS = [
+  {
+    code: "Pre-B2",
+    min: 0,
+    max: 39,
+    nextCourseName: "Advanced B2.1",
+    nextCode: "B2.1",
+    floorCode: "B1.4",
+    desc: {
+      es: "Aún no domina los contenidos de B2. Se recomienda reforzar los contenidos de B1 antes de empezar un curso B2.",
+      en: "You don't yet master the B2 content. We recommend reinforcing B1 content before starting a B2 course.",
+      ar: "لم تتقن بعد محتوى المستوى B2. يُنصح بتقوية محتوى B1 قبل بدء كورس B2.",
+    },
+  },
+  {
+    code: "B2.1",
+    min: 40,
+    max: 59,
+    nextCourseName: "Advanced Plus B2.2",
+    nextCode: "B2.2",
+    desc: {
+      es: "Comprende textos y conversaciones sobre temas generales y de actualidad, pero aún debe consolidar el subjuntivo en sus distintos tiempos, los conectores y el vocabulario de registro formal. Nivel orientativo: B2.1.",
+      en: "You understand texts and conversations on general and current topics, but you still need to consolidate the subjunctive in its different tenses, connectors and formal-register vocabulary. Indicative level: B2.1.",
+      ar: "تفهم النصوص والمحادثات حول المواضيع العامة والجارية، لكنك ما زلت بحاجة إلى تثبيت المضارع الشرطي (subjuntivo) بأزمنته المختلفة وأدوات الربط ومفردات الأسلوب الرسمي. المستوى الإرشادي: B2.1.",
+    },
+  },
+  {
+    code: "B2.2",
+    min: 60,
+    max: 79,
+    nextCourseName: "Advanced Pro B2.3",
+    nextCode: "B2.3",
+    desc: {
+      es: "Comprende textos complejos, entrevistas y conferencias, y usa con bastante seguridad el subjuntivo, las oraciones condicionales y los conectores. Nivel orientativo: B2.2.",
+      en: "You understand complex texts, interviews and lectures, and use the subjunctive, conditional sentences and connectors with fair confidence. Indicative level: B2.2.",
+      ar: "تفهم النصوص المعقدة والمقابلات والمحاضرات وتستخدم المضارع الشرطي (subjuntivo) والجمل الشرطية وأدوات الربط بثقة جيدة. المستوى الإرشادي: B2.2.",
+    },
+  },
+  {
+    code: "B2.3",
+    min: 80,
+    max: 100,
+    nextCourseName: "Advanced Mastery B2.4",
+    nextCode: "B2.4",
+    desc: {
+      es: "Domina los contenidos de B2. Nivel orientativo: B2.3; conviene confirmarlo con producción escrita y expresión oral antes de pasar a C1.",
+      en: "You master the B2 content. Indicative level: B2.3; it should be confirmed with written and spoken production before moving on to C1.",
+      ar: "تتقن محتوى B2. المستوى الإرشادي: B2.3؛ ويُفضَّل تأكيده بالتعبير الكتابي والشفهي قبل الانتقال إلى C1.",
+    },
+  },
+];
+
 // جداول المستويات لكل اختبار (المفتاح = id الاختبار في placementTests.js)
-export const PLACEMENT_LEVELS_BY_TEST = { a1: A1_LEVELS, a2: A2_LEVELS, b1: B1_LEVELS };
+export const PLACEMENT_LEVELS_BY_TEST = { a1: A1_LEVELS, a2: A2_LEVELS, b1: B1_LEVELS, b2: B2_LEVELS };
 
 // للتوافق مع الكود القديم: PLACEMENT_LEVELS = جدول A1
 export const PLACEMENT_LEVELS = A1_LEVELS;
-const ALL_LEVELS = [...A1_LEVELS, ...A2_LEVELS, ...B1_LEVELS];
+const ALL_LEVELS = [...A1_LEVELS, ...A2_LEVELS, ...B1_LEVELS, ...B2_LEVELS];
 
 // ترتيب المستويات (للمقارنة): Pre-A1=0 ... C2
 const LEVEL_ORDER = [
@@ -197,6 +255,7 @@ const LEVEL_ORDER = [
   "B2.1",
   "B2.2",
   "B2.3",
+  "B2.4",
   "C1.1",
   "C1.2",
   "C1.3",
@@ -284,7 +343,7 @@ export function buildStandardLevels(base, thresholds = [40, 60, 80]) {
 
 // بيطلّع كود المستوى من نص (اسم الكورس/وسومه...). بيرجّع كود من LEVEL_ORDER أو null.
 //   "A1.2" → "A1.2" · "A2" → "A2.1" · "B1" → "B1.1" · "B1.4" → "B1.4" · "A1" → "A1.1"
-//   رقم فرعي مش موجود في LEVEL_ORDER (مثلًا A1.4) بيتعامل كـ ".1" زي ما كان قبل إضافة B1.4.
+//   رقم فرعي مش موجود في LEVEL_ORDER (مثلًا A1.4) بيتعامل كـ ".1" زي ما كان قبل إضافة B1.4/B2.4.
 export function detectLevelCode(text) {
   if (!text) return null;
   const m = String(text).match(/\b([ABC][12])(?:\s*[.\-_]\s*([1-4]))?(?![0-9])/i);
@@ -308,7 +367,8 @@ export function fallbackLevelFromEnum(level) {
 //  1) 🆕 لو الأدمن ربط الكورس باختبار مخصص من لوحة الأدمن (course.placementTest = { id, path }) → id الاختبار ده.
 //  2) وإلا بالاسم: "a1" لكورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3...) و"a2" لكورسات A2
 //     (A2.1 / A2.2 / A2.3...) و"b1" لكورسات B1 (Independent B1.1 / Fluency B1.2 / Professional B1.3 /
-//     Study & Work B1.4) وإلا null (مفيش زرار اختبار).
+//     Study & Work B1.4) و"b2" لكورسات B2 (Advanced B2.1 / Advanced Plus B2.2 / Advanced Pro B2.3 /
+//     Advanced Mastery B2.4) وإلا null (مفيش زرار اختبار).
 // بيقرا الكود من اسم الكورس (كل اللغات) أو الـ slug أو الوسوم. course = الكورس الخام جاي من
 // /api/courses. (مفيش import لبيانات الاختبارات هنا عشان صفحات الكورسات متتقلش.)
 export function getPlacementTestForCourse(course) {
@@ -322,6 +382,7 @@ export function getPlacementTestForCourse(course) {
       if (code.startsWith("A1.")) return "a1";
       if (code.startsWith("A2.")) return "a2";
       if (code.startsWith("B1.")) return "b1";
+      if (code.startsWith("B2.")) return "b2";
       return null;
     }
   }
@@ -333,10 +394,11 @@ export function hasLinkedPlacementTest(course) {
   return Boolean(course?.placementTest?.id);
 }
 
-// رابط صفحة الاختبار حسب id الاختبار: A1 و A2 و B1 صفحاتهم المدمجة، وأي اختبار مخصص على /level-test/<id>
+// رابط صفحة الاختبار حسب id الاختبار: A1 و A2 و B1 و B2 صفحاتهم المدمجة، وأي اختبار مخصص على /level-test/<id>
 export function getPlacementTestPath(testId) {
   if (testId === "a2") return "/spanish-test/a2";
   if (testId === "b1") return "/spanish-test/b1";
+  if (testId === "b2") return "/spanish-test/b2";
   if (!testId || testId === "a1") return "/spanish-test";
   return `/level-test/${encodeURIComponent(testId)}`;
 }

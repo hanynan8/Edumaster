@@ -49,7 +49,7 @@ const README_LINES = [
   ["h", "الفكرة"],
   ["p", "املأ هذا الملف (بدون تغيير أسماء الشيتات أو أسماء الأعمدة) ثم ارفعه من: لوحة الأدمن ← Level Tests ← Manage tests. النظام بيعرض لك معاينة وأي أخطاء قبل ما يتم النشر."],
   ["h", "1) شيت Settings"],
-  ["p", "املأ: Test ID (مثلاً b2) · Level (CEFR) · Test Title · Subject (اختياري) · Level thresholds (اختياري)."],
+  ["p", "املأ: Test ID (مثلاً c1) · Level (CEFR) · Test Title · Subject (اختياري) · Level thresholds (اختياري)."],
   ["h", "2) شيت Questions — صف لكل سؤال"],
   ["p", "Part = الجزء (Reading / Listening / ...) · Task = المهمة داخل الجزء. الأسئلة اللي ليها نفس Task بتتجمع مع بعض. لو سبت Part أو Task فاضي بياخد نفس اللي فوقه."],
   ["p", "Task Instructions و Passage: اكتبهم في أول سؤال من المهمة فقط (التعليمات + النص المشترك لأسئلة المهمة)."],

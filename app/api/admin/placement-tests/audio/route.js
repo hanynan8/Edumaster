@@ -1,9 +1,9 @@
 // app/api/admin/placement-tests/audio/route.js
 //
-// إدارة صوتيات اختبارات تحديد المستوى (أدمن بس) — A1: 4 خانات · A2: 12 خانة · B1: 4 خانات.
+// إدارة صوتيات اختبارات تحديد المستوى (أدمن بس) — A1: 4 خانات · A2: 12 خانة · B1: 5 خانات · B2: 5 خانات.
 //   (🆕 test = a1 | a2 | id اختبار مخصص — الاختبار المخصص غير الموجود → 404)
 //   GET ?test=a1|a2            → حالة الخانات (اسم الملف/الحجم/رابط التشغيل + نص التسجيل script لو متاح)
-//   POST (form)                → test (a1|a2) + slot (1–4 لـ A1 · 1–12 لـ A2 · 1–4 لـ B1) + file (صوت) → بيترفع على Bunny Storage
+//   POST (form)                → test (a1|a2|b1|b2) + slot (1–4 لـ A1 · 1–12 لـ A2 · 1–5 لـ B1 وB2) + file (صوت) → بيترفع على Bunny Storage
 //                                ويظهر في الاختبار فورًا
 //   DELETE ?test=a2&slot=N     → حذف الصوت (المهمة بتتخفي من الاختبار لحد ما يتّرفع غيره)
 //   PATCH (json)               → 🆕 { test, from, to } نقل ملف صوت مرفوع من خانة لخانة (أو تبديل الاتنين لو التانية فيها ملف) من غير إعادة رفع
@@ -45,7 +45,7 @@ const ALLOWED_MIME = [
   "audio/webm",
 ];
 
-// الخانة لازم تكون من خانات الاختبار نفسه (A1: 1–4 · A2: 1–12 · B1: 1–4)
+// الخانة لازم تكون من خانات الاختبار نفسه (A1: 1–4 · A2: 1–12 · B1: 1–5 · B2: 1–5)
 function parseSlot(value, testId) {
   const slot = Number(value);
   return getAudioSlotNumbers(testId).includes(slot) ? slot : null;

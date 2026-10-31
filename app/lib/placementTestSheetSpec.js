@@ -20,8 +20,8 @@ export const SHEETS = {
   audio: "Audio",
 };
 
-// ids الاختبارات المدمجة (a1 / a2 / b1) — محجوزة: الاختبار المدمج بيتقدّم على أي اختبار مخصص بنفس الـ id.
-export const RESERVED_TEST_IDS = ["a1", "a2", "b1"];
+// ids الاختبارات المدمجة (a1 / a2 / b1 / b2) — محجوزة: الاختبار المدمج بيتقدّم على أي اختبار مخصص بنفس الـ id.
+export const RESERVED_TEST_IDS = ["a1", "a2", "b1", "b2"];
 export const TEST_ID_RE = /^[a-z0-9][a-z0-9-]{0,29}$/;
 export const MAX_QUESTIONS = 400;
 export const MAX_AUDIO_SLOT = 60;
@@ -83,7 +83,7 @@ export const AUDIO_COLUMNS = [
 ];
 
 export const SETTINGS_ROWS = [
-  { key: "Test ID", note: "معرّف قصير بالإنجليزي (حروف صغيرة وأرقام وشرطة) — بيظهر في رابط الاختبار. مثال: b2. ممنوع a1 و a2 و b1 (محجوزين — اختبارات مدمجة).", required: true },
+  { key: "Test ID", note: "معرّف قصير بالإنجليزي (حروف صغيرة وأرقام وشرطة) — بيظهر في رابط الاختبار. مثال: c1. ممنوع a1 و a2 و b1 و b2 (محجوزين — اختبارات مدمجة).", required: true },
   { key: "Level (CEFR)", note: "المستوى: A1 / A2 / B1 / B2 / C1 / C2 — بيحدد مستويات النتيجة (Pre-B1, B1.1, B1.2, B1.3).", required: true },
   { key: "Test Title", note: "عنوان الاختبار اللي بيظهر للطالب. مثال: Prueba de nivel de español B1.", required: true },
   { key: "Subject", note: "لغة الاختبار: es / en / fr / de / it / ar / other (بتظهر في الإيميل وفي الكورسات الموصى بها). الافتراضي es.", required: false },

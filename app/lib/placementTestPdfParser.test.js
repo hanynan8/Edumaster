@@ -213,9 +213,9 @@ describe("قراءة الصيغة", () => {
   });
 
   it("الإعدادات: LANGUAGE و THRESHOLDS وعنوان فيه | وسطر جديد", async () => {
-    const r = await parsePlacementTestText("TEST: b2 | LEVEL: B2 | TITLE: Prueba | de nivel | LANGUAGE: es | THRESHOLDS: 30,50,70\nPART: P | 12\nTASK: T\nQ: x?\na) 1\nb) 2\nANSWER: b\n");
+    const r = await parsePlacementTestText("TEST: c1 | LEVEL: C1 | TITLE: Prueba | de nivel | LANGUAGE: es | THRESHOLDS: 30,50,70\nPART: P | 12\nTASK: T\nQ: x?\na) 1\nb) 2\nANSWER: b\n");
     expect(r.errors).toEqual([]);
-    expect(r.test.id).toBe("b2");
+    expect(r.test.id).toBe("c1");
     expect(r.test.title).toBe("Prueba | de nivel");
     expect(r.test.thresholds).toEqual([30, 50, 70]);
     expect(r.test.parts[0].minutes).toBe(12);

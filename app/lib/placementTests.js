@@ -3,15 +3,17 @@
 //  سجل اختبارات تحديد المستوى (إسباني) — آمن للمتصفح والسيرفر (مفيش فيه مفتاح إجابات
 //  ولا نصوص استماع).
 //
-//  حاليًا في 3 اختبارات بنفس الميكانيزم (الدرجة دايمًا نسبة من 100):
+//  حاليًا في 4 اختبارات بنفس الميكانيزم (الدرجة دايمًا نسبة من 100):
 //    a1 → Prueba de nivel de español A1  (/spanish-test)     — بيظهر على كورسات A1
 //         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
 //    a2 → Prueba de nivel de español A2  (/spanish-test/a2)  — بيظهر على كورسات A2
 //         (قراءة 25 + استماع 25 + قواعد ومفردات 50)
 //    b1 → Prueba de nivel de español B1  (/spanish-test/b1)  — بيظهر على كورسات B1.x
 //         (قراءة 30 + استماع 30 + قواعد ومفردات 50 — زي ملف الاختبار؛ الاستماع 5 تسجيلات: كل تسجيل على Tarea كاملة)
+//    b2 → Prueba de nivel de español B2  (/spanish-test/b2)  — بيظهر على كورسات B2.x
+//         (قراءة 36 + استماع 30 + قواعد ومفردات 50 = 116 سؤال — زي ملف الاختبار؛ الاستماع 5 تسجيلات: كل تسجيل على Tarea كاملة)
 //  لكل اختبار: أسئلته، مفتاح إجاباته (السيرفر بس: placementTestKeys.js)، وصوتياته المنفصلة
-//  (A1: 4 خانات — A2: 12 خانة — B1: 4 خانات، بتترفع من لوحة الأدمن).
+//  (A1: 4 خانات — A2: 12 خانة — B1: 5 خانات — B2: 5 خانات، بتترفع من لوحة الأدمن).
 //  أي نتيجة قديمة من غير حقل test بتتعامل على إنها a1.
 // ═══════════════════════════════════════════════
 
@@ -22,6 +24,7 @@ import {
 } from "@/app/lib/spanishPlacementTest";
 import { PLACEMENT_PARTS_A2, PLACEMENT_TEST_TITLE_A2 } from "@/app/lib/spanishPlacementTestA2";
 import { PLACEMENT_PARTS_B1, PLACEMENT_TEST_TITLE_B1 } from "@/app/lib/spanishPlacementTestB1";
+import { PLACEMENT_PARTS_B2, PLACEMENT_TEST_TITLE_B2 } from "@/app/lib/spanishPlacementTestB2";
 
 export const DEFAULT_TEST_ID = "a1";
 
@@ -88,6 +91,24 @@ export const PLACEMENT_TESTS = {
       { slot: 5, label: "Audio 5 — Ana y Tomás", hint: "Tarea 5 · Questions 55–60" },
     ],
   },
+  b2: {
+    id: "b2",
+    label: "B2",
+    title: PLACEMENT_TEST_TITLE_B2,
+    parts: PLACEMENT_PARTS_B2,
+    path: "/spanish-test/b2",
+    // 🆕 audio_b2_v1: B2 = 5 تسجيلات (كل تسجيل على Tarea كاملة؛ Tarea 4 وTarea 5 كل واحدة بصوتها) — مستند مستقل
+    // عن صوتيات a1/a2/b1. لازم يتّرفع من لوحة الأدمن.
+    audioDocId: "audio_b2_v1",
+    audioPathPrefix: "edumaster/placement-test-b2/audio",
+    audioSlots: [
+      { slot: 1, label: "Audio 1 — Seis conversaciones breves", hint: "Tarea 1 · Questions 37–42" },
+      { slot: 2, label: "Audio 2 — Elena y Mario: el servicio cívico", hint: "Tarea 2 · Questions 43–48" },
+      { slot: 3, label: "Audio 3 — Entrevista a Clara Montero", hint: "Tarea 3 · Questions 49–54" },
+      { slot: 4, label: "Audio 4 — El móvil (6 personas)", hint: "Tarea 4 · Questions 55–60" },
+      { slot: 5, label: "Audio 5 — Conferencia: las dietas de moda", hint: "Tarea 5 · Questions 61–66" },
+    ],
+  },
 };
 
 export const TEST_IDS = Object.keys(PLACEMENT_TESTS);
@@ -99,7 +120,7 @@ export function isTestDef(value) {
   return Boolean(value) && typeof value === "object" && Array.isArray(value.parts);
 }
 
-// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12 · B1: 1–5 · المخصص: اللي في ملفه)
+// أرقام خانات الصوت الصالحة لاختبار معيّن (A1: 1–4 · A2: 1–12 · B1: 1–5 · B2: 1–5 · المخصص: اللي في ملفه)
 export function getAudioSlotNumbers(testOrId) {
   return getPlacementTest(testOrId).audioSlots.map((a) => a.slot);
 }
@@ -129,9 +150,9 @@ export function getVisiblePartsFor(testOrId, audio = {}) {
     .filter((p) => p.tasks.length);
 }
 
-// "A1.2" → "a1" · "A2.1" → "a2" · "B1.3" → "b1" · غير كده → null
+// "A1.2" → "a1" · "A2.1" → "a2" · "B1.3" → "b1" · "B2.4" → "b2" · غير كده → null
 export function getTestIdForLevelCode(code) {
-  const m = /^(A[12]|B1)\./i.exec(String(code || ""));
+  const m = /^(A[12]|B[12])\./i.exec(String(code || ""));
   const id = m ? m[1].toLowerCase() : null;
   return id && PLACEMENT_TESTS[id] ? id : null;
 }

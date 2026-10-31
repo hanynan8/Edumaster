@@ -140,7 +140,8 @@ describe("registry", () => {
     expect(getTestIdForLevelCode("A1.3")).toBe("a1");
     expect(getTestIdForLevelCode("A2.1")).toBe("a2");
     expect(getTestIdForLevelCode("B1.1")).toBe("b1");
-    expect(getTestIdForLevelCode("B2.1")).toBeNull();
+    expect(getTestIdForLevelCode("B2.1")).toBe("b2");
+    expect(getTestIdForLevelCode("C1.1")).toBeNull();
   });
 });
 
@@ -243,7 +244,8 @@ describe("زرار الاختبار على الكورسات", () => {
     expect(getPlacementTestForCourse(c("Spanish A2"))).toBe("a2");
     expect(getPlacementTestForCourse(c("Advanced A2.3"))).toBe("a2");
     expect(getPlacementTestForCourse(c("Intermediate B1.1"))).toBe("b1");
-    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBeNull();
+    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBe("b2");
+    expect(getPlacementTestForCourse(c("Upper C1.1"))).toBeNull();
     expect(getPlacementTestForCourse(c("Spanish for travel"))).toBeNull();
     expect(getPlacementTestForCourse(null)).toBeNull();
   });

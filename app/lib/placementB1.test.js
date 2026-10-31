@@ -200,7 +200,8 @@ describe("registry", () => {
 
   it("getTestIdForLevelCode: B1.x → b1", () => {
     for (const code of ["B1.1", "B1.2", "B1.3", "B1.4"]) expect(getTestIdForLevelCode(code)).toBe("b1");
-    expect(getTestIdForLevelCode("B2.1")).toBeNull();
+    expect(getTestIdForLevelCode("B2.1")).toBe("b2"); // B2 ليه اختبار مدمج خاص بيه (placementB2.test.js)
+    expect(getTestIdForLevelCode("C1.1")).toBeNull();
   });
 });
 
@@ -311,13 +312,14 @@ describe("زرار الاختبار على كورسات B1", () => {
     expect(getPlacementTestForCourse(c("Spanish B1"))).toBe("b1");
   });
 
-  it("بيقرا المستوى من slug/وسوم/ترجمات الكورس كمان، وكورسات A1/A2/B2 زي ما هي", () => {
+  it("بيقرا المستوى من slug/وسوم/ترجمات الكورس كمان، وكورسات A1/A2/B2 زي ما هي (B2 → b2، وC1 لسه من غير اختبار مدمج)", () => {
     expect(getPlacementTestForCourse(c("curso", { slug: "study-work-b1-4" }))).toBe("b1");
     expect(getPlacementTestForCourse(c("curso", { tags: ["B1.2"] }))).toBe("b1");
     expect(getPlacementTestForCourse(c("curso", { i18n: { ar: { title: "كورس B1.3" } } }))).toBe("b1");
     expect(getPlacementTestForCourse(c("Start A1.1"))).toBe("a1");
     expect(getPlacementTestForCourse(c("Everyday A2.1"))).toBe("a2");
-    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBeNull();
+    expect(getPlacementTestForCourse(c("Upper B2.1"))).toBe("b2");
+    expect(getPlacementTestForCourse(c("Upper C1.1"))).toBeNull();
   });
 
   it("اختبار مخصص مربوط من الأدمن بيتقدّم على الاسم", () => {

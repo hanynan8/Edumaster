@@ -28,6 +28,10 @@ import { PLACEMENT_PARTS_B2, PLACEMENT_TEST_TITLE_B2 } from "@/app/lib/spanishPl
 
 export const DEFAULT_TEST_ID = "a1";
 
+// ⏱️ مدة الاختبار الكاملة بالدقائق (مؤقت واحد لكل الاختبار — زي امتحان SIELE). لما الوقت يخلص
+// الاختبار بيتقفل وإجابات الطالب بتتبعت تلقائيًا (شوف SpanishTestRunner).
+export const PLACEMENT_TEST_DURATION_MINUTES = 60;
+
 export const PLACEMENT_TESTS = {
   a1: {
     id: "a1",

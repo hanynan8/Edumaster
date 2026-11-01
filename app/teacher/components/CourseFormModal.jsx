@@ -140,13 +140,17 @@ const T = {
     teachersLoadError: "Couldn't load the teachers list, try again",
     noTeachers: "No registered teachers yet",
     teacherInvalid: "The selected teacher is not valid, choose another one",
-    grantLabel: "Enroll students for free (optional)",
-    grantHint: "Pick registered students (students only) by email. They are enrolled in this course as if they had bought it — it opens for them automatically once the admin approves the course, with no need to sign up.",
-    grantUnknownEmails: (list) => `These emails are not registered students on the platform: ${list}`,
+    grantLabel: "Enroll students or teachers for free (optional)",
+    grantHint: "Pick registered students or regular teachers by email. They are enrolled in this course as if they had bought it — it opens for them automatically once the admin approves the course, with no need to sign up.",
+    grantUnknownEmails: (list) => `These emails are not registered student or teacher accounts on the platform: ${list}`,
     grantInvalidEmails: (list) => `These emails are not valid: ${list}`,
-    grantTooMany: "Too many students in one request, add them in smaller batches",
-    grantDone: (n) => `${n} student(s) were enrolled for free.`,
-    grantFailed: "The course was saved but enrolling the selected students failed — open the course edit form and add them again.",
+    grantTooMany: "Too many users in one request, add them in smaller batches",
+    grantDone: (n) => `${n} user(s) were enrolled for free.`,
+    grantFailed: "The course was saved but enrolling the selected users failed — open the course edit form and add them again.",
+    grantAlreadyEnrolled: (n) => `${n} user(s) were already enrolled in this course.`,
+    grantSkipped: (n) => `${n} user(s) were not added because they are this course's supervising teacher or its creator (they already have full access).`,
+    grantRemoveConfirm: (email) => `Remove the free enrollment of ${email}? They will lose access to this course.`,
+    grantRemoveFailed: "Couldn't remove the enrollment, try again",
     classMarkerQuizId: "ClassMarker Test ID (optional)",
     classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
@@ -207,13 +211,17 @@ const T = {
     teachersLoadError: "تعذّر تحميل قائمة المدرّسين، حاول مرة أخرى",
     noTeachers: "لا يوجد مدرّسون مسجلون حتى الآن",
     teacherInvalid: "المدرّس المختار غير صالح، اختر مدرّسًا آخر",
-    grantLabel: "تسجيل طلاب مجانًا (اختياري)",
-    grantHint: "اختر طلابًا مسجّلين في المنصة بالإيميل. هيتسجّلوا في الكورس زي اللي اشتراه بالظبط — وهيتفتح عندهم تلقائيًا أول ما الأدمن يوافق على الكورس من غير ما يحتاجوا يشتركوا.",
-    grantUnknownEmails: (list) => `الإيميلات دي مش حسابات طلاب مسجّلة في المنصة: ${list}`,
+    grantLabel: "تسجيل طلاب أو مدرّسين مجانًا (اختياري)",
+    grantHint: "اختر طلابًا أو مدرّسين عاديين مسجّلين في المنصة بالإيميل. هيتسجّلوا في الكورس زي اللي اشتراه بالظبط — وهيتفتح عندهم تلقائيًا أول ما الأدمن يوافق على الكورس من غير ما يحتاجوا يشتركوا.",
+    grantUnknownEmails: (list) => `الإيميلات دي مش حسابات طلاب أو مدرّسين مسجّلة في المنصة: ${list}`,
     grantInvalidEmails: (list) => `الإيميلات دي غير صالحة: ${list}`,
-    grantTooMany: "عدد الطلاب كبير في طلب واحد، أضفهم على دفعات أصغر",
-    grantDone: (n) => `تم تسجيل ${n} طالب مجانًا في الكورس.`,
-    grantFailed: "تم حفظ الكورس لكن تعذّر تسجيل الطلاب المختارين — افتح تعديل الكورس وأضفهم مرة أخرى.",
+    grantTooMany: "عدد المستخدمين كبير في طلب واحد، أضفهم على دفعات أصغر",
+    grantDone: (n) => `تم تسجيل ${n} مستخدم مجانًا في الكورس.`,
+    grantFailed: "تم حفظ الكورس لكن تعذّر تسجيل المستخدمين المختارين — افتح تعديل الكورس وأضفهم مرة أخرى.",
+    grantAlreadyEnrolled: (n) => `${n} مستخدم كان مسجّلًا بالفعل في هذا الكورس.`,
+    grantSkipped: (n) => `${n} مستخدم لم يُضَف لأنه المدرّس المشرف على الكورس أو منشئه (عنده وصول كامل أصلًا).`,
+    grantRemoveConfirm: (email) => `إلغاء التسجيل المجاني لـ ${email}؟ هيفقد الوصول لهذا الكورس.`,
+    grantRemoveFailed: "تعذّر إلغاء التسجيل، حاول مرة أخرى",
     classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
     classMarkerQuizIdHint: "الصق معرّف الاختبار (Quiz ID) من رابط اختبار ClassMarker الخاص بك (الجزء الذي يلي ?quiz= في رابط مثل https://www.classmarker.com/online-test/start?quiz=...). إذا تم إدخاله، سيظهر قسم \"اختبر مستواك\" في صفحة الدورة. اتركه فارغًا إذا لم ترغب في اختبار.",
     saveChanges: "حفظ التعديلات",
@@ -274,13 +282,17 @@ const T = {
     teachersLoadError: "No se pudo cargar la lista de profesores, inténtalo de nuevo",
     noTeachers: "Aún no hay profesores registrados",
     teacherInvalid: "El profesor seleccionado no es válido, elige otro",
-    grantLabel: "Inscribir estudiantes gratis (opcional)",
-    grantHint: "Elige estudiantes registrados por correo. Quedan inscritos en este curso como si lo hubieran comprado: se les abre automáticamente cuando el administrador apruebe el curso, sin necesidad de inscribirse.",
-    grantUnknownEmails: (list) => `Estos correos no son de estudiantes registrados en la plataforma: ${list}`,
+    grantLabel: "Inscribir estudiantes o profesores gratis (opcional)",
+    grantHint: "Elige estudiantes o profesores comunes registrados por correo. Quedan inscritos en este curso como si lo hubieran comprado: se les abre automáticamente cuando el administrador apruebe el curso, sin necesidad de inscribirse.",
+    grantUnknownEmails: (list) => `Estos correos no son de estudiantes o profesores registrados en la plataforma: ${list}`,
     grantInvalidEmails: (list) => `Estos correos no son válidos: ${list}`,
-    grantTooMany: "Demasiados estudiantes en una sola solicitud, añádelos en lotes más pequeños",
-    grantDone: (n) => `${n} estudiante(s) inscritos gratis.`,
-    grantFailed: "El curso se guardó pero falló la inscripción de los estudiantes seleccionados — abre la edición del curso y vuelve a añadirlos.",
+    grantTooMany: "Demasiados usuarios en una sola solicitud, añádelos en lotes más pequeños",
+    grantDone: (n) => `${n} usuario(s) inscritos gratis.`,
+    grantFailed: "El curso se guardó pero falló la inscripción de los usuarios seleccionados — abre la edición del curso y vuelve a añadirlos.",
+    grantAlreadyEnrolled: (n) => `${n} usuario(s) ya estaban inscritos en este curso.`,
+    grantSkipped: (n) => `${n} usuario(s) no se añadieron porque son el profesor supervisor o el creador de este curso (ya tienen acceso completo).`,
+    grantRemoveConfirm: (email) => `¿Quitar la inscripción gratuita de ${email}? Perderá el acceso a este curso.`,
+    grantRemoveFailed: "No se pudo quitar la inscripción, inténtalo de nuevo",
     classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
     classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
@@ -337,8 +349,8 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
   // 🆕 قايمة المدرّسين (للموديريتور بس): null = لسه بيتحمّل، [] = فاضية.
   const [teachers, setTeachers] = useState(null);
   const [teachersError, setTeachersError] = useState(false);
-  // 🆕 طلاب هيتسجّلوا مجانًا في الكورس (إيميلات). مقصود إنهم برّه مسودة
-  // localStorage عشان إيميلات الطلاب ماتتخزّنش على الجهاز. alreadyGranted =
+  // 🆕 طلاب/مدرّسين عاديين هيتسجّلوا مجانًا في الكورس (إيميلات). مقصود إنهم برّه
+  // مسودة localStorage عشان الإيميلات ماتتخزّنش على الجهاز. alreadyGranted =
   // اللي اتسجّلوا قبل كده (وضع التعديل بس).
   const [grantedEmails, setGrantedEmails] = useState([]);
   const [alreadyGranted, setAlreadyGranted] = useState([]);
@@ -430,6 +442,21 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModerator, isEdit]);
+
+  // 🆕 سحب تسجيل مجاني من واحد من "المسجّلين مسبقًا": بيتنفّذ فورًا (مش مع حفظ
+  // الكورس) بعد تأكيد. 404 (اتشال قبل كده/من مكان تاني) بنعتبره نجاح وبنحدّث القايمة.
+  async function removeGranted(student) {
+    if (!window.confirm(t.grantRemoveConfirm(student.email))) return;
+    try {
+      const res = await fetch(`/api/courses/${course.id}/grants?user=${encodeURIComponent(student.id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 404) throw new Error(`status ${res.status}`);
+      setAlreadyGranted((list) => list.filter((s) => s.id !== student.id));
+    } catch {
+      alert(t.grantRemoveFailed);
+    }
+  }
 
   // 🆕 تحميل مسودة "دورة جديد" المحفوظة (لو موجودة) أول ما المودال يتفتح —
   // بس في وضع "دورة جديد" (isEdit=false)، مرة واحدة بس عند الـ mount.
@@ -640,11 +667,19 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
         alert(t.submittedForReview);
       }
 
-      // 🆕 نتيجة تسجيل الطلاب المجاني.
+      // 🆕 نتيجة التسجيل المجاني. بنقول بوضوح اللي حصل لكل المختارين: اتسجّلوا،
+      // أو كانوا مسجّلين بالفعل، أو اتستبعدوا لأنهم المدرّس المشرف/المنشئ — قبل كده
+      // لو محدّش اتسجّل فعليًا (مثلًا اخترت مدرّس الكورس نفسه) الفورم كان بيتقفل
+      // من غير أي رسالة فكان بيبان إن "الإضافة ماحصلتش".
       if (data?.grantFailed) {
         alert(t.grantFailed);
-      } else if (data?.grant?.granted > 0) {
-        alert(t.grantDone(data.grant.granted));
+      } else if (data?.grant) {
+        const g = data.grant;
+        const parts = [];
+        if (g.granted > 0) parts.push(t.grantDone(g.granted));
+        if (g.alreadyEnrolled > 0) parts.push(t.grantAlreadyEnrolled(g.alreadyEnrolled));
+        if (g.skipped > 0) parts.push(t.grantSkipped(g.skipped));
+        if (parts.length > 0) alert(parts.join("\n"));
       }
 
       // 🆕 الدورة اتحفظ فعليًا في الداتابيز، فمفيش داعي للمسودة المحلية تاني.
@@ -753,6 +788,7 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
                 selected={grantedEmails}
                 onChange={setGrantedEmails}
                 alreadyGranted={alreadyGranted}
+                onRemoveGranted={isEdit ? removeGranted : undefined}
                 language={language}
               />
               <p className="text-xs text-gray-400 mt-1.5">{t.grantHint}</p>

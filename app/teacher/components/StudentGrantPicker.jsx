@@ -2,25 +2,30 @@
 
 // app/teacher/components/StudentGrantPicker.jsx
 //
-// 🆕 منتقي الطلاب اللي الموديريتور هيسجّلهم مجانًا في الكورس (بيتعرض في
-// CourseFormModal للموديريتور/الأدمن بس). بيعرض الطلاب المسجّلين في المنصة بالاسم
-// أو الإيميل (GET /api/meetings/invitees?role=student — الطلاب بس)
-// وبيسمح باختيار أي عدد منهم. اللي بيتختار بيتسجّل في الكورس فعليًا وقت الحفظ
+// 🆕 منتقي المستخدمين اللي الموديريتور هيسجّلهم مجانًا في الكورس (بيتعرض في
+// CourseFormModal للموديريتور/الأدمن بس). بيعرض الطلاب + المدرّسين العاديين
+// المسجّلين في المنصة بالاسم أو الإيميل
+// (GET /api/meetings/invitees?role=student,teacher) وبيسمح باختيار أي عدد منهم.
+// اللي بيتختار بيتسجّل في الكورس فعليًا وقت الحفظ
 // (POST /api/courses أو PUT /api/courses/[id] بـ body.grantedEmails) ويتفتح له
 // الكورس من غير ما يضغط "اشترك".
 //
-// - selected: إيميلات الطلاب المختارين دلوقتي (lowercase).
-// - alreadyGranted: [{ email, name }] اللي اتسجّلوا قبل كده (وضع التعديل) —
-//   بتتعرض للقراءة بس، وبتتعلّم في القايمة عشان مايتختاروش تاني.
+// - selected: إيميلات المختارين دلوقتي (lowercase).
+// - alreadyGranted: [{ id, email, name }] اللي اتسجّلوا قبل كده (وضع التعديل) —
+//   بتتعلّم في القايمة عشان مايتختاروش تاني.
+// - onRemoveGranted: (student) => Promise — لو متبعتة بيظهر زرار حذف جنب كل واحد
+//   من المسجّلين مسبقًا (سحب التسجيل المجاني). الأب هو اللي بيأكّد وبينفّذ الطلب
+//   وبيشيله من alreadyGranted لو نجح.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader, Search, X } from "lucide-react";
 
 const T = {
   ar: {
-    selected: (n) => `${n} طالب مختار`,
+    selected: (n) => `${n} مختار`,
     clear: "مسح الكل",
-    add: "إضافة طلاب",
+    add: "إضافة طلاب أو مدرّسين",
+    teacher: "مدرّس",
     close: "تم",
     search: "ابحث بالاسم أو الإيميل...",
     noResults: "لا يوجد مستخدمون",
@@ -28,11 +33,13 @@ const T = {
     loadMore: "عرض المزيد",
     already: "مسجّل بالفعل",
     alreadyTitle: (n) => `مسجّلون مسبقًا (${n})`,
+    removeEnrollment: "إلغاء التسجيل",
   },
   en: {
-    selected: (n) => `${n} student(s) selected`,
+    selected: (n) => `${n} selected`,
     clear: "Clear all",
-    add: "Add students",
+    add: "Add students or teachers",
+    teacher: "Teacher",
     close: "Done",
     search: "Search by name or email...",
     noResults: "No users found",
@@ -40,11 +47,13 @@ const T = {
     loadMore: "Load more",
     already: "Already enrolled",
     alreadyTitle: (n) => `Already enrolled (${n})`,
+    removeEnrollment: "Remove enrollment",
   },
   es: {
-    selected: (n) => `${n} estudiante(s) seleccionado(s)`,
+    selected: (n) => `${n} seleccionado(s)`,
     clear: "Borrar todo",
-    add: "Agregar estudiantes",
+    add: "Agregar estudiantes o profesores",
+    teacher: "Profesor",
     close: "Listo",
     search: "Buscar por nombre o correo...",
     noResults: "No se encontraron usuarios",
@@ -52,12 +61,15 @@ const T = {
     loadMore: "Cargar más",
     already: "Ya inscrito",
     alreadyTitle: (n) => `Ya inscritos (${n})`,
+    removeEnrollment: "Quitar inscripción",
   },
 };
 
-export default function StudentGrantPicker({ selected, onChange, alreadyGranted = [], language = "ar" }) {
+export default function StudentGrantPicker({ selected, onChange, alreadyGranted = [], onRemoveGranted, language = "ar" }) {
   const t = T[language] || T.en;
   const [open, setOpen] = useState(false);
+  // email اللي بيتشال دلوقتي (يمنع ضغطتين ويعطّل الزرار أثناء الطلب).
+  const [removingEmail, setRemovingEmail] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -70,7 +82,7 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
     const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30&role=student`);
+      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30&role=student,teacher`);
       const data = await res.json().catch(() => ({}));
       if (id !== requestId.current) return; // رد قديم — اتجاهله
       const users = Array.isArray(data?.users) ? data.users : [];
@@ -96,6 +108,16 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
   function toggle(email) {
     if (grantedSet.has(email)) return;
     onChange(selectedSet.has(email) ? selected.filter((e) => e !== email) : [...selected, email]);
+  }
+
+  async function removeGranted(student) {
+    if (!onRemoveGranted || removingEmail) return;
+    setRemovingEmail(student.email);
+    try {
+      await onRemoveGranted(student);
+    } finally {
+      setRemovingEmail(null);
+    }
   }
 
   function selectAllShown() {
@@ -150,8 +172,24 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
           </summary>
           <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto px-3 pb-2">
             {alreadyGranted.map((s) => (
-              <span key={s.email} className="bg-white border border-gray-200 text-gray-500 text-[11px] rounded-full px-2.5 py-1" dir="ltr">
+              <span
+                key={s.email}
+                className="inline-flex items-center gap-1 bg-white border border-gray-200 text-gray-500 text-[11px] rounded-full px-2.5 py-1"
+                dir="ltr"
+              >
                 {s.email}
+                {onRemoveGranted && (
+                  <button
+                    type="button"
+                    onClick={() => removeGranted(s)}
+                    disabled={Boolean(removingEmail)}
+                    className="hover:text-red-600 disabled:opacity-40"
+                    aria-label={t.removeEnrollment}
+                    title={t.removeEnrollment}
+                  >
+                    {removingEmail === s.email ? <Loader size={12} className="animate-spin" /> : <X size={12} />}
+                  </button>
+                )}
               </span>
             ))}
           </div>
@@ -198,6 +236,11 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
                       {u.email}
                     </span>
                   </span>
+                  {u.role === "teacher" && (
+                    <span className="text-[10px] font-semibold text-[#003A91] bg-[#EBEFF6] rounded-full px-2 py-0.5 shrink-0">
+                      {t.teacher}
+                    </span>
+                  )}
                   <span className="text-[10px] text-gray-400 shrink-0">{already ? t.already : ""}</span>
                 </label>
               );

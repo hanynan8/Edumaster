@@ -52,10 +52,21 @@ export async function GET(request) {
 
     const filter = { _id: { $ne: session.user.id }, email: { $type: "string", $ne: "" } };
     const and = [];
-    // 🆕 ?role=student → الطلاب بس (منتقي تسجيل الكورس المجاني). الحسابات القديمة
-    // من غير role بتتعامل كطلاب (زي ما بنرجّعها تحت).
-    if (sp.get("role") === "student") {
-      and.push({ $or: [{ role: "student" }, { role: { $exists: false } }, { role: null }] });
+    // 🆕 ?role=student | teacher | student,teacher → تضييق القايمة على الأدوار دي بس
+    // (منتقي تسجيل الكورس المجاني بيبعت student,teacher: طلاب + مدرّسين عاديين).
+    // الحسابات القديمة من غير role بتتعامل كطلاب (زي ما بنرجّعها تحت). أي قيمة
+    // تانية (admin/moderator/...) بتتجاهل — مش بنسمح بفلترة على أدوار الإدارة.
+    const roleFilters = String(sp.get("role") || "")
+      .split(",")
+      .map((r) => r.trim())
+      .filter((r) => r === "student" || r === "teacher");
+    if (roleFilters.length > 0) {
+      const roleClauses = [];
+      if (roleFilters.includes("student")) {
+        roleClauses.push({ role: "student" }, { role: { $exists: false } }, { role: null });
+      }
+      if (roleFilters.includes("teacher")) roleClauses.push({ role: "teacher" });
+      and.push({ $or: roleClauses });
     }
     if (q) {
       const rx = new RegExp(escapeRegex(q), "i");

@@ -8,9 +8,13 @@
 //
 // - parseGrantedEmails: بيقبل array أو نص ويرجّع إيميلات صالحة + lowercase + بدون
 //   تكرار (نفس منطق parseInvitedEmails).
-// - resolveGrantRecipients: بيحوّل الإيميلات لطلاب مسجّلين فعلًا (role = student
-//   بس)، والإيميلات اللي مالهاش حساب طالب بترجع في unknown عشان الـ API يرد 400.
+// - resolveGrantRecipients: بيحوّل الإيميلات لحسابات مسجّلة فعلًا (طلاب + مدرّسين
+//   عاديين: role = student/teacher)، والإيميلات اللي مالهاش حساب كده (أو حسابها
+//   موديريتور/أدمن) بترجع في unknown عشان الـ API يرد 400. مدرّس الكورس المشرف
+//   ومنشئه بيتستبعدوا في grantCourseAccess.
 // - grantCourseAccess: بيسجّل المستخدمين (bulk، idempotent) وبيحدّث studentsCount.
+// - revokeCourseAccess: سحب منحة مستخدم واحد (إلغاء الـ enrollment اللي مصدره
+//   moderator_grant بس) وإنقاص studentsCount.
 // - notifyGrantedStudents: إشعار للطلاب المتسجّلين بالمنحة (بيتبعت لما الكورس
 //   يبقى منشور — الكورس لسه pending مش ظاهر للطلاب).
 
@@ -33,6 +37,7 @@ export function parseGrantedEmails(input) {
 
 /**
  * @param {string[]} emails - إيميلات جاهزة (lowercase، بدون تكرار)
+ * طلاب أو مدرّسين عاديين فقط.
  * @returns {Promise<{ users: {id: string, email: string, name: string}[], unknown: string[] }>}
  */
 export async function resolveGrantRecipients(emails) {
@@ -40,12 +45,12 @@ export async function resolveGrantRecipients(emails) {
   const Auth = getAuthModel();
   const found = new Map();
   for (let i = 0; i < emails.length; i += CHUNK) {
-    // 🆕 الطلاب بس (الحسابات القديمة من غير role بتتعامل كطلاب) — أي إيميل لحساب
-    // مدرّس/موديريتور/أدمن بيرجع في unknown ويترفض.
+    // 🆕 طلاب + مدرّسين عاديين (الحسابات القديمة من غير role بتتعامل كطلاب) — أي
+    // إيميل لحساب موديريتور/أدمن بيرجع في unknown ويترفض.
     const rows = await Auth.find(
       {
         email: { $in: emails.slice(i, i + CHUNK) },
-        $or: [{ role: "student" }, { role: { $exists: false } }, { role: null }],
+        $or: [{ role: "student" }, { role: { $exists: false } }, { role: null }, { role: "teacher" }],
       },
       "name email"
     ).lean();
@@ -125,6 +130,33 @@ export async function grantCourseAccess({ course, users, grantedBy }) {
     skipped,
     grantedUserIds,
   };
+}
+
+/**
+ * 🆕 سحب منحة تسجيل مجاني من مستخدم واحد (الموديريتور بيشيله من قايمة "مسجّلون
+ * مسبقًا" في فورم الكورس).
+ * - بيلغي (status = "cancelled") تسجيل مصدره moderator_grant بس — اللي اشترى الكورس
+ *   أو اتسجّل بأي مصدر تاني (purchase/membership/free/admin_grant) مابيتلمسش، وبيرجع
+ *   revoked: false.
+ * - مابيتمسحش السجل نفسه (زي راوت الأدمن): التقدّم بيفضل محفوظ ولو اتمنح تاني
+ *   grantCourseAccess بيفعّله من جديد.
+ * - atomic (findOneAndUpdate بشرط status != cancelled) فضغطتين متتاليتين مايخصموش
+ *   studentsCount مرتين، وبينقص العدّاد بواحد بس لو الإلغاء حصل فعلًا (عكس الزيادة
+ *   في grantCourseAccess).
+ * @returns {Promise<{ revoked: boolean, enrollmentId?: string, previousStatus?: string }>}
+ */
+export async function revokeCourseAccess({ course, userId }) {
+  const enrollment = await getEnrollmentModel()
+    .findOneAndUpdate(
+      { user: userId, course: course._id, source: GRANT_SOURCE, status: { $ne: "cancelled" } },
+      { $set: { status: "cancelled" } },
+      { new: false }
+    )
+    .lean();
+  if (!enrollment) return { revoked: false };
+
+  await getCourseModel().findByIdAndUpdate(course._id, { $inc: { studentsCount: -1 } });
+  return { revoked: true, enrollmentId: String(enrollment._id), previousStatus: enrollment.status };
 }
 
 /**

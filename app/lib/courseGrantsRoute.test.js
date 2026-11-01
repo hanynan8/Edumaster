@@ -14,6 +14,7 @@ const mockResolveRecipients = jest.fn();
 const mockGrantAccess = jest.fn();
 const mockNotifyGranted = jest.fn();
 const mockListGranted = jest.fn();
+const mockRevoke = jest.fn();
 const mockCourseFindById = jest.fn();
 const mockCourseExists = jest.fn();
 
@@ -55,6 +56,7 @@ jest.mock("@/app/lib/courseGrants", () => {
     grantCourseAccess: (...a) => mockGrantAccess(...a),
     notifyGrantedStudents: (...a) => mockNotifyGranted(...a),
     listGrantedStudents: (...a) => mockListGranted(...a),
+    revokeCourseAccess: (...a) => mockRevoke(...a),
   };
 });
 
@@ -216,5 +218,76 @@ describe("GET /api/courses/[id]/grants", () => {
     asUser("admin");
     mockCourseExists.mockResolvedValue(null);
     expect((await call()).status).toBe(404);
+  });
+});
+
+describe("DELETE /api/courses/[id]/grants?user=", () => {
+  let DELETE;
+  let logAudit;
+  const STUDENT_ID = "507f1f77bcf86cd799439055";
+  beforeAll(async () => {
+    ({ DELETE } = await import("@/app/api/courses/[id]/grants/route.js"));
+    ({ logAudit } = await import("@/app/lib/auditLog"));
+  });
+  const call = (user = STUDENT_ID, id = COURSE_ID) =>
+    DELETE(new Request(`http://x/api/courses/${id}/grants${user === null ? "" : `?user=${user}`}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id }),
+    });
+
+  it("المدرّس والطالب مرفوضين (403) ومفيش سحب", async () => {
+    asUser("teacher");
+    expect((await call()).status).toBe(403);
+    asUser("student");
+    expect((await call()).status).toBe(403);
+    expect(mockRevoke).not.toHaveBeenCalled();
+  });
+
+  it("id أو user غلط → 400", async () => {
+    asUser("moderator");
+    expect((await call(STUDENT_ID, "nope")).status).toBe(400);
+    expect((await call("bad-id")).status).toBe(400);
+    expect((await call(null)).status).toBe(400);
+    expect(mockRevoke).not.toHaveBeenCalled();
+  });
+
+  it("كورس مش موجود → 404", async () => {
+    asUser("moderator");
+    mockCourseExists.mockResolvedValue(null);
+    expect((await call()).status).toBe(404);
+    expect(mockRevoke).not.toHaveBeenCalled();
+  });
+
+  it("الموديريتور بيسحب المنحة وبيتسجّل في الـ audit log", async () => {
+    asUser("moderator");
+    mockCourseExists.mockResolvedValue({ _id: COURSE_ID });
+    mockRevoke.mockResolvedValue({ revoked: true, enrollmentId: "e1", previousStatus: "active" });
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(mockRevoke).toHaveBeenCalledWith({ course: { _id: COURSE_ID }, userId: STUDENT_ID });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "enrollment.grant_revoked",
+        targetId: "e1",
+        details: { user: STUDENT_ID, course: COURSE_ID, from: "active", to: "cancelled" },
+      })
+    );
+  });
+
+  it("الأدمن كمان يقدر", async () => {
+    asUser("admin");
+    mockCourseExists.mockResolvedValue({ _id: COURSE_ID });
+    mockRevoke.mockResolvedValue({ revoked: true, enrollmentId: "e1", previousStatus: "active" });
+    expect((await call()).status).toBe(200);
+  });
+
+  it("مفيش منحة موديريتور للمستخدم ده (مثلًا اشترى الكورس) → 404 ومفيش audit", async () => {
+    asUser("moderator");
+    mockCourseExists.mockResolvedValue({ _id: COURSE_ID });
+    mockRevoke.mockResolvedValue({ revoked: false });
+    const res = await call();
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("not_granted");
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });

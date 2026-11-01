@@ -7,9 +7,12 @@
 // - مدرس/أدمن بس (غير كده 403).
 // - بحث بالاسم أو الإيميل (q)، وترقيم (skip/limit، حد أقصى 100 في الصفحة) —
 //   عدد المختارين نفسه مالوش حد، لكن القائمة المعروضة بتتحمّل على دفعات.
+// - 🆕 ?courseId=<id> → القايمة بتتحصر في طلاب الكورس ده (اللي عندهم enrollment غير ملغي)
+//   بس — ده منتقي "اختيار الطلاب" للايف الكورس: اللي يتختاروا بس هما اللي يشوفوا اللايف.
 // - بيستبعد المستخدم نفسه، وأي حساب من غير إيميل.
 // - 🔒 rate limit لكل مستخدم عشان القائمة دي مايتعملهاش scraping.
 
+import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { requireSession, isStaffRole } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -51,6 +54,20 @@ export async function GET(request) {
     const Auth = getAuthModel();
 
     const filter = { _id: { $ne: session.user.id }, email: { $type: "string", $ne: "" } };
+
+    // 🆕 تضييق على طلاب كورس معيّن
+    const courseId = String(sp.get("courseId") || "").trim();
+    if (courseId) {
+      if (!mongoose.Types.ObjectId.isValid(courseId)) return jsonResponse({ error: "invalid_course" }, 400);
+      // import ديناميكي: فلتر الكورس هو الحالة الوحيدة اللي محتاجة موديل Enrollment
+      const { getEnrollmentModel } = await import("@/app/lib/models");
+      const enrollments = await getEnrollmentModel()
+        .find({ course: courseId, status: { $ne: "cancelled" } }, "user")
+        .lean();
+      const userIds = [...new Set(enrollments.map((e) => String(e.user)))];
+      if (userIds.length === 0) return jsonResponse({ users: [], hasMore: false });
+      filter._id = { $ne: session.user.id, $in: userIds };
+    }
     const and = [];
     // 🆕 ?role=student | teacher | student,teacher → تضييق القايمة على الأدوار دي بس
     // (منتقي تسجيل الكورس المجاني بيبعت student,teacher: طلاب + مدرّسين عاديين).

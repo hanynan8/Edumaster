@@ -10,6 +10,7 @@
 
 import { getAuthModel } from "@/app/lib/mongodb";
 import { formatMeetingWhen } from "@/app/lib/meetingTime";
+import { isMeetingRestricted } from "@/app/lib/meetingInvites";
 import {
   createNotificationsForUsers,
   getEnrolledUserIds,
@@ -21,7 +22,8 @@ export async function getMeetingRecipientIds(meeting, { excludeUserId } = {}) {
   if (!meeting.course) {
     ids = await getAllUserIds();
   } else {
-    ids = await getEnrolledUserIds(meeting.course);
+    // 🔒 لايف للطلاب المختارين بس: المختارين بس (مش كل مسجّلي الكورس)
+    ids = isMeetingRestricted(meeting) ? [] : await getEnrolledUserIds(meeting.course);
     const emails = (meeting.invitedEmails || []).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
     if (emails.length > 0) {
       const invited = await getAuthModel().find({ email: { $in: emails } }, "_id").lean();

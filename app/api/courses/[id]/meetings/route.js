@@ -13,6 +13,8 @@
 //   → صاحب الكورس/أدمن بس. 🆕 invitedEmails = دعوة بالإيميل، recurrence =
 //   محاضرات متكررة (شوف app/lib/meetingCreate.js). بعد الإنشاء بيبعت إشعار
 //   "meeting_scheduled" لكل طالب مسجّل فعليًا في الكورس (insertMany، مش loop).
+//   🔒 لو اتحددت طلاب (invitedEmails) اللايف بيبقى للمختارين بس: بيظهر ويتبلّغ بيه
+//   المختارين بس، وطلاب الكورس التانيين مايشوفوهوش (Meeting.restrictToInvited).
 //
 // 🔄 التحديث (Daily.co): الرابط بقى اختياري في الـ body — بنستخدم
 //   isDailyConfigured + createDailyRoom عشان ننشئ غرفة اجتماع Daily فعلية
@@ -70,7 +72,14 @@ export async function GET(request, { params }) {
     }
 
     const Meeting = getMeetingModel();
-    const meetings = await Meeting.find({ course: id }).sort({ scheduledAt: 1 }).lean();
+    // 🔒 لايف "للطلاب المختارين بس": غير الإدارة مايشوفوش إلا اللي هم مدعوين عليه
+    // (حتى لو مشتركين في الكورس).
+    const query = { course: id };
+    if (!canManage) {
+      const userEmail = String(session.user.email || "").trim().toLowerCase();
+      query.$or = [{ restrictToInvited: { $ne: true } }, ...(userEmail ? [{ invitedEmails: userEmail }] : [])];
+    }
+    const meetings = await Meeting.find(query).sort({ scheduledAt: 1 }).lean();
 
     return jsonResponse({ meetings: meetings.map((m) => serializeMeeting(m, { includeInvitees: canManage })) });
   } catch (err) {
@@ -111,13 +120,15 @@ export async function POST(request, { params }) {
     const result = await createMeetingOrSeries({ teacherId: session.user.id, courseId: id, body });
     if (!result.ok) return jsonResponse(result.body, result.status);
 
-    const { meetings, invitedEmails, recurrenceRule } = result;
+    const { meetings, invitedEmails, recurrenceRule, restricted } = result;
     const first = meetings[0];
     const isSeries = meetings.length > 1;
 
     // 🔔 best-effort — نفس فلسفة الإعلانات، فشل الإشعار مايوقفش نجاح إنشاء
     // الاجتماع نفسه (اللي نجح فعلًا فوق). إشعار/إيميل واحد للسلسلة كلها.
-    const enrolledUserIds = await getEnrolledUserIds(id);
+    // 🔒 لايف للطلاب المختارين بس: مفيش إشعار/إيميل "محاضرة جديدة" لباقي طلاب الكورس —
+    // المختارين بس بيتبلّغوا (عن طريق دعوة الإيميل + الإشعار تحت).
+    const enrolledUserIds = restricted ? [] : await getEnrolledUserIds(id);
     const notifiedEmails = new Set();
     if (enrolledUserIds.length > 0) {
       await createNotificationsForUsers(enrolledUserIds, {

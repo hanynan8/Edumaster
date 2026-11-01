@@ -69,6 +69,16 @@ const FORBIDDEN_REASONS = {
     actionLabel: { en: "Subscription plans", ar: "خطط الاشتراك", es: "Planes de suscripción" },
     actionHref: "/membership",
   },
+  // 🔒 لايف للطلاب المختارين بس: الطالب مش ضمن المدعوين (حتى لو مشترك في الكورس)
+  not_invited: {
+    message: {
+      en: "This live session is only for the students selected by the instructor.",
+      ar: "هذه المحاضرة المباشرة مخصّصة للطلاب الذين اختارهم المحاضر فقط.",
+      es: "Esta clase en vivo es solo para los estudiantes elegidos por el instructor.",
+    },
+    actionLabel: null,
+    actionHref: null,
+  },
   not_enrolled: {
     message: {
       en: "You need to be enrolled in this course first to join the meeting.",

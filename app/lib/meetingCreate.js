@@ -19,7 +19,7 @@ import { getAuthModel } from "@/app/lib/mongodb";
 import { isDailyConfigured, createDailyRoom, deleteDailyRoom } from "@/app/lib/daily";
 import { createNotificationsForUsers } from "@/app/lib/notificationHelpers";
 import { sendMeetingInviteEmails } from "@/app/lib/emailHelpers";
-import { parseInvitedEmails } from "@/app/lib/meetingInvites";
+import { parseInvitedEmails, shouldRestrictToInvited } from "@/app/lib/meetingInvites";
 import { formatMeetingWhen } from "@/app/lib/meetingTime";
 import {
   expandRecurrence,
@@ -131,7 +131,7 @@ async function createRoomsForDates(dates, durationMinutes) {
  * @param {string} params.teacherId
  * @param {string|null} params.courseId
  * @param {object} params.body
- * @returns {Promise<{ok:true, meetings:object[], seriesId:string|null, invitedEmails:string[], recurrenceRule:object|null} | {ok:false, status:number, body:object}>}
+ * @returns {Promise<{ok:true, meetings:object[], seriesId:string|null, invitedEmails:string[], restricted:boolean, recurrenceRule:object|null} | {ok:false, status:number, body:object}>}
  */
 export async function createMeetingOrSeries({ teacherId, courseId = null, body }) {
   const title = String(body?.title || "").trim();
@@ -217,6 +217,8 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
         scheduledAt: date,
         durationMinutes,
         invitedEmails,
+        // 🔒 كورس + اختيار طلاب → اللايف للمختارين بس (مش لكل طلاب الكورس)
+        restrictToInvited: shouldRestrictToInvited({ course: courseId, invitedEmails }),
         seriesId,
         seriesIndex: seriesId ? i + 1 : null,
         recurrence: seriesId ? recurrenceRule : null,
@@ -233,6 +235,7 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
     meetings: created,
     seriesId: seriesId ? seriesId.toString() : null,
     invitedEmails,
+    restricted: shouldRestrictToInvited({ course: courseId, invitedEmails }),
     recurrenceRule,
   };
 }

@@ -8,6 +8,8 @@
 // إدارة المحاضرة (includeInvitees=true) — الطالب العادي مايشوفش إيميلات
 // غيره.
 
+import { isMeetingRestricted } from "@/app/lib/meetingInvites";
+
 export function serializeMeeting(m, { includeInvitees = false } = {}) {
   const course = m.course;
   const teacher = m.teacher;
@@ -46,6 +48,8 @@ export function serializeMeeting(m, { includeInvitees = false } = {}) {
       : null,
     // 📧 المدعوين
     invitedCount: (m.invitedEmails || []).length,
+    // 🔒 true = اللايف للطلاب المختارين بس (مش لكل طلاب الكورس)
+    restrictToInvited: isMeetingRestricted(m),
     ...(includeInvitees ? { invitedEmails: m.invitedEmails || [] } : {}),
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,

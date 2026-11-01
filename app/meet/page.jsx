@@ -116,6 +116,13 @@ const T = {
     pickerClear: "Clear all",
     pickerLoadMore: "Load more",
     pickerSelected: (n) => `${n} selected`,
+    studentsLabel: "Choose students (optional)",
+    studentsHelper: "Pick specific students from this course. Once you pick any, ONLY they will see and join this live — other students in the course won't see it, even if they're enrolled. Leave it empty to show the live to all students in the course.",
+    studentsNeedCourse: "Choose a course first to pick its students.",
+    restrictedNote: (n) => `Only the ${n} selected ${n === 1 ? "student" : "students"} will see this live.`,
+    pickerAddStudents: "Add students",
+    pickerNoStudents: "No enrolled students found in this course",
+    restrictedBadge: "Selected students only",
     errUnknownEmails: (list) => `Not registered on the platform: ${list}`,
     repeatLabel: "Repeat",
     repeatNone: "Does not repeat",
@@ -218,6 +225,13 @@ const T = {
     pickerClear: "مسح الكل",
     pickerLoadMore: "عرض المزيد",
     pickerSelected: (n) => `${n} مختار`,
+    studentsLabel: "اختيار الطلاب (اختياري)",
+    studentsHelper: "اختر طلابًا محددين من هذه الدورة. بمجرد اختيار أي طالب، هؤلاء الطلاب فقط سيشاهدون هذه المحاضرة المباشرة ويدخلون إليها — ولن تظهر لباقي طلاب الدورة حتى لو كانوا مشتركين. اتركها فارغة لتظهر المحاضرة لجميع طلاب الدورة.",
+    studentsNeedCourse: "اختر الدورة أولًا لاختيار طلابها.",
+    restrictedNote: (n) => `ستظهر هذه المحاضرة للطلاب المختارين فقط (${n}).`,
+    pickerAddStudents: "إضافة طلاب",
+    pickerNoStudents: "لا يوجد طلاب مسجّلون في هذه الدورة",
+    restrictedBadge: "للطلاب المختارين فقط",
     errUnknownEmails: (list) => `غير مسجّلين في الموقع: ${list}`,
     repeatLabel: "التكرار",
     repeatNone: "لا يتكرر",
@@ -320,6 +334,13 @@ const T = {
     pickerClear: "Borrar todo",
     pickerLoadMore: "Cargar más",
     pickerSelected: (n) => `${n} seleccionados`,
+    studentsLabel: "Elegir estudiantes (opcional)",
+    studentsHelper: "Elige estudiantes concretos de este curso. En cuanto elijas alguno, SOLO ellos verán y podrán entrar a esta clase en vivo — los demás estudiantes del curso no la verán, aunque estén inscritos. Déjalo vacío para mostrar la clase a todos los estudiantes del curso.",
+    studentsNeedCourse: "Elige primero un curso para seleccionar a sus estudiantes.",
+    restrictedNote: (n) => `Solo ${n === 1 ? "el estudiante seleccionado verá" : `los ${n} estudiantes seleccionados verán`} esta clase en vivo.`,
+    pickerAddStudents: "Agregar estudiantes",
+    pickerNoStudents: "No hay estudiantes inscritos en este curso",
+    restrictedBadge: "Solo estudiantes seleccionados",
     errUnknownEmails: (list) => `No registrados en la plataforma: ${list}`,
     repeatLabel: "Repetir",
     repeatNone: "No se repite",
@@ -470,7 +491,7 @@ const GENERAL_COURSE_VALUE = "general";
 // وبيسمح باختيار أي عدد منهم (مفيش حد أقصى). كل مدعو بيوصله إيميل دعوة عن طريق
 // Resend + إشعار داخل الموقع بعد الحفظ. القائمة بتتحمّل على دفعات (بحث + "عرض المزيد")،
 // و"تحديد كل المعروض" بيضيف الدفعة الظاهرة قدامك.
-function InviteePicker({ selected, onChange, t }) {
+function InviteePicker({ selected, onChange, t, courseId = null }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -483,7 +504,9 @@ function InviteePicker({ selected, onChange, t }) {
     const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30`);
+      // 🆕 courseId → القايمة بتتحصر في طلاب الكورس ده بس (اختيار طلاب لايف الكورس)
+      const courseParam = courseId ? `&courseId=${encodeURIComponent(courseId)}` : "";
+      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30${courseParam}`);
       const data = await res.json().catch(() => ({}));
       if (id !== requestId.current) return; // رد قديم — اتجاهله
       const users = Array.isArray(data?.users) ? data.users : [];
@@ -497,7 +520,7 @@ function InviteePicker({ selected, onChange, t }) {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [courseId]);
 
   // بحث مع debounce بسيط، وبيشتغل بس والمنتقي مفتوح.
   useEffect(() => {
@@ -531,7 +554,7 @@ function InviteePicker({ selected, onChange, t }) {
             onClick={() => setOpen((v) => !v)}
             className="text-xs font-semibold text-[#003A91] border border-[#003A91] rounded-lg px-3 py-1 hover:bg-[#EBEFF6]"
           >
-            {open ? t.pickerClose : t.pickerAdd}
+            {open ? t.pickerClose : courseId ? t.pickerAddStudents : t.pickerAdd}
           </button>
         </div>
       </div>
@@ -589,7 +612,7 @@ function InviteePicker({ selected, onChange, t }) {
               </div>
             )}
             {!loading && results.length === 0 && (
-              <p className="text-center text-xs text-gray-400 py-4">{t.pickerNoResults}</p>
+              <p className="text-center text-xs text-gray-400 py-4">{courseId ? t.pickerNoStudents : t.pickerNoResults}</p>
             )}
             {!loading && hasMore && (
               <button
@@ -662,6 +685,15 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  // 🔒 الكورس اللي منتقي الطلاب بيتحصر عليه: في الإنشاء = الكورس المختار (مش "عامة")،
+  // وفي التعديل = كورس المحاضرة نفسها (مفيش كورس = جلسة عامة).
+  const pickerCourseId = isEdit
+    ? meeting.course || null
+    : form.course && form.course !== GENERAL_COURSE_VALUE
+    ? form.course
+    : null;
+  const isCourseLecture = Boolean(pickerCourseId);
 
   const startDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
   const startValid = Boolean(startDate) && !Number.isNaN(startDate.getTime());
@@ -795,7 +827,10 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
               <select
                 className={inputCls}
                 value={form.course}
-                onChange={(e) => update("course", e.target.value)}
+                onChange={(e) => {
+                  // تغيير الكورس بيفضّي الطلاب المختارين (كانوا من كورس تاني)
+                  setForm((f) => ({ ...f, course: e.target.value, invitedEmails: [] }));
+                }}
                 required
               >
                 <option value="">{t.chooseCourse}</option>
@@ -849,10 +884,26 @@ function MeetingFormModal({ meeting, courses, onClose, onSaved, t, language }) {
 
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
-              <Mail size={14} /> {t.invitedLabel}
+              <Mail size={14} /> {isCourseLecture ? t.studentsLabel : t.invitedLabel}
             </label>
-            <InviteePicker selected={form.invitedEmails} onChange={(v) => update("invitedEmails", v)} t={t} />
-            <p className="text-xs text-gray-400 mt-1.5">{t.invitedHelper}</p>
+            {!isEdit && !form.course ? (
+              <p className="text-xs text-gray-400">{t.studentsNeedCourse}</p>
+            ) : (
+              <>
+                <InviteePicker
+                  selected={form.invitedEmails}
+                  onChange={(v) => update("invitedEmails", v)}
+                  t={t}
+                  courseId={pickerCourseId}
+                />
+                {isCourseLecture && form.invitedEmails.length > 0 && (
+                  <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                    {t.restrictedNote(form.invitedEmails.length)}
+                  </p>
+                )}
+                <p className="text-xs text-gray-400 mt-1.5">{isCourseLecture ? t.studentsHelper : t.invitedHelper}</p>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1104,6 +1155,9 @@ function MeetingCard({ meeting, canManage, showTeacher, onEdit, onDelete, onJoin
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-[#003A91] bg-[#EBEFF6] px-2.5 py-1 rounded-full">
           <BookOpen size={12} /> {meeting.isGeneral ? t.generalBadge : meeting.courseTitle || t.course}
+          {meeting.restrictToInvited && (
+            <span className="text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 text-[10px]">{t.restrictedBadge}</span>
+          )}
         </div>
         <span className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${meta.className}`}>
           {phase === "live" && <Radio size={11} className="animate-pulse" />}

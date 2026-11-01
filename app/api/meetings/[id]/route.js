@@ -33,7 +33,7 @@ import {
   findTeacherConflict,
   isInPast,
 } from "@/app/lib/meetingCreate";
-import { parseInvitedEmails, diffInvitedEmails } from "@/app/lib/meetingInvites";
+import { parseInvitedEmails, diffInvitedEmails, shouldRestrictToInvited } from "@/app/lib/meetingInvites";
 import { shiftWallClock, getZonedParts, localDayDiff, normalizeTimeZone } from "@/app/lib/meetingRecurrence";
 
 // قوائم مدعوين كبيرة = إيميلات كتير (Resend batch) — نرفع حد وقت التنفيذ على Vercel.
@@ -121,12 +121,15 @@ export async function PUT(request, { params }) {
     }
 
     let newInvitedEmails;
+    let invitesChanged = false;
     let addedEmails = [];
     if (body.invitedEmails !== undefined) {
       const { emails, invalid } = parseInvitedEmails(body.invitedEmails);
       if (invalid.length > 0) return jsonResponse({ error: "invalid_emails", invalid }, 400);
       newInvitedEmails = emails;
-      addedEmails = diffInvitedEmails(meeting.invitedEmails, emails).added;
+      const diff = diffInvitedEmails(meeting.invitedEmails, emails);
+      addedEmails = diff.added;
+      invitesChanged = diff.added.length > 0 || diff.removed.length > 0;
       // 🔒 الإيميلات المضافة حديثًا لازم تكون لمستخدمين مسجّلين في الموقع (مفيش حد أقصى للعدد).
       const unknownEmails = await findUnregisteredEmails(addedEmails);
       if (unknownEmails.length > 0) return jsonResponse({ error: "unknown_emails", invalid: unknownEmails }, 400);
@@ -184,7 +187,15 @@ export async function PUT(request, { params }) {
 
       if (title !== undefined) target.title = title;
       if (description !== undefined) target.description = description;
-      if (newInvitedEmails !== undefined) target.invitedEmails = newInvitedEmails;
+      if (newInvitedEmails !== undefined) {
+        target.invitedEmails = newInvitedEmails;
+        // 🔒 اختيار طلاب (كورس + قائمة مش فاضية) = اللايف للمختارين بس؛ تفريغ القائمة = يرجع
+        // لكل طلاب الكورس. بنعدّل الحالة بس لو القائمة اتغيّرت فعلًا (الواجهة بتبعتها دايمًا
+        // مع أي تعديل، فتعديل العنوان بس مايغيّرش حالة محاضرة قديمة).
+        if (invitesChanged) {
+          target.restrictToInvited = shouldRestrictToInvited({ course: target.course, invitedEmails: newInvitedEmails });
+        }
+      }
 
       if (newLink !== undefined) {
         // 🆕 لو المدرس عدّل اللينك يدويًا لاجتماع كان متولّد عن طريق Daily،

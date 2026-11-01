@@ -22,6 +22,7 @@ import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { createNotificationsForUsers, getEnrolledUserIds, getAllUserIds } from "@/app/lib/notificationHelpers";
 import { sendMeetingReminderEmails } from "@/app/lib/emailHelpers";
+import { isMeetingRestricted } from "@/app/lib/meetingInvites";
 
 // 🔧 الإيميلات بتتبعت عبر Resend Batch API (sendMeetingReminderEmails) بدل نداء لكل
 // مستخدم — النداءات المتوازية كانت بتعدّي حد Resend (2 طلب/ثانية) وبتفشل بصمت.
@@ -75,7 +76,8 @@ async function processMeeting(meeting, AuthModel, now) {
   }
 
   const courseId = meeting.course?._id || meeting.course;
-  const enrolledUserIds = await getEnrolledUserIds(courseId);
+  // 🔒 لايف للطلاب المختارين بس: التذكير للمدعوين بس، مش لكل مسجّلي الكورس.
+  const enrolledUserIds = isMeetingRestricted(meeting) ? [] : await getEnrolledUserIds(courseId);
   const invitedUsers = await getInvitedUsers(AuthModel, meeting.invitedEmails);
   const recipientIds = [...new Set([...enrolledUserIds.map(String), ...invitedUsers.map((u) => String(u._id))])];
   if (recipientIds.length === 0) return { notified, emailed };

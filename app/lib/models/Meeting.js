@@ -77,6 +77,10 @@ const meetingSchema = new mongoose.Schema(
     // بيتبعتلهم إيميل دعوة (Resend) + إشعار داخل الموقع وقت الإضافة.
     invitedEmails: { type: [String], default: [] },
 
+    // 🔒 true = اللايف للطلاب المختارين (invitedEmails) بس، مش لكل طلاب الكورس.
+    // بيتحدد وقت الإنشاء/التعديل من shouldRestrictToInvited (app/lib/meetingInvites.js).
+    restrictToInvited: { type: Boolean, default: false },
+
     // 🆕 الاجتماعات المتكررة (زي Teams): كل مرة بتتحفظ كـ Meeting مستقل
     // (غرفة Daily خاصة بيه، تذكير خاص بيه، تسجيلات خاصة بيه) وكلهم بيشتركوا
     // في نفس seriesId. null = اجتماع عادي مش ضمن سلسلة.

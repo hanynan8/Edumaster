@@ -41,6 +41,20 @@ export function isEmailInvited(meeting, email) {
   return meeting.invitedEmails.some((e) => String(e).toLowerCase() === target);
 }
 
+/**
+ * 🔒 لايف "للطلاب المختارين بس": محاضرة تابعة لكورس + قائمة مدعوين مش فاضية =
+ * مقصورة على المدعوين (طلاب الكورس التانيين مايشوفوهاش ولا يدخلوها). تفريغ القائمة
+ * أو الجلسة العامة (course = null) = مفتوحة زي العادة.
+ */
+export function shouldRestrictToInvited({ course, invitedEmails } = {}) {
+  return Boolean(course) && Array.isArray(invitedEmails) && invitedEmails.length > 0;
+}
+
+/** هل المحاضرة دي مقصورة على المدعوين بس (Meeting.restrictToInvited). */
+export function isMeetingRestricted(meeting) {
+  return meeting?.restrictToInvited === true;
+}
+
 export function diffInvitedEmails(previous = [], next = []) {
   const prev = new Set((previous || []).map((e) => String(e).toLowerCase()));
   const nxt = new Set((next || []).map((e) => String(e).toLowerCase()));
@@ -62,6 +76,8 @@ export async function checkMeetingAccess({ meeting, session, isManager, findCour
   if (isEmailInvited(meeting, session?.user?.email)) return { allowed: true };
   // جلسة عامة (من غير كورس): متاحة لأي مستخدم مسجّل دخول.
   if (!meeting.course) return { allowed: true };
+  // 🔒 لايف للمختارين بس: غير المدعو مرفوض حتى لو طالب فعلي في الكورس.
+  if (isMeetingRestricted(meeting)) return { allowed: false, status: 403, error: "forbidden", reason: "not_invited" };
 
   const course = await findCourse(meeting.course);
   if (!course) return { allowed: false, status: 404, error: "not_found" };

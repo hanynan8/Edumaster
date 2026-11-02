@@ -71,7 +71,12 @@ export async function GET(request) {
         "course"
       ).lean();
       const courseIds = enrollments.map((e) => e.course);
-      query.$or = [{ course: { $in: courseIds } }, { course: null }, ...invitedClause];
+      // 🔒 اللايف المقصور على المختارين مايظهرش لطلاب الكورس إلا لو مدعوين (invitedClause).
+      query.$or = [
+        { course: { $in: courseIds }, restrictToInvited: { $ne: true } },
+        { course: null },
+        ...invitedClause,
+      ];
     }
     // أدمن/موديريتور: مفيش فلتر — كل الاجتماعات (الموديريتور بيدير كورسات كل
     // المدرّسين فلازم يشوف اجتماعاتهم).

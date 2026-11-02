@@ -5,7 +5,7 @@
 // 🆕 منتقي المستخدمين اللي الموديريتور هيسجّلهم مجانًا في الكورس (بيتعرض في
 // CourseFormModal للموديريتور/الأدمن بس). بيعرض الطلاب + المدرّسين العاديين
 // المسجّلين في المنصة بالاسم أو الإيميل
-// (GET /api/meetings/invitees?role=student,teacher) وبيسمح باختيار أي عدد منهم.
+// (GET /api/moderator/users?role=student,teacher) وبيسمح باختيار أي عدد منهم.
 // اللي بيتختار بيتسجّل في الكورس فعليًا وقت الحفظ
 // (POST /api/courses أو PUT /api/courses/[id] بـ body.grantedEmails) ويتفتح له
 // الكورس من غير ما يضغط "اشترك".
@@ -74,6 +74,7 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(null);
   const requestId = useRef(0);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const grantedSet = useMemo(() => new Set(alreadyGranted.map((s) => s.email)), [alreadyGranted]);
@@ -82,13 +83,21 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
     const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await fetch(`/api/meetings/invitees?q=${encodeURIComponent(q)}&skip=${skip}&limit=30&role=student,teacher`);
+      const res = await fetch(`/api/moderator/users?q=${encodeURIComponent(q)}&skip=${skip}&limit=30&role=student,teacher`);
       const data = await res.json().catch(() => ({}));
       if (id !== requestId.current) return; // رد قديم — اتجاهله
+      if (!res.ok) {
+        setError(`${res.status}${data?.error ? ` — ${data.error}` : ""}`);
+        if (skip === 0) setResults([]);
+        setHasMore(false);
+        return;
+      }
+      setError(null);
       const users = Array.isArray(data?.users) ? data.users : [];
       setResults((prev) => (skip === 0 ? users : [...prev, ...users]));
       setHasMore(Boolean(data?.hasMore));
     } catch {
+      if (id === requestId.current) setError("network");
       if (id === requestId.current && skip === 0) {
         setResults([]);
         setHasMore(false);
@@ -251,7 +260,11 @@ export default function StudentGrantPicker({ selected, onChange, alreadyGranted 
               </div>
             )}
             {!loading && results.length === 0 && (
-              <p className="text-center text-xs text-gray-400 py-4">{t.noResults}</p>
+              error ? (
+                <p className="text-center text-xs text-red-500 py-4" dir="ltr">Error: {error}</p>
+              ) : (
+                <p className="text-center text-xs text-gray-400 py-4">{t.noResults}</p>
+              )
             )}
             {!loading && hasMore && (
               <button

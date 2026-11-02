@@ -19,7 +19,7 @@ import { getAuthModel } from "@/app/lib/mongodb";
 import { isDailyConfigured, createDailyRoom, deleteDailyRoom } from "@/app/lib/daily";
 import { createNotificationsForUsers } from "@/app/lib/notificationHelpers";
 import { sendMeetingInviteEmails } from "@/app/lib/emailHelpers";
-import { parseInvitedEmails } from "@/app/lib/meetingInvites";
+import { parseInvitedEmails, shouldRestrictToInvited } from "@/app/lib/meetingInvites";
 import { formatMeetingWhen } from "@/app/lib/meetingTime";
 import {
   expandRecurrence,
@@ -201,6 +201,8 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
     links = manualLinks();
   }
 
+  const restricted = shouldRestrictToInvited({ course: courseId, invitedEmails });
+
   const seriesId = dates.length > 1 ? new mongoose.Types.ObjectId() : null;
   const Meeting = getMeetingModel();
   let created;
@@ -217,6 +219,7 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
         scheduledAt: date,
         durationMinutes,
         invitedEmails,
+        restrictToInvited: restricted,
         seriesId,
         seriesIndex: seriesId ? i + 1 : null,
         recurrence: seriesId ? recurrenceRule : null,
@@ -234,6 +237,7 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
     seriesId: seriesId ? seriesId.toString() : null,
     invitedEmails,
     recurrenceRule,
+    restricted,
   };
 }
 

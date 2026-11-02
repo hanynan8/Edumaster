@@ -46,6 +46,7 @@ export function serializeMeeting(m, { includeInvitees = false } = {}) {
       : null,
     // 📧 المدعوين
     invitedCount: (m.invitedEmails || []).length,
+    restrictToInvited: m.restrictToInvited === true,
     ...(includeInvitees ? { invitedEmails: m.invitedEmails || [] } : {}),
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,

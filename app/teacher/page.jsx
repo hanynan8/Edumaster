@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
 import CourseFormModal from "./components/CourseFormModal";
+import EnrolledCoursesTab from "./components/EnrolledCoursesTab";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // 🆕 كل نصوص الصفحة كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من
@@ -60,6 +61,8 @@ const T = {
     deleteErrorWithCode: (code) => `Something went wrong while deleting${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Something went wrong while deleting — check your internet connection and try again.",
     myCourses: "My courses",
+    tabTeaching: "Courses I teach",
+    tabEnrolled: "Courses I'm enrolled in",
     moderatorDashboard: "Moderator Dashboard",
     moderatorManage: "Add courses and assign them to teachers",
     noCoursesAssigned: "No courses have been assigned to you yet",
@@ -113,6 +116,8 @@ const T = {
     deleteErrorWithCode: (code) => `حدث خطأ أثناء الحذف${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "حدث خطأ أثناء الحذف — تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
     myCourses: "دوراتي",
+    tabTeaching: "دورات أدرّسها",
+    tabEnrolled: "دورات مسجّل فيها",
     moderatorDashboard: "موديريتور داشبورد",
     moderatorManage: "إضافة الدورات وتعيين المدرّس المسؤول عنها",
     noCoursesAssigned: "لم يتم تعيين أي دورة لك بعد",
@@ -166,6 +171,8 @@ const T = {
     deleteErrorWithCode: (code) => `Ocurrió un error al eliminar${code ? ` (${code})` : ""}`,
     deleteErrorNetwork: "Ocurrió un error al eliminar — revisa tu conexión a internet e inténtalo de nuevo.",
     myCourses: "Mis cursos",
+    tabTeaching: "Cursos que imparto",
+    tabEnrolled: "Cursos en los que estoy inscrito",
     moderatorDashboard: "Moderator Dashboard",
     moderatorManage: "Añade cursos y asígnalos a los profesores",
     noCoursesAssigned: "Aún no se te ha asignado ningún curso",
@@ -575,6 +582,11 @@ export default function TeacherCoursesPage({ asModerator = false }) {
   const [modalCourse, setModalCourse] = useState(undefined); // undefined=closed, null=new, object=edit
   const [profileUser, setProfileUser] = useState(null); // { name, email, phone, avatar, role }
   const [showProfileModal, setShowProfileModal] = useState(false);
+  // 🆕 تاب "دورات مسجّل فيها": المدرّس العادي بس (الموديريتور/الأدمن مابيتسجّلوش
+  // كطلاب — resolveGrantRecipients بيقبل student/teacher بس).
+  const [activeTab, setActiveTab] = useState("teaching");
+  const [enrolledCount, setEnrolledCount] = useState(null);
+  const showEnrolledTab = session?.user?.role === "teacher";
 
   async function fetchCoursesPage(p) {
     // 🆕 الموديريتور بيشوف كورسات كل المدرّسين (من غير ?teacher=) — مقصود.
@@ -781,6 +793,36 @@ export default function TeacherCoursesPage({ asModerator = false }) {
         />
       )}
 
+      {showEnrolledTab && (
+        <div role="tablist" className="flex gap-2 mb-6 border-b border-gray-200">
+          {[
+            { id: "teaching", label: t.tabTeaching },
+            { id: "enrolled", label: t.tabEnrolled, count: enrolledCount },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-semibold -mb-px border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? "border-[#003A91] text-[#003A91]"
+                  : "border-transparent text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="ms-2 text-xs bg-[#D7E0EE] text-[#002E74] px-2 py-0.5 rounded-full">{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showEnrolledTab && activeTab === "enrolled" && <EnrolledCoursesTab onLoaded={setEnrolledCount} />}
+
+      {!(showEnrolledTab && activeTab === "enrolled") && (
+        <>
       {courses === null && !error && (
         <div className="flex justify-center py-20">
           <span aria-hidden="true" className="block" style={{ height: 36 }} />
@@ -831,6 +873,8 @@ export default function TeacherCoursesPage({ asModerator = false }) {
             {loadingMore ? t.loadingMore : t.loadMore}
           </button>
         </div>
+      )}
+        </>
       )}
 
       {modalCourse !== undefined && (

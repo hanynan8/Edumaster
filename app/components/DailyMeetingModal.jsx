@@ -85,6 +85,8 @@ const T = {
     meetingUnavailable: "Meeting unavailable",
     timeoutError: "The check took too long — check your internet connection and try again",
     accessCheckFailed: "Couldn't verify meeting access, try again",
+    roomUnavailable: "This lecture room is no longer available. Please contact the administration.",
+    meetingEnded: "This lecture has ended.",
     joinError: "An error occurred while joining the meeting",
     loadError: "Couldn't load the meeting",
     confirmLeave: "Are you sure you want to leave the meeting?",
@@ -111,6 +113,8 @@ const T = {
     meetingUnavailable: "الاجتماع غير متاح",
     timeoutError: "استغرق التحقق وقتًا طويلًا جدًا — تحقق من اتصال الإنترنت وحاول مرة أخرى",
     accessCheckFailed: "تعذّر التحقق من صلاحية الدخول، حاول مرة أخرى",
+    roomUnavailable: "غرفة المحاضرة لم تعد متاحة. يرجى التواصل مع الإدارة.",
+    meetingEnded: "انتهت هذه المحاضرة.",
     joinError: "حدث خطأ أثناء الانضمام إلى الاجتماع",
     loadError: "تعذّر تحميل الاجتماع",
     confirmLeave: "هل أنت متأكد من مغادرة الاجتماع؟",
@@ -137,6 +141,8 @@ const T = {
     meetingUnavailable: "Clase no disponible",
     timeoutError: "La verificación tardó demasiado — revisa tu conexión a internet e inténtalo de nuevo",
     accessCheckFailed: "No se pudo verificar el acceso, inténtalo de nuevo",
+    roomUnavailable: "La sala de esta clase ya no está disponible. Contacta con la administración.",
+    meetingEnded: "Esta clase ha finalizado.",
     joinError: "Ocurrió un error al unirse a la clase",
     loadError: "No se pudo cargar la clase",
     confirmLeave: "¿Seguro que quieres salir de la clase?",
@@ -333,6 +339,10 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             const reason = err.reason && FORBIDDEN_REASONS[err.reason] ? err.reason : "not_enrolled";
             setForbiddenReason(reason);
             setError(FORBIDDEN_REASONS[reason].message[language] || FORBIDDEN_REASONS[reason].message.en);
+          } else if (err.message === "room_unavailable") {
+            setError(t.roomUnavailable);
+          } else if (err.message === "meeting_ended") {
+            setError(t.meetingEnded);
           } else {
             setError(t.accessCheckFailed);
           }

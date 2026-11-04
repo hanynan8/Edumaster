@@ -20,7 +20,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createMeetingToken } from "@/app/lib/daily";
+import { createMeetingToken, isDailyRoomGoneError } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
@@ -96,14 +96,31 @@ export async function GET(request, { params }) {
     // (nbf/exp على مستوى الغرفة)، فمش لازم نكرر الفحص هنا يدويًا.
     const endDate = new Date(meeting.scheduledAt.getTime() + meeting.durationMinutes * 60_000);
 
-    const token = await createMeetingToken({
-      roomName: meeting.dailyRoomName,
-      userId: session.user.id,
-      userName: session.user.name,
-      isOwner: isRoomHost,
-      startDate: meeting.scheduledAt,
-      endDate,
-    });
+    // 🆕 الغرفة بتنتهي بعد نهاية المحاضرة بساعتين (شوف createDailyRoom) — مفيش داعي
+    // نكلّم Daily لو الوقت عدّى.
+    if (Date.now() > endDate.getTime() + 2 * 60 * 60_000) {
+      return jsonResponse({ error: "meeting_ended" }, 410);
+    }
+
+    let token;
+    try {
+      token = await createMeetingToken({
+        roomName: meeting.dailyRoomName,
+        userId: session.user.id,
+        userName: session.user.name,
+        isOwner: isRoomHost,
+        startDate: meeting.scheduledAt,
+        endDate,
+      });
+    } catch (tokenErr) {
+      // 🆕 الغرفة اتمسحت/انتهت عند Daily (أو الـ API key بتاع حساب تاني) → رسالة واضحة
+      // بدل 500 عامة. بنسجّل السبب الحقيقي في اللوج.
+      console.error("[/api/meetings/[id]/token] createMeetingToken failed:", tokenErr);
+      if (isDailyRoomGoneError(tokenErr)) {
+        return jsonResponse({ error: "room_unavailable" }, 410);
+      }
+      throw tokenErr;
+    }
 
     return jsonResponse({ token, url: meeting.link, roomName: meeting.dailyRoomName });
   } catch (err) {

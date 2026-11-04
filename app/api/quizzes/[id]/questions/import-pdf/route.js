@@ -21,7 +21,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { parseQuizPdfText } from "@/app/lib/quizPdfParser";
 import {
   validateOptionsLikeForm,
@@ -57,7 +57,7 @@ export async function POST(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     let formData;
     try {

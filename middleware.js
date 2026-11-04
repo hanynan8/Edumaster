@@ -67,6 +67,30 @@ const API_ROLE_RULES = [
   { prefix: "/api/moderator", roles: ["moderator", "admin"] },
 ];
 
+// 🆕 المدرّس (role = "teacher"، حتى لو هو المدرّس المشرف Supervising teacher)
+// ملوش أي صلاحية تعديل/حذف على الكورسات: صفحات إدارة المحتوى (محتوى،
+// كويزات، إعلانات) بتترحّل. المتاح له: داشبورد "كورساتي" + أداء الطلاب +
+// الواجبات (عرض + تصحيح التسليمات) + الرسائل + الإعدادات. الموديريتور/الأدمن مش متأثرين.
+// دي طبقة دفاع إضافية — الفحص الحقيقي جوه كل API route (canManageCourse).
+const TEACHER_BLOCKED_PAGES = [
+  // /teacher/courses/<id>  (المحتوى) و /quizzes /assignments /announcements
+  { re: /^\/teacher\/courses\/([^/]+)\/?$/, toPerformance: true },
+  { re: /^\/teacher\/courses\/([^/]+)\/(announcements)(\/|$)/, toPerformance: true },
+  // محرر الأسئلة ممنوع، لكن /teacher/quizzes/<id>/results (مراجعة النتايج) مسموح.
+  { re: /^\/teacher\/quizzes\/?$/ },
+  { re: /^\/teacher\/quizzes\/[^/]+\/?$/ },
+];
+
+function teacherBlockedRedirect(pathname, requestUrl) {
+  for (const rule of TEACHER_BLOCKED_PAGES) {
+    const m = pathname.match(rule.re);
+    if (!m) continue;
+    const target = rule.toPerformance ? `/teacher/courses/${m[1]}/performance` : "/teacher";
+    return NextResponse.redirect(new URL(target, requestUrl));
+  }
+  return null;
+}
+
 function jsonError(status, error) {
   return new Response(JSON.stringify({ error }), {
     status,
@@ -104,6 +128,12 @@ export async function middleware(request) {
       if (isApiPath) return jsonError(403, "forbidden");
       const target = matchedRule.redirectByRole?.[token.role] || "/";
       return NextResponse.redirect(new URL(target, request.url));
+    }
+
+    // 🆕 صفحات إدارة المحتوى ممنوعة على المدرّس (شوف TEACHER_BLOCKED_PAGES).
+    if (!isApiPath && token.role === "teacher") {
+      const blocked = teacherBlockedRedirect(pathname, request.url);
+      if (blocked) return blocked;
     }
   }
 

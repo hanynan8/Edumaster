@@ -14,7 +14,8 @@
 // بيقرأ ملفات الـ PDF الصناعية (اللي pdf-lib بيطلّعها في الاختبارات) بشكل غير ثابت
 // حسب حجم الملف. خطوة استخراج النص نفسها مش متغيّرة؛ اللي بنختبره هنا هو كل اللي بعدها.
 
-const mockSession = { user: { id: "teacher1", role: "teacher" } };
+// 🆕 إدارة الكورس (إضافة/استيراد أسئلة) بقت للموديريتور/الأدمن بس — المدرّس مالوش تعديل.
+const mockSession = { user: { id: "moderator1", role: "moderator" } };
 const mockQuiz = { _id: "64b000000000000000000001", course: "64b000000000000000000002" };
 const mockCourse = { _id: mockQuiz.course, teacher: "teacher1" };
 
@@ -26,7 +27,7 @@ const mockCount = jest.fn();
 jest.mock("@/app/lib/mongodb", () => ({ connectToMongo: jest.fn().mockResolvedValue() }));
 jest.mock("@/app/lib/rbac", () => ({
   requireSession: jest.fn(async () => ({ session: mockSession })),
-  isOwnerOrStaff: jest.fn((session, ownerId) => String(session.user.id) === String(ownerId)),
+  canManageCourse: jest.fn((session) => ["admin", "moderator"].includes(session.user.role)),
 }));
 jest.mock("pdf-parse/lib/pdf-parse.js", () => ({
   __esModule: true,

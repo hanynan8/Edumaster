@@ -17,7 +17,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { recomputeCourseTotals } from "@/app/lib/courseHelpers";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { getCourseAccessForUser } from "@/app/lib/access";
@@ -88,13 +88,13 @@ export async function GET(request, { params }) {
     let hasAccess = false;
     if (course.status !== "published") {
       const auth = await requireSession();
-      if (auth.response || !isOwnerOrStaff(auth.session, course.teacher)) {
+      if (auth.response || !canManageCourse(auth.session, course.teacher)) {
         return jsonResponse({ error: "not_found" }, 404);
       }
       canManage = true;
     } else {
       const auth = await requireSession();
-      canManage = !auth.response && isOwnerOrStaff(auth.session, course.teacher);
+      canManage = !auth.response && canManageCourse(auth.session, course.teacher);
       // 🔒 لو مش صاحب/أدمن، افحص enrollment/membership فعلية زي
       // app/lib/access.js بالظبط قبل ما نسرّب أي حقل محمي
       if (!canManage && !auth.response) {
@@ -124,7 +124,7 @@ export async function POST(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) {
+    if (!canManageCourse(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

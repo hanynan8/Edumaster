@@ -7,7 +7,7 @@
 // 🔒 senderRole بيتحدد سيرفر-سايد من الـ session — العميل مبيبعتش غير النص.
 // 🔒 النص بيتقصّ على MAX_MESSAGE_LENGTH ومفيش HTML بيتنفّذ (React بيعمل escape).
 
-import { isOwnerOrStaff } from "@/app/lib/rbac";
+import { canGradeCourse } from "@/app/lib/rbac";
 
 export const MAX_MESSAGE_LENGTH = 20000; // نص كبير (إجابة مقالية / تعليق مطوّل)
 export const MAX_MESSAGES_PER_THREAD = 500;
@@ -25,7 +25,8 @@ export function sanitizeMessageText(raw) {
  * @returns {"staff"|"student"|null}
  */
 export function threadAccess(session, courseTeacherId, studentId) {
-  if (isOwnerOrStaff(session, courseTeacherId)) return "staff";
+  // 🆕 المدرّس المشرف على الكورس بيتواصل مع الطالب ويصحّح (واجبات + كويزات).
+  if (canGradeCourse(session, courseTeacherId)) return "staff";
   if (String(session.user.id) === String(studentId)) return "student";
   return null;
 }

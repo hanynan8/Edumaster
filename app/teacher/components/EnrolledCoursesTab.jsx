@@ -34,6 +34,7 @@ const T = {
       purchase: "Purchased",
       admin_grant: "Granted by admin",
       moderator_grant: "Granted by admin",
+      supervisor_grant: "Supervising teacher (free)",
     },
   },
   ar: {
@@ -50,6 +51,7 @@ const T = {
       purchase: "شراء",
       admin_grant: "منحة من الإدارة",
       moderator_grant: "منحة من الإدارة",
+      supervisor_grant: "مدرّس مشرف (مجاني)",
     },
   },
   es: {
@@ -66,6 +68,7 @@ const T = {
       purchase: "Comprado",
       admin_grant: "Otorgado por la administración",
       moderator_grant: "Otorgado por la administración",
+      supervisor_grant: "Profesor supervisor (gratis)",
     },
   },
 };

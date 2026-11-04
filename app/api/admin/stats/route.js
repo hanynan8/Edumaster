@@ -19,6 +19,7 @@
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getEnrollmentModel, getPaymentModel, getCertificateModel } from "@/app/lib/models";
 import { requireRole } from "@/app/lib/rbac";
+import { SUPERVISOR_SOURCE } from "@/app/lib/courseGrants";
 import { REVENUE_TRACKING_ENABLED } from "@/app/lib/revenueConfig";
 
 function jsonResponse(data, status = 200) {
@@ -75,7 +76,8 @@ export async function GET() {
     ] = await Promise.all([
       AuthModel.aggregate([{ $group: { _id: "$role", count: { $sum: 1 } } }]),
       Course.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-      Enrollment.countDocuments({}),
+      // 🆕 تسجيل المدرّس المشرف (supervisor_grant) مش "طالب" → مايتحسبش.
+      Enrollment.countDocuments({ source: { $ne: SUPERVISOR_SOURCE } }),
       Certificate.countDocuments({}),
       // 🩹 FIX (Total Revenue غلط): الإجمالي القديم كان بيجمع كل الدفعات الناجحة
       // مع بعض من غير ما يفرّق بين العملات (جنيه + دولار + يورو كانوا بيتجمعوا
@@ -98,7 +100,7 @@ export async function GET() {
         },
       ]),
       Enrollment.aggregate([
-        { $match: { createdAt: { $gte: sixMonthsAgo } } },
+        { $match: { createdAt: { $gte: sixMonthsAgo }, source: { $ne: SUPERVISOR_SOURCE } } },
         {
           $group: {
             _id: { y: { $year: "$createdAt" }, m: { $month: "$createdAt" } },

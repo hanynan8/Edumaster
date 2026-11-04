@@ -32,6 +32,7 @@ import {
   getSubmissionModel,
 } from "@/app/lib/models";
 import { requireSession } from "@/app/lib/rbac";
+import { SUPERVISOR_SOURCE } from "@/app/lib/courseGrants";
 import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
@@ -94,7 +95,7 @@ export async function GET(request) {
 
     const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
       // 🔒 الملغي (cancelled) ملوش وصول للكورس → برّه كل الإحصائيات
-      Enrollment.find({ course: { $in: courseIds }, status: { $ne: "cancelled" } }, "course user completedLessons").lean(),
+      Enrollment.find({ course: { $in: courseIds }, status: { $ne: "cancelled" }, source: { $ne: SUPERVISOR_SOURCE } }, "course user completedLessons").lean(),
       Lesson.find({ course: { $in: courseIds }, type: { $ne: "quiz" } }, "course").lean(),
       Quiz.find({ course: { $in: courseIds }, isPublished: true }, "course").lean(),
       Assignment.find({ course: { $in: courseIds }, isPublished: true }, "course maxScore").lean(),

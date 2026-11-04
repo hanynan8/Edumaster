@@ -6,7 +6,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import {
   QUESTION_TYPES as ALLOWED_TYPES,
   validateOptions,
@@ -38,7 +38,7 @@ export async function POST(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
     const type = ALLOWED_TYPES.includes(body?.type) ? body.type : null;
@@ -67,6 +67,7 @@ export async function POST(request, { params }) {
       options,
       mediaUrl: media.mediaUrl,
       mediaType: media.mediaType,
+      continueAudio: !media.mediaUrl && body?.continueAudio === true,
       points: Number.isFinite(Number(body?.points)) ? Math.max(0, Number(body.points)) : 1,
       order,
     });

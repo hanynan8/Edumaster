@@ -18,7 +18,7 @@
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canGradeCourse } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
@@ -69,7 +69,7 @@ export async function GET(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canGradeCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const Submission = getSubmissionModel();
     const submissions = await Submission.find({ assignment: assignment._id }).sort({ submittedAt: -1 }).lean();

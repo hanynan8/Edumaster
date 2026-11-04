@@ -1,8 +1,8 @@
 // app/lib/courseArchiveRoute.test.js
 //
 // 🆕 PUT /api/courses/[id] — أرشفة الكورس (status = "archived"):
-//   - المدرّس: ممنوع يأرشف كورس منشور أو فيه طلاب (403 cannot_archive)، ومسموح
-//     لكورس مش منشور ومفيهوش طلاب.
+//   - المدرّس (حتى لو هو المدرّس المشرف): ممنوع يعدّل/يأرشف أي كورس خالص (403
+//     forbidden) — الـ Supervising teacher مجرد اسم + تسجيل مجاني + متابعة أداء.
 //   - الموديريتور والأدمن: مسموح لهم يأرشفوا كورس منشور حتى لو فيه طلاب، وتغيير
 //     الحالة بيتسجّل في الـ audit log.
 
@@ -45,6 +45,8 @@ jest.mock("@/app/lib/courseGrants", () => ({
   resolveGrantRecipients: jest.fn(),
   grantCourseAccess: jest.fn(),
   notifyGrantedStudents: jest.fn(),
+  enrollSupervisingTeacher: jest.fn().mockResolvedValue(true),
+  releaseSupervisingTeacher: jest.fn().mockResolvedValue(true),
   MAX_GRANT_EMAILS: 100,
 }));
 
@@ -94,30 +96,22 @@ describe("PUT /api/courses/[id] — archive", () => {
       { params: Promise.resolve({ id: COURSE_ID }) }
     );
 
-  it("المدرّس صاحب الكورس: ممنوع يأرشف كورس منشور (403 cannot_archive)", async () => {
+  it("المدرّس المشرف على الكورس: ممنوع يأرشف كورس منشور (403 forbidden)", async () => {
     asUser("teacher", OWNER_ID);
     mockFindById.mockResolvedValue(existingCourse({ status: "published" }));
     const res = await call();
     expect(res.status).toBe(403);
-    expect((await res.json()).error).toBe("cannot_archive");
+    expect((await res.json()).error).toBe("forbidden");
     expect(mockFindByIdAndUpdate).not.toHaveBeenCalled();
   });
 
-  it("المدرّس صاحب الكورس: ممنوع يأرشف كورس فيه طلاب حتى لو مش منشور", async () => {
-    asUser("teacher", OWNER_ID);
-    mockFindById.mockResolvedValue(existingCourse({ status: "pending", studentsCount: 3 }));
-    const res = await call();
-    expect(res.status).toBe(403);
-    expect((await res.json()).error).toBe("cannot_archive");
-  });
-
-  it("المدرّس صاحب الكورس: مسموح يأرشف كورس مش منشور ومفيهوش طلاب", async () => {
+  it("المدرّس المشرف: ممنوع حتى لو الكورس مش منشور ومفيهوش طلاب", async () => {
     asUser("teacher", OWNER_ID);
     mockFindById.mockResolvedValue(existingCourse({ status: "pending", studentsCount: 0 }));
-    mockUpdateReturns("archived");
     const res = await call();
-    expect(res.status).toBe(200);
-    expect(mockFindByIdAndUpdate.mock.calls[0][1].$set.status).toBe("archived");
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("forbidden");
+    expect(mockFindByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it("الموديريتور: يقدر يأرشف كورس منشور", async () => {

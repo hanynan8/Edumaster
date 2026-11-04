@@ -139,17 +139,18 @@ export async function POST(request) {
       return jsonResponse({ error: "not_found" }, 404);
     }
 
-    // 🔒 المدرس صاحب الكورس (أو أي مدرس آخر بنفس الـ id) ميقدرش "يشترك" في
-    // كورسه هو — مفيش داعي، وده بيلخبط studentsCount.
-    if (String(course.teacher) === String(session.user.id)) {
-      return jsonResponse({ error: "cannot_enroll_own_course" }, 409);
-    }
-
     const existing = await Enrollment.findOne({ user: session.user.id, course: courseId }).lean();
     if (existing) {
       // idempotent: لو مسجل بالفعل، رجّع نجاح بدل خطأ — زرار "اشترك" ميتضغطش
       // غالبًا مرتين، لكن لو حصل (double click / retry) مفيش داعي نفشل.
       return jsonResponse({ enrolled: true, enrollment: serializeEnrollment(existing) });
+    }
+
+    // 🔒 المدرّس المشرف على الكورس بيتسجّل فيه تلقائيًا (supervisor_grant) — لو
+    // وصل هنا يبقى مفيش enrollment ليه (مثلاً اتلغى)، ومش بيشترك بنفسه: التسجيل
+    // بيتم من الموديريتور/الأدمن بس.
+    if (String(course.teacher) === String(session.user.id)) {
+      return jsonResponse({ error: "cannot_enroll_own_course" }, 409);
     }
 
     // 🔒 Phase 2 — اليوم 18-19: كورس مجاني → source="free". كورس مدفوع →

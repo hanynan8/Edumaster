@@ -67,6 +67,9 @@ const questionSchema = new mongoose.Schema(
     // 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) يرفقه المدرّس/الموديريتر مع السؤال
     mediaUrl: { type: String, default: null },
     mediaType: { type: String, enum: ["video", "audio", null], default: null },
+    // 🆕 "السؤال ده تابع لأوديو السؤال اللي قبله": الأوديو بيفضل مثبّت فوق الشاشة معاه.
+    // الأسئلة اللي مش تابعة لأوديو (من غير أوديو خاص ومن غير الخيار ده) بيختفي معاها الأوديو.
+    continueAudio: { type: Boolean, default: false },
 
     points: { type: Number, default: 1, min: 0 },
     order: { type: Number, default: 0 },

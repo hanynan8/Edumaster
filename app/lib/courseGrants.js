@@ -24,6 +24,8 @@ import { parseInvitedEmails } from "@/app/lib/meetingInvites";
 import { createNotificationsForUsers } from "@/app/lib/notificationHelpers";
 
 export const GRANT_SOURCE = "moderator_grant";
+// 🆕 تسجيل المدرّس المشرف تلقائيًا (مجاني، من غير ما يتحسب طالب).
+export const SUPERVISOR_SOURCE = "supervisor_grant";
 
 // حد أقصى معقول للطلب الواحد (حماية للـ API من payload ضخم جدًا) — أعلى بكتير
 // من أي استخدام فعلي.
@@ -207,4 +209,59 @@ export async function listGrantedStudents(courseId) {
     .filter((u) => u.email)
     .map((u) => ({ id: u._id.toString(), name: u.name || "", email: String(u.email).toLowerCase() }))
     .sort((a, b) => a.email.localeCompare(b.email));
+}
+
+/**
+ * 🆕 تسجيل المدرّس المشرف (Supervising teacher) مجانًا في الكورس — بيتشاف عنده
+ * زي الطالب بالظبط (تاب "دورات مسجّل فيها") من غير أي صلاحية تعديل.
+ * - idempotent: لو عنده enrollment بأي مصدر (مثلاً اتسجل قبل كده بمنحة) بيتساب
+ *   زي ما هو، ولو كان cancelled بيتفعّل تاني بمصدر supervisor_grant.
+ * - مابيزوّدش studentsCount (المدرّس مش طالب).
+ * - best-effort: أي خطأ بيتسجّل في الـ console ومابيبوّظش إنشاء/تعديل الكورس.
+ * @returns {Promise<boolean>} true لو اتعمل/اتفعّل enrollment جديد
+ */
+export async function enrollSupervisingTeacher({ courseId, teacherId, grantedBy = null }) {
+  if (!courseId || !teacherId) return false;
+  try {
+    const Enrollment = getEnrollmentModel();
+    const existing = await Enrollment.findOne({ user: teacherId, course: courseId }).lean();
+    if (existing) {
+      if (existing.status !== "cancelled") return false;
+      await Enrollment.updateOne(
+        { _id: existing._id },
+        { $set: { status: "active", source: SUPERVISOR_SOURCE, grantedBy } }
+      );
+      return true;
+    }
+    await Enrollment.create({
+      user: teacherId,
+      course: courseId,
+      source: SUPERVISOR_SOURCE,
+      status: "active",
+      grantedBy,
+    });
+    return true;
+  } catch (err) {
+    // 11000 = race condition على الـ unique index (user, course) → هو متسجل أصلًا.
+    if (err?.code !== 11000) console.error("[enrollSupervisingTeacher] error:", err);
+    return false;
+  }
+}
+
+/**
+ * 🆕 لما المدرّس المشرف يتغيّر: بنلغي تسجيل المدرّس القديم *لو كان تلقائي*
+ * (supervisor_grant) بس — أي تسجيل تاني ليه (شراء/منحة) مابيتلمسش.
+ */
+export async function releaseSupervisingTeacher({ courseId, teacherId }) {
+  if (!courseId || !teacherId) return false;
+  try {
+    const res = await getEnrollmentModel().updateOne(
+      { user: teacherId, course: courseId, source: SUPERVISOR_SOURCE, status: { $ne: "cancelled" } },
+      { $set: { status: "cancelled" } }
+    );
+    return res.modifiedCount > 0;
+  } catch (err) {
+    console.error("[releaseSupervisingTeacher] error:", err);
+    return false;
+  }
 }

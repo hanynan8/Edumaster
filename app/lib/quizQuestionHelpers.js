@@ -77,6 +77,7 @@ export function serializeQuestion(qq, { forStudent = false } = {}) {
     order: qq.order,
     mediaUrl: resolveAssignmentMedia(qq.mediaUrl, qq.mediaType),
     mediaType: qq.mediaUrl ? qq.mediaType : null,
+    continueAudio: !qq.mediaUrl && Boolean(qq.continueAudio),
   };
   if (qq.type === "essay") return { ...base, options: [] };
   return {

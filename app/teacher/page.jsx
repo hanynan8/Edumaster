@@ -66,7 +66,7 @@ const T = {
     moderatorDashboard: "Moderator Dashboard",
     moderatorManage: "Add courses and assign them to teachers",
     noCoursesAssigned: "No courses have been assigned to you yet",
-    manageCourses: "Manage the courses you teach",
+    manageCourses: "Courses you supervise — view them and follow your students' progress",
     performance: "Performance & stats",
     liveLectures: "Live lectures",
     messages: "Messages",
@@ -121,7 +121,7 @@ const T = {
     moderatorDashboard: "موديريتور داشبورد",
     moderatorManage: "إضافة الدورات وتعيين المدرّس المسؤول عنها",
     noCoursesAssigned: "لم يتم تعيين أي دورة لك بعد",
-    manageCourses: "إدارة الدورات التي تدرّسها",
+    manageCourses: "الدورات التي تشرف عليها — يمكنك مشاهدتها ومتابعة تقدّم الطلاب",
     performance: "الأداء والإحصائيات",
     liveLectures: "المحاضرات المباشرة",
     messages: "الرسائل",
@@ -176,7 +176,7 @@ const T = {
     moderatorDashboard: "Moderator Dashboard",
     moderatorManage: "Añade cursos y asígnalos a los profesores",
     noCoursesAssigned: "Aún no se te ha asignado ningún curso",
-    manageCourses: "Administra los cursos que impartes",
+    manageCourses: "Cursos que supervisas: míralos y sigue el progreso de tus alumnos",
     performance: "Rendimiento y estadísticas",
     liveLectures: "Clases en vivo",
     messages: "Mensajes",
@@ -572,6 +572,9 @@ export default function TeacherCoursesPage({ asModerator = false }) {
   // (/moderator للأدمن، و/teacher للموديريتور). داشبورد التيتشر مافيهاش الزرارين
   // دول لأي دور، حتى الأدمن.
   const canCreateCourse = isModerator;
+  // 🆕 المدرّس العادي (حتى لو مشرف على الكورس) = عرض + متابعة تقدّم الطلاب فقط،
+  // من غير أي تعديل/حذف/أرشفة — الأزرار دي بتتخفي والـ API بيرفض برضه (403).
+  const isTeacherReadOnly = session?.user?.role === "teacher";
   const [courses, setCourses] = useState(null);
   // 🆕 ترقيم الصفحات: "عرض المزيد" بيجيب الصفحة اللي بعدها ويضيفها للقايمة
   // لحد ما كل دورات المدرّس تظهر (total جاي من الـ API).
@@ -852,6 +855,7 @@ export default function TeacherCoursesPage({ asModerator = false }) {
             <CourseCard
               key={c.id}
               course={c}
+              readOnly={isTeacherReadOnly}
               onEdit={setModalCourse}
               onDelete={handleDelete}
               onArchive={isModerator ? handleArchive : undefined}

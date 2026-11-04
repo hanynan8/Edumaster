@@ -24,6 +24,7 @@ const STRINGS = {
     videoLabel: "رفع فيديو",
     audioLabel: "رفع أوديو",
     removeMedia: "إزالة المرفق",
+    continueAudio: "السؤال ده تابع لأوديو السؤال اللي قبله (يفضل الأوديو ظاهر فوق الشاشة)",
     trueLabel: "صح",
     falseLabel: "خطأ",
     textRequired: "نص السؤال مطلوب",
@@ -54,6 +55,7 @@ const STRINGS = {
     videoLabel: "Upload video",
     audioLabel: "Upload audio",
     removeMedia: "Remove attachment",
+    continueAudio: "This question belongs to the previous question's audio (keeps it pinned on screen)",
     trueLabel: "True",
     falseLabel: "False",
     textRequired: "Question text is required",
@@ -100,6 +102,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
     question?.options?.length ? question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : defaultOptionsForType(type, t)
   );
   const [media, setMedia] = useState({ url: question?.mediaUrl || "", type: question?.mediaType || "" });
+  const [continueAudio, setContinueAudio] = useState(Boolean(question?.continueAudio));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -160,6 +163,7 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
         // 🆕 فيديو/أوديو مرفق بالسؤال ("" = من غير مرفق / إزالة المرفق)
         mediaUrl: media.url || "",
         mediaType: media.url ? media.type : null,
+        continueAudio: !media.url && continueAudio,
       };
       const res = await fetch(
         isEdit ? `/api/quizzes/${quizId}/questions/${question.id}` : `/api/quizzes/${quizId}/questions`,
@@ -285,6 +289,17 @@ export default function QuestionFormModal({ quizId, question, onClose, onSaved }
                 onUploaded={(f) => setMedia({ url: f.url, type: "audio" })}
               />
             </div>
+            {!media.url && (
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={continueAudio}
+                  onChange={(e) => setContinueAudio(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>{t.continueAudio}</span>
+              </label>
+            )}
             {media.url && (
               <div className="space-y-2">
                 <AssignmentMedia url={media.url} type={media.type} />

@@ -12,6 +12,9 @@ const mockBulkWrite = jest.fn();
 const mockEnrollFind = jest.fn();
 const mockUpdateMany = jest.fn();
 const mockFindOneAndUpdate = jest.fn();
+const mockEnrollFindOne = jest.fn();
+const mockEnrollCreate = jest.fn();
+const mockEnrollUpdateOne = jest.fn();
 const mockCourseUpdate = jest.fn();
 const mockAuthFind = jest.fn();
 const mockNotifyMany = jest.fn();
@@ -22,6 +25,9 @@ jest.mock("@/app/lib/models", () => ({
     find: (...a) => mockEnrollFind(...a),
     updateMany: (...a) => mockUpdateMany(...a),
     findOneAndUpdate: (...a) => mockFindOneAndUpdate(...a),
+    findOne: (...a) => mockEnrollFindOne(...a),
+    create: (...a) => mockEnrollCreate(...a),
+    updateOne: (...a) => mockEnrollUpdateOne(...a),
   }),
   getCourseModel: () => ({ findByIdAndUpdate: (...a) => mockCourseUpdate(...a) }),
 }));
@@ -39,6 +45,9 @@ import {
   revokeCourseAccess,
   notifyGrantedStudents,
   GRANT_SOURCE,
+  SUPERVISOR_SOURCE,
+  enrollSupervisingTeacher,
+  releaseSupervisingTeacher,
 } from "@/app/lib/courseGrants";
 
 const leanOf = (rows) => ({ lean: () => Promise.resolve(rows) });
@@ -188,5 +197,39 @@ describe("notifyGrantedStudents", () => {
     mockEnrollFind.mockReturnValue(leanOf([]));
     expect(await notifyGrantedStudents({ course })).toBe(0);
     expect(mockNotifyMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("enrollSupervisingTeacher / releaseSupervisingTeacher", () => {
+  it("بيسجّل المدرّس المشرف مجانًا بمصدر supervisor_grant ومن غير ما يزوّد studentsCount", async () => {
+    mockEnrollFindOne.mockReturnValue(leanOf(null));
+    expect(await enrollSupervisingTeacher({ courseId: "c1", teacherId: "t1", grantedBy: "m1" })).toBe(true);
+    expect(mockEnrollCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ user: "t1", course: "c1", source: SUPERVISOR_SOURCE, status: "active", grantedBy: "m1" })
+    );
+    expect(mockCourseUpdate).not.toHaveBeenCalled();
+  });
+
+  it("idempotent: لو عنده تسجيل فعّال (أي مصدر) مابيعملش حاجة", async () => {
+    mockEnrollFindOne.mockReturnValue(leanOf({ _id: "e1", status: "active", source: "purchase" }));
+    expect(await enrollSupervisingTeacher({ courseId: "c1", teacherId: "t1" })).toBe(false);
+    expect(mockEnrollCreate).not.toHaveBeenCalled();
+    expect(mockEnrollUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("لو التسجيل كان cancelled بيتفعّل تاني", async () => {
+    mockEnrollFindOne.mockReturnValue(leanOf({ _id: "e1", status: "cancelled", source: SUPERVISOR_SOURCE }));
+    expect(await enrollSupervisingTeacher({ courseId: "c1", teacherId: "t1" })).toBe(true);
+    expect(mockEnrollUpdateOne).toHaveBeenCalledWith(
+      { _id: "e1" },
+      { $set: expect.objectContaining({ status: "active", source: SUPERVISOR_SOURCE }) }
+    );
+  });
+
+  it("release: بيلغي تسجيل supervisor_grant بس (مابيلمسش الشراء/المنح التانية)", async () => {
+    mockEnrollUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    expect(await releaseSupervisingTeacher({ courseId: "c1", teacherId: "t1" })).toBe(true);
+    expect(mockEnrollUpdateOne.mock.calls[0][0]).toMatchObject({ user: "t1", course: "c1", source: SUPERVISOR_SOURCE });
+    expect(mockEnrollUpdateOne.mock.calls[0][1]).toEqual({ $set: { status: "cancelled" } });
   });
 });

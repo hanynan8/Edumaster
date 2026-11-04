@@ -7,6 +7,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader, Users, X, Clock, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import QuizAttemptReview from "@/app/components/QuizAttemptReview";
@@ -59,6 +60,9 @@ export default function QuizResultsPage({ params }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const { data: session } = useSession();
+  // 🆕 المدرّس مالوش محرر الأسئلة → الرجوع للداشبورد بدل صفحة الأسئلة.
+  const backHref = session?.user?.role === "teacher" ? "/teacher" : `/teacher/quizzes/${quizId}`;
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [reviewId, setReviewId] = useState(null); // 🆕 محاولة مفتوحة للتصحيح/المحادثة
@@ -85,7 +89,7 @@ export default function QuizResultsPage({ params }) {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      <Link href={`/teacher/quizzes/${quizId}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
+      <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
         <BackArrow size={15} /> {t.backToQuestions}
       </Link>
 

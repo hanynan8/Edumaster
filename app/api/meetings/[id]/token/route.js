@@ -18,7 +18,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
-import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
+import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { createMeetingToken } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
@@ -64,9 +64,13 @@ export async function GET(request, { params }) {
     });
     if (rl) return rl;
 
-    // 🆕 المدرّس بيدخل زي الطالب (مدعو بالإيميل / جلسة عامة / enrollment) —
-    // isManager بيفضل false له (مش owner token) لأن الإدارة للأدمن/الموديريتور.
+    // 🆕 الدخول: المدرّس بيدخل زي الطالب (مدعو بالإيميل / جلسة عامة / enrollment)
+    // — isManager (تخطّي فحص الدخول) للأدمن/الموديريتور بس.
     const isManager = isMeetingStaff(session);
+    // 🆕 لكن جوه الغرفة نفسها: أي مدرّس (طالما اتسمحله يدخل) بياخد Daily owner
+    // token = أدمن الميتنج (يكتم/يطرد مشاركين، يبدأ تسجيل...). ده مابيدّيهوش
+    // صلاحية إنشاء/تعديل/حذف الميتنجس من الموقع.
+    const isRoomHost = isMeetingRoomHost(session);
     // 🔒 فحص الدخول الموحّد (app/lib/meetingInvites.js checkMeetingAccess):
     //   مدرس/أدمن صاحب الاجتماع، أو 🆕 مدعو بالإيميل (Meeting.invitedEmails)،
     //   أو جلسة عامة (أي مستخدم مسجّل)، أو طالب بوصول فعلي على كورس الاجتماع.
@@ -96,7 +100,7 @@ export async function GET(request, { params }) {
       roomName: meeting.dailyRoomName,
       userId: session.user.id,
       userName: session.user.name,
-      isOwner: isManager,
+      isOwner: isRoomHost,
       startDate: meeting.scheduledAt,
       endDate,
     });

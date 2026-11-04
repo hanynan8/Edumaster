@@ -102,7 +102,7 @@ describe("POST /api/sections/[id]/lessons — audio", () => {
     );
 
   it("بينشئ درس صوتي ويخزّن الرابط في fileUrl (من غير videoUrl/textContent)", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const res = await call({ title: "Lecture 1", type: "audio", fileUrl: `${AUDIO_URL}?token=t&expires=1`, durationSeconds: 125 });
     expect(res.status).toBe(201);
     const saved = mockLessonCreate.mock.calls[0][0];
@@ -122,8 +122,15 @@ describe("POST /api/sections/[id]/lessons — audio", () => {
     expect((await call({ title: "L", type: "audio", fileUrl: AUDIO_URL })).status).toBe(201);
   });
 
+  it("المدرّس (حتى لو مشرف على الكورس) مالوش تعديل: 403 ومفيش إنشاء", async () => {
+    asUser("teacher", TEACHER_ID);
+    const res = await call({ title: "x", type: "audio", fileUrl: AUDIO_URL });
+    expect(res.status).toBe(403);
+    expect(mockLessonCreate).not.toHaveBeenCalled();
+  });
+
   it("بيرفض درس صوتي من غير ملف (400 missing_audio_url)", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const res = await call({ title: "L", type: "audio" });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("missing_audio_url");
@@ -131,7 +138,7 @@ describe("POST /api/sections/[id]/lessons — audio", () => {
   });
 
   it("بيرفض رابط مش بتاعنا (400 invalid_audio_url)", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const res = await call({ title: "L", type: "audio", fileUrl: "https://evil.example.com/a.mp3" });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("invalid_audio_url");
@@ -139,7 +146,7 @@ describe("POST /api/sections/[id]/lessons — audio", () => {
   });
 
   it("الـ PDF لسه شغال زي ما هو", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const res = await call({ title: "Notes", type: "pdf", fileUrl: "https://x/y.pdf" });
     expect(res.status).toBe(201);
     expect(mockLessonCreate.mock.calls[0][0].fileUrl).toBe("https://x/y.pdf");
@@ -187,7 +194,7 @@ describe("PUT /api/lessons/[id] — audio", () => {
     );
 
   it("تعديل العنوان بس (من غير ما الرابط يتغيّر) بيعدّي عادي", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const lesson = lessonDoc();
     mockLessonFindById.mockResolvedValue(lesson);
     const res = await call({ title: "New title" });
@@ -197,7 +204,7 @@ describe("PUT /api/lessons/[id] — audio", () => {
   });
 
   it("استبدال الملف الصوتي بيتخزّن من غير توكن التوقيع", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const lesson = lessonDoc();
     mockLessonFindById.mockResolvedValue(lesson);
     const newUrl = `https://${HOST}/edumaster/teachers/${TEACHER_ID}/audio/2-new.mp3`;
@@ -208,7 +215,7 @@ describe("PUT /api/lessons/[id] — audio", () => {
   });
 
   it("تحويل درس PDF لدرس صوتي من غير ملف صوتي → 400 ومفيش حفظ", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const lesson = lessonDoc({ type: "pdf", fileUrl: null });
     mockLessonFindById.mockResolvedValue(lesson);
     const res = await call({ type: "audio" });
@@ -218,7 +225,7 @@ describe("PUT /api/lessons/[id] — audio", () => {
   });
 
   it("رابط مش بتاعنا → 400 invalid_audio_url ومفيش حفظ", async () => {
-    asUser("teacher");
+    asUser("moderator");
     const lesson = lessonDoc();
     mockLessonFindById.mockResolvedValue(lesson);
     const res = await call({ fileUrl: "https://evil.example.com/a.mp3" });
@@ -228,7 +235,7 @@ describe("PUT /api/lessons/[id] — audio", () => {
   });
 
   it("type=audio مقبول كنوع صالح، و type غريب لسه مرفوض", async () => {
-    asUser("teacher");
+    asUser("moderator");
     mockLessonFindById.mockResolvedValue(lessonDoc({ type: "text", fileUrl: null }));
     expect((await call({ type: "podcast" })).status).toBe(400);
   });

@@ -2,8 +2,11 @@
 //
 // 🆕 دور "موديريتور": نفس داشبورد المدرّس لكن بيشوف/يدير كورسات كل المدرّسين.
 // الاختبارات دي بتثبّت الحد الفاصل بالظبط:
-//   - isOwnerOrStaff (الكورسات/الدروس/الاجتماعات...): أدمن + موديريتور +
-//     صاحب المورد بس.
+//   - canManageCourse (تعديل/حذف الكورسات/الدروس/الكويزات...): أدمن + موديريتور
+//     بس. المدرّس (حتى المشرف على الكورس) ممنوع تمامًا.
+//   - canViewCoursePerformance: أدمن + موديريتور + المدرّس المشرف على الكورس ده
+//     بس (قراءة فقط).
+//   - isMeetingRoomHost: أي مدرّس = أدمن جوه غرفة الميتنج (Daily owner token).
 //   - isOwnerOrAdmin (الشهادات...): لسه أدمن + صاحب المورد بس — الموديريتور
 //     مايعدّيش هنا عشان مايشوفش بيانات الطلاب الشخصية.
 
@@ -12,7 +15,16 @@ import { jest } from '@jest/globals';
 jest.mock('next-auth', () => ({ getServerSession: jest.fn() }));
 jest.mock('@/app/lib/authOptions', () => ({ authOptions: {} }));
 
-const { isStaffRole, isOwnerOrStaff, isOwnerOrAdmin } = require('./rbac.js');
+const {
+  isStaffRole,
+  canManageCourse,
+  canViewCoursePerformance,
+  canViewCourseDetails,
+  canGradeCourse,
+  canHandleCourseMessages,
+  isMeetingRoomHost,
+  isOwnerOrAdmin,
+} = require('./rbac.js');
 
 const sessionOf = (role, id = 'u1') => ({ user: { id, role } });
 
@@ -26,29 +38,76 @@ describe('isStaffRole', () => {
   });
 });
 
-describe('isOwnerOrStaff', () => {
+describe('canManageCourse', () => {
   it('lets a moderator manage a course owned by a different teacher', () => {
-    expect(isOwnerOrStaff(sessionOf('moderator', 'mod1'), 'teacher9')).toBe(true);
+    expect(canManageCourse(sessionOf('moderator', 'mod1'), 'teacher9')).toBe(true);
   });
 
   it('lets an admin manage any course', () => {
-    expect(isOwnerOrStaff(sessionOf('admin', 'a1'), 'teacher9')).toBe(true);
+    expect(canManageCourse(sessionOf('admin', 'a1'), 'teacher9')).toBe(true);
   });
 
-  it('lets a teacher manage only their own course', () => {
-    expect(isOwnerOrStaff(sessionOf('teacher', 't1'), 't1')).toBe(true);
-    expect(isOwnerOrStaff(sessionOf('teacher', 't1'), 't2')).toBe(false);
-  });
-
-  it('compares ids as strings (ObjectId-like owner values)', () => {
-    const objectIdLike = { toString: () => 't1' };
-    expect(isOwnerOrStaff(sessionOf('teacher', 't1'), objectIdLike)).toBe(true);
+  it('never lets a teacher manage a course — even the supervising teacher', () => {
+    expect(canManageCourse(sessionOf('teacher', 't1'), 't1')).toBe(false);
+    expect(canManageCourse(sessionOf('teacher', 't1'), 't2')).toBe(false);
+    expect(canManageCourse(sessionOf('teacher', 't1'), { toString: () => 't1' })).toBe(false);
   });
 
   it('denies students and missing sessions', () => {
-    expect(isOwnerOrStaff(sessionOf('student', 's1'), 't1')).toBe(false);
-    expect(isOwnerOrStaff(null, 't1')).toBe(false);
-    expect(isOwnerOrStaff({}, 't1')).toBe(false);
+    expect(canManageCourse(sessionOf('student', 's1'), 't1')).toBe(false);
+    expect(canManageCourse(null, 't1')).toBe(false);
+    expect(canManageCourse({}, 't1')).toBe(false);
+  });
+});
+
+describe('canViewCoursePerformance / canViewCourseDetails', () => {
+  it('lets the supervising teacher view (read-only) — and only for their own course', () => {
+    expect(canViewCoursePerformance(sessionOf('teacher', 't1'), 't1')).toBe(true);
+    expect(canViewCoursePerformance(sessionOf('teacher', 't1'), 't2')).toBe(false);
+    expect(canViewCourseDetails(sessionOf('teacher', 't1'), { toString: () => 't1' })).toBe(true);
+  });
+
+  it('lets admin and moderator view any course', () => {
+    expect(canViewCoursePerformance(sessionOf('admin', 'a1'), 't9')).toBe(true);
+    expect(canViewCoursePerformance(sessionOf('moderator', 'm1'), 't9')).toBe(true);
+  });
+
+  it('denies students and missing sessions', () => {
+    expect(canViewCoursePerformance(sessionOf('student', 's1'), 's1')).toBe(false);
+    expect(canViewCoursePerformance(null, 't1')).toBe(false);
+  });
+});
+
+describe('canGradeCourse / canHandleCourseMessages', () => {
+  it('lets the supervising teacher grade and message — only on their own course', () => {
+    expect(canGradeCourse(sessionOf('teacher', 't1'), 't1')).toBe(true);
+    expect(canGradeCourse(sessionOf('teacher', 't1'), 't2')).toBe(false);
+    expect(canHandleCourseMessages(sessionOf('teacher', 't1'), 't1')).toBe(true);
+    expect(canHandleCourseMessages(sessionOf('teacher', 't1'), 't2')).toBe(false);
+  });
+
+  it('lets staff grade/message any course, denies students', () => {
+    expect(canGradeCourse(sessionOf('admin', 'a1'), 't9')).toBe(true);
+    expect(canHandleCourseMessages(sessionOf('moderator', 'm1'), 't9')).toBe(true);
+    expect(canGradeCourse(sessionOf('student', 's1'), 's1')).toBe(false);
+    expect(canGradeCourse(null, 't1')).toBe(false);
+  });
+
+  it('still never lets a teacher manage (edit) the course', () => {
+    expect(canManageCourse(sessionOf('teacher', 't1'), 't1')).toBe(false);
+  });
+});
+
+describe('isMeetingRoomHost', () => {
+  it('makes teachers (and staff) admins inside the meeting room', () => {
+    expect(isMeetingRoomHost(sessionOf('teacher', 't1'))).toBe(true);
+    expect(isMeetingRoomHost(sessionOf('moderator', 'm1'))).toBe(true);
+    expect(isMeetingRoomHost(sessionOf('admin', 'a1'))).toBe(true);
+  });
+
+  it('keeps students as regular participants', () => {
+    expect(isMeetingRoomHost(sessionOf('student', 's1'))).toBe(false);
+    expect(isMeetingRoomHost(null)).toBe(false);
   });
 });
 

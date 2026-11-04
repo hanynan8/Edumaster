@@ -41,6 +41,7 @@ import {
   parseGrantedEmails,
   resolveGrantRecipients,
   grantCourseAccess,
+  enrollSupervisingTeacher,
   MAX_GRANT_EMAILS,
 } from "@/app/lib/courseGrants";
 
@@ -318,6 +319,15 @@ export async function POST(request) {
       { path: "subcategory", select: "name slug i18n parent" },
       { path: "teacher", select: "name" },
     ]);
+
+    // 🆕 المدرّس المشرف بيتسجّل تلقائيًا في الكورس مجانًا (زي الطالب بالظبط) —
+    // بيشوفه عنده في "دورات مسجّل فيها" ويتابع أداء الطلاب، من غير أي صلاحية
+    // تعديل. best-effort: فشله مايلغيش إنشاء الكورس.
+    await enrollSupervisingTeacher({
+      courseId: created._id,
+      teacherId: courseTeacherId,
+      grantedBy: session.user.id,
+    });
 
     // 🆕 تسجيل الطلاب المختارين مجانًا. فشله مايلغيش الكورس نفسه (اتعمل فعلًا) —
     // بنرجّع grantFailed والموديريتور يقدر يضيفهم من تعديل الكورس.

@@ -10,7 +10,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 import { getCourseAccessForUser } from "@/app/lib/access";
 
@@ -63,7 +63,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const canManage = isOwnerOrStaff(session, course.teacher);
+    const canManage = canManageCourse(session, course.teacher);
     if (!canManage) {
       if (!assignment.isPublished) return jsonResponse({ error: "not_found" }, 404);
       const access = await getCourseAccessForUser({ userId: session.user.id, courseId: course._id });
@@ -109,7 +109,7 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
     if (body?.title !== undefined) {
@@ -154,7 +154,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const Submission = getSubmissionModel();
     await Promise.all([Submission.deleteMany({ assignment: assignment._id }), assignment.deleteOne()]);

@@ -6,7 +6,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import {
   QUESTION_TYPES as ALLOWED_TYPES,
   validateOptions,
@@ -47,7 +47,7 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
 
@@ -102,7 +102,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     await question.deleteOne();
     return jsonResponse({ deleted: true });

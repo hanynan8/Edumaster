@@ -7,6 +7,7 @@
 // أبسط، من غير state مشترك (كل تبويبة صفحة Next مستقلة).
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // 🆕 تسميات التابات كانت عربي ثابت — دلوقتي بتتبع اللغة المختارة من الناف
@@ -21,9 +22,13 @@ const TABS = [
 
 export default function CourseTabs({ courseId, active }) {
   const { language } = useLanguage();
+  const { data: session } = useSession();
+  // 🆕 المدرّس (حتى المشرف على الكورس) مالوش أي تعديل على الكورس: بيشوف تابين بس: "الواجبات"
+  // (تصحيح التسليمات) و"أداء الطلاب". باقي التابات للأدمن/الموديريتور.
+  const tabs = session?.user?.role === "teacher" ? TABS.filter((tab) => ["performance", "assignments"].includes(tab.key)) : TABS;
   return (
     <div className="flex items-center gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
-      {TABS.map((tab) => (
+      {tabs.map((tab) => (
         <Link
           key={tab.key}
           href={tab.href(courseId)}

@@ -23,7 +23,8 @@ import {
   getAssignmentModel,
   getSubmissionModel,
 } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canViewCoursePerformance } from "@/app/lib/rbac";
+import { SUPERVISOR_SOURCE } from "@/app/lib/courseGrants";
 import { computeProgress, pickBestQuizResult } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
@@ -47,7 +48,8 @@ export async function GET(request, { params }) {
     const Course = getCourseModel();
     const course = await Course.findById(id).lean();
     if (!course) return jsonResponse({ error: "not_found" }, 404);
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    // 🆕 المدرّس المشرف على الكورس ده + طاقم الإدارة (قراءة فقط).
+    if (!canViewCoursePerformance(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const Enrollment = getEnrollmentModel();
     const Lesson = getLessonModel();
@@ -59,7 +61,8 @@ export async function GET(request, { params }) {
 
     const [enrollments, nonQuizLessons, quizzes, assignments] = await Promise.all([
       // 🔒 الملغي (cancelled) ملوش وصول للكورس → مش بيظهر في أداء الطلاب
-      Enrollment.find({ course: id, status: { $ne: "cancelled" } }).sort({ createdAt: 1 }).lean(),
+      // 🆕 تسجيل المدرّس المشرف نفسه (supervisor_grant) مش "طالب" — مايظهرش في الأداء.
+      Enrollment.find({ course: id, status: { $ne: "cancelled" }, source: { $ne: SUPERVISOR_SOURCE } }).sort({ createdAt: 1 }).lean(),
       Lesson.find({ course: id, type: { $ne: "quiz" } }, "_id").lean(),
       Quiz.find({ course: id, isPublished: true }, "title").lean(),
       Assignment.find({ course: id, isPublished: true }, "title maxScore").lean(),

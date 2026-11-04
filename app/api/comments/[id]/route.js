@@ -7,7 +7,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCommentModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 
 function jsonResponse(data, status = 200) {
@@ -44,7 +44,7 @@ export async function DELETE(request, { params }) {
     if (!isAuthor) {
       const Course = getCourseModel();
       const course = await Course.findById(comment.course, "teacher").lean();
-      if (!course || !isOwnerOrStaff(session, course.teacher)) {
+      if (!course || !canManageCourse(session, course.teacher)) {
         return jsonResponse({ error: "forbidden" }, 403);
       }
     }

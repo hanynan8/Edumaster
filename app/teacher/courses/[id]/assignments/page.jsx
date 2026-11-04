@@ -6,6 +6,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, Inbox, Loader, Calendar } from "lucide-react";
 import AssignmentFormModal from "@/app/teacher/components/AssignmentFormModal";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
@@ -47,6 +48,9 @@ export default function CourseAssignmentsPage({ params }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const { data: session } = useSession();
+  // 🆕 المدرّس يشوف الواجبات ويصحّح التسليمات بس — من غير إنشاء/تعديل/حذف.
+  const canEdit = session?.user?.role !== "teacher";
   const locale = language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "en-US";
 
   function formatDate(d) {
@@ -94,20 +98,24 @@ export default function CourseAssignmentsPage({ params }) {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <BackArrow size={15} /> {t.backToContent}
-      </Link>
+      {canEdit && (
+        <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
+          <BackArrow size={15} /> {t.backToContent}
+        </Link>
+      )}
 
       <CourseTabs courseId={id} active="assignments" />
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-800">{t.pageTitle}</h1>
-        <button
-          onClick={() => setModal(null)}
-          className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
-        >
-          <Plus size={16} /> {t.newAssignment}
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setModal(null)}
+            className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
+          >
+            <Plus size={16} /> {t.newAssignment}
+          </button>
+        )}
       </div>
 
       {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg mb-4">{error}</div>}
@@ -145,12 +153,16 @@ export default function CourseAssignmentsPage({ params }) {
               >
                 <Inbox size={14} /> {t.submissions}
               </Link>
-              <button onClick={() => setModal(a)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
-                <Pencil size={15} />
-              </button>
-              <button onClick={() => handleDelete(a)} className="text-red-400 hover:text-red-600 p-2 shrink-0">
-                <Trash2 size={15} />
-              </button>
+              {canEdit && (
+                <>
+                  <button onClick={() => setModal(a)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => handleDelete(a)} className="text-red-400 hover:text-red-600 p-2 shrink-0">
+                    <Trash2 size={15} />
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

@@ -8,6 +8,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowRight, ArrowLeft, Loader, Users, CheckCircle2, XCircle, Minus } from "lucide-react";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -94,6 +95,9 @@ export default function CoursePerformancePage({ params }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const { data: session } = useSession();
+  // 🆕 المدرّس مالوش صفحة محتوى الكورس (تعديل) → مفيش لينك رجوع ليها.
+  const canOpenContent = session?.user?.role !== "teacher";
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -119,9 +123,11 @@ export default function CoursePerformancePage({ params }) {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <BackArrow size={15} /> {t.backToContent}
-      </Link>
+      {canOpenContent && (
+        <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
+          <BackArrow size={15} /> {t.backToContent}
+        </Link>
+      )}
 
       <CourseTabs courseId={id} active="performance" />
 

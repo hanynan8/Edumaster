@@ -7,7 +7,7 @@
 // 🔒 senderRole بيتحدد سيرفر-سايد من الـ session — العميل مبيبعتش غير النص.
 // 🔒 النص بيتقصّ على MAX_MESSAGE_LENGTH ومفيش HTML بيتنفّذ (React بيعمل escape).
 
-import { isOwnerOrStaff } from "@/app/lib/rbac";
+import { canGradeCourse, canManageCourse } from "@/app/lib/rbac";
 
 export const MAX_MESSAGE_LENGTH = 20000; // نص كبير (إجابة مقالية / تعليق مطوّل)
 export const MAX_MESSAGES_PER_THREAD = 500;
@@ -24,8 +24,11 @@ export function sanitizeMessageText(raw) {
  * مين يقدر يقرا/يكتب في الـ thread: صاحب الكورس/موديريتر/أدمن، أو الطالب صاحب المحاولة/التسليم.
  * @returns {"staff"|"student"|null}
  */
-export function threadAccess(session, courseTeacherId, studentId) {
-  if (isOwnerOrStaff(session, courseTeacherId)) return "staff";
+export function threadAccess(session, courseTeacherId, studentId, { supervisor = true } = {}) {
+  // 🆕 المدرّس المشرف يقدر يتواصل مع الطالب في تسليمات الواجبات (supervisor=true).
+  // مراجعة نتايج الكويزات لسه للأدمن/الموديريتور بس (بتمرّر supervisor:false).
+  const isStaff = supervisor ? canGradeCourse(session, courseTeacherId) : canManageCourse(session, courseTeacherId);
+  if (isStaff) return "staff";
   if (String(session.user.id) === String(studentId)) return "student";
   return null;
 }

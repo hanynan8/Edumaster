@@ -15,7 +15,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel, getQuizResultModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 import { pickBestQuizResult } from "@/app/lib/progressMath";
 import { getCourseAccessForUser } from "@/app/lib/access";
@@ -68,7 +68,7 @@ export async function GET(request, { params }) {
     if (auth.response) return auth.response;
     const { session } = auth;
 
-    const canManage = isOwnerOrStaff(session, course.teacher);
+    const canManage = canManageCourse(session, course.teacher);
     const Question = getQuestionModel();
     const questions = await Question.find({ quiz: quiz._id }).sort({ order: 1, createdAt: 1 }).lean();
 
@@ -136,7 +136,7 @@ export async function PUT(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const body = await request.json().catch(() => null);
     if (body?.title !== undefined) {
@@ -182,7 +182,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const wasPublished = Boolean(quiz.isPublished);
     const Question = getQuestionModel();

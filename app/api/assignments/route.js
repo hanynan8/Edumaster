@@ -11,7 +11,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff } from "@/app/lib/rbac";
+import { requireSession, canManageCourse, canGradeCourse } from "@/app/lib/rbac";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
 
 function jsonResponse(data, status = 200) {
@@ -56,7 +56,8 @@ export async function GET(request) {
     if (!course) return jsonResponse({ error: "not_found" }, 404);
 
     const auth = await requireSession();
-    const canManage = !auth.response && isOwnerOrStaff(auth.session, course.teacher);
+    // 🆕 المدرّس المشرف بيشوف قايمة الواجبات (قراءة فقط) عشان يوصل للتسليمات ويصحّحها.
+    const canManage = !auth.response && (canManageCourse(auth.session, course.teacher) || canGradeCourse(auth.session, course.teacher));
 
     const Assignment = getAssignmentModel();
     const query = { course: courseId };
@@ -88,7 +89,7 @@ export async function POST(request) {
     const Course = getCourseModel();
     const course = await Course.findById(courseId);
     if (!course) return jsonResponse({ error: "not_found" }, 404);
-    if (!isOwnerOrStaff(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canManageCourse(session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     if (body?.section && !mongoose.Types.ObjectId.isValid(body.section)) {
       return jsonResponse({ error: "invalid_section" }, 400);

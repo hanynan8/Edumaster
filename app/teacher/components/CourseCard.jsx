@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Pencil, Trash2, Archive, BookOpen, Users, Clock, GraduationCap } from "lucide-react";
+import { Pencil, Trash2, Archive, BookOpen, Users, Clock, GraduationCap, Eye, BarChart3 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_STYLES = {
@@ -23,6 +23,8 @@ const T = {
     edit: "Edit",
     delete: "Delete",
     archive: "Archive",
+    view: "View course",
+    performance: "Student progress",
   },
   ar: {
     status: { draft: "مسودة", pending: "قيد المراجعة", published: "منشور", archived: "مؤرشف" },
@@ -31,6 +33,8 @@ const T = {
     edit: "تعديل",
     delete: "حذف",
     archive: "أرشفة",
+    view: "مشاهدة الدورة",
+    performance: "تقدّم الطلاب",
   },
   es: {
     status: { draft: "Borrador", pending: "En revisión", published: "Publicado", archived: "Archivado" },
@@ -39,6 +43,8 @@ const T = {
     edit: "Editar",
     delete: "Eliminar",
     archive: "Archivar",
+    view: "Ver curso",
+    performance: "Progreso de alumnos",
   },
 };
 
@@ -53,7 +59,9 @@ function formatDuration(seconds, language) {
 // المشرف على الكارت عشان يعرف كل كورس تبع مين.
 // 🆕 onArchive (اختياري): لو اتبعت بيظهر زرار "أرشفة" على الكارت (للموديريتور
 // بس) — بيتخفى لو الكورس مؤرشف أصلًا. التأكيد بيتعمل في الـ handler اللي فوق.
-export default function CourseCard({ course, onEdit, onDelete, onArchive, showTeacher = false }) {
+// 🆕 readOnly (المدرّس المشرف): مفيش تعديل/حذف/أرشفة/إدارة محتوى — بس "مشاهدة
+// الدورة" (زي الطالب) و"تقدّم الطلاب".
+export default function CourseCard({ course, onEdit, onDelete, onArchive, showTeacher = false, readOnly = false }) {
   const { language } = useLanguage();
   const t = T[language] || T.en;
 
@@ -104,38 +112,55 @@ export default function CourseCard({ course, onEdit, onDelete, onArchive, showTe
           </span>
         </div>
 
-        <div className="flex gap-2">
-          <Link
-            href={`/teacher/courses/${course.id}`}
-            className="flex-1 text-center text-sm font-semibold bg-[#003A91] text-white rounded-lg py-2 hover:bg-[#002E74] transition-colors"
-          >
-            {t.content}
-          </Link>
-          <button
-            onClick={() => onEdit(course)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
-            title={t.edit}
-          >
-            <Pencil size={15} />
-          </button>
-          {onArchive && course.status !== "archived" && (
-            <button
-              onClick={() => onArchive(course)}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50"
-              title={t.archive}
-              aria-label={t.archive}
+        {readOnly ? (
+          <div className="flex gap-2">
+            <Link
+              href={`/courses/${course.id}`}
+              className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold bg-[#003A91] text-white rounded-lg py-2 hover:bg-[#002E74] transition-colors"
             >
-              <Archive size={15} />
+              <Eye size={15} /> {t.view}
+            </Link>
+            <Link
+              href={`/teacher/courses/${course.id}/performance`}
+              className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold border border-[#003A91] text-[#003A91] rounded-lg py-2 hover:bg-[#EBEFF6] transition-colors"
+            >
+              <BarChart3 size={15} /> {t.performance}
+            </Link>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Link
+              href={`/teacher/courses/${course.id}`}
+              className="flex-1 text-center text-sm font-semibold bg-[#003A91] text-white rounded-lg py-2 hover:bg-[#002E74] transition-colors"
+            >
+              {t.content}
+            </Link>
+            <button
+              onClick={() => onEdit(course)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+              title={t.edit}
+            >
+              <Pencil size={15} />
             </button>
-          )}
-          <button
-            onClick={() => onDelete(course)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
-            title={t.delete}
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
+            {onArchive && course.status !== "archived" && (
+              <button
+                onClick={() => onArchive(course)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50"
+                title={t.archive}
+                aria-label={t.archive}
+              >
+                <Archive size={15} />
+              </button>
+            )}
+            <button
+              onClick={() => onDelete(course)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
+              title={t.delete}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

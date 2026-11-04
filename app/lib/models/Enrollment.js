@@ -17,9 +17,12 @@ const enrollmentSchema = new mongoose.Schema(
     // 🆕 "moderator_grant": الموديريتور سجّله مجانًا في الكورس بالإيميل وقت
     // إنشاء/تعديل الكورس (شوف app/lib/courseGrants.js) — بيتعامل زي اللي اشترى
     // الكورس بالظبط (وصول كامل من غير ما يضغط "اشترك").
+    // 🆕 "supervisor_grant": تسجيل مجاني تلقائي للمدرّس المشرف (Supervising teacher)
+    // على الكورس — بيشوف الكورس زي الطالب بالظبط ويتابع أداء الطلاب، لكن مش
+    // "طالب" (مايتحسبش في studentsCount ولا في أداء الطلاب ولا الإحصائيات).
     source: {
       type: String,
-      enum: ["purchase", "membership", "free", "admin_grant", "moderator_grant"],
+      enum: ["purchase", "membership", "free", "admin_grant", "moderator_grant", "supervisor_grant"],
       required: true,
     },
 

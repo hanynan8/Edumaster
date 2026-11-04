@@ -81,24 +81,76 @@ export function isStaffRole(role) {
 }
 
 /**
- * 🆕 زي isOwnerOrAdmin بالظبط لكن الموديريتور كمان بيعدّي. مخصصة لـ routes
- * الكورسات/الأقسام/الدروس/الكويزات/الواجبات/الاجتماعات/الإعلانات/الرسائل —
- * أي مكان الـ ownerId فيه هو "مدرّس الكورس". ⚠️ مش بتتستخدم لمصادر تانية
- * (شهادات الطلاب، المدفوعات...) — دي لسه على isOwnerOrAdmin عشان الموديريتور
- * ميشوفش بيانات مش من شغله.
+ * 🆕 صلاحية "إدارة/تعديل" محتوى الكورس (كورس، أقسام، دروس، كويزات، واجبات،
+ * إعلانات، رسائل، تعليقات، تصحيح...) — للأدمن والموديريتور **بس**.
+ *
+ * ⚠️ المدرّس (حتى لو هو "المدرّس المشرف" Supervising teacher على الكورس)
+ * ملوش أي صلاحية تعديل أو حذف: الـ Supervising teacher مجرد اسم بيظهر في
+ * الـ UI + تسجيل مجاني في الكورس + متابعة تقدم الطلاب (شوف
+ * canViewCoursePerformance). عشان كده الدالة دي مابتبصّش على ownerId خالص —
+ * الباراميتر موجود بس للتوافق مع شكل النداءات القديمة (isOwnerOrStaff).
  * @param {object} session
- * @param {string|import("mongoose").Types.ObjectId} ownerId
+ * @param {string|import("mongoose").Types.ObjectId} [_ownerId] - متجاهَل عمدًا
  */
-export function isOwnerOrStaff(session, ownerId) {
+export function canManageCourse(session, _ownerId) {
+  if (!session?.user) return false;
+  return isStaffRole(session.user.role);
+}
+
+/**
+ * 🆕 متابعة تقدم/أداء طلاب كورس: طاقم الإدارة (أدمن + موديريتور) + المدرّس
+ * المشرف على الكورس ده بالتحديد. دي الصلاحية الوحيدة اللي المدرّس بياخدها
+ * على الكورس (قراءة فقط).
+ * @param {object} session
+ * @param {string|import("mongoose").Types.ObjectId} supervisorId - course.teacher
+ */
+export function canViewCoursePerformance(session, supervisorId) {
   if (!session?.user) return false;
   if (isStaffRole(session.user.role)) return true;
-  return String(session.user.id) === String(ownerId);
+  return session.user.role === "teacher" && String(session.user.id) === String(supervisorId);
+}
+
+/**
+ * 🆕 تصحيح الواجبات + الرد على رسائل الطلاب: طاقم الإدارة + المدرّس المشرف على
+ * الكورس ده بالتحديد. ده مابيدّيش المدرّس أي تعديل في محتوى الكورس (واجبات/
+ * دروس/كويزات...) — بس يشوف تسليمات الطلاب ويصحّحها ويتواصل معاهم.
+ * @param {object} session
+ * @param {string|import("mongoose").Types.ObjectId} supervisorId - course.teacher
+ */
+export function canGradeCourse(session, supervisorId) {
+  return canViewCoursePerformance(session, supervisorId);
+}
+
+/** نفس صلاحية التصحيح — للرسائل بين الطالب والمدرّس المشرف. */
+export function canHandleCourseMessages(session, supervisorId) {
+  return canGradeCourse(session, supervisorId);
+}
+
+/**
+ * 🆕 "عرض فقط" لصفحة بيانات الكورس (حتى لو لسه draft/pending): طاقم الإدارة +
+ * المدرّس المشرف. مابتدّيش أي صلاحية تعديل ومابتفتحش محتوى الدروس (ده بيمر
+ * بالـ enrollment زي الطالب بالظبط).
+ */
+export function canViewCourseDetails(session, supervisorId) {
+  return canViewCoursePerformance(session, supervisorId);
+}
+
+/**
+ * 🆕 "أدمن جوه الميتنج" (Daily owner token): أي مدرّس + طاقم الإدارة. ده منفصل
+ * عن isMeetingStaff (إنشاء/تعديل/حذف الميتنجس في الموقع) — المدرّس بيفضل
+ * ممنوع يدير الميتنجس من الموقع، لكن جوه الغرفة نفسها بقى مشرف كامل.
+ * مابيدّيش وصول لوحده: الدخول لسه بيتفحص بـ checkMeetingAccess (لازم يكون
+ * مدعو/جلسة عامة/enrollment).
+ */
+export function isMeetingRoomHost(session) {
+  if (!session?.user) return false;
+  return isStaffRole(session.user.role) || session.user.role === "teacher";
 }
 
 /**
  * 🆕 الميتنجس (المحاضرات اللايف) بقت من صلاحيات طاقم الإدارة بس (أدمن + موديريتور).
  * المدرّس اتشالت منه صلاحية إنشاء/إدارة/دخول الميتنجس خالص، حتى لو هو
- * "مدرّس الكورس" — عكس isOwnerOrStaff اللي بتدّي المدرّس صاحب الكورس صلاحية.
+ * "مدرّس الكورس" — عكس canManageCourse (دي كمان طاقم الإدارة بس دلوقتي).
  * @param {object} session
  */
 export function isMeetingStaff(session) {

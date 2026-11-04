@@ -12,7 +12,7 @@ import { deleteMeetingsForCourse } from "@/app/lib/meetingCleanup";
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getCategoryModel, getSectionModel, getLessonModel } from "@/app/lib/models";
-import { requireSession, isOwnerOrStaff, isStaffRole } from "@/app/lib/rbac";
+import { requireSession, canManageCourse, canViewCourseDetails, isStaffRole } from "@/app/lib/rbac";
 import { slugify, sanitizeCourseI18n, resolveCourseSubcategory, resolveSupervisingTeacher } from "@/app/lib/courseHelpers";
 import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification, getAdminUserIds } from "@/app/lib/notificationHelpers";
@@ -24,6 +24,8 @@ import {
   resolveGrantRecipients,
   grantCourseAccess,
   notifyGrantedStudents,
+  enrollSupervisingTeacher,
+  releaseSupervisingTeacher,
   MAX_GRANT_EMAILS,
 } from "@/app/lib/courseGrants";
 
@@ -151,7 +153,8 @@ export async function GET(request, { params }) {
     if (course.status !== "published") {
       const auth = await requireSession();
       if (auth.response) return jsonResponse({ error: "not_found" }, 404); // مش هنسرّب وجود كورس draft
-      if (!isOwnerOrStaff(auth.session, course.teacher?._id || course.teacher)) {
+      // 🆕 عرض فقط: طاقم الإدارة + المدرّس المشرف (مابيفتحش تعديل ولا محتوى الدروس).
+      if (!canViewCourseDetails(auth.session, course.teacher?._id || course.teacher)) {
         return jsonResponse({ error: "not_found" }, 404);
       }
     }
@@ -177,7 +180,7 @@ export async function PUT(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (!isOwnerOrStaff(session, existing.teacher)) {
+    if (!canManageCourse(session, existing.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
@@ -331,6 +334,8 @@ export async function PUT(request, { params }) {
       updates.i18n = merged;
     }
 
+    // 🆕 لازم نحفظ المدرّس المشرف القديم قبل الـ assign (بيبدّل existing.teacher).
+    const previousSupervisorId = String(existing.teacher);
     Object.assign(existing, updates);
 
     // 🩹 FIX (باگ "الحفظ بيرجع نجاح بس القيمة مش بتفضل"): existing.save()
@@ -375,6 +380,22 @@ export async function PUT(request, { params }) {
       await Course.collection.updateOne({ _id: existing._id }, { $set: rawUpdates });
       populated = await loadCourse(existing._id);
       if (!populated) return jsonResponse({ error: "not_found" }, 404);
+    }
+
+    // 🆕 لو المدرّس المشرف اتغيّر: القديم يتشال تسجيله التلقائي والجديد يتسجّل
+    // مجانًا. بنسجّل الجديد برضه لو نفس المدرّس بس مفيش enrollment (كورسات
+    // قديمة قبل الميزة دي) — idempotent.
+    {
+      const newSupervisorId = String(populated?.teacher?._id || populated?.teacher || previousSupervisorId);
+      const oldSupervisorId = previousSupervisorId;
+      if (newSupervisorId !== oldSupervisorId) {
+        await releaseSupervisingTeacher({ courseId: existing._id, teacherId: oldSupervisorId });
+      }
+      await enrollSupervisingTeacher({
+        courseId: existing._id,
+        teacherId: newSupervisorId,
+        grantedBy: session.user.id,
+      });
     }
 
     // 🔒 سجل تغيير الحالة (published/pending/archived...) — عشان نعرف مين غيّر
@@ -449,7 +470,7 @@ export async function DELETE(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!isOwnerOrStaff(auth.session, course.teacher)) {
+    if (!canManageCourse(auth.session, course.teacher)) {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

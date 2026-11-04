@@ -138,7 +138,10 @@ export async function updateDailyRoom(roomName, { startDate, endDate }) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const reason = data?.error || data?.info || `HTTP ${res.status}`;
-    throw new Error(`daily_update_room_error: ${reason}`);
+    const err = new Error(`daily_update_room_error: ${reason}`);
+    err.dailyStatus = res.status;
+    err.dailyReason = String(reason);
+    throw err;
   }
   return { joinUrl: data.url, roomName: data.name };
 }
@@ -162,7 +165,7 @@ export async function updateDailyRoom(roomName, { startDate, endDate }) {
 export function isDailyRoomGoneError(err) {
   if (!err || err.dailyStatus === undefined) return false;
   if (err.dailyStatus === 404) return true;
-  return err.dailyStatus === 400 && /room|not.?found|does not exist|expired|exp/i.test(err.dailyReason || "");
+  return err.dailyStatus === 400 && /room.*(not|exist|found)|not.?found|does not exist|expired/i.test(err.dailyReason || "");
 }
 
 export async function createMeetingToken({

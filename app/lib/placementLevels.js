@@ -391,7 +391,24 @@ export function getPlacementTestForCourse(course) {
 
 // 🆕 هل الكورس ده مربوط باختبار مخصص من الأدمن؟ (بيظهر له زرار الاختبار حتى لو مش كورس إسباني)
 export function hasLinkedPlacementTest(course) {
-  return Boolean(course?.placementTest?.id);
+  return Boolean(course?.placementTest?.id || (Array.isArray(course?.placementTests) && course.placementTests.length));
+}
+
+// 🆕 كل ids الاختبارات اللي الطالب ممكن يفتح واحد منها من الكورس ده:
+//   - الكورس مربوط باختبار مخصص أو أكتر من الأدمن (course.placementTests) → كلهم
+//   - غير كده → الاختبار المدمج حسب كود المستوى (a1/a2/b1/b2) لو فيه، وإلا []
+export function getPlacementTestIdsForCourse(course) {
+  const linked = Array.isArray(course?.placementTests) ? course.placementTests.map((t) => String(t?.id || "")).filter(Boolean) : [];
+  if (linked.length) return [...new Set(linked)];
+  const one = getPlacementTestForCourse(course);
+  return one ? [one] : [];
+}
+
+// 🆕 اختيار عشوائي من قايمة ids (rand قابلة للحقن للاختبارات). فاضية → null.
+export function pickRandomPlacementTestId(ids, rand = Math.random) {
+  const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+  if (!list.length) return null;
+  return list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
 }
 
 // رابط صفحة الاختبار حسب id الاختبار: A1 و A2 و B1 و B2 صفحاتهم المدمجة، وأي اختبار مخصص على /level-test/<id>

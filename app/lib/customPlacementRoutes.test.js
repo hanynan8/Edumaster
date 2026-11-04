@@ -179,7 +179,9 @@ describe("GET /api/admin/placement-tests/courses", () => {
     expect(res.status).toBe(200);
     const { courses } = await res.json();
     expect(courses.find((c) => c.id === "c1").linkedTestId).toBe("sample-b1");
+    expect(courses.find((c) => c.id === "c1").linkedTestIds).toEqual(["sample-b1"]);
     expect(courses.find((c) => c.id === "c2").linkedTestId).toBeNull();
+    expect(courses.find((c) => c.id === "c2").linkedTestIds).toEqual([]);
     asRole("student");
     expect((await GET()).status).toBe(403);
   });

@@ -1,7 +1,7 @@
 // app/api/admin/placement-tests/courses/route.js
 //
 // GET — قايمة الكورسات (المنشورة والمسودات) اللي الأدمن يختار منها الكورسات اللي هيظهر عليها
-// زرار "اختبر مستواك" لاختبار معيّن. كل كورس راجع معاه الاختبار المخصص المربوط بيه حاليًا (لو فيه).
+// زرار "اختبر مستواك" لاختبار معيّن. كل كورس راجع معاه الاختبارات المخصصة المربوطة بيه حاليًا (linkedTestIds — ممكن أكتر من واحد).
 // أدمن بس.
 
 import { connectToMongo } from "@/app/lib/mongodb";
@@ -31,8 +31,9 @@ export async function GET() {
       listCustomTests(),
     ]);
 
+    // 🆕 الكورس ممكن يكون مربوط بأكتر من اختبار
     const linkedTo = {};
-    for (const t of tests) for (const c of t.courseIds || []) linkedTo[c] = t.id;
+    for (const t of tests) for (const c of t.courseIds || []) (linkedTo[c] ||= []).push(t.id);
 
     return jsonResponse({
       courses: courses.map((c) => ({
@@ -41,7 +42,8 @@ export async function GET() {
         slug: c.slug,
         language: c.language || null,
         status: c.status,
-        linkedTestId: linkedTo[c._id.toString()] || null,
+        linkedTestIds: linkedTo[c._id.toString()] || [],
+        linkedTestId: (linkedTo[c._id.toString()] || [])[0] || null, // (قديم) أول اختبار مربوط
       })),
     });
   } catch (err) {

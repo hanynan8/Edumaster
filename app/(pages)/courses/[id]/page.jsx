@@ -33,7 +33,13 @@ import { getPriceForCurrency, formatPrice } from "@/app/lib/currency";
 import CourseAnnouncements from "@/app/components/CourseAnnouncements";
 import CourseMeetingBanner from "@/app/components/CourseMeetingBanner";
 import LessonComments from "@/app/components/LessonComments";
-import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
+import {
+  getPlacementTestForCourse,
+  getPlacementTestIdsForCourse,
+  getPlacementTestPath,
+  hasLinkedPlacementTest,
+  pickRandomPlacementTestId,
+} from "@/app/lib/placementLevels";
 import {
   Lock, PlayCircle, Headphones, FileText, FileType2, HelpCircle, ChevronDown,
   BookOpen, CheckCircle2, Loader, ArrowRight, ArrowLeft,
@@ -79,9 +85,6 @@ const STRINGS = {
     completed: "تم إكمال هذا الدرس",
     progressTitle: "نسبة إكمال الدورة",
     levelTestTitle: "اختبر مستواك في اللغة",
-    levelTestDesc: "قبل أن تبدأ، اختبر مستواك الحالي في اللغة لتعرف من أين تبدأ بالضبط.",
-    levelTestCta: "ابدأ الاختبار",
-    levelTestOpenNewTab: "فتح الاختبار في صفحة جديدة",
   },
   en: {
     back: "All Courses",
@@ -120,9 +123,6 @@ const STRINGS = {
     completed: "You completed this lesson",
     progressTitle: "Course completion",
     levelTestTitle: "Test Your Level",
-    levelTestDesc: "Before you start, take a quick test to see your current level in this language.",
-    levelTestCta: "Start the test",
-    levelTestOpenNewTab: "Open the test in a new tab",
   },
 };
 
@@ -376,46 +376,6 @@ function LessonRow({ lesson, t, isOpen, onToggle, hasAccess, isCompleted, onMark
 // كل الدورات دلوقتي حقيقية (Course model) — مفيش تفرقة "admin-" تاني.
 // الصفحة بتجيب الدورة من /api/courses/[id] وتعرض النسخة اللغوية المناسبة
 // من course.i18n حسب لغة الموقع الحالية.
-// 🆕 اختبار "قيّم مستواك" (ClassMarker): iframe مباشر لصفحة بدء الاختبار.
-// بنبعت بيانات الطالب (لو مسجّل دخول) عن طريق باراميترات ClassMarker
-// الرسمية (cm_fn/cm_e/cm_user_id) عشان نتائجه تتربط باسمه/إيميله تلقائيًا
-// من غير ما يكتبهم يدوي — شوف ClassMarker Integration Guide.
-function LevelTestSection({ quizId, session, t }) {
-  const params = new URLSearchParams({ iframe: "1" });
-  const name = session?.user?.name;
-  const email = session?.user?.email;
-  const userId = session?.user?.id;
-  if (name) params.set("cm_fn", name);
-  if (email) params.set("cm_e", email);
-  if (userId) params.set("cm_user_id", String(userId).slice(0, 100));
-
-  const src = `https://www.classmarker.com/online-test/start/?quiz=${encodeURIComponent(quizId)}&${params.toString()}`;
-  const directLink = `https://www.classmarker.com/online-test/start/?quiz=${encodeURIComponent(quizId)}`;
-
-  return (
-    <div className="mt-8 sm:mt-10 bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-1.5">{t.levelTestTitle}</h2>
-      <p className="text-sm text-gray-500 mb-4">{t.levelTestDesc}</p>
-      <div className="w-full rounded-xl overflow-hidden border border-gray-100" style={{ height: 700 }}>
-        <iframe
-          src={src}
-          title={t.levelTestTitle}
-          className="w-full h-full"
-          frameBorder="0"
-        />
-      </div>
-      <a
-        href={directLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block mt-3 text-xs font-semibold text-[#003A91] hover:underline"
-      >
-        {t.levelTestOpenNewTab}
-      </a>
-    </div>
-  );
-}
-
 export default function CourseDetailPage({ params }) {
   const { id } = usePromise(params);
   return <RealCourseDetail id={id} />;
@@ -651,6 +611,8 @@ function RealCourseDetail({ id }) {
   // 🆕 كورس مربوط باختبار مخصص من الأدمن (course.placementTest) → الزرار بيظهر حتى لو مش إسباني
   const placementTestId = isSpanishCourse || hasLinkedPlacementTest(course) ? getPlacementTestForCourse(course) : null;
   const showSpanishTest = Boolean(placementTestId);
+  // 🆕 كل الاختبارات المربوطة بالكورس — الضغطة بتفتح واحد منهم عشوائي
+  const placementTestIds = getPlacementTestIdsForCourse(course);
   const isEnrolled = Boolean(enrollment && enrollment.enrolled);
   const isViaMembership = isEnrolled && enrollment?.accessSource === "membership";
 
@@ -723,6 +685,12 @@ function RealCourseDetail({ id }) {
                     <Link
                       href={getPlacementTestPath(placementTestId)}
                       target="_blank"
+                      onClick={(e) => {
+                        if (placementTestIds.length > 1) {
+                          e.preventDefault();
+                          window.open(getPlacementTestPath(pickRandomPlacementTestId(placementTestIds)), "_blank", "noopener,noreferrer");
+                        }
+                      }}
                       className="inline-flex items-center border border-[#003A91]/30 text-[#003A91] text-xs font-bold px-3 py-2 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
                     >
                       {t.levelTestTitle}
@@ -914,17 +882,6 @@ function RealCourseDetail({ id }) {
           </div>
         </div>
 
-        {/* 🆕 اختبار "قيّم مستواك" (ClassMarker) — بيظهر بس لو:
-            (1) الدورة تحت تصنيف "Language" فعليًا (categorySlug === "language"،
-            زي ما ظاهر في فلتر التصنيفات في /courses)، و
-            (2) المدرس/الإدارة حط classMarkerQuizId لهذه الدورة بالذات
-            (كل دورة لغة عنده امتحان تحديد مستوى مختلف — إنجليزي مش زي
-            إسباني مثلًا — فمش منطقي نستخدم نفس الـ quiz لكل دورات اللغة).
-            ظاهر لأي زائر (مش لازم يكون مسجّل دخول أو مشترك) لأن الهدف إنه
-            يساعده يقرر يبدأ الدورة منين قبل حتى ما يشترك. */}
-        {course.categorySlug === "language" && course.classMarkerQuizId && !isSpanishCourse && !showSpanishTest && (
-          <LevelTestSection quizId={course.classMarkerQuizId} session={session} t={t} />
-        )}
       </section>
 
       {showAuthModal && (

@@ -26,9 +26,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getPriceForCurrency } from "@/app/lib/currency";
-import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
+import {
+  getPlacementTestForCourse,
+  getPlacementTestIdsForCourse,
+  getPlacementTestPath,
+  hasLinkedPlacementTest,
+  pickRandomPlacementTestId,
+} from "@/app/lib/placementLevels";
 
 const FALLBACK_IMAGE =
   "https://raw.githubusercontent.com/hanynan8/Files/main/ChatGPT%20Image%20Aug%2021,%202026,%2008_00_09%20AM.png";
@@ -174,8 +179,8 @@ function localizeCourse(c, language, t) {
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
     placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | id اختبار مخصص | null
+    placementTestIds: getPlacementTestIdsForCourse(c), // 🆕 كل الاختبارات المربوطة (الطالب بيفتح واحد منهم عشوائي)
     placementTestLinked: hasLinkedPlacementTest(c), // 🆕 الأدمن ربط الكورس باختبار مخصص (أي لغة)
-    classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: t.levels[c.level] || c.level,
@@ -666,15 +671,10 @@ function CoursesGrid({ courses, t }) {
 }
 
 function CourseCard({ course, t }) {
-  // 🆕 زرار "اختبر مستواك" على كارت الكورس نفسه (مش بس جوه صفحة التفاصيل):
-  // بيظهر بس لو الكورس عنده classMarkerQuizId (نفس شرط ظهور الاختبار في
-  // صفحة التفاصيل). بيفتح رابط ClassMarker مباشرة في تاب جديد، وبيوقف
-  // انتشار الضغطة (stopPropagation) عشان ميودّيش لصفحة تفاصيل الكورس.
-  // 🆕 كورسات الإسباني (تصنيف Language + لغة es) ليها اختبار تحديد المستوى الداخلي
-  // (/spanish-test) جمب السعر، فبنخفي زرار ClassMarker القديم عنها عشان ميبقاش فيه اختبارين.
+  // 🆕 زرار "اختبر مستواك" على كارت الكورس نفسه (مش بس جوه صفحة التفاصيل): بيفتح اختبار المستوى
+  // الداخلي في تاب جديد، وبيوقف انتشار الضغطة (stopPropagation) عشان ميودّيش لصفحة تفاصيل الكورس.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
-  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني (وبيحل محل زرار ClassMarker)
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse && !course.placementTestLinked;
+  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني
   // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
   // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
   const showSpanishTest = (isSpanishCourse || course.placementTestLinked) && Boolean(course.placementTestId);
@@ -682,14 +682,9 @@ function CourseCard({ course, t }) {
   function handleSpanishTestClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.open(getPlacementTestPath(course.placementTestId), "_blank", "noopener,noreferrer");
-  }
-
-  function handleLevelTestClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = buildClassMarkerTestUrl(course.classMarkerQuizId);
-    window.open(url, "_blank", "noopener,noreferrer");
+    // 🆕 لو الكورس مربوط بأكتر من اختبار → بنفتح واحد منهم عشوائي
+    const pick = pickRandomPlacementTestId(course.placementTestIds) || course.placementTestId;
+    window.open(getPlacementTestPath(pick), "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -725,17 +720,6 @@ function CourseCard({ course, t }) {
         </h3>
 
 
-
-        {showLevelTestBtn && (
-          <button
-            type="button"
-            onClick={handleLevelTestClick}
-            className="inline-flex items-center justify-center gap-1.5 mt-1 border border-[#003A91]/30 text-[#003A91] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#003A91] hover:text-white transition-colors"
-          >
-            <GraduationCapIcon size={13} />
-            {t.levelTestBtn}
-          </button>
-        )}
 
         <div className="mt-auto pt-2.5 flex items-center justify-between">
           <span className="text-base font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>

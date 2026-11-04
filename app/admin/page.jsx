@@ -153,8 +153,7 @@ const SIDEBAR_GROUPS = [
       { id: 'scholarship_requests',     name: 'Scholarship Requests',     icon: Award,         component: ScholarshipRequestsAdmin },
       // 🆕 طلبات استمارة التسجيل في دورة الـ Call Center (بتظهر في صفحة الخدمات)
       { id: 'call_center_requests',     name: 'Call Center Requests',     icon: Headphones,    component: CallCenterRequestsAdmin },
-      // 🆕 كل كورسات المدرسين (أي حالة) — للأدمن يقدر يحط/يعدّل
-      // classMarkerQuizId (وأي حاجة تانية لاحقًا) لأي كورس في أي وقت،
+      // 🆕 كل كورسات المدرسين (أي حالة) — الأدمن يشوفها ويحذف أي كورس في أي وقت،
       // مش بس وقت ما يكون pending زي course_review تحت.
       { id: 'all_courses',      name: 'All Courses',      icon: BookOpen,       component: AllCoursesAdmin },
       // 🆕 تحكم الأدمن في ترتيب ظهور الكورسات على الموقع (رقم أوردر لكل كورس)

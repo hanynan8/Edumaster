@@ -52,7 +52,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// 🆕 placementTest = { id, path, label } لو الأدمن ربط الكورس باختبار تحديد مستوى مخصص منشور (وإلا null).
+// 🆕 placementTest = { id, path, label, tests } لو الأدمن ربط الكورس باختبار تحديد مستوى مخصص منشور (وإلا null).
 // صفحات الكورسات بتعرض زرار "اختبر مستواك" للكورس المربوط حتى لو مش إسباني.
 function serializeCourse(c, placementTest = null) {
   return {
@@ -87,7 +87,6 @@ function serializeCourse(c, placementTest = null) {
     requirements: c.requirements,
     outcomes: c.outcomes,
     tags: c.tags,
-    classMarkerQuizId: c.classMarkerQuizId || "",
     status: c.status,
     studentsCount: c.studentsCount,
     ratingAverage: c.ratingAverage,
@@ -98,6 +97,8 @@ function serializeCourse(c, placementTest = null) {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     placementTest,
+    // 🆕 كل الاختبارات المخصصة المربوطة بالكورس (الطالب بيفتحله واحد منهم عشوائي)
+    placementTests: placementTest?.tests || [],
   };
 }
 
@@ -306,7 +307,6 @@ export async function POST(request) {
       requirements: Array.isArray(body?.requirements) ? body.requirements.map(String) : [],
       outcomes: Array.isArray(body?.outcomes) ? body.outcomes.map(String) : [],
       tags: Array.isArray(body?.tags) ? body.tags.map(String) : [],
-      classMarkerQuizId: String(body?.classMarkerQuizId || "").trim().slice(0, 100),
       displayOrder: nextDisplayOrder,
       // 🆕 المدرس بيختار وهو بيرفع الكورس: "pending" (رفع وانتظار موافقة
       // الأدمن — ده الافتراضي) أو "archived" (أرشفة فقط). مفيش "published"

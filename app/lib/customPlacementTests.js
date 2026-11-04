@@ -9,7 +9,7 @@
 //  - parts: نفس هيكل PLACEMENT_PARTS لـ A1/A2 (فمنطق الأسئلة الظاهرة/التصحيح/المراجعة مشترك).
 //  - answerKey و scripts 🔒 بيفضلوا في السيرفر بس — النسخة العامة (toPublicTest) من غيرهم.
 //  - الصوتيات: كولكشن placement_settings (مستند "audio_custom_<id>") + Bunny Storage زي A1/A2.
-//  - courseIds: الكورسات اللي زرار "اختبر مستواك" بتاع الاختبار بيظهر عليها (الأدمن بيختارها).
+//  - courseIds: الكورسات اللي زرار "اختبر مستواك" بتاع الاختبار بيظهر عليها (الأدمن بيختارها). 🆕 الكورس ممكن يتربط بأكتر من اختبار.
 //
 //  اختبار تم استخدامه (فيه نتايج طلاب) ما بيتمسحش نهائيًا — بيتأرشف (archived) عشان مراجعة النتايج القديمة
 //  تفضل شغالة. لازم connectToMongo() يتنادى قبل أي دالة هنا.
@@ -282,7 +282,8 @@ export async function editCustomTest(testId, payload, { expectedUpdatedAt = null
   };
 }
 
-// تعديل الحالة / الكورسات المربوطة. الكورس بيتربط باختبار مخصص واحد بس: ربطه بالاختبار ده بيشيله من أي اختبار تاني.
+// تعديل الحالة / الكورسات المربوطة. 🆕 الكورس ممكن يتربط بأكتر من اختبار مخصص — ربطه بالاختبار ده مبيشيلوش من أي اختبار تاني
+// (الطالب لما يدوس على زرار الاختبار بيفتحله واحد منهم عشوائي).
 export async function updateCustomTestMeta(testId, { status, courseIds } = {}) {
   const id = String(testId || "").toLowerCase();
   const col = defsCollection();
@@ -297,9 +298,6 @@ export async function updateCustomTestMeta(testId, { status, courseIds } = {}) {
     if (!Array.isArray(courseIds)) return { error: "invalid_courses" };
     const clean = [...new Set(courseIds.map(String))];
     if (!clean.every((c) => mongoose.Types.ObjectId.isValid(c))) return { error: "invalid_courses" };
-    if (clean.length) {
-      await col.updateMany({ testId: { $ne: id }, courseIds: { $in: clean } }, { $pull: { courseIds: { $in: clean } } });
-    }
     $set.courseIds = clean;
   }
   await col.updateOne({ testId: id }, { $set });
@@ -323,17 +321,22 @@ export async function deleteCustomTest(testId) {
 }
 
 // ───────── ربط الكورسات ─────────
-// بيرجّع { [courseId]: { id, path, label } } للاختبارات المخصصة المنشورة المربوطة بالكورسات دي.
+// بيرجّع { [courseId]: { id, path, label, tests: [{ id, path, label }] } } للاختبارات المخصصة المنشورة المربوطة بالكورسات دي.
+// 🆕 الكورس ممكن يكون مربوط بأكتر من اختبار: tests = كلهم (بترتيب id ثابت)، و id/path/label = الأول (توافق مع الكود القديم).
 export async function getPlacementLinksForCourses(courseIds) {
   const ids = [...new Set((courseIds || []).map(String))];
   if (!ids.length) return {};
   const docs = await defsCollection()
     .find({ status: "published", courseIds: { $in: ids } }, { projection: { testId: 1, label: 1, courseIds: 1 } })
     .toArray();
+  docs.sort((a, b) => String(a.testId).localeCompare(String(b.testId)));
   const out = {};
   for (const d of docs) {
+    const item = { id: d.testId, path: customPath(d.testId), label: d.label };
     for (const c of d.courseIds || []) {
-      if (ids.includes(c)) out[c] = { id: d.testId, path: customPath(d.testId), label: d.label };
+      if (!ids.includes(c)) continue;
+      if (!out[c]) out[c] = { ...item, tests: [] };
+      out[c].tests.push(item);
     }
   }
   return out;

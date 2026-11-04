@@ -322,7 +322,7 @@ function CoursePicker({ test, onSaved, onClose }) {
         الكورسات اللي هيظهر عليها زرار &quot;اختبر مستواك&quot; · Courses that show this test
       </p>
       <p className="text-xs text-gray-500 mt-0.5 mb-3">
-        الكورس بيتربط باختبار واحد بس — لو اخترت كورس مربوط باختبار تاني هيتنقل لهنا. الزرار بيظهر للطلاب لما الاختبار يكون Published.
+        الكورس ممكن يتربط بأكتر من اختبار — لو فيه أكتر من واحد Published على نفس الكورس، الطالب لما يدوس على الزرار بيفتحله واحد منهم عشوائي. الزرار بيظهر للطلاب لما الاختبار يكون Published.
       </p>
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
@@ -342,7 +342,8 @@ function CoursePicker({ test, onSaved, onClose }) {
           <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-lg">
             {shown.length === 0 && <li className="px-3 py-4 text-center text-xs text-gray-400">No courses found</li>}
             {shown.map((c) => {
-              const movedFrom = c.linkedTestId && c.linkedTestId !== test.id && selected.has(c.id);
+              // 🆕 الكورس ممكن يكون مربوط بأكتر من اختبار — بنعرض الاختبارات التانية بس للعلم
+              const otherTests = (c.linkedTestIds || (c.linkedTestId ? [c.linkedTestId] : [])).filter((x) => x !== test.id);
               return (
                 <li key={c.id}>
                   <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
@@ -351,8 +352,8 @@ function CoursePicker({ test, onSaved, onClose }) {
                       <span className="block text-sm text-gray-800 truncate">{c.title}</span>
                       <span className="block text-[11px] text-gray-400">
                         {c.language || '—'} · {c.status}
-                        {c.linkedTestId && c.linkedTestId !== test.id && (
-                          <span className={movedFrom ? 'text-amber-600' : ''}> · linked to “{c.linkedTestId}”{movedFrom ? ' (will move here)' : ''}</span>
+                        {otherTests.length > 0 && (
+                          <span> · also linked to {otherTests.map((x) => `“${x}”`).join(', ')}</span>
                         )}
                       </span>
                     </span>

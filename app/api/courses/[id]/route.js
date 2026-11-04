@@ -36,7 +36,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// 🆕 placementTest = { id, path, label } لو الكورس مربوط باختبار تحديد مستوى مخصص منشور (وإلا null)
+// 🆕 placementTest = { id, path, label, tests } لو الكورس مربوط باختبار تحديد مستوى مخصص منشور (وإلا null)
 function serializeCourse(c, placementTest = null) {
   return {
     id: c._id.toString(),
@@ -65,7 +65,6 @@ function serializeCourse(c, placementTest = null) {
     requirements: c.requirements,
     outcomes: c.outcomes,
     tags: c.tags,
-    classMarkerQuizId: c.classMarkerQuizId || "",
     status: c.status,
     studentsCount: c.studentsCount,
     ratingAverage: c.ratingAverage,
@@ -75,6 +74,8 @@ function serializeCourse(c, placementTest = null) {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     placementTest,
+    // 🆕 كل الاختبارات المخصصة المربوطة بالكورس (الطالب بيفتحله واحد منهم عشوائي)
+    placementTests: placementTest?.tests || [],
   };
 }
 
@@ -96,7 +97,6 @@ const EDITABLE_FIELDS = [
   "requirements",
   "outcomes",
   "tags",
-  "classMarkerQuizId",
   "status",
 ];
 
@@ -306,11 +306,6 @@ export async function PUT(request, { params }) {
     if (updates.shortDescription !== undefined) {
       updates.shortDescription = String(updates.shortDescription).slice(0, 300);
     }
-    // 🆕 اختبار ClassMarker: تعقيم بسيط (مسافات زيادة + حد أقصى للطول).
-    // فاضي = مفيش اختبار لهذا الكورس، ده سلوك طبيعي ومقصود.
-    if (updates.classMarkerQuizId !== undefined) {
-      updates.classMarkerQuizId = String(updates.classMarkerQuizId).trim().slice(0, 100);
-    }
     // 🔒 لو المدرس عايز يغيّر الـ slug لازم يبقى فريد
     if (body.slug !== undefined) {
       const newSlug = slugify(body.slug);
@@ -345,7 +340,7 @@ export async function PUT(request, { params }) {
     // اللي بيعمل insertOne بالـ driver الخام من غير ما يعدي على Mongoose
     // أصلًا) شكلها مش مطابق تمامًا للـ schema الحالي، فـ save() كان بيرجع
     // status 200 "ناجح" من غير ما يبعت فعليًا كل الحقول المتغيّرة لداتابيز
-    // (فالـ classMarkerQuizId مثلًا بيختفي أول ما تعمل reload). نفس فئة
+    // (فأي حقل متعدّل بيختفي أول ما تعمل reload). نفس فئة
     // المشكلة اللي DELETE تحت معالجها بـ fallback للـ driver الخام.
     // findByIdAndUpdate بيبني أمر $set مباشر بالـ id بس (من غير أي اعتماد
     // على "نسخة" المستند اللي اتحمّلت قبل كده)، فبيضمن إن كل حقل في updates

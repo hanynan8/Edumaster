@@ -28,9 +28,14 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getPriceForCurrency } from "@/app/lib/currency";
-import { buildClassMarkerTestUrl } from "@/app/lib/classMarker";
 import LoadingScreen from "./LoadingScreen";
-import { getPlacementTestForCourse, getPlacementTestPath, hasLinkedPlacementTest } from "@/app/lib/placementLevels";
+import {
+  getPlacementTestForCourse,
+  getPlacementTestIdsForCourse,
+  getPlacementTestPath,
+  hasLinkedPlacementTest,
+  pickRandomPlacementTestId,
+} from "@/app/lib/placementLevels";
 
 // 🆕 زرار "اختبر مستواك" في كارت الكورس على الصفحة الرئيسية — نص بسيط
 // حسب اللغة (مش جوه ui المُمرّرة من الصفحة الأب عشان منضطرش نعدّل كل
@@ -83,8 +88,8 @@ function localizeCourse(c, language, ui) {
     categorySlug: c.categorySlug || "",
     courseLanguage: c.language || "",
     placementTestId: getPlacementTestForCourse(c), // "a1" | "a2" | id اختبار مخصص | null
+    placementTestIds: getPlacementTestIdsForCourse(c), // 🆕 كل الاختبارات المربوطة (الطالب بيفتح واحد منهم عشوائي)
     placementTestLinked: hasLinkedPlacementTest(c), // 🆕 الأدمن ربط الكورس باختبار مخصص (أي لغة)
-    classMarkerQuizId: c.classMarkerQuizId || "",
     teacherName: c.teacherName || "",
     level: c.level,
     levelLabel: ui.levels[c.level] || c.level,
@@ -304,14 +309,10 @@ export default function CoursesSection({
 }
 
 function CourseCard({ course, ui, lang, visible, delay }) {
-  // 🆕 نفس فكرة زرار "اختبر مستواك" في /courses، بس هنا (كارت الصفحة
-  // الرئيسية): بيظهر لو الكورس عنده classMarkerQuizId، وبيفتح رابط
-  // ClassMarker في تاب جديد من غير ما يودّي لصفحة تفاصيل الكورس.
-  // 🆕 كورسات الإسباني (Language + es): اختبار المستوى الداخلي (/spanish-test) جمب السعر
-  // بدل زرار ClassMarker القديم.
+  // 🆕 زرار "اختبر مستواك" على كارت الصفحة الرئيسية: بيفتح اختبار المستوى الداخلي في تاب جديد
+  // من غير ما يودّي لصفحة تفاصيل الكورس. كورسات الإسباني (Language + es): جمب السعر.
   const isSpanishCourse = course.categorySlug === "language" && course.courseLanguage === "es";
-  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني (وبيحل محل زرار ClassMarker)
-  const showLevelTestBtn = Boolean(course.classMarkerQuizId) && !isSpanishCourse && !course.placementTestLinked;
+  // 🆕 كورس مربوط باختبار مخصص من الأدمن: زرار الاختبار بيظهر حتى لو مش إسباني
   // اختبار المستوى بيظهر على كورسات A1 (Start A1.1 / Basic A1.2 / Survival A1.3) → اختبار A1،
   // وعلى كورسات A2 (A2.1 / A2.2 / A2.3...) → اختبار A2
   const showSpanishTest = (isSpanishCourse || course.placementTestLinked) && Boolean(course.placementTestId);
@@ -320,14 +321,9 @@ function CourseCard({ course, ui, lang, visible, delay }) {
   function handleSpanishTestClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.open(getPlacementTestPath(course.placementTestId), "_blank", "noopener,noreferrer");
-  }
-
-  function handleLevelTestClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = buildClassMarkerTestUrl(course.classMarkerQuizId);
-    window.open(url, "_blank", "noopener,noreferrer");
+    // 🆕 لو الكورس مربوط بأكتر من اختبار → بنفتح واحد منهم عشوائي
+    const pick = pickRandomPlacementTestId(course.placementTestIds) || course.placementTestId;
+    window.open(getPlacementTestPath(pick), "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -362,17 +358,6 @@ function CourseCard({ course, ui, lang, visible, delay }) {
         <h3 className="font-semibold text-[#0a0a0a] text-sm leading-snug line-clamp-2 min-h-[2.4em] group-hover:text-[#C9A227] transition-colors duration-150">
           {course.title}
         </h3>
-        {showLevelTestBtn && (
-          <button
-            type="button"
-            onClick={handleLevelTestClick}
-            className="inline-flex items-center justify-center gap-1.5 mt-1 border border-[#C9A227]/40 text-[#8a6d10] text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#C9A227] hover:text-white hover:border-[#C9A227] transition-colors"
-          >
-            <GraduationCapIcon size={13} />
-            {levelTestLabel}
-          </button>
-        )}
-
         <div className="flex items-center justify-between mt-auto pt-2">
           <span className="text-sm font-black" style={{ color: course.isFree ? "#10b981" : "#0a0a0a" }}>
             {course.isFree || !course.price ? ui.free : `${course.price} ${course.currency}`}

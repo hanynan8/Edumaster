@@ -151,8 +151,6 @@ const T = {
     grantSkipped: (n) => `${n} user(s) were not added because they are this course's supervising teacher or its creator (they already have full access).`,
     grantRemoveConfirm: (email) => `Remove the free enrollment of ${email}? They will lose access to this course.`,
     grantRemoveFailed: "Couldn't remove the enrollment, try again",
-    classMarkerQuizId: "ClassMarker Test ID (optional)",
-    classMarkerQuizIdHint: "Paste the Quiz ID from your ClassMarker test link (e.g. the part after ?quiz= in https://www.classmarker.com/online-test/start?quiz=...). If filled in, a \"Test your level\" section will show on the course page. Leave empty for no test.",
     saveChanges: "Save changes",
     createCourse: "Create course",
     cancel: "Cancel",
@@ -222,8 +220,6 @@ const T = {
     grantSkipped: (n) => `${n} مستخدم لم يُضَف لأنه المدرّس المشرف على الكورس أو منشئه (عنده وصول كامل أصلًا).`,
     grantRemoveConfirm: (email) => `إلغاء التسجيل المجاني لـ ${email}؟ هيفقد الوصول لهذا الكورس.`,
     grantRemoveFailed: "تعذّر إلغاء التسجيل، حاول مرة أخرى",
-    classMarkerQuizId: "معرّف اختبار ClassMarker (اختياري)",
-    classMarkerQuizIdHint: "الصق معرّف الاختبار (Quiz ID) من رابط اختبار ClassMarker الخاص بك (الجزء الذي يلي ?quiz= في رابط مثل https://www.classmarker.com/online-test/start?quiz=...). إذا تم إدخاله، سيظهر قسم \"اختبر مستواك\" في صفحة الدورة. اتركه فارغًا إذا لم ترغب في اختبار.",
     saveChanges: "حفظ التعديلات",
     createCourse: "إنشاء الدورة",
     cancel: "إلغاء",
@@ -293,8 +289,6 @@ const T = {
     grantSkipped: (n) => `${n} usuario(s) no se añadieron porque son el profesor supervisor o el creador de este curso (ya tienen acceso completo).`,
     grantRemoveConfirm: (email) => `¿Quitar la inscripción gratuita de ${email}? Perderá el acceso a este curso.`,
     grantRemoveFailed: "No se pudo quitar la inscripción, inténtalo de nuevo",
-    classMarkerQuizId: "ID de prueba ClassMarker (opcional)",
-    classMarkerQuizIdHint: "Pega el Quiz ID del enlace de tu prueba ClassMarker (la parte después de ?quiz= en un enlace como https://www.classmarker.com/online-test/start?quiz=...). Si se completa, se mostrará una sección \"Evalúa tu nivel\" en la página del curso. Déjalo vacío si no quieres prueba.",
     saveChanges: "Guardar cambios",
     createCourse: "Crear curso",
     cancel: "Cancelar",
@@ -392,7 +386,6 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
     isFree: course?.isFree ?? false,
     status: course?.status === "published" || course?.status === "archived" ? course.status : "pending",
     tags: (course?.tags || []).join(", "),
-    classMarkerQuizId: course?.classMarkerQuizId || "",
   });
 
   useEffect(() => {
@@ -507,7 +500,6 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
       isFree: false,
       status: "pending",
       tags: "",
-      classMarkerQuizId: "",
     });
     setDraftRestored(false);
   }
@@ -542,11 +534,6 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
       return { ...f, prices: nextPrices };
     });
   }
-
-  // 🆕 التصنيف المختار حاليًا هو "Language" ولا لأ — بيتحدد بالـ slug (مش
-  // الاسم) عشان يفضل شغال أيًا كانت لغة الموقع الحالية. لو الإدارة مغيّرش
-  // اسم/slug التصنيف ده من لوحة التصنيفات، الفحص ده هيفضل شغال زي ما هو.
-  const isLanguageCategory = categories.find((c) => c.id === form.category)?.slug === "language";
 
   // 🆕 نظام الساب-تصنيفات الحقيقي: التصنيف الرئيسي (dropdown الأول) بيعرض
   // بس التصنيفات اللي مالهاش parent (top-level) — الساب-تصنيفات (زي عربي/
@@ -632,7 +619,6 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
         requirements: base.requirements,
         outcomes: base.outcomes,
         tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
-        classMarkerQuizId: form.classMarkerQuizId.trim(),
       };
       // 🆕 الموديريتور بيبعت المدرّس المشرف: دايمًا في الإنشاء، وفي التعديل
       // بس لو غيّره فعلًا (عشان كورس مدرّسه الأصلي مش "teacher" — زي كورس
@@ -1012,25 +998,6 @@ export default function CourseFormModal({ course, onClose, onSaved, moderatorMod
               onChange={(e) => update("tags", e.target.value)}
             />
           </div>
-
-          {/* 🆕 اختبار "قيّم مستواك" (ClassMarker) — الحقل ده بيظهر بس لو
-              التصنيف المختار هو "Language" (categorySlug === "language")،
-              لأن الاختبار ده معناه بس لدورات اللغة (اختبار تحديد مستوى في
-              لغة معيّنة). لو المدرس بدّل التصنيف لحاجة تانية، الحقل بيختفي
-              (لكن القيمة المحفوظة مش بتتمسح من الداتابيز، بترجع تظهر تاني
-              لو رجّع اختار Language تاني). */}
-          {isLanguageCategory && (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t.classMarkerQuizId}</label>
-              <input
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5279B4]"
-                value={form.classMarkerQuizId}
-                onChange={(e) => update("classMarkerQuizId", e.target.value)}
-                placeholder="yba59c342adc8815"
-              />
-              <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{t.classMarkerQuizIdHint}</p>
-            </div>
-          )}
 
           <div className="space-y-3 pt-2">
             <button

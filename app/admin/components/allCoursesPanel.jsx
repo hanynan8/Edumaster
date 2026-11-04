@@ -4,17 +4,15 @@
 //
 // 🆕 "All Courses" — لوحة الأدمن اللي بتوريه كل كورسات المدرسين (أي حالة:
 // draft/pending/published/archived)، مش المستنية مراجعة بس زي
-// coursesReviewPanel.jsx. الهدف الأساسي منها دلوقتي: تدي الأدمن مكان
-// يقدر فيه يحط/يعدّل classMarkerQuizId لأي كورس Language في أي وقت،
-// مش بس وقت ما الكورس يكون pending. بتستخدم نفس GET/PUT /api/courses[/id]
+// coursesReviewPanel.jsx. بتستخدم نفس GET /api/courses و DELETE /api/courses/[id]
 // الحقيقيين (موديل Course)، مش /api/data زي محرر
 // app/admin/components/(editcomponents)/courses.jsx (ده بيعدّل كولكشن
 // تاني خالص — صفحة الكورسات التسويقية الثابتة).
 
 import { useEffect, useState } from 'react';
 import {
-  BookOpen, Loader, AlertCircle, CheckCircle2, Search, User, Tag,
-  Link2, Save, ChevronLeft, ChevronRight, Trash2,
+  BookOpen, Loader, AlertCircle, Search, User, Tag,
+  ChevronLeft, ChevronRight, Trash2,
 } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -23,73 +21,6 @@ const STATUS_COLORS = {
   published: 'bg-green-100 text-green-700',
   archived: 'bg-red-100 text-red-600',
 };
-
-function QuizIdEditor({ course, onSaved }) {
-  const [value, setValue] = useState(course.classMarkerQuizId || '');
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
-
-  const isLanguage = course.categorySlug === 'language';
-
-  async function handleSave() {
-    setSaving(true);
-    setMsg('');
-    try {
-      const res = await fetch(`/api/courses/${course.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classMarkerQuizId: value.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'save_failed');
-      setMsg('saved');
-      onSaved?.(course.id, data.classMarkerQuizId || '');
-    } catch {
-      setMsg('error');
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMsg(''), 3000);
-    }
-  }
-
-  if (!isLanguage) {
-    return (
-      <p className="text-xs text-gray-400 italic">
-        Only Language-category courses show a ClassMarker test — change the course's category first.
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <label className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
-        <Link2 size={12} /> ClassMarker Quiz ID
-      </label>
-      <div className="flex gap-2">
-        <input
-          className="flex-1 border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-300"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="yba59c342adc8815"
-        />
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60"
-        >
-          {saving ? <Loader size={12} className="animate-spin" /> : <Save size={12} />}
-          Save
-        </button>
-      </div>
-      {msg === 'saved' && (
-        <p className="text-[11px] text-green-600 mt-1 flex items-center gap-1"><CheckCircle2 size={11} /> Saved.</p>
-      )}
-      {msg === 'error' && (
-        <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Failed to save.</p>
-      )}
-    </div>
-  );
-}
 
 export default function AllCoursesPanel() {
   const [courses, setCourses] = useState(null);
@@ -116,12 +47,6 @@ export default function AllCoursesPanel() {
   }
 
   useEffect(load, [page, search]);
-
-  function handleQuizSaved(courseId, newValue) {
-    setCourses((prev) =>
-      prev ? prev.map((c) => (c.id === courseId ? { ...c, classMarkerQuizId: newValue } : c)) : prev
-    );
-  }
 
   // 🆕 حذف كورس (الأدمن يقدر يحذف أي كورس). بيستخدم نفس DELETE /api/courses/[id]
   // اللي بيستخدمه المدرس لكورساته — الـ API بيسمح للأدمن أو صاحب الكورس بس،
@@ -184,8 +109,7 @@ export default function AllCoursesPanel() {
             )}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Every course from every teacher, any status. Edit a course's ClassMarker test ID here anytime —
-            works the same as when a teacher edits it from their own dashboard.
+            Every course from every teacher, any status.
           </p>
           <form onSubmit={handleSearchSubmit} className="mt-4 flex gap-2 max-w-md">
             <div className="relative flex-1">
@@ -242,9 +166,6 @@ export default function AllCoursesPanel() {
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Tag size={11} /> {c.categoryName || '—'}
                     </p>
-                  </div>
-                  <div className="mt-auto pt-2 border-t border-gray-100">
-                    <QuizIdEditor course={c} onSaved={handleQuizSaved} />
                   </div>
                   <button
                     onClick={() => handleDelete(c)}

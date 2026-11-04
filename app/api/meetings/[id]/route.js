@@ -23,7 +23,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
-import { deleteDailyRoom, updateDailyRoom } from "@/app/lib/daily";
+import { deleteDailyRoom, updateDailyRoom, createDailyRoom, isDailyRoomGoneError } from "@/app/lib/daily";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
 import { notifyMeetingChange } from "@/app/lib/meetingNotify";
 import {
@@ -236,7 +236,17 @@ export async function PUT(request, { params }) {
       if (scheduleChanged && target.source === "daily" && target.dailyRoomName) {
         try {
           const endDate = new Date(target.scheduledAt.getTime() + target.durationMinutes * 60_000);
-          await updateDailyRoom(target.dailyRoomName, { startDate: target.scheduledAt, endDate });
+          try {
+            await updateDailyRoom(target.dailyRoomName, { startDate: target.scheduledAt, endDate });
+          } catch (updateErr) {
+            // 🆕 الغرفة اتمسحت/انتهت عند Daily → بنعمل غرفة جديدة بالمعاد الجديد بدل
+            // ما نرجّع تحذير بس ونسيب المحاضرة مكسورة.
+            if (!isDailyRoomGoneError(updateErr)) throw updateErr;
+            const room = await createDailyRoom({ startDate: target.scheduledAt, endDate });
+            target.dailyRoomName = room.roomName;
+            target.link = room.joinUrl;
+            await target.save();
+          }
         } catch (err) {
           console.error("[/api/meetings/[id]] Daily room update failed:", err);
           dailyWarning =

@@ -20,7 +20,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createMeetingToken } from "@/app/lib/daily";
+import { createMeetingToken, createDailyRoom, deleteDailyRoom, isDailyRoomGoneError } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
@@ -29,6 +29,29 @@ function jsonResponse(data, status = 200) {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+}
+
+// 🆕 self-heal: لو غرفة Daily اتمسحت/اتفقدت وإحنا لسه جوه وقت المحاضرة، بنعمل غرفة جديدة
+// بنفس المعاد ونحدّث الاجتماع — بدل ما الطلاب كلهم يفضلوا بيشوفوا خطأ لحد ما حد يتدخّل يدويًا.
+// الاستبدال ذرّي (بشرط إن dailyRoomName لسه القديم) عشان لو طالبين دخلوا في نفس اللحظة
+// ماتتعملش غرفتين: اللي يخسر السباق بيمسح غرفته ويستخدم اللي اتحفظت.
+async function recreateMeetingRoom(Meeting, meeting, endDate) {
+  let created;
+  try {
+    created = await createDailyRoom({ startDate: meeting.scheduledAt, endDate });
+  } catch (err) {
+    console.error("[/api/meetings/[id]/token] room re-creation failed:", err);
+    return null;
+  }
+  const updated = await Meeting.findOneAndUpdate(
+    { _id: meeting._id, dailyRoomName: meeting.dailyRoomName },
+    { $set: { dailyRoomName: created.roomName, link: created.joinUrl } },
+    { new: true }
+  );
+  if (updated) return { roomName: updated.dailyRoomName, link: updated.link };
+  await deleteDailyRoom(created.roomName);
+  const fresh = await Meeting.findById(meeting._id, "dailyRoomName link").lean();
+  return fresh?.dailyRoomName ? { roomName: fresh.dailyRoomName, link: fresh.link } : null;
 }
 
 export async function GET(request, { params }) {
@@ -96,16 +119,45 @@ export async function GET(request, { params }) {
     // (nbf/exp على مستوى الغرفة)، فمش لازم نكرر الفحص هنا يدويًا.
     const endDate = new Date(meeting.scheduledAt.getTime() + meeting.durationMinutes * 60_000);
 
-    const token = await createMeetingToken({
-      roomName: meeting.dailyRoomName,
-      userId: session.user.id,
-      userName: session.user.name,
-      isOwner: isRoomHost,
-      startDate: meeting.scheduledAt,
-      endDate,
-    });
+    // 🆕 الغرفة بتنتهي بعد نهاية المحاضرة بساعتين (شوف createDailyRoom) — مفيش داعي
+    // نكلّم Daily لو الوقت عدّى.
+    if (Date.now() > endDate.getTime() + 2 * 60 * 60_000) {
+      return jsonResponse({ error: "meeting_ended" }, 410);
+    }
 
-    return jsonResponse({ token, url: meeting.link, roomName: meeting.dailyRoomName });
+    const issueToken = (roomName) =>
+      createMeetingToken({
+        roomName,
+        userId: session.user.id,
+        userName: session.user.name,
+        isOwner: isRoomHost,
+        startDate: meeting.scheduledAt,
+        endDate,
+      });
+
+    let token;
+    let roomName = meeting.dailyRoomName;
+    let roomUrl = meeting.link;
+    try {
+      token = await issueToken(roomName);
+    } catch (tokenErr) {
+      console.error("[/api/meetings/[id]/token] createMeetingToken failed:", tokenErr);
+      if (!isDailyRoomGoneError(tokenErr)) throw tokenErr;
+      // 🆕 الغرفة اتمسحت/اتفقدت عند Daily → نحاول نعيد إنشاءها (self-heal).
+      const healed = await recreateMeetingRoom(Meeting, meeting, endDate);
+      if (!healed) return jsonResponse({ error: "room_unavailable" }, 410);
+      roomName = healed.roomName;
+      roomUrl = healed.link;
+      try {
+        token = await issueToken(roomName);
+      } catch (retryErr) {
+        console.error("[/api/meetings/[id]/token] token after re-creation failed:", retryErr);
+        if (isDailyRoomGoneError(retryErr)) return jsonResponse({ error: "room_unavailable" }, 410);
+        throw retryErr;
+      }
+    }
+
+    return jsonResponse({ token, url: roomUrl, roomName });
   } catch (err) {
     console.error("[/api/meetings/[id]/token] GET error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

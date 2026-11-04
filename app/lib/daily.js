@@ -138,7 +138,10 @@ export async function updateDailyRoom(roomName, { startDate, endDate }) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const reason = data?.error || data?.info || `HTTP ${res.status}`;
-    throw new Error(`daily_update_room_error: ${reason}`);
+    const err = new Error(`daily_update_room_error: ${reason}`);
+    err.dailyStatus = res.status;
+    err.dailyReason = String(reason);
+    throw err;
   }
   return { joinUrl: data.url, roomName: data.name };
 }
@@ -158,6 +161,13 @@ export async function updateDailyRoom(roomName, { startDate, endDate }) {
  *   عشان التوكن ميرفضش الدخول قبل ما الغرفة نفسها تفتح.
  * - enableRecording متاحة بس للمدرس/الأدمن، مش لأي طالب.
  */
+/** 🆕 هل خطأ createMeetingToken معناه إن الغرفة مش موجودة/منتهية عند Daily؟ */
+export function isDailyRoomGoneError(err) {
+  if (!err || err.dailyStatus === undefined) return false;
+  if (err.dailyStatus === 404) return true;
+  return err.dailyStatus === 400 && /room.*(not|exist|found)|not.?found|does not exist|expired/i.test(err.dailyReason || "");
+}
+
 export async function createMeetingToken({
   roomName,
   userId,
@@ -194,7 +204,11 @@ export async function createMeetingToken({
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const reason = data?.error || data?.info || `HTTP ${res.status}`;
-    throw new Error(`daily_create_token_error: ${reason}`);
+    const err = new Error(`daily_create_token_error: ${reason}`);
+    // 🆕 الـ route بيحتاج يفرّق بين "الغرفة مش موجودة/منتهية عند Daily" وأي خطأ تاني.
+    err.dailyStatus = res.status;
+    err.dailyReason = String(reason);
+    throw err;
   }
   return data.token;
 }

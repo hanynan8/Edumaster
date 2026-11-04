@@ -353,9 +353,9 @@ export default function TakeQuizPage({ params }) {
   const totalQ = quiz.questions.length;
   const q = quiz.questions[currentIdx];
   const isLastQ = currentIdx === totalQ - 1;
-  // 🆕 السؤال الصوتي: الأوديو بيفضل مثبّت فوق الشاشة (sticky) وبيكمّل معانا للأسئلة
-  // اللي بعده لحد ما يظهر سؤال له أوديو/فيديو تاني — عشان الطالب مايحتاجش يرجع
-  // يدوّر عليه بعد "التالي". الفيديو بيفضل جوه السؤال زي ما هو.
+  // 🆕 السؤال الصوتي: الأوديو بيتثبّت فوق الشاشة (sticky) مع السؤال اللي له أوديو،
+  // وبيكمّل مع الأسئلة اللي المدرّس علّمها "تابع لأوديو اللي قبله" (continueAudio).
+  // أي سؤال مش تابع لأوديو بيختفي معاه الأوديو. الفيديو بيفضل جوه السؤال.
   let stickyAudio = null;
   for (let i = currentIdx; i >= 0; i--) {
     const m = quiz.questions[i];
@@ -363,6 +363,7 @@ export default function TakeQuizPage({ params }) {
       if (m.mediaType === "audio") stickyAudio = m.mediaUrl;
       break;
     }
+    if (!m?.continueAudio) break;
   }
   const isAnswered = (question) => {
     const v = answers[question.id];

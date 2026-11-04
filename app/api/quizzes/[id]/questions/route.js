@@ -67,6 +67,7 @@ export async function POST(request, { params }) {
       options,
       mediaUrl: media.mediaUrl,
       mediaType: media.mediaType,
+      continueAudio: !media.mediaUrl && body?.continueAudio === true,
       points: Number.isFinite(Number(body?.points)) ? Math.max(0, Number(body.points)) : 1,
       order,
     });

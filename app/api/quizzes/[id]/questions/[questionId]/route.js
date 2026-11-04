@@ -81,6 +81,11 @@ export async function PUT(request, { params }) {
       question.mediaType = media.mediaType;
     }
 
+    // 🆕 تابع لأوديو السؤال اللي قبله (بيتلغي لو السؤال له مرفق خاص)
+    if (body?.continueAudio !== undefined || body?.mediaUrl !== undefined) {
+      question.continueAudio = !question.mediaUrl && (body?.continueAudio !== undefined ? body.continueAudio === true : question.continueAudio);
+    }
+
     question.type = type;
     if (body?.points !== undefined) question.points = Math.max(0, Number(body.points) || 0);
     if (body?.order !== undefined) question.order = Number(body.order) || 0;

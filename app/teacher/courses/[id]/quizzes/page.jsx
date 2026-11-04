@@ -9,6 +9,7 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowRight, ArrowLeft, Plus, Pencil, Trash2, ListChecks, BarChart3, Loader, Clock } from "lucide-react";
 import QuizFormModal from "@/app/teacher/components/QuizFormModal";
 import CourseTabs from "@/app/teacher/components/CourseTabs";
@@ -56,6 +57,9 @@ export default function CourseQuizzesPage({ params }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const { data: session } = useSession();
+  // 🆕 المدرّس يراجع النتايج بس — من غير إنشاء/تعديل/حذف أو محرر الأسئلة.
+  const canEdit = session?.user?.role !== "teacher";
   const [quizzes, setQuizzes] = useState(null);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(undefined);
@@ -97,20 +101,24 @@ export default function CourseQuizzesPage({ params }) {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
-        <BackArrow size={15} /> {t.backToContent}
-      </Link>
+      {canEdit && (
+        <Link href={`/teacher/courses/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6">
+          <BackArrow size={15} /> {t.backToContent}
+        </Link>
+      )}
 
       <CourseTabs courseId={id} active="quizzes" />
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-800">{t.pageTitle}</h1>
-        <button
+        {canEdit && (
+          <button
           onClick={() => setModal(null)}
           className="flex items-center gap-2 text-sm font-semibold bg-[#003A91] text-white px-4 py-2.5 rounded-xl hover:bg-[#002E74]"
         >
           <Plus size={16} /> {t.newQuiz}
         </button>
+        )}
       </div>
 
       {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg mb-4">{error}</div>}
@@ -149,24 +157,30 @@ export default function CourseQuizzesPage({ params }) {
                   )}
                 </p>
               </div>
-              <Link
+              {canEdit && (
+                <Link
                 href={`/teacher/quizzes/${q.id}`}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-[#EBEFF6] text-[#003A91] px-3 py-2 rounded-lg hover:bg-[#D7E0EE] shrink-0"
               >
                 <ListChecks size={14} /> {t.questions}
               </Link>
+              )}
               <Link
                 href={`/teacher/quizzes/${q.id}/results`}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-[#EBEFF6] text-[#003A91] px-3 py-2 rounded-lg hover:bg-[#D7E0EE] shrink-0"
               >
                 <BarChart3 size={14} /> {t.results}
               </Link>
-              <button onClick={() => setModal(q)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
+              {canEdit && (
+                <>
+                <button onClick={() => setModal(q)} className="text-gray-400 hover:text-gray-700 p-2 shrink-0">
                 <Pencil size={15} />
               </button>
-              <button onClick={() => handleDelete(q)} className="text-red-400 hover:text-red-600 p-2 shrink-0">
+                <button onClick={() => handleDelete(q)} className="text-red-400 hover:text-red-600 p-2 shrink-0">
                 <Trash2 size={15} />
               </button>
+                </>
+              )}
             </div>
           ))}
         </div>

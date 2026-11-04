@@ -23,9 +23,9 @@ const TABS = [
 export default function CourseTabs({ courseId, active }) {
   const { language } = useLanguage();
   const { data: session } = useSession();
-  // 🆕 المدرّس (حتى المشرف على الكورس) مالوش أي تعديل على الكورس: بيشوف تابين بس: "الواجبات"
-  // (تصحيح التسليمات) و"أداء الطلاب". باقي التابات للأدمن/الموديريتور.
-  const tabs = session?.user?.role === "teacher" ? TABS.filter((tab) => ["performance", "assignments"].includes(tab.key)) : TABS;
+  // 🆕 المدرّس (حتى المشرف على الكورس) مالوش أي تعديل على الكورس: بيشوف 3 تابات بس: "الواجبات"
+  // و"الاختبارات" (تصحيح/مراجعة التسليمات) و"أداء الطلاب". باقي التابات للأدمن/الموديريتور.
+  const tabs = session?.user?.role === "teacher" ? TABS.filter((tab) => ["performance", "assignments", "quizzes"].includes(tab.key)) : TABS;
   return (
     <div className="flex items-center gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
       {tabs.map((tab) => (

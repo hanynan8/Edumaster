@@ -97,7 +97,7 @@ export async function GET(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    const access = threadAccess(auth.session, course.teacher, result.student, { supervisor: false });
+    const access = threadAccess(auth.session, course.teacher, result.student);
     if (!access) return jsonResponse({ error: "forbidden" }, 403);
 
     return jsonResponse(await serializeResult(result, quiz, access));
@@ -117,7 +117,7 @@ export async function PUT(request, { params }) {
     const auth = await requireSession();
     if (auth.response) return auth.response;
     const { session } = auth;
-    if (threadAccess(session, course.teacher, result.student, { supervisor: false }) !== "staff") {
+    if (threadAccess(session, course.teacher, result.student) !== "staff") {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 

@@ -13,7 +13,7 @@
 import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuestionModel } from "@/app/lib/models";
-import { requireSession, canManageCourse } from "@/app/lib/rbac";
+import { requireSession, canManageCourse, canGradeCourse } from "@/app/lib/rbac";
 import { recomputeCourseProgress } from "@/app/lib/progressHelpers";
 
 function jsonResponse(data, status = 200) {
@@ -56,7 +56,8 @@ export async function GET(request) {
     if (!course) return jsonResponse({ error: "not_found" }, 404);
 
     const auth = await requireSession();
-    const canManage = !auth.response && canManageCourse(auth.session, course.teacher);
+    // 🆕 المدرّس المشرف بيشوف قايمة الكويزات (قراءة فقط) عشان يراجع النتايج.
+    const canManage = !auth.response && (canManageCourse(auth.session, course.teacher) || canGradeCourse(auth.session, course.teacher));
 
     const Quiz = getQuizModel();
     const query = { course: courseId };

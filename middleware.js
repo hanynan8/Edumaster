@@ -75,8 +75,10 @@ const API_ROLE_RULES = [
 const TEACHER_BLOCKED_PAGES = [
   // /teacher/courses/<id>  (المحتوى) و /quizzes /assignments /announcements
   { re: /^\/teacher\/courses\/([^/]+)\/?$/, toPerformance: true },
-  { re: /^\/teacher\/courses\/([^/]+)\/(quizzes|announcements)(\/|$)/, toPerformance: true },
-  { re: /^\/teacher\/quizzes(\/|$)/ },
+  { re: /^\/teacher\/courses\/([^/]+)\/(announcements)(\/|$)/, toPerformance: true },
+  // محرر الأسئلة ممنوع، لكن /teacher/quizzes/<id>/results (مراجعة النتايج) مسموح.
+  { re: /^\/teacher\/quizzes\/?$/ },
+  { re: /^\/teacher\/quizzes\/[^/]+\/?$/ },
 ];
 
 function teacherBlockedRedirect(pathname, requestUrl) {

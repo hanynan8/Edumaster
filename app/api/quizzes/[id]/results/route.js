@@ -9,7 +9,7 @@
 import mongoose from "mongoose";
 import { connectToMongo, getAuthModel } from "@/app/lib/mongodb";
 import { getCourseModel, getQuizModel, getQuizResultModel } from "@/app/lib/models";
-import { requireSession, canManageCourse } from "@/app/lib/rbac";
+import { requireSession, canGradeCourse } from "@/app/lib/rbac";
 import { pickBestQuizResult, isPendingReview } from "@/app/lib/progressMath";
 
 function jsonResponse(data, status = 200) {
@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
 
     const auth = await requireSession();
     if (auth.response) return auth.response;
-    if (!canManageCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
+    if (!canGradeCourse(auth.session, course.teacher)) return jsonResponse({ error: "forbidden" }, 403);
 
     const QuizResult = getQuizResultModel();
     const results = await QuizResult.find({ quiz: quiz._id }).sort({ submittedAt: 1 }).lean();

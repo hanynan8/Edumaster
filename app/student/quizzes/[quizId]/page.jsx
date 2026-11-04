@@ -353,6 +353,17 @@ export default function TakeQuizPage({ params }) {
   const totalQ = quiz.questions.length;
   const q = quiz.questions[currentIdx];
   const isLastQ = currentIdx === totalQ - 1;
+  // 🆕 السؤال الصوتي: الأوديو بيفضل مثبّت فوق الشاشة (sticky) وبيكمّل معانا للأسئلة
+  // اللي بعده لحد ما يظهر سؤال له أوديو/فيديو تاني — عشان الطالب مايحتاجش يرجع
+  // يدوّر عليه بعد "التالي". الفيديو بيفضل جوه السؤال زي ما هو.
+  let stickyAudio = null;
+  for (let i = currentIdx; i >= 0; i--) {
+    const m = quiz.questions[i];
+    if (m?.mediaUrl) {
+      if (m.mediaType === "audio") stickyAudio = m.mediaUrl;
+      break;
+    }
+  }
   const isAnswered = (question) => {
     const v = answers[question.id];
     return typeof v === "string" ? v.trim().length > 0 : v !== undefined;
@@ -404,6 +415,13 @@ export default function TakeQuizPage({ params }) {
 
       {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg mb-4">{submitError}</div>}
 
+      {stickyAudio && (
+        <div className="sticky top-2 z-20 mb-3 bg-white/95 backdrop-blur rounded-xl border border-gray-200 shadow-sm p-2">
+          {/* key = الرابط → نفس العنصر بيفضل شغّال (التشغيل مايتقطعش) مع "التالي" */}
+          <AssignmentMedia key={stickyAudio} url={stickyAudio} type="audio" />
+        </div>
+      )}
+
       <div
         key={q.id}
         className={`bg-white rounded-2xl border p-4 ${
@@ -414,7 +432,7 @@ export default function TakeQuizPage({ params }) {
           {t.questionOf(currentIdx + 1, totalQ)} · {TYPE_LABELS[q.type]}
         </p>
         <p className="text-sm font-semibold text-gray-800 mb-3 whitespace-pre-wrap">{q.text}</p>
-        {q.mediaUrl && (
+        {q.mediaUrl && q.mediaType !== "audio" && (
           <div className="mb-3">
             <AssignmentMedia url={q.mediaUrl} type={q.mediaType} />
           </div>

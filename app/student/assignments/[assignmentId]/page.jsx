@@ -183,6 +183,13 @@ export default function SubmitAssignmentPage({ params }) {
         {isRTL ? <ArrowRight size={15} /> : <ArrowLeft size={15} />} {t.backToCourse}
       </Link>
 
+      {/* 🆕 الأوديو مثبّت فوق الشاشة (sticky) وإحنا بنكتب الإجابة/بنسحب لتحت */}
+      {assignment.mediaUrl && assignment.mediaType === "audio" && (
+        <div className="sticky top-2 z-20 mb-3 bg-white/95 backdrop-blur rounded-xl border border-gray-200 shadow-sm p-2">
+          <AssignmentMedia url={assignment.mediaUrl} type="audio" title={assignment.title} />
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
         <h1 className="text-xl font-semibold text-gray-800 mb-2">{assignment.title}</h1>
         {assignment.description && (
@@ -199,7 +206,7 @@ export default function SubmitAssignmentPage({ params }) {
             </span>
           )}
         </div>
-        {assignment.mediaUrl && (
+        {assignment.mediaUrl && assignment.mediaType !== "audio" && (
           <div className="mt-4">
             <AssignmentMedia url={assignment.mediaUrl} type={assignment.mediaType} title={assignment.title} />
           </div>

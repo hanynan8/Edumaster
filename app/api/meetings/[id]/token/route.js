@@ -20,7 +20,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createMeetingToken, createDailyRoom, deleteDailyRoom, isDailyRoomGoneError } from "@/app/lib/daily";
+import { createMeetingToken, createDailyRoom, deleteDailyRoom, isDailyRoomGoneError, checkDailyRoomExists } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
@@ -138,6 +138,18 @@ export async function GET(request, { params }) {
     let token;
     let roomName = meeting.dailyRoomName;
     let roomUrl = meeting.link;
+
+    // 🆕 Daily بتولّد توكن حتى لو الغرفة اتمسحت، فالـ self-heal تحت مكانش بيشتغل
+    // والدخول كان بيفشل بـ "You are not allowed to join this meeting".
+    // بنتأكد الأول إن الغرفة موجودة، وإلا نعيد إنشاءها بنفس المعاد.
+    if (!(await checkDailyRoomExists(roomName))) {
+      console.warn(`[/api/meetings/${id}/token] Daily room "${roomName}" not found (404) — re-creating`);
+      const healed = await recreateMeetingRoom(Meeting, meeting, endDate);
+      if (!healed) return jsonResponse({ error: "room_unavailable" }, 410);
+      roomName = healed.roomName;
+      roomUrl = healed.link;
+    }
+
     try {
       token = await issueToken(roomName);
     } catch (tokenErr) {

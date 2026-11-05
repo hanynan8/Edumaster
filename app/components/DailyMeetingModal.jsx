@@ -69,6 +69,15 @@ const FORBIDDEN_REASONS = {
     actionLabel: { en: "Subscription plans", ar: "خطط الاشتراك", es: "Planes de suscripción" },
     actionHref: "/membership",
   },
+  not_invited: {
+    message: {
+      en: "This meeting is invite-only and your email isn't on the invite list.",
+      ar: "هذه المحاضرة بدعوات فقط، وبريدك الإلكتروني غير موجود ضمن قائمة المدعوين.",
+      es: "Esta clase es solo por invitación y tu correo no está en la lista de invitados.",
+    },
+    actionLabel: null,
+    actionHref: null,
+  },
   not_enrolled: {
     message: {
       en: "You need to be enrolled in this course first to join the meeting.",
@@ -79,6 +88,108 @@ const FORBIDDEN_REASONS = {
     actionHref: null,
   },
 };
+
+// 🆕 رسائل دقيقة لأخطاء /api/meetings/[id]/token (حسب data.error) — قبل كده أي
+// خطأ غير "forbidden" كان بيظهر كـ "تعذّر التحقق من صلاحية الدخول" العامة.
+const TOKEN_ERRORS = {
+  room_unavailable: {
+    en: "The meeting room was deleted from the video service and we couldn't re-create it automatically. Please tell the teacher or support.",
+    ar: "تم حذف غرفة الاجتماع من خدمة الفيديو وتعذّرت إعادة إنشائها تلقائيًا. يرجى إبلاغ المدرّس أو الدعم.",
+    es: "La sala de la clase fue eliminada del servicio de video y no pudimos recrearla automáticamente. Avisa al profesor o a soporte.",
+  },
+  meeting_ended: {
+    en: "This meeting has ended and can no longer be joined.",
+    ar: "انتهت هذه المحاضرة ولم يعد من الممكن الانضمام إليها.",
+    es: "Esta clase ya terminó y no es posible unirse.",
+  },
+  not_a_daily_meeting: {
+    en: "This meeting is held on an external platform — use its own meeting link instead of this window.",
+    ar: "هذه المحاضرة تُعقد على منصة خارجية — استخدم رابط الاجتماع الخاص بها بدل هذه النافذة.",
+    es: "Esta clase se realiza en una plataforma externa — usa su propio enlace en lugar de esta ventana.",
+  },
+  not_found: {
+    en: "This meeting (or its course) wasn't found — it may have been deleted.",
+    ar: "لم يتم العثور على هذه المحاضرة (أو دورتها) — ربما تم حذفها.",
+    es: "No se encontró esta clase (o su curso) — es posible que haya sido eliminada.",
+  },
+  invalid_id: {
+    en: "The meeting link is invalid.",
+    ar: "رابط المحاضرة غير صالح.",
+    es: "El enlace de la clase no es válido.",
+  },
+  too_many_requests: {
+    en: "Too many attempts in a short time — wait a minute and try again.",
+    ar: "محاولات كثيرة خلال وقت قصير — انتظر دقيقة ثم أعد المحاولة.",
+    es: "Demasiados intentos en poco tiempo — espera un minuto e inténtalo de nuevo.",
+  },
+  unauthorized: {
+    en: "Your session has expired — sign in again and retry.",
+    ar: "انتهت جلستك — سجّل الدخول مرة أخرى ثم أعد المحاولة.",
+    es: "Tu sesión expiró — inicia sesión de nuevo e inténtalo otra vez.",
+  },
+  internal_error: {
+    en: "A server error occurred while preparing your access — try again shortly.",
+    ar: "حدث خطأ في الخادم أثناء تجهيز الدخول — أعد المحاولة بعد قليل.",
+    es: "Ocurrió un error del servidor al preparar tu acceso — inténtalo de nuevo en un momento.",
+  },
+};
+
+// 🆕 رسائل لأخطاء Daily نفسها وقت الـ join (e.error.type في daily-js) — قبل كده
+// كان بيظهر النص الإنجليزي الخام زي "You are not allowed to join this meeting".
+const DAILY_JOIN_ERRORS = {
+  "no-room": {
+    en: "The meeting room doesn't exist on the video service (it was probably deleted). Retry to re-create it automatically; if it persists, tell the teacher.",
+    ar: "غرفة الاجتماع غير موجودة في خدمة الفيديو (غالبًا تم حذفها). أعد المحاولة لإعادة إنشائها تلقائيًا، وإن تكرر الأمر بلّغ المدرّس.",
+    es: "La sala no existe en el servicio de video (probablemente fue eliminada). Reintenta para recrearla automáticamente; si persiste, avisa al profesor.",
+  },
+  "not-allowed": {
+    en: "The video service refused your entry — the room may have been deleted or your entry ticket doesn't match it. Retry; if it persists, contact support.",
+    ar: "رفضت خدمة الفيديو دخولك — قد تكون الغرفة محذوفة أو تذكرة الدخول لا تطابقها. أعد المحاولة، وإن تكرر الأمر تواصل مع الدعم.",
+    es: "El servicio de video rechazó tu entrada — la sala pudo ser eliminada o tu ticket no coincide. Reintenta; si persiste, contacta a soporte.",
+  },
+  "exp-room": {
+    en: "The meeting room's time has ended.",
+    ar: "انتهى وقت غرفة الاجتماع.",
+    es: "El tiempo de la sala de la clase terminó.",
+  },
+  "nbf-room": {
+    en: "The room isn't open yet — it opens 15 minutes before the scheduled time.",
+    ar: "الغرفة لم تُفتح بعد — تُفتح قبل موعد المحاضرة بـ 15 دقيقة.",
+    es: "La sala aún no está abierta — abre 15 minutos antes de la hora programada.",
+  },
+  "exp-token": {
+    en: "Your entry ticket has expired — retry to get a new one.",
+    ar: "انتهت صلاحية تذكرة الدخول — أعد المحاولة للحصول على تذكرة جديدة.",
+    es: "Tu ticket de entrada expiró — reintenta para obtener uno nuevo.",
+  },
+  "nbf-token": {
+    en: "Your entry ticket isn't valid yet — the room opens 15 minutes before the scheduled time.",
+    ar: "تذكرة الدخول لم تصبح سارية بعد — تُفتح الغرفة قبل موعد المحاضرة بـ 15 دقيقة.",
+    es: "Tu ticket aún no es válido — la sala abre 15 minutos antes de la hora programada.",
+  },
+  ejected: {
+    en: "You were removed from the meeting by the host.",
+    ar: "تم إخراجك من الاجتماع بواسطة المدرّس.",
+    es: "El anfitrión te sacó de la clase.",
+  },
+  "meeting-full": {
+    en: "The room has reached its maximum number of participants.",
+    ar: "وصلت الغرفة إلى الحد الأقصى من المشاركين.",
+    es: "La sala alcanzó el número máximo de participantes.",
+  },
+  "end-of-life": {
+    en: "This room has been closed by the video service.",
+    ar: "تم إغلاق هذه الغرفة من خدمة الفيديو.",
+    es: "El servicio de video cerró esta sala.",
+  },
+  "connection-error": {
+    en: "Couldn't connect to the video service — check your internet connection and retry.",
+    ar: "تعذّر الاتصال بخدمة الفيديو — تحقق من اتصال الإنترنت ثم أعد المحاولة.",
+    es: "No se pudo conectar al servicio de video — revisa tu conexión a internet e inténtalo de nuevo.",
+  },
+};
+
+const pickMsg = (map, language) => map[language] || map.en;
 
 const T = {
   en: {
@@ -334,7 +445,8 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
             setForbiddenReason(reason);
             setError(FORBIDDEN_REASONS[reason].message[language] || FORBIDDEN_REASONS[reason].message.en);
           } else {
-            setError(t.accessCheckFailed);
+            const known = TOKEN_ERRORS[err.message];
+            setError(known ? pickMsg(known, language) : t.accessCheckFailed);
           }
         }
         return;
@@ -407,7 +519,8 @@ export default function DailyMeetingModal({ meetingId, title, onClose, isTeacher
           .on("error", (e) => {
             if (!cancelled) {
               setStatus("error");
-              setError(e?.errorMsg || t.joinError);
+              const known = DAILY_JOIN_ERRORS[e?.error?.type];
+              setError(known ? pickMsg(known, language) : e?.errorMsg || t.joinError);
             }
           })
           .on("nonfatal-error", (e) => {

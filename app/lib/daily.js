@@ -214,6 +214,25 @@ export async function createMeetingToken({
 }
 
 /**
+ * 🆕 هل الغرفة لسه موجودة عند Daily؟ بنرجّع false بس لو Daily قالت 404 صريحة.
+ * أي خطأ تاني (شبكة / 5xx) بنعتبر الغرفة موجودة عشان ماننشئش غرف جديدة بالغلط.
+ * ضروري لأن POST /meeting-tokens بيولّد توكن حتى لو الغرفة اتمسحت، والدخول
+ * بعدها بيفشل برسالة "You are not allowed to join this meeting".
+ */
+export async function checkDailyRoomExists(roomName) {
+  if (!roomName) return false;
+  try {
+    const res = await fetch(`${DAILY_BASE}/rooms/${encodeURIComponent(roomName)}`, {
+      headers: authHeaders(),
+    });
+    return res.status !== 404;
+  } catch (err) {
+    console.error(`[daily] checkDailyRoomExists(${roomName}) failed:`, err);
+    return true;
+  }
+}
+
+/**
  * 🆕 عدد الحاضرين الفعليين دلوقتي في غرفة معيّنة، عن طريق presence API
  * بتاعة Daily — بيستخدم لتصحيح حالة "خلصت" في واجهة الطالب لو المدرس مدّ
  * المحاضرة فعليًا أكتر من durationMinutes المكتوبة (شوف

@@ -102,6 +102,11 @@ const TOKEN_ERRORS = {
     ar: "انتهت هذه المحاضرة ولم يعد من الممكن الانضمام إليها.",
     es: "Esta clase ya terminó y no es posible unirse.",
   },
+  daily_account_mismatch: {
+    en: "This server is connected to a different video account than this meeting's room, so joining was blocked to keep everyone in the same room. Please tell support.",
+    ar: "هذا الخادم مرتبط بحساب فيديو مختلف عن حساب غرفة هذه المحاضرة، فتم منع الدخول لضمان أن الجميع في نفس الغرفة. يرجى إبلاغ الدعم.",
+    es: "Este servidor está conectado a una cuenta de video distinta a la de la sala de esta clase, por lo que se bloqueó el acceso para que todos estén en la misma sala. Avisa a soporte.",
+  },
   not_a_daily_meeting: {
     en: "This meeting is held on an external platform — use its own meeting link instead of this window.",
     ar: "هذه المحاضرة تُعقد على منصة خارجية — استخدم رابط الاجتماع الخاص بها بدل هذه النافذة.",

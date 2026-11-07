@@ -23,7 +23,7 @@ import mongoose from "mongoose";
 import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff } from "@/app/lib/rbac";
-import { deleteDailyRoom, updateDailyRoom, createDailyRoom, isDailyRoomGoneError } from "@/app/lib/daily";
+import { deleteDailyRoom, ensureDailyRoom, isSameDailyAccount } from "@/app/lib/daily";
 import { serializeMeeting } from "@/app/lib/meetingSerialize";
 import { notifyMeetingChange } from "@/app/lib/meetingNotify";
 import {
@@ -236,21 +236,27 @@ export async function PUT(request, { params }) {
       if (scheduleChanged && target.source === "daily" && target.dailyRoomName) {
         try {
           const endDate = new Date(target.scheduledAt.getTime() + target.durationMinutes * 60_000);
-          try {
-            await updateDailyRoom(target.dailyRoomName, { startDate: target.scheduledAt, endDate });
-          } catch (updateErr) {
-            // 🆕 الغرفة اتمسحت/انتهت عند Daily → بنعمل غرفة جديدة بالمعاد الجديد بدل
-            // ما نرجّع تحذير بس ونسيب المحاضرة مكسورة.
-            if (!isDailyRoomGoneError(updateErr)) throw updateErr;
-            const room = await createDailyRoom({ startDate: target.scheduledAt, endDate });
-            target.dailyRoomName = room.roomName;
-            target.link = room.joinUrl;
-            await target.save();
+          // 🔒 ensureDailyRoom: الغرفة موجودة → بيصحّح nbf/exp بنفس الاسم؛ اتمسحت → بيعملها
+          // بنفس الاسم. مفيش كتابة لـ dailyRoomName/link أبدًا (الاستبدال القديم كان بيقسّم
+          // المدرس عن الطلاب لو حصل وقت محاضرة شغالة).
+          const room = await ensureDailyRoom({
+            name: target.dailyRoomName,
+            startDate: target.scheduledAt,
+            endDate,
+          });
+          if (!isSameDailyAccount(room.joinUrl, target.link)) {
+            console.error(
+              `[/api/meetings/[id]] DAILY ACCOUNT MISMATCH for meeting ${target._id}: link="${target.link}" vs "${room.joinUrl}" — check DAILY_API_KEY`
+            );
+            dailyWarning =
+              "تم حفظ التعديل، لكن مفتاح Daily على السيرفر ده لحساب غير حساب هذه المحاضرة — راجع DAILY_API_KEY وشغّل سكريبت إعادة ضبط الغرف.";
+          } else if (room.scheduleSyncError) {
+            throw new Error(room.scheduleSyncError);
           }
         } catch (err) {
           console.error("[/api/meetings/[id]] Daily room update failed:", err);
           dailyWarning =
-            "تم حفظ التعديل، لكن حدثت مشكلة في تحديث موعد الغرفة على Daily لواحدة أو أكتر من المحاضرات — إذا رفض الرابط الدخول، احذف المحاضرة وأنشئها من جديد.";
+            "تم حفظ التعديل، لكن حدثت مشكلة في تحديث موعد الغرفة على Daily لواحدة أو أكتر من المحاضرات — إذا رفض الرابط الدخول، ابعت الخطأ للدعم الفني.";
         }
       }
     }

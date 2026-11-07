@@ -20,7 +20,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createMeetingToken, createDailyRoom, deleteDailyRoom, isDailyRoomGoneError, checkDailyRoomExists } from "@/app/lib/daily";
+import { createMeetingToken, ensureDailyRoom, isDailyRoomGoneError, isSameDailyAccount } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
@@ -31,28 +31,13 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// 🆕 self-heal: لو غرفة Daily اتمسحت/اتفقدت وإحنا لسه جوه وقت المحاضرة، بنعمل غرفة جديدة
-// بنفس المعاد ونحدّث الاجتماع — بدل ما الطلاب كلهم يفضلوا بيشوفوا خطأ لحد ما حد يتدخّل يدويًا.
-// الاستبدال ذرّي (بشرط إن dailyRoomName لسه القديم) عشان لو طالبين دخلوا في نفس اللحظة
-// ماتتعملش غرفتين: اللي يخسر السباق بيمسح غرفته ويستخدم اللي اتحفظت.
-async function recreateMeetingRoom(Meeting, meeting, endDate) {
-  let created;
-  try {
-    created = await createDailyRoom({ startDate: meeting.scheduledAt, endDate });
-  } catch (err) {
-    console.error("[/api/meetings/[id]/token] room re-creation failed:", err);
-    return null;
-  }
-  const updated = await Meeting.findOneAndUpdate(
-    { _id: meeting._id, dailyRoomName: meeting.dailyRoomName },
-    { $set: { dailyRoomName: created.roomName, link: created.joinUrl } },
-    { new: true }
-  );
-  if (updated) return { roomName: updated.dailyRoomName, link: updated.link };
-  await deleteDailyRoom(created.roomName);
-  const fresh = await Meeting.findById(meeting._id, "dailyRoomName link").lean();
-  return fresh?.dailyRoomName ? { roomName: fresh.dailyRoomName, link: fresh.link } : null;
-}
+// 🔒 مفيش "استبدال غرفة" هنا خالص (اتشال الـ self-heal القديم اللي كان بيكتب غرفة جديدة
+// فوق القديمة في الداتابيز). ده كان سبب إن المدرس والطلاب يلاقوا نفسهم في غرفتين مختلفتين
+// (حصة 6/11: الغرفة اتعملت من جديد بعد البداية بـ 26 دقيقة). دلوقتي:
+//   - اسم الغرفة ثابت (Meeting.dailyRoomName) وما بيتغيّرش أبدًا.
+//   - لو الغرفة مش موجودة عند Daily بنعملها بنفس الاسم → نفس الرابط بالظبط.
+//   - لو حساب Daily اللي السيرفر شغال بيه (DAILY_API_KEY) غير حساب رابط المحاضرة،
+//     بنرفض (409 daily_account_mismatch) بدل ما نعمل غرفة في حساب تاني ونقسّم الناس.
 
 export async function GET(request, { params }) {
   try {
@@ -135,41 +120,55 @@ export async function GET(request, { params }) {
         endDate,
       });
 
-    let token;
-    let roomName = meeting.dailyRoomName;
-    let roomUrl = meeting.link;
+    // الغرفة المخزّنة في الداتابيز هي المرجع الوحيد — بنتأكد إنها موجودة (أو بنعملها بنفس
+    // اسمها) من غير ما نكتب أي حاجة في الميتنج.
+    const roomName = meeting.dailyRoomName;
+    const ensureRoom = () =>
+      ensureDailyRoom({ name: roomName, startDate: meeting.scheduledAt, endDate });
 
-    // 🆕 Daily بتولّد توكن حتى لو الغرفة اتمسحت، فالـ self-heal تحت مكانش بيشتغل
-    // والدخول كان بيفشل بـ "You are not allowed to join this meeting".
-    // بنتأكد الأول إن الغرفة موجودة، وإلا نعيد إنشاءها بنفس المعاد.
-    if (!(await checkDailyRoomExists(roomName))) {
-      console.warn(`[/api/meetings/${id}/token] Daily room "${roomName}" not found (404) — re-creating`);
-      const healed = await recreateMeetingRoom(Meeting, meeting, endDate);
-      if (!healed) return jsonResponse({ error: "room_unavailable" }, 410);
-      roomName = healed.roomName;
-      roomUrl = healed.link;
+    let room;
+    try {
+      room = await ensureRoom();
+    } catch (err) {
+      console.error(`[/api/meetings/${id}/token] ensureDailyRoom("${roomName}") failed:`, err);
+      return jsonResponse({ error: "internal_error" }, 502);
     }
 
+    // 🔒 حارس الحساب: لو السيرفر ده شغال بمفتاح Daily لحساب غير اللي اتعملت فيه المحاضرة
+    // (مثلًا نسخة تانية من الموقع بمفتاح قديم)، الغرفة اللي لسه اتأكدنا منها/عملناها في
+    // حساب تاني ومش هي اللي الباقيين فيها. بنرفض بوضوح بدل ما نقسّم المدرس عن الطلاب.
+    if (!isSameDailyAccount(room.joinUrl, meeting.link)) {
+      console.error(
+        `[/api/meetings/${id}/token] DAILY ACCOUNT MISMATCH: meeting.link="${meeting.link}" but this server's Daily account returned "${room.joinUrl}". ` +
+          "Check DAILY_API_KEY on this deployment (all deployments must use the same key)."
+      );
+      return jsonResponse({ error: "daily_account_mismatch" }, 409);
+    }
+    if (room.created) {
+      console.warn(`[/api/meetings/${id}/token] Daily room "${roomName}" was missing — re-created with the same name`);
+    }
+
+    let token;
     try {
       token = await issueToken(roomName);
     } catch (tokenErr) {
-      console.error("[/api/meetings/[id]/token] createMeetingToken failed:", tokenErr);
+      console.error(`[/api/meetings/${id}/token] createMeetingToken failed:`, tokenErr);
       if (!isDailyRoomGoneError(tokenErr)) throw tokenErr;
-      // 🆕 الغرفة اتمسحت/اتفقدت عند Daily → نحاول نعيد إنشاءها (self-heal).
-      const healed = await recreateMeetingRoom(Meeting, meeting, endDate);
-      if (!healed) return jsonResponse({ error: "room_unavailable" }, 410);
-      roomName = healed.roomName;
-      roomUrl = healed.link;
+      // الغرفة اتمسحت بين التأكد وإصدار التوكن (نادر جدًا) → نعيدها بنفس الاسم ونحاول مرة تانية.
       try {
+        const again = await ensureRoom();
+        if (!isSameDailyAccount(again.joinUrl, meeting.link)) {
+          return jsonResponse({ error: "daily_account_mismatch" }, 409);
+        }
         token = await issueToken(roomName);
       } catch (retryErr) {
-        console.error("[/api/meetings/[id]/token] token after re-creation failed:", retryErr);
-        if (isDailyRoomGoneError(retryErr)) return jsonResponse({ error: "room_unavailable" }, 410);
-        throw retryErr;
+        console.error(`[/api/meetings/${id}/token] retry after room loss failed:`, retryErr);
+        return jsonResponse({ error: isDailyRoomGoneError(retryErr) ? "room_unavailable" : "internal_error" }, 502);
       }
     }
 
-    return jsonResponse({ token, url: roomUrl, roomName });
+    // 🔒 الرابط والاسم دايمًا من الداتابيز (نفس القيمة لكل المشاركين).
+    return jsonResponse({ token, url: meeting.link, roomName });
   } catch (err) {
     console.error("[/api/meetings/[id]/token] GET error:", err);
     return jsonResponse({ error: "internal_error" }, 500);

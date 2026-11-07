@@ -16,7 +16,7 @@
 import mongoose from "mongoose";
 import { getMeetingModel } from "@/app/lib/models";
 import { getAuthModel } from "@/app/lib/mongodb";
-import { isDailyConfigured, createDailyRoom, deleteDailyRoom } from "@/app/lib/daily";
+import { isDailyConfigured, createDailyRoom, deleteDailyRoom, roomNameForMeeting } from "@/app/lib/daily";
 import { createNotificationsForUsers } from "@/app/lib/notificationHelpers";
 import { sendMeetingInviteEmails } from "@/app/lib/emailHelpers";
 import { parseInvitedEmails, shouldRestrictToInvited } from "@/app/lib/meetingInvites";
@@ -102,15 +102,20 @@ export async function findTeacherConflict({ teacherId, slots, excludeIds = [] })
 
 // بينشئ غرف Daily لكل المواعيد (بحد أقصى 5 في نفس الوقت). لو أي غرفة فشلت،
 // بنمسح اللي اتعمل منها ونرمي الخطأ (كله أو مفيش — مفيش سلسلة نص مكتملة).
-async function createRoomsForDates(dates, durationMinutes) {
+// 🔒 كل غرفة بتتسمّى من _id المحاضرة (اتولّد قبل إنشاء الغرفة) — اسم ثابت للأبد (شوف roomNameForMeeting).
+async function createRoomsForDates(dates, durationMinutes, ids) {
   const rooms = new Array(dates.length).fill(null);
   let failure = null;
 
   for (let i = 0; i < dates.length && !failure; i += ROOM_BATCH_SIZE) {
     const batch = dates.slice(i, i + ROOM_BATCH_SIZE);
     const settled = await Promise.allSettled(
-      batch.map((startDate) =>
-        createDailyRoom({ startDate, endDate: new Date(startDate.getTime() + durationMinutes * 60_000) })
+      batch.map((startDate, j) =>
+        createDailyRoom({
+          name: roomNameForMeeting(ids[i + j]),
+          startDate,
+          endDate: new Date(startDate.getTime() + durationMinutes * 60_000),
+        })
       )
     );
     settled.forEach((s, j) => {
@@ -182,9 +187,12 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
   const manualLinks = () =>
     dates.map(() => ({ link: manualLink, source: "manual", dailyRoomName: null }));
 
+  // _id لكل محاضرة بيتولّد هنا (قبل الغرف) عشان اسم الغرفة يتشتق منه.
+  const ids = dates.map(() => new mongoose.Types.ObjectId());
+
   if (isDailyConfigured()) {
     try {
-      const rooms = await createRoomsForDates(dates, durationMinutes);
+      const rooms = await createRoomsForDates(dates, durationMinutes, ids);
       links = rooms.map((r) => ({ link: r.joinUrl, source: "daily", dailyRoomName: r.roomName }));
     } catch (err) {
       console.error("[meetingCreate] Daily auto-create failed, falling back:", err);
@@ -209,6 +217,7 @@ export async function createMeetingOrSeries({ teacherId, courseId = null, body }
   try {
     created = await Meeting.insertMany(
       dates.map((date, i) => ({
+        _id: ids[i],
         course: courseId,
         teacher: teacherId,
         title: title.slice(0, 200),

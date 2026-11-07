@@ -45,7 +45,30 @@ function authHeaders() {
  * - exp (expiry): الغرفة بتتقفل تلقائيًا بعد نهاية المحاضرة بساعتين
  *   هامش أمان، فمش محتاجين نمسحها يدويًا في السيناريو العادي.
  */
-export async function createDailyRoom({ startDate, endDate }) {
+// 🔒 اسم الغرفة ثابت ومشتق من _id المحاضرة (مش عشوائي): محاضرة واحدة = اسم غرفة واحد
+// للأبد. ده اللي بيمنع "المدرس في غرفة والطلاب في غرفة تانية": لو الغرفة اتمسحت واتعملت
+// من جديد، بتتعمل بنفس الاسم بالظبط (نفس الرابط) — فمفيش حاجة في الداتابيز بتتبدّل،
+// ولو سيرفرين نفّذوا إعادة الإنشاء في نفس اللحظة هيوصلوا لنفس الغرفة.
+export function roomNameForMeeting(meetingId) {
+  return `edu-${String(meetingId)}`;
+}
+
+/** الـ host (الدومين) من رابط غرفة Daily — بنقارن بيه حساب Daily اللي السيرفر شغال بيه. */
+export function hostOfUrl(url) {
+  try {
+    return new URL(String(url)).host.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** هل الرابطين على نفس حساب Daily (نفس الدومين)؟ */
+export function isSameDailyAccount(urlA, urlB) {
+  const a = hostOfUrl(urlA);
+  return Boolean(a) && a === hostOfUrl(urlB);
+}
+
+export async function createDailyRoom({ name, startDate, endDate }) {
   const nbf = Math.floor(startDate.getTime() / 1000) - 15 * 60;
   const exp = Math.floor(endDate.getTime() / 1000) + 2 * 60 * 60;
 
@@ -53,6 +76,8 @@ export async function createDailyRoom({ startDate, endDate }) {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({
+      // اسم ثابت اختياري (شوف roomNameForMeeting فوق)؛ من غيره Daily بتختار اسم عشوائي.
+      ...(name ? { name } : {}),
       // 🔒 SECURITY: "private" بدل "public" — الدخول للغرفة بقى محتاج meeting
       // token صالح (شوف createMeetingToken تحت) بدل ما يكفي مجرد معرفة
       // الرابط. قبل كده أي حد يجيله الرابط (حتى لو مش مسجل دخول أصلًا،
@@ -110,6 +135,13 @@ export async function createDailyRoom({ startDate, endDate }) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // 🔁 الغرفة بنفس الاسم موجودة فعلًا (سباق بين سيرفرين / إعادة محاولة) = مش خطأ، هي
+    // نفس الغرفة المطلوبة — بنرجّع بياناتها بدل ما نفشل أو نعمل غرفة تانية.
+    const info = `${data?.info || ""} ${data?.error || ""}`;
+    if (name && res.status === 400 && /already exists/i.test(info)) {
+      const existing = await getDailyRoom(name);
+      if (existing) return { joinUrl: existing.url, roomName: existing.name };
+    }
     const reason = data?.error || data?.info || `HTTP ${res.status}`;
     throw new Error(`daily_create_room_error: ${reason}`);
   }
@@ -117,6 +149,54 @@ export async function createDailyRoom({ startDate, endDate }) {
     joinUrl: data.url,
     roomName: data.name,
   };
+}
+
+/**
+ * بيجيب بيانات غرفة بالاسم. بيرجّع null لو Daily قالت 404 صريحة بس؛ أي خطأ تاني
+ * (شبكة / 5xx / 401) بيترمي — عشان "مش عارفين" ما يتحسبش "مش موجودة" ونعمل غرفة بالغلط.
+ */
+export async function getDailyRoom(roomName) {
+  const res = await fetch(`${DAILY_BASE}/rooms/${encodeURIComponent(roomName)}`, {
+    headers: authHeaders(),
+  });
+  if (res.status === 404) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.error || data?.info || `HTTP ${res.status}`;
+    const err = new Error(`daily_get_room_error: ${reason}`);
+    err.dailyStatus = res.status;
+    err.dailyReason = String(reason);
+    throw err;
+  }
+  return data;
+}
+
+/**
+ * 🔒 الدالة الوحيدة اللي بتضمن إن غرفة المحاضرة موجودة (اسمها دايمًا اللي متخزّن في
+ * الداتابيز، ما بيتبدّلش أبدًا):
+ *   - موجودة → بنرجّعها (ولو الـ nbf/exp فيها مش مطابقين للمعاد الحالي بنصحّحهم).
+ *   - 404 صريحة → بنعملها بنفس الاسم.
+ *   - أي خطأ تاني → بنرمي الخطأ (مفيش إنشاء بالتخمين).
+ * بترجّع scheduleSyncError لو تصحيح المعاد فشل (الغرفة نفسها شغالة).
+ */
+export async function ensureDailyRoom({ name, startDate, endDate }) {
+  const existing = await getDailyRoom(name);
+  if (existing) {
+    const nbf = Math.floor(startDate.getTime() / 1000) - 15 * 60;
+    const exp = Math.floor(endDate.getTime() / 1000) + 2 * 60 * 60;
+    let scheduleSyncError = null;
+    if (existing.config?.nbf !== nbf || existing.config?.exp !== exp) {
+      try {
+        await updateDailyRoom(name, { startDate, endDate });
+      } catch (err) {
+        scheduleSyncError = String(err?.message || err);
+        console.warn(`[daily] ensureDailyRoom(${name}) schedule sync failed:`, err);
+      }
+    }
+    return { joinUrl: existing.url, roomName: existing.name, created: false, scheduleSyncError };
+  }
+  const created = await createDailyRoom({ name, startDate, endDate });
+  return { ...created, created: true, scheduleSyncError: null };
 }
 
 /**

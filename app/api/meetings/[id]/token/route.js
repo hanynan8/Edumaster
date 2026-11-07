@@ -20,7 +20,7 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getMeetingModel, getCourseModel } from "@/app/lib/models";
 import { requireSession, isMeetingStaff, isMeetingRoomHost } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
-import { createMeetingToken, ensureDailyRoom, isDailyRoomGoneError, isSameDailyAccount } from "@/app/lib/daily";
+import { createMeetingToken, ensureDailyRoom, isDailyRoomGoneError, isSameDailyAccount, hostOfUrl } from "@/app/lib/daily";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { checkMeetingAccess } from "@/app/lib/meetingInvites";
 
@@ -166,6 +166,12 @@ export async function GET(request, { params }) {
         return jsonResponse({ error: isDailyRoomGoneError(retryErr) ? "room_unavailable" : "internal_error" }, 502);
       }
     }
+
+    // 📋 سجل دخول: لو المدرس والطلاب اتفرّقوا تاني، نقارن roomName/host هنا بين اللي دخلوا
+    // (لازم roomName واحد لكل meeting) ونعرف مين دخل أنهي غرفة وهل اتعملت من جديد.
+    console.info(
+      `[meeting-join] meeting=${id} room=${roomName} host=${hostOfUrl(meeting.link)} user=${session.user.id} owner=${Boolean(isRoomHost)} roomCreated=${Boolean(room.created)}`
+    );
 
     // 🔒 الرابط والاسم دايمًا من الداتابيز (نفس القيمة لكل المشاركين).
     return jsonResponse({ token, url: meeting.link, roomName });

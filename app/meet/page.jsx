@@ -147,6 +147,7 @@ const T = {
     errInvalidRecurrence: "The repeat settings are not valid",
     errTooManyOccurrences: `Too many lectures — the maximum is ${MAX_OCCURRENCES}, within one year`,
     errScheduledInPast: "The lecture time is in the past — choose a future date and time",
+    errLinkLocked: "You can't change the link of a video lecture within an hour of its start or while it's running — it would delete the meeting room and split the teacher and students. Change it earlier, or leave the link as is.",
     errScheduleConflict: (title, when) => `This overlaps with your lecture "${title}" (${when}). Choose a different time.`,
   },
   ar: {
@@ -249,6 +250,7 @@ const T = {
     errInvalidRecurrence: "إعدادات التكرار غير صالحة",
     errTooManyOccurrences: `عدد المحاضرات كبير جدًا — الحد الأقصى ${MAX_OCCURRENCES} خلال سنة واحدة`,
     errScheduledInPast: "موعد المحاضرة في الماضي — اختر تاريخًا ووقتًا قادمًا",
+    errLinkLocked: "لا يمكن تغيير رابط محاضرة الفيديو قبل موعدها بساعة أو أثناء انعقادها — لأن ذلك يحذف غرفة الاجتماع ويفرّق بين المدرّس والطلاب. غيّره قبل ذلك أو اترك الرابط كما هو.",
     errScheduleConflict: (title, when) => `يتعارض مع محاضرتك "${title}" (${when}). اختر وقتًا آخر.`,
   },
   es: {
@@ -351,6 +353,7 @@ const T = {
     errInvalidRecurrence: "La configuración de repetición no es válida",
     errTooManyOccurrences: `Demasiadas clases — el máximo es ${MAX_OCCURRENCES}, dentro de un año`,
     errScheduledInPast: "La hora de la clase ya pasó — elige una fecha y hora futuras",
+    errLinkLocked: "No puedes cambiar el enlace de una clase en video dentro de la hora previa a su inicio ni mientras está en curso: eliminaría la sala y separaría al profesor de los estudiantes. Cámbialo antes o deja el enlace como está.",
     errScheduleConflict: (title, when) => `Se solapa con tu clase "${title}" (${when}). Elige otra hora.`,
   },
 };
@@ -461,6 +464,7 @@ function getSaveErrorMessages(t) {
     invalid_recurrence: t.errInvalidRecurrence,
     too_many_occurrences: t.errTooManyOccurrences,
     scheduled_in_past: t.errScheduledInPast,
+    link_locked_during_meeting: t.errLinkLocked,
   };
 }
 

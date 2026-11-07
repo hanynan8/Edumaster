@@ -84,6 +84,24 @@ describe("GET /api/meetings/[id]/token", () => {
     expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
+  it("المدرس بيدخل الأول والغرفة بتتعمل من جديد (404)، وبعده الطالب → نفس الرابط ونفس الغرفة بالظبط", async () => {
+    const name = `edu-${MEETING_ID}`;
+    // أول نداء (المدرس): الغرفة كانت ممسوحة فاتعملت. التاني (الطالب): موجودة.
+    mockEnsure
+      .mockResolvedValueOnce({ joinUrl: LINK, roomName: name, created: true, scheduleSyncError: null })
+      .mockResolvedValueOnce({ joinUrl: LINK, roomName: name, created: false, scheduleSyncError: null });
+
+    const teacher = await (await call()).json();
+    const student = await (await call()).json();
+
+    expect(teacher.url).toBe(student.url);
+    expect(teacher.roomName).toBe(student.roomName);
+    expect(teacher.url).toBe(LINK);
+    expect(mockEnsure.mock.calls[0][0].name).toBe(name);
+    expect(mockEnsure.mock.calls[1][0].name).toBe(name);
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
   it("سيرفر بحساب Daily مختلف → 409 ومفيش توكن", async () => {
     mockEnsure.mockResolvedValue({
       joinUrl: `https://edumaster.daily.co/edu-${MEETING_ID}`,

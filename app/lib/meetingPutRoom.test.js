@@ -111,4 +111,57 @@ describe("PUT /api/meetings/[id] — غرفة Daily", () => {
     expect(res.status).toBe(200);
     expect(mockEnsure).not.toHaveBeenCalled();
   });
+  describe("🔒 تغيير اللينك أثناء/قبل المحاضرة", () => {
+    const NEW_LINK = "https://zoom.us/j/123456789";
+
+    it("محاضرة شغالة دلوقتي → 409 link_locked_during_meeting ومفيش مسح ولا تحويل", async () => {
+      const meeting = makeMeeting();
+      meeting.scheduledAt = new Date(Date.now() - 10 * 60_000); // بدأت من 10 دقايق
+      mockFindById.mockResolvedValue(meeting);
+
+      const res = await put({ link: NEW_LINK });
+      const body = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(body.error).toBe("link_locked_during_meeting");
+      expect(meeting.save).not.toHaveBeenCalled();
+      expect(meeting.source).toBe("daily");
+      expect(meeting.dailyRoomName).toBe(NAME);
+      expect(meeting.link).toBe(LINK);
+    });
+
+    it("بتبدأ بعد 30 دقيقة → برضه ممنوع", async () => {
+      const meeting = makeMeeting();
+      meeting.scheduledAt = new Date(Date.now() + 30 * 60_000);
+      mockFindById.mockResolvedValue(meeting);
+
+      const res = await put({ link: NEW_LINK });
+      expect(res.status).toBe(409);
+      expect(meeting.save).not.toHaveBeenCalled();
+    });
+
+    it("بعد 3 أيام (برا القفل) → مسموح ويتحوّل manual", async () => {
+      const meeting = makeMeeting(); // بعد 3 أيام
+      mockFindById.mockResolvedValue(meeting);
+
+      const res = await put({ link: NEW_LINK });
+
+      expect(res.status).toBe(200);
+      expect(meeting.source).toBe("manual");
+      expect(meeting.link).toBe(NEW_LINK);
+      expect(meeting.dailyRoomName).toBeNull();
+    });
+
+    it("نفس اللينك الحالي مبعوت مع محاضرة شغالة (الواجهة بتبعته) → مش بيتحسب تغيير ومفيش 409", async () => {
+      const meeting = makeMeeting();
+      meeting.scheduledAt = new Date(Date.now() - 10 * 60_000);
+      mockFindById.mockResolvedValue(meeting);
+
+      const res = await put({ link: LINK, title: "عنوان جديد", scheduledAt: meeting.scheduledAt.toISOString() });
+
+      expect(res.status).toBe(200);
+      expect(meeting.source).toBe("daily");
+      expect(meeting.link).toBe(LINK);
+    });
+  });
 });

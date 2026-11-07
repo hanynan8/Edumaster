@@ -34,6 +34,7 @@ import {
   isInPast,
 } from "@/app/lib/meetingCreate";
 import { parseInvitedEmails, diffInvitedEmails, shouldRestrictToInvited } from "@/app/lib/meetingInvites";
+import { isLinkChangeLocked } from "@/app/lib/meetingLinkGuard";
 import { shiftWallClock, getZonedParts, localDayDiff, normalizeTimeZone } from "@/app/lib/meetingRecurrence";
 
 // قوائم مدعوين كبيرة = إيميلات كتير (Resend batch) — نرفع حد وقت التنفيذ على Vercel.
@@ -180,6 +181,19 @@ export async function PUT(request, { params }) {
         excludeIds: targets.map((t) => t._id),
       });
       if (conflict) return jsonResponse({ error: "schedule_conflict", conflict }, 409);
+    }
+
+    // 🔒 تغيير لينك محاضرة Daily بيمسح الغرفة ويحوّلها لـ "manual" — لو ده حصل وقت ما
+    // الغرفة شغالة/على وشك تفتح، المدرس والطلاب بيتفرّقوا (شوف meetingLinkGuard.js).
+    // بنفحص كل المحاضرات المستهدفة قبل ما نغيّر أي حاجة (كله أو مفيش).
+    if (newLink !== undefined) {
+      const locked = targets.find((t) => t.source === "daily" && t.link !== newLink && isLinkChangeLocked(t));
+      if (locked) {
+        return jsonResponse(
+          { error: "link_locked_during_meeting", meetingId: locked._id.toString(), scheduledAt: locked.scheduledAt },
+          409
+        );
+      }
     }
 
     for (const target of targets) {

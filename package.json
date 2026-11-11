@@ -23,7 +23,7 @@
     "bidi-js": "^1.0.3",
     "exceljs": "^4.4.0",
     "lucide-react": "^1.8.0",
-    "mongoose": "^8.19.2",
+    "mongoose": "^8.24.7",
     "next": "^16.4.1",
     "next-auth": "^4.24.15",
     "otpauth": "^9.5.1",

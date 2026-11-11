@@ -258,6 +258,10 @@ const PUBLIC_READ_COLLECTIONS = new Set([
   "blog",
   "contact",
   "privacy",
+  // 🆕 الصفحات القانونية الديناميك (Privacy / Terms / Refund) — محتوى عام، تعديله من الأدمن بس
+  "privacy_policy",
+  "terms_conditions",
+  "refund_policy",
   "successStories",
   "success_stories",
   "form", // القراءة هنا لسه بتتفحص admin-only في isAdminReadCollection تحت

@@ -10,11 +10,20 @@ import {
 
 const API_BASE_URL = '/api/data';
 
+// الأرقام اللي كانت ثابتة في صفحة Contact — بتظهر في الأدمن أول مرة (قبل أول حفظ)
+// عشان الأدمن يشوفها ويعدّلها/يحذفها، وبعد "Save All" بتتخزّن في الداتابيز.
+const DEFAULT_PHONES = [
+  { label: 'Qatar', number: '+971 47 190 1935' },
+  { label: 'Spain', number: '+34 612 23 13 93' },
+  { label: 'Spain', number: '+34 613 69 73 16' },
+];
+
 const DEFAULT_CONFIG = {
   contact: {
     email: '',
     whatsappNumber: '',
     whatsappDisplay: '',
+    phones: [],
     formEndpoint: '/api/contact',
   },
   i18n: {},
@@ -90,6 +99,20 @@ export default function ContactAdmin() {
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
+
+  // Phone numbers helpers (dynamic list shown on the Contact page)
+  const getPhones = () =>
+    Array.isArray(config?.contact?.phones) ? config.contact.phones : DEFAULT_PHONES;
+
+  const updatePhone = (idx, field, value) => {
+    const list = getPhones().map((p, i) => (i === idx ? { ...p, [field]: value } : p));
+    updateConfig('contact.phones', list);
+  };
+
+  const addPhone = () => updateConfig('contact.phones', [...getPhones(), { label: '', number: '' }]);
+
+  const removePhone = (idx) =>
+    updateConfig('contact.phones', getPhones().filter((_, i) => i !== idx));
 
   // Service options helpers
   const getServiceOptions = (langCode) =>
@@ -226,6 +249,55 @@ export default function ContactAdmin() {
                     className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-teal-500 text-sm"
                     placeholder="+34 600 000 000"
                   />
+                </div>
+
+                {/* Phone Numbers (dynamic) */}
+                <div className="p-4 bg-white rounded-lg border-2 border-teal-100 md:col-span-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Phone size={15} /> Phone Numbers <span className="text-gray-400 font-normal text-xs">(shown on the Contact page, after WhatsApp)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addPhone}
+                      className="flex items-center gap-1.5 text-sm bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700"
+                    >
+                      <Plus size={14} /> Add Number
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {getPhones().length === 0 && (
+                      <p className="text-xs text-gray-400">No phone numbers yet.</p>
+                    )}
+                    {getPhones().map((ph, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={ph.label || ''}
+                          onChange={e => updatePhone(idx, 'label', e.target.value)}
+                          className="w-1/3 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-teal-500 text-sm"
+                          placeholder="Label (e.g. Spain)"
+                        />
+                        <input
+                          type="text"
+                          value={ph.number || ''}
+                          onChange={e => updatePhone(idx, 'number', e.target.value)}
+                          className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-teal-500 text-sm"
+                          placeholder="+34 600 000 000"
+                          dir="ltr"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePhone(idx)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                          title="Remove"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Form Endpoint */}

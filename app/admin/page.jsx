@@ -6,7 +6,7 @@ import {
   Database, Settings, Home, Navigation, Info,
   Globe, Star, FileText, Phone, Map, Users, MessageSquare,
   Loader, Inbox, Tags, Layers, DollarSign, BarChart3, ChevronDown, ArrowLeft,
-  ClipboardCheck, CalendarClock, Languages, GraduationCap, BookOpen, Award, Headphones, ListOrdered, Video,
+  ClipboardCheck, CalendarClock, Shield, Scale, RotateCcw, Languages, GraduationCap, BookOpen, Award, Headphones, ListOrdered, Video,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -23,6 +23,7 @@ import SuccessStoriesAdmin from './components/(editcomponents)/success-stories';
 import SuccessVideosAdmin from './components/(editcomponents)/success-videos';
 import BlogAdmin from './components/(editcomponents)/blogs';
 import ContactAdmin from './components/(editcomponents)/contact';
+import { PrivacyAdmin, TermsAdmin, RefundAdmin } from './components/(editcomponents)/legalPages';
 import UsersAdmin from './components/usersPanel';
 import FormSubmissionsAdmin from './components/formsPanel';
 import ConsultationsAdmin from './components/consultationsPanel';
@@ -116,6 +117,9 @@ const SIDEBAR_GROUPS = [
       { id: 'success_videos',  name: 'Success Videos',   icon: Video,         component: SuccessVideosAdmin },
       { id: 'blog',            name: 'Blog',              icon: FileText,      component: BlogAdmin },
       { id: 'contact',         name: 'Contact',           icon: Phone,         component: ContactAdmin },
+      { id: 'privacy_policy',   name: 'Privacy Policy',    icon: Shield,        component: PrivacyAdmin },
+      { id: 'terms_conditions', name: 'Terms & Conditions', icon: Scale,        component: TermsAdmin },
+      { id: 'refund_policy',    name: 'Refund Policy',     icon: RotateCcw,     component: RefundAdmin },
     ],
   },
   {
@@ -230,7 +234,7 @@ export default function AdminDashboard() {
     // مع باقي بيانات الموقع. راجع تبويب Users لو محتاج بيانات المستخدمين.
     const collections = [
       'home', 'navbar', 'footer', 'about', 'services',
-      'countries', 'success_stories', 'blog', 'contact', 'form'
+      'countries', 'success_stories', 'blog', 'contact', 'privacy_policy', 'terms_conditions', 'refund_policy', 'form'
     ];
 
     const result = {};

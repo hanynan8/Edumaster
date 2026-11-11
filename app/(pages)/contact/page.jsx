@@ -41,6 +41,20 @@ function buildServiceOptions(adminOptions, lang) {
   }));
 }
 
+// 🆕 أرقام الهاتف بتيجي من data.contact.phones (الأدمن بيتحكم فيها). لو الحقل مش
+// موجود لسه في الداتابيز (قبل أول حفظ من الأدمن) بنرجع للأرقام الافتراضية القديمة
+// عشان الصفحة متفضلش من غير أرقام.
+const DEFAULT_CONTACT_PHONES = [
+  { label: "Qatar", number: "+971 47 190 1935" },
+  { label: "Spain", number: "+34 612 23 13 93" },
+  { label: "Spain", number: "+34 613 69 73 16" },
+];
+
+function getContactPhones(contact) {
+  const list = Array.isArray(contact?.phones) ? contact.phones : DEFAULT_CONTACT_PHONES;
+  return list.filter((p) => p && String(p.number || "").trim());
+}
+
 function useContactData() {
   const [data, setData] = useState(null);
   useEffect(() => {
@@ -147,10 +161,28 @@ function ContactMain({ data, t, lang }) {
           </h2>
           <div className="flex flex-col gap-4 sm:gap-5">
             <InfoCard visible={visible} delay={150} icon={<EmailIcon />} label={t.info.emailLabel} value={data.contact.email} href={`mailto:${data.contact.email}`} />
-            <InfoCard visible={visible} delay={220} icon={<WhatsAppIcon />} label={t.info.whatsappLabel} value={data.contact.whatsappDisplay} isExternal accent />
-            <InfoCard visible={visible} delay={290} icon={<PhoneIcon />} label="Qatar" value="+971 47 190 1935" />
-            <InfoCard visible={visible} delay={360} icon={<PhoneIcon />} label="Spain" value="+34 612 23 13 93" />
-            <InfoCard visible={visible} delay={360} icon={<PhoneIcon />} label="Spain" value="+34 613 69 73 16" />
+            <InfoCard
+              visible={visible}
+              delay={220}
+              icon={<WhatsAppIcon />}
+              label={t.info.whatsappLabel}
+              value={data.contact.whatsappDisplay}
+              href={data.contact.whatsappNumber ? `https://wa.me/${String(data.contact.whatsappNumber).replace(/\D/g, "")}` : undefined}
+              isExternal
+              accent
+            />
+            {/* 🆕 أرقام الهاتف ديناميك من الأدمن (Contact → Global Contact Settings → Phone Numbers) */}
+            {getContactPhones(data.contact).map((ph, i) => (
+              <InfoCard
+                key={`${ph.number}-${i}`}
+                visible={visible}
+                delay={290 + i * 70}
+                icon={<PhoneIcon />}
+                label={ph.label}
+                value={ph.number}
+                href={`tel:${String(ph.number).replace(/[^\d+]/g, "")}`}
+              />
+            ))}
             <div className={`mt-1 p-5 sm:p-6 rounded-2xl bg-[#f7f7f7] border border-gray-100 transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
               style={{ transitionDelay: "300ms" }}>
               <p className="text-gray-500 text-sm leading-relaxed">{t.info.note}</p>

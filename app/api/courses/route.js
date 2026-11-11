@@ -145,10 +145,28 @@ export async function GET(request) {
     } else {
       // زائر/طالب: المنشور بس (الكتالوج العام)
       query.status = "published";
+
+      // 🆕 الكتالوج العام بيخفي الكورسات التابعة لتصنيف/ساب-تصنيف معطّل
+      // (isActive=false)، أو ساب-تصنيف أبوه معطّل. التعطيل إخفاء بس —
+      // الكورسات نفسها مبتتمسحش وبترجع تظهر أول ما التصنيف يتفعّل.
+      const Category = getCategoryModel();
+      const inactive = await Category.find({ isActive: false }).select("_id").lean();
+      if (inactive.length > 0) {
+        const inactiveIds = inactive.map((c) => c._id);
+        const childrenOfInactive = await Category.find({ parent: { $in: inactiveIds } })
+          .select("_id")
+          .lean();
+        const hiddenIds = [...inactiveIds, ...childrenOfInactive.map((c) => c._id)];
+        query.category = { $nin: hiddenIds };
+        query.subcategory = { $nin: hiddenIds };
+      }
     }
 
     if (categoryFilter && mongoose.Types.ObjectId.isValid(categoryFilter)) {
-      query.category = categoryFilter;
+      // لو الكتالوج العام حاطط $nin على category، بندمج الفلترين بدل ما نكتب فوقه
+      query.category = query.category?.$nin
+        ? { $eq: categoryFilter, $nin: query.category.$nin }
+        : categoryFilter;
     }
     if (search) {
       query.$text = { $search: search };

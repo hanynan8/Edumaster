@@ -455,9 +455,28 @@ const COURSES_DROPDOWN = {
   },
 };
 
-function buildCoursesMenu(href, language) {
+// 🆕 التصنيفات المفعّلة من /api/categories (الـ API العام بيرجّع isActive=true بس).
+// null = لسه بيتحمّل أو فشل → بنرجع للقايمة الثابتة القديمة عشان النافبار مايفضلش فاضي.
+function useActiveCategories() {
+  const [categories, setCategories] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/categories")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setCategories(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return categories;
+}
+
+function buildCoursesMenu(href, language, categories = null) {
   const L = (o) => o[language] ?? o.en;
-  return {
+  const staticMenu = {
     language: {
       label: L(COURSES_DROPDOWN.languageCourses),
       href: `${href}?category=language`,
@@ -472,10 +491,35 @@ function buildCoursesMenu(href, language) {
       href: `${href}?category=career`,
     },
   };
+  if (!categories) return staticMenu;
+
+  const langCat = categories.find((c) => !c.parent && c.slug === "language");
+  const callCat = categories.find((c) => !c.parent && c.slug === "call-center-courses");
+  const nameOf = (c, fallback) => c?.i18n?.[language]?.name || fallback || c?.name || "";
+
+  return {
+    language: langCat
+      ? {
+          label: L(COURSES_DROPDOWN.languageCourses),
+          href: `${href}?category=language`,
+          children: categories
+            .filter((c) => c.parent === langCat.id && ["es", "en", "ar"].includes(c.slug))
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .map((c) => ({
+              code: c.slug,
+              label: nameOf(c, L(COURSES_DROPDOWN.languages[c.slug])),
+              href: `${href}?category=language&lang=${c.slug}`,
+            })),
+        }
+      : null,
+    callCenter: callCat
+      ? { label: L(COURSES_DROPDOWN.callCenter), href: `${href}?category=${callCat.slug}` }
+      : null,
+  };
 }
 
-function CoursesNavItem({ label, href, language }) {
-  const menu = buildCoursesMenu(href, language);
+function CoursesNavItem({ label, href, language, categories }) {
+  const menu = buildCoursesMenu(href, language, categories);
   return (
     <div className="relative group">
       <Link prefetch={true}
@@ -491,30 +535,36 @@ function CoursesNavItem({ label, href, language }) {
 
       <div className="absolute top-full left-0 rtl:left-auto rtl:right-0 pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200 z-50">
         <div className="w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/8 overflow-hidden py-2 animate-dropdown">
-          <Link prefetch={true}
-            href={menu.language.href}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
-          >
-            {menu.language.label}
-          </Link>
-          {/* اللغات التلاتة تحت Language Courses */}
-          {menu.language.children.map((c) => (
+          {menu.language && (
+            <>
+              <Link prefetch={true}
+                href={menu.language.href}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+              >
+                {menu.language.label}
+              </Link>
+              {/* الساب-تصنيفات المفعّلة بس تحت Language Courses */}
+              {menu.language.children.map((c) => (
+                <Link prefetch={true}
+                  key={c.code}
+                  href={c.href}
+                  className="flex items-center gap-2 ps-8 pe-4 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+                >
+                  <span className="w-1 h-1 rounded-full bg-[#C9A227] shrink-0" />
+                  {c.label}
+                </Link>
+              ))}
+            </>
+          )}
+          {menu.language && menu.callCenter && <div className="my-1 border-t border-gray-100" />}
+          {menu.callCenter && (
             <Link prefetch={true}
-              key={c.code}
-              href={c.href}
-              className="flex items-center gap-2 ps-8 pe-4 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
+              href={menu.callCenter.href}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
             >
-              <span className="w-1 h-1 rounded-full bg-[#C9A227] shrink-0" />
-              {c.label}
+              {menu.callCenter.label}
             </Link>
-          ))}
-          <div className="my-1 border-t border-gray-100" />
-          <Link prefetch={true}
-            href={menu.callCenter.href}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a] transition-colors"
-          >
-            {menu.callCenter.label}
-          </Link>
+          )}
         </div>
       </div>
     </div>
@@ -580,6 +630,7 @@ export default function Navbar() {
   // 🔒 لازم يتنادى هنا قبل أي return مبكر تحت (return null لو !data)، عشان
   // ترتيب الـ hooks يفضل ثابت في كل render زي قواعد React (Rules of Hooks).
   const servicesForDropdown = useServicesForDropdown(language);
+  const activeCategories = useActiveCategories();
 
   const isLoading = status === "loading";
   const isLoggedIn = status === "authenticated";
@@ -733,6 +784,7 @@ export default function Navbar() {
                     label={t.links[link.id]}
                     href={link.href}
                     language={language}
+                    categories={activeCategories}
                   />
                 ) : link.id === "services" ? (
                   <ServicesNavItem
@@ -782,7 +834,7 @@ export default function Navbar() {
               .filter((_, i) => i !== 4 && i !== 5)
               .map((link) => {
                 const isCourses = link.id === "courses" || link.href === "/courses";
-                const coursesMenu = isCourses ? buildCoursesMenu(link.href, language) : null;
+                const coursesMenu = isCourses ? buildCoursesMenu(link.href, language, activeCategories) : null;
                 return (
                   <div key={link.id}>
                     <Link prefetch={true}
@@ -797,30 +849,36 @@ export default function Navbar() {
                     </Link>
                     {coursesMenu && (
                       <div className="ps-4 pb-1 flex flex-col">
-                        <Link prefetch={true}
-                          href={coursesMenu.language.href}
-                          onClick={() => setMenuOpen(false)}
-                          className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
-                        >
-                          {coursesMenu.language.label}
-                        </Link>
-                        {coursesMenu.language.children.map((c) => (
+                        {coursesMenu.language && (
+                          <>
+                            <Link prefetch={true}
+                              href={coursesMenu.language.href}
+                              onClick={() => setMenuOpen(false)}
+                              className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
+                            >
+                              {coursesMenu.language.label}
+                            </Link>
+                            {coursesMenu.language.children.map((c) => (
+                              <Link prefetch={true}
+                                key={c.code}
+                                href={c.href}
+                                onClick={() => setMenuOpen(false)}
+                                className="py-1.5 ps-6 pe-2 text-sm text-gray-500 hover:text-[#C9A227] transition-colors"
+                              >
+                                {c.label}
+                              </Link>
+                            ))}
+                          </>
+                        )}
+                        {coursesMenu.callCenter && (
                           <Link prefetch={true}
-                            key={c.code}
-                            href={c.href}
+                            href={coursesMenu.callCenter.href}
                             onClick={() => setMenuOpen(false)}
-                            className="py-1.5 ps-6 pe-2 text-sm text-gray-500 hover:text-[#C9A227] transition-colors"
+                            className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
                           >
-                            {c.label}
+                            {coursesMenu.callCenter.label}
                           </Link>
-                        ))}
-                        <Link prefetch={true}
-                          href={coursesMenu.callCenter.href}
-                          onClick={() => setMenuOpen(false)}
-                          className="py-2 px-2 text-sm font-medium text-gray-600 hover:text-[#C9A227] transition-colors"
-                        >
-                          {coursesMenu.callCenter.label}
-                        </Link>
+                        )}
                       </div>
                     )}
                   </div>

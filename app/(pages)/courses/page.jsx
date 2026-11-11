@@ -393,7 +393,7 @@ export default function CoursesPage() {
 function CoursesPageInner() {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] ?? STRINGS.en;
-  const { rawCourses, error } = useAllCourses();
+  const { rawCourses, categories, error } = useAllCourses();
   const searchParams = useSearchParams();
   const urlFilters = readFiltersFromParams(searchParams);
 
@@ -444,11 +444,27 @@ function CoursesPageInner() {
     category !== "all" &&
     (isLanguageCategoryValue(category) || isLanguageCategoryValue(selectedCategoryOption?.label));
 
+  // 🆕 خيارات لغة الكورس بتتبني من الساب-تصنيفات المفعّلة تحت تصنيف "language"
+  // (الـ API العام بيرجّع المفعّل بس) — لو الأدمن عطّل "عربي" مثلاً بيختفي هنا.
+  // لو التصنيفات لسه مجتش/مفيش ساب-تصنيفات، بنرجع للقايمة الثابتة.
+  const languageSubOptions = useMemo(() => {
+    const langCat = (categories || []).find((c) => !c.parent && c.slug === "language");
+    if (!langCat) return null;
+    return (categories || [])
+      .filter((c) => c.parent === langCat.id && VALID_COURSE_LANGS.includes(c.slug))
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((c) => ({ value: c.slug, label: c.i18n?.[language]?.name || t.courseLanguages[c.slug] || c.name }));
+  }, [categories, language, t]);
+
   const courseLanguageOptions = [
     { value: "all", label: t.allCourseLanguages },
-    { value: "es", label: t.courseLanguages.es },
-    { value: "en", label: t.courseLanguages.en },
-    { value: "ar", label: t.courseLanguages.ar },
+    ...(languageSubOptions && languageSubOptions.length > 0
+      ? languageSubOptions
+      : [
+          { value: "es", label: t.courseLanguages.es },
+          { value: "en", label: t.courseLanguages.en },
+          { value: "ar", label: t.courseLanguages.ar },
+        ]),
   ];
 
   const levelOptions = [

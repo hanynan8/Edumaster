@@ -11,7 +11,15 @@
     "test:watch": "jest --watch"
   },
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "zod": "^4.6.6",
+    "brace-expansion@^1.1.7": "^1.1.20",
+    "brace-expansion@^2.0.1": "^2.1.6",
+    "brace-expansion@^5.0.8": "^5.0.11",
+    "fast-uri": "^3.1.7",
+    "source-map-js": "^1.2.2",
+    "js-yaml@^3.13.1": "^3.15.2",
+    "js-yaml@^4.1.0": "^4.3.2"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.92.2",

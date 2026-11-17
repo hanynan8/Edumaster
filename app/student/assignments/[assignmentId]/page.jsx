@@ -10,8 +10,9 @@
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock,
+  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Mic, Square,
 } from "lucide-react";
+import { useVoiceRecorder, uploadVoiceFile, formatClock } from "@/app/lib/useVoiceRecorder";
 import MediaUploader from "@/app/teacher/components/MediaUploader";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
 import AssignmentQuiz from "@/app/components/AssignmentQuiz";
@@ -49,6 +50,13 @@ const STRINGS = {
     textPlaceholder: "اكتب إجابتك هنا إن لم يكن لديك ملف...",
     updateSubmission: "تحديث التسليم",
     noLateSubmission: "انتهى الموعد ولا يُسمح بالتسليم المتأخر لهذا الواجب",
+    recordVoice: "سجّل إجابتك بالميكروفون",
+    stopRecording: "إيقاف التسجيل",
+    recordingLabel: "جارٍ التسجيل...",
+    micDenied: "لم يتم السماح باستخدام الميكروفون. فعّل الصلاحية من إعدادات المتصفح أو ارفع ملفًا صوتيًا.",
+    micUnsupported: "متصفحك لا يدعم التسجيل المباشر. ارفع ملفًا صوتيًا بدلًا من ذلك.",
+    voiceUploadFailed: "تعذّر رفع التسجيل، حاول مرة أخرى",
+    voiceTooLarge: "حجم التسجيل كبير جدًا (الحد الأقصى 50 ميجا)",
   },
   en: {
     noDueDate: "No due date",
@@ -79,6 +87,13 @@ const STRINGS = {
     textPlaceholder: "Write your answer here if you have no file...",
     updateSubmission: "Update submission",
     noLateSubmission: "The deadline has passed and late submission isn't allowed for this assignment",
+    recordVoice: "Record your answer with the microphone",
+    stopRecording: "Stop recording",
+    recordingLabel: "Recording...",
+    micDenied: "Microphone access was denied. Allow it in your browser settings or upload an audio file instead.",
+    micUnsupported: "Your browser doesn't support live recording. Upload an audio file instead.",
+    voiceUploadFailed: "Couldn't upload the recording, try again",
+    voiceTooLarge: "The recording is too large (50MB max)",
   },
 };
 
@@ -105,6 +120,26 @@ export default function SubmitAssignmentPage({ params }) {
   const [textAnswer, setTextAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [micError, setMicError] = useState("");
+  const [micUploading, setMicUploading] = useState(false);
+
+  // 🎤 تسجيل الإجابة بالمايك → بيترفع Bunny Storage ويتحط كأوديو التسليم
+  async function handleRecordedVoice(file) {
+    setMicError("");
+    setMicUploading(true);
+    try {
+      const url = await uploadVoiceFile(file);
+      setMedia({ url, type: "audio" });
+    } catch (err) {
+      setMicError(err?.message === "file_too_large" ? t.voiceTooLarge : t.voiceUploadFailed);
+    } finally {
+      setMicUploading(false);
+    }
+  }
+  const mic = useVoiceRecorder({
+    onRecorded: handleRecordedVoice,
+    onError: (code) => setMicError(code === "denied" ? t.micDenied : t.micUnsupported),
+  });
 
   async function load() {
     try {
@@ -267,7 +302,11 @@ export default function SubmitAssignmentPage({ params }) {
       {/* 🆕 محادثة نصية مع المدرّس/الموديريتر على التسليم (بتظهر بعد أول تسليم) */}
       {mySubmission?.id && (
         <div className="mb-6">
-          <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`} viewer="student" />
+          <ThreadChat
+            endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`}
+            viewer="student"
+            allowVoice
+          />
         </div>
       )}
 
@@ -296,6 +335,39 @@ export default function SubmitAssignmentPage({ params }) {
               onUploaded={(r) => setMedia({ url: r.url, type: "audio" })}
             />
           </div>
+          {/* 🎤 تسجيل مباشر بالمايك */}
+          <div>
+            {mic.recording ? (
+              <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-semibold text-red-600">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                  {t.recordingLabel} {formatClock(mic.seconds)}
+                </span>
+                <button
+                  type="button"
+                  onClick={mic.stop}
+                  className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-bold px-3 py-2 rounded-lg hover:opacity-90"
+                >
+                  <Square size={12} /> {t.stopRecording}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMicError("");
+                  mic.start();
+                }}
+                disabled={micUploading}
+                className="w-full flex items-center justify-center gap-2 border border-gray-300 hover:border-[#5279B4] rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 hover:text-[#003A91] transition-colors disabled:opacity-60"
+              >
+                {micUploading ? <Loader size={16} className="animate-spin text-[#2456A1]" /> : <Mic size={16} />}
+                {t.recordVoice}
+              </button>
+            )}
+            {micError && <p className="text-xs text-red-500 mt-1.5">{micError}</p>}
+          </div>
+
           {media.url && (
             <div className="space-y-2">
               <AssignmentMedia url={media.url} type={media.type} />

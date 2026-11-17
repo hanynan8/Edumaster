@@ -1,0 +1,1037 @@
+diff --git a/CHANGES-thread-voice.md b/CHANGES-thread-voice.md
+new file mode 100644
+index 0000000..b370b0e
+--- /dev/null
++++ b/CHANGES-thread-voice.md
+@@ -0,0 +1,48 @@
++# رد صوتي (فويس) في الواجب
++
++## 🎤 تسجيل الإجابة بالمايك في نموذج التسليم (الطالب)
++- في نموذج "Submit assignment" زرار **"سجّل إجابتك بالميكروفون"** تحت مربعات الرفع.
++- التسجيل بيترفع تلقائي (Bunny Storage) ويتحط كأوديو التسليم (نفس مربع الأوديو الحالي،
++  وبيظهر له مشغّل + "إزالة"). الطالب لسه يضغط "تسليم الواجب".
++- منطق التسجيل المشترك في `app/lib/useVoiceRecorder.js` (بيستخدمه نموذج التسليم + المحادثة).
++
++## 🖼️ مصغّرة للـ PDF بدل زرار "View in platform" (`FileViewer.jsx`)
++- ملف الـ PDF (مرفق الواجب / ملف التسليم) بيظهر كصورة مصغّرة لأول صفحة، وبالضغط عليها
++  بتتكبّر وتاخد الشاشة كلها (إغلاق بـ X أو Esc، وفيه فتح في تبويب جديد + تحميل).
++- الصور نفس الفكرة. Word/PPT/Excel لسه بزرار "عرض داخل المنصة" لكن بيفتح على الشاشة كلها.
++- بتعتمد على عارض الـ PDF بتاع المتصفح (من غير مكتبة)؛ بعض متصفحات أندرويد مبتعرضش PDF جوه iframe.
++
++---
++
++## 💬 رد صوتي في محادثة الواجب
++
++الطالب (والمدرّس/الموديريتر/الأدمن) يقدر يبعت **رسالة صوتية** في محادثة التسليم بدل أو مع النص.
++
++## الاستخدام
++- في صفحة الواجب عند الطالب وصفحة التسليمات عند المدرّس، فوق مربع الكتابة:
++  - **تسجيل صوتي** — تسجيل مباشر بالمايك (أقصى مدة 5 دقايق) → معاينة → إرسال.
++  - **رفع ملف صوتي** — mp3 / m4a / wav / ogg / webm … (حتى 50MB).
++- الرسالة ممكن تبقى فويس بس، أو فويس + تعليق نصي. الطرف التاني بيوصله إشعار.
++- الرسائل الصوتية بتتعرض بمشغّل `<audio>` جوه المحادثة.
++
++## 🔒 الأمان
++- الملف بيترفع عن طريق `/api/upload/file` (kind=`submissionAudio`) → Bunny Storage تحت فولدر
++  المرسل نفسه (`edumaster/students|teachers/<userId>/…`).
++- السيرفر (`sanitizeThreadAudio`) مبيقبلش في الرسالة غير رابط أوديو من نفس الـ Pull Zone
++  **وتحت فولدر المرسل** — مفيش حد يقدر يربط ملف حد تاني. الرابط بيتخزّن من غير token
++  ويتوقّع من جديد وقت العرض (`resolveAssignmentMedia`).
++
++## الملفات
++**معدّل:** `app/components/ThreadChat.jsx` (prop جديد `allowVoice`) ·
++`app/api/assignments/[id]/submissions/[submissionId]/messages/route.js` ·
++`app/lib/threadMessages.js` · `app/lib/models/Assignment.js`
++(`messages[].audioUrl`، و`text` بقى مطلوب بس لو مفيش صوت) ·
++صفحة الواجب عند الطالب + صفحة التسليمات عند المدرّس · `middleware.js` (`media-src` + `blob:` لمعاينة التسجيل)
++
++**جديد:** `app/lib/threadMessages.test.js` · `app/lib/useVoiceRecorder.js`
++
++## ملاحظات
++- محادثة الكويزات لسه نص بس (الـ `allowVoice` مش مفعّل هناك).
++- التسجيل المباشر محتاج HTTPS (أو localhost) وإذن المايك من المتصفح؛ لو مش متاح الطالب يقدر يرفع ملف.
++- الرفع بيعدي على السيرفر (proxy) — لو الديبلوي على Vercel فحد الـ body هناك (~4.5MB) ينطبق على الفويس الطويل.
++- الرسائل القديمة (نص بس) شغالة زي ما هي.
+diff --git a/app/api/assignments/[id]/submissions/[submissionId]/messages/route.js b/app/api/assignments/[id]/submissions/[submissionId]/messages/route.js
+index 8b8b3c9..595602d 100644
+--- a/app/api/assignments/[id]/submissions/[submissionId]/messages/route.js
++++ b/app/api/assignments/[id]/submissions/[submissionId]/messages/route.js
+@@ -13,6 +13,7 @@ import { enforceRateLimit } from "@/app/lib/rateLimit";
+ import { createNotification } from "@/app/lib/notificationHelpers";
+ import {
+   sanitizeMessageText,
++  sanitizeThreadAudio,
+   threadAccess,
+   serializeMessages,
+   MAX_MESSAGES_PER_THREAD,
+@@ -80,13 +81,24 @@ export async function POST(request, { params }) {
+     if (rl) return rl;
+ 
+     const body = await request.json().catch(() => null);
+-    const parsed = sanitizeMessageText(body?.text);
+-    if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400);
++
++    // 🆕 الرسالة نص أو رد صوتي (audioUrl) أو الاتنين. الرابط لازم يكون ملف
++    // أوديو المرسل نفسه على Bunny Storage (شوف sanitizeThreadAudio).
++    const audio = sanitizeThreadAudio(body?.audioUrl, { userId: session.user.id, role: session.user.role });
++    if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
++
++    let text = "";
++    const hasText = typeof body?.text === "string" && body.text.trim().length > 0;
++    if (hasText || !audio.audioUrl) {
++      const parsed = sanitizeMessageText(body?.text);
++      if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400);
++      text = parsed.text;
++    }
+     if (submission.messages.length >= MAX_MESSAGES_PER_THREAD) return jsonResponse({ error: "thread_full" }, 400);
+ 
+     const senderRole =
+       access === "student" ? "student" : ["teacher", "moderator", "admin"].includes(session.user.role) ? session.user.role : "teacher";
+-    submission.messages.push({ sender: session.user.id, senderRole, text: parsed.text });
++    submission.messages.push({ sender: session.user.id, senderRole, text, audioUrl: audio.audioUrl });
+     await submission.save();
+ 
+     const recipient = access === "student" ? course.teacher : submission.student;
+@@ -95,7 +107,7 @@ export async function POST(request, { params }) {
+         user: recipient,
+         type: "message_new",
+         key: "thread_message",
+-        params: { senderName: session.user.name || null, itemTitle: assignment.title, body: parsed.text.slice(0, 200) },
++        params: { senderName: session.user.name || null, itemTitle: assignment.title, body: text ? text.slice(0, 200) : "🎤" },
+         link:
+           access === "student"
+             ? `/teacher/assignments/${assignment._id}/submissions`
+diff --git a/app/components/FileViewer.jsx b/app/components/FileViewer.jsx
+index 074ebfa..1aa372c 100644
+--- a/app/components/FileViewer.jsx
++++ b/app/components/FileViewer.jsx
+@@ -3,40 +3,120 @@
+ // app/components/FileViewer.jsx
+ //
+ // 🆕 عرض ملفات الواجب (مرفق المدرّس / ملف تسليم الطالب) جوه المنصة من غير تحميل:
+-//   - PDF            → iframe (عارض المتصفح)
+-//   - صور            → <img>
+-//   - Word/PPT/Excel → عارض Microsoft Office Online المجاني (iframe) — بيحتاج رابط
+-//                      عام يوصله سيرفر مايكروسوفت (روابط Bunny العامة/الموقّعة شغالة)
++//   - PDF            → صورة مصغّرة لأول صفحة ظاهرة على طول؛ بالضغط عليها بتتكبّر
++//                      وتاخد الشاشة كلها (عارض المتصفح)
++//   - صور            → مصغّرة بنفس الشكل، بالضغط بتتكبّر على الشاشة كلها
++//   - Word/PPT/Excel → زرار "عرض داخل المنصة" بيفتح عارض Microsoft Office Online
++//                      (بيحتاج رابط عام يوصله سيرفر مايكروسوفت) على الشاشة كلها
+ //   - غير كده (zip…) → تحميل بس
+ // التحميل لسه متاح دايمًا جنب العرض، فده خيار إضافي مش بديل.
+ //
++// المصغّرة بتعتمد على عارض الـ PDF بتاع المتصفح (iframe) — من غير مكتبة ومن غير
++// CORS على Bunny. على بعض موبايلات أندرويد المتصفح مبيعرضش PDF جوه iframe، وساعتها
++// الطالب لسه يقدر يفتحه بالزرار/الضغط أو يحمّله.
++//
+ // 🔒 CSP: لازم frame-src يسمح بـ https://*.b-cdn.net و https://view.officeapps.live.com
+ // (متضافين في middleware.js).
+ 
+-import { useState } from "react";
+-import { Eye, EyeOff, Download, ExternalLink } from "lucide-react";
++import { useEffect, useState } from "react";
++import { createPortal } from "react-dom";
++import { Eye, Download, ExternalLink, Maximize2, X } from "lucide-react";
+ import { useLanguage } from "@/contexts/LanguageContext";
+ import { detectFileKind, officeViewerUrl } from "@/app/lib/fileKind";
+ 
+ const STRINGS = {
+   ar: {
+     view: "عرض داخل المنصة",
+-    hide: "إخفاء العرض",
+     download: "تحميل",
+     openNewTab: "فتح في تبويب جديد",
++    enlarge: "اضغط للتكبير",
++    close: "إغلاق",
+     notViewable: "هذا النوع من الملفات لا يمكن عرضه داخل المنصة — يمكنك تحميله فقط",
+     officeNote: "لو الملف لم يظهر، حمّله أو افتحه في تبويب جديد.",
+   },
+   en: {
+     view: "View in platform",
+-    hide: "Hide preview",
+     download: "Download",
+     openNewTab: "Open in new tab",
++    enlarge: "Click to enlarge",
++    close: "Close",
+     notViewable: "This file type can't be previewed here — you can download it instead",
+     officeNote: "If the file doesn't show, download it or open it in a new tab.",
+   },
+ };
+ 
++// بيخفي أدوات عارض الـ PDF ويثبّته على أول صفحة بعرض الإطار (للمصغّرة)
++const PDF_THUMB_PARAMS = "#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH";
++
++function FullscreenModal({ kind, url, title, t, onClose }) {
++  useEffect(() => {
++    const onKey = (e) => {
++      if (e.key === "Escape") onClose();
++    };
++    document.addEventListener("keydown", onKey);
++    const prevOverflow = document.body.style.overflow;
++    document.body.style.overflow = "hidden"; // يمنع سكرول الصفحة اللي ورا
++    return () => {
++      document.removeEventListener("keydown", onKey);
++      document.body.style.overflow = prevOverflow;
++    };
++  }, [onClose]);
++
++  return createPortal(
++    <div role="dialog" aria-modal="true" aria-label={title || "file"} className="fixed inset-0 z-[100] flex flex-col bg-black/85">
++      <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-black/60 text-white">
++        <span className="text-sm font-semibold truncate">{title}</span>
++        <div className="flex items-center gap-2 shrink-0">
++          <a
++            href={url}
++            target="_blank"
++            rel="noopener noreferrer"
++            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20"
++          >
++            <ExternalLink size={13} /> <span className="hidden sm:inline">{t.openNewTab}</span>
++          </a>
++          <a
++            href={url}
++            download
++            target="_blank"
++            rel="noopener noreferrer"
++            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20"
++          >
++            <Download size={13} /> <span className="hidden sm:inline">{t.download}</span>
++          </a>
++          <button
++            type="button"
++            onClick={onClose}
++            aria-label={t.close}
++            title={t.close}
++            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20"
++          >
++            <X size={18} />
++          </button>
++        </div>
++      </div>
++
++      <div className="flex-1 min-h-0">
++        {kind === "image" ? (
++          <button type="button" onClick={onClose} className="w-full h-full flex items-center justify-center p-4 cursor-zoom-out" aria-label={t.close}>
++            {/* eslint-disable-next-line @next/next/no-img-element */}
++            <img src={url} alt={title || "file"} className="max-w-full max-h-full object-contain" />
++          </button>
++        ) : (
++          <iframe
++            src={kind === "pdf" ? url : officeViewerUrl(url)}
++            title={title || "file"}
++            className="w-full h-full border-0 bg-white"
++          />
++        )}
++      </div>
++
++      {kind === "office" && <p className="px-4 py-1.5 text-[11px] text-white/70 bg-black/60">{t.officeNote}</p>}
++    </div>,
++    document.body
++  );
++}
++
+ export default function FileViewer({ url, title = "", label = "", className = "" }) {
+   const { language } = useLanguage();
+   const t = STRINGS[language] || STRINGS.en;
+@@ -45,18 +125,19 @@ export default function FileViewer({ url, title = "", label = "", className = ""
+ 
+   const kind = detectFileKind(url);
+   const viewable = kind !== "other";
++  const hasThumb = kind === "pdf" || kind === "image";
+ 
+   return (
+     <div className={className}>
+       <div className="flex flex-wrap items-center gap-2">
+         {label && <span className="text-sm font-semibold text-gray-700 me-1">{label}</span>}
+-        {viewable && (
++        {kind === "office" && (
+           <button
+             type="button"
+-            onClick={() => setOpen((v) => !v)}
++            onClick={() => setOpen(true)}
+             className="inline-flex items-center gap-1.5 text-sm font-semibold bg-[#003A91] text-white px-3.5 py-2 rounded-xl hover:bg-[#002E74]"
+           >
+-            {open ? <EyeOff size={15} /> : <Eye size={15} />} {open ? t.hide : t.view}
++            <Eye size={15} /> {t.view}
+           </button>
+         )}
+         <a
+@@ -72,32 +153,37 @@ export default function FileViewer({ url, title = "", label = "", className = ""
+ 
+       {!viewable && <p className="text-xs text-gray-400 mt-2">{t.notViewable}</p>}
+ 
+-      {viewable && open && (
+-        <div className="mt-3 border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+-          {kind === "image" ? (
+-            // eslint-disable-next-line @next/next/no-img-element
+-            <img src={url} alt={title || "file"} className="max-w-full max-h-[75vh] mx-auto object-contain" />
+-          ) : (
++      {/* 🖼️ مصغّرة ظاهرة على طول (PDF: أول صفحة — صورة: الصورة نفسها) */}
++      {hasThumb && (
++        <div className="relative mt-3 w-full max-w-[260px] aspect-[3/4] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm group">
++          {kind === "pdf" ? (
+             <iframe
+-              src={kind === "pdf" ? url : officeViewerUrl(url)}
++              src={`${url}${PDF_THUMB_PARAMS}`}
+               title={title || "file"}
+               loading="lazy"
+-              className="w-full h-[70vh] border-0 bg-white"
++              tabIndex={-1}
++              aria-hidden="true"
++              className="absolute inset-0 w-full h-full border-0 bg-white pointer-events-none"
+             />
++          ) : (
++            // eslint-disable-next-line @next/next/no-img-element
++            <img src={url} alt={title || "file"} className="absolute inset-0 w-full h-full object-cover" />
+           )}
+-          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-white border-t border-gray-100 text-xs text-gray-400">
+-            <span>{kind === "office" ? t.officeNote : ""}</span>
+-            <a
+-              href={url}
+-              target="_blank"
+-              rel="noopener noreferrer"
+-              className="inline-flex items-center gap-1 font-semibold text-[#003A91] hover:underline shrink-0"
+-            >
+-              <ExternalLink size={12} /> {t.openNewTab}
+-            </a>
+-          </div>
++          {/* طبقة الضغط فوق المصغّرة */}
++          <button
++            type="button"
++            onClick={() => setOpen(true)}
++            aria-label={`${t.enlarge}: ${title || label || "file"}`}
++            className="absolute inset-0 w-full h-full cursor-zoom-in bg-transparent group-hover:bg-black/10 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#003A91]"
++          >
++            <span className="absolute bottom-2 end-2 inline-flex items-center gap-1 rounded-lg bg-black/65 text-white text-[11px] font-semibold px-2 py-1">
++              <Maximize2 size={12} /> {t.enlarge}
++            </span>
++          </button>
+         </div>
+       )}
++
++      {viewable && open && <FullscreenModal kind={kind} url={url} title={title || label} t={t} onClose={() => setOpen(false)} />}
+     </div>
+   );
+ }
+diff --git a/app/components/ThreadChat.jsx b/app/components/ThreadChat.jsx
+index f024e29..f138f36 100644
+--- a/app/components/ThreadChat.jsx
++++ b/app/components/ThreadChat.jsx
+@@ -2,15 +2,20 @@
+ 
+ // app/components/ThreadChat.jsx
+ //
+-// 🆕 محادثة نصية بين الطالب والمدرّس/الموديريتر على محاولة كويز أو تسليم واجب.
+-// الـ endpoint نفسه (GET يرجّع { messages } / POST { text } يرجّع { messages }):
++// 🆕 محادثة بين الطالب والمدرّس/الموديريتر على محاولة كويز أو تسليم واجب.
++// الـ endpoint نفسه (GET يرجّع { messages } / POST { text, audioUrl? } يرجّع { messages }):
+ //   /api/quizzes/[id]/results/[resultId]/messages
+ //   /api/assignments/[id]/submissions/[submissionId]/messages
+ // viewer: "student" | "staff" — بس عشان نحدد رسايل مين على اليمين/اللون.
++//
++// 🎤 allowVoice (للواجبات بس حاليًا): الرسالة ممكن تبقى رد صوتي — تسجيل مباشر
++// بالمايك أو رفع ملف أوديو. الملف بيترفع لـ /api/upload/file (kind=submissionAudio
++// → Bunny Storage تحت فولدر المرسل) وبعدين بنبعت رابطه في الرسالة.
+ 
+ import { useEffect, useRef, useState } from "react";
+-import { Loader, Send, MessageSquare } from "lucide-react";
++import { Loader, Send, MessageSquare, Mic, Square, Trash2, UploadCloud } from "lucide-react";
+ import { useLanguage } from "@/contexts/LanguageContext";
++import { useVoiceRecorder, uploadVoiceFile, formatClock, MAX_AUDIO_BYTES } from "@/app/lib/useVoiceRecorder";
+ 
+ const MAX_LEN = 20000;
+ 
+@@ -19,25 +24,49 @@ const STRINGS = {
+     title: "المحادثة",
+     empty: "لا توجد رسائل بعد. اكتب أول رسالة.",
+     placeholder: "اكتب رسالتك هنا (يمكنك كتابة نص طويل)...",
++    placeholderVoice: "أضف تعليقًا نصيًا على التسجيل (اختياري)...",
+     send: "إرسال",
+     loadError: "تعذّر تحميل الرسائل",
+     sendError: "تعذّر إرسال الرسالة، حاول مرة أخرى",
+     roles: { student: "الطالب", teacher: "المدرّس", moderator: "الموديريتر", admin: "الأدمن" },
+     you: "أنت",
++    record: "تسجيل صوتي",
++    uploadAudio: "رفع ملف صوتي",
++    stop: "إيقاف التسجيل",
++    recording: "جارٍ التسجيل...",
++    removeVoice: "حذف التسجيل",
++    micDenied: "لم يتم السماح باستخدام الميكروفون. فعّل الصلاحية من إعدادات المتصفح أو ارفع ملفًا صوتيًا.",
++    micUnsupported: "متصفحك لا يدعم التسجيل المباشر. ارفع ملفًا صوتيًا بدلًا من ذلك.",
++    notAudio: "الملف المختار ليس ملفًا صوتيًا",
++    tooLarge: "حجم الملف الصوتي كبير جدًا (الحد الأقصى 50 ميجا)",
++    notConfigured: "الرفع غير مفعّل حاليًا",
++    voiceMessage: "رسالة صوتية",
+   },
+   en: {
+     title: "Discussion",
+     empty: "No messages yet. Write the first one.",
+     placeholder: "Write your message here (long text is fine)...",
++    placeholderVoice: "Add an optional text note with your recording...",
+     send: "Send",
+     loadError: "Couldn't load messages",
+     sendError: "Couldn't send the message, try again",
+     roles: { student: "Student", teacher: "Teacher", moderator: "Moderator", admin: "Admin" },
+     you: "You",
++    record: "Record voice",
++    uploadAudio: "Upload audio file",
++    stop: "Stop recording",
++    recording: "Recording...",
++    removeVoice: "Remove recording",
++    micDenied: "Microphone access was denied. Allow it in your browser settings or upload an audio file instead.",
++    micUnsupported: "Your browser doesn't support live recording. Upload an audio file instead.",
++    notAudio: "The selected file isn't an audio file",
++    tooLarge: "The audio file is too large (50MB max)",
++    notConfigured: "Uploads aren't enabled right now",
++    voiceMessage: "Voice message",
+   },
+ };
+ 
+-export default function ThreadChat({ endpoint, viewer = "student", initialMessages = null }) {
++export default function ThreadChat({ endpoint, viewer = "student", initialMessages = null, allowVoice = false }) {
+   const { language, isRTL } = useLanguage();
+   const t = STRINGS[language] || STRINGS.en;
+   const [messages, setMessages] = useState(initialMessages || []);
+@@ -47,6 +76,13 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
+   const [error, setError] = useState("");
+   const endRef = useRef(null);
+ 
++  // 🎤 الرد الصوتي
++  const [voice, setVoiceState] = useState(null); // { file, url } — url = معاينة محلية قبل الإرسال
++  const voiceRef = useRef(null);
++  const voiceFile = voice?.file ?? null;
++  const voicePreviewUrl = voice?.url ?? "";
++  const fileInputRef = useRef(null);
++
+   useEffect(() => {
+     if (initialMessages) return;
+     let cancelled = false;
+@@ -72,30 +108,87 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
+     endRef.current?.scrollIntoView?.({ block: "nearest" });
+   }, [messages.length]);
+ 
++  // بيحفظ التسجيل/الملف المختار + رابط معاينته، ويفرّج الرابط القديم
++  function setVoiceFile(file) {
++    if (voiceRef.current) URL.revokeObjectURL(voiceRef.current.url);
++    const next = file ? { file, url: URL.createObjectURL(file) } : null;
++    voiceRef.current = next;
++    setVoiceState(next);
++  }
++
++  // لو الكومبوننت اتشال → نفرّج رابط المعاينة (المايك بيقفله الـ hook)
++  useEffect(
++    () => () => {
++      if (voiceRef.current) URL.revokeObjectURL(voiceRef.current.url);
++    },
++    []
++  );
++
++  // 🎤 التسجيل المباشر (منطقه في app/lib/useVoiceRecorder.js)
++  const {
++    recording,
++    seconds,
++    start: startMic,
++    stop: stopRecording,
++  } = useVoiceRecorder({
++    onRecorded: (file) => setVoiceFile(file),
++    onError: (code) => setError(code === "denied" ? t.micDenied : t.micUnsupported),
++  });
++
++  function startRecording() {
++    setError("");
++    setVoiceFile(null);
++    startMic();
++  }
++
++  function handlePickFile(e) {
++    const file = e.target.files?.[0];
++    e.target.value = ""; // يسمح باختيار نفس الملف تاني
++    if (!file) return;
++    setError("");
++    if (!String(file.type || "").startsWith("audio/")) {
++      setError(t.notAudio);
++      return;
++    }
++    if (file.size > MAX_AUDIO_BYTES) {
++      setError(t.tooLarge);
++      return;
++    }
++    setVoiceFile(file);
++  }
++
+   async function handleSend(e) {
+     e.preventDefault();
+     const body = text.trim();
+-    if (!body || sending) return;
++    if ((!body && !voiceFile) || sending || recording) return;
+     setSending(true);
+     setError("");
+     try {
++      const payload = {};
++      if (body) payload.text = body;
++      if (voiceFile) payload.audioUrl = await uploadVoiceFile(voiceFile);
++
+       const res = await fetch(endpoint, {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({ text: body }),
++        body: JSON.stringify(payload),
+       });
+       const data = await res.json();
+       if (!res.ok) throw new Error(data?.error);
+       setMessages(data.messages || []);
+       setText("");
+-    } catch {
+-      setError(t.sendError);
++      setVoiceFile(null);
++    } catch (err) {
++      if (err?.message === "file_too_large") setError(t.tooLarge);
++      else if (err?.message === "upload_not_configured") setError(t.notConfigured);
++      else setError(t.sendError);
+     } finally {
+       setSending(false);
+     }
+   }
+ 
+   const isMine = (m) => (viewer === "student" ? m.senderRole === "student" : m.senderRole !== "student");
++  const canSend = !sending && !recording && (text.trim().length > 0 || Boolean(voiceFile));
+ 
+   return (
+     <div dir={isRTL ? "rtl" : "ltr"} className="border border-gray-200 rounded-2xl bg-white overflow-hidden">
+@@ -123,8 +216,17 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
+                   {" · "}
+                   {new Date(m.createdAt).toLocaleString(language === "ar" ? "ar-EG" : undefined)}
+                 </p>
++                {m.audioUrl && (
++                  <audio
++                    controls
++                    preload="none"
++                    src={m.audioUrl}
++                    aria-label={t.voiceMessage}
++                    className="w-full min-w-[220px] max-w-full mb-1"
++                  />
++                )}
+                 {/* whitespace-pre-wrap عشان النص الطويل/الفقرات يتعرضوا زي ما اتكتبوا؛ React بيعمل escape */}
+-                <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
++                {m.text && <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>}
+               </div>
+             </div>
+           ))
+@@ -134,12 +236,69 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
+ 
+       <form onSubmit={handleSend} className="border-t p-3 space-y-2">
+         {error && <p className="text-xs text-red-500">{error}</p>}
++
++        {allowVoice && (
++          <div className="space-y-2">
++            {recording ? (
++              <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
++                <span className="flex items-center gap-2 text-sm font-semibold text-red-600">
++                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
++                  {t.recording} {formatClock(seconds)}
++                </span>
++                <button
++                  type="button"
++                  onClick={stopRecording}
++                  className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90"
++                >
++                  <Square size={12} /> {t.stop}
++                </button>
++              </div>
++            ) : voiceFile ? (
++              <div className="flex items-center gap-2 bg-[#EBEFF6] rounded-xl px-3 py-2">
++                {voicePreviewUrl && (
++                  <audio controls src={voicePreviewUrl} aria-label={t.voiceMessage} className="flex-1 min-w-0 h-9" />
++                )}
++                <button
++                  type="button"
++                  onClick={() => setVoiceFile(null)}
++                  disabled={sending}
++                  aria-label={t.removeVoice}
++                  title={t.removeVoice}
++                  className="p-2 text-red-500 hover:bg-white rounded-lg disabled:opacity-50"
++                >
++                  <Trash2 size={16} />
++                </button>
++              </div>
++            ) : (
++              <div className="flex flex-wrap gap-2">
++                <button
++                  type="button"
++                  onClick={startRecording}
++                  disabled={sending}
++                  className="flex items-center gap-1.5 border border-gray-300 text-gray-700 hover:border-[#5279B4] hover:text-[#003A91] text-xs font-bold px-3 py-2 rounded-xl disabled:opacity-50"
++                >
++                  <Mic size={14} /> {t.record}
++                </button>
++                <button
++                  type="button"
++                  onClick={() => fileInputRef.current?.click()}
++                  disabled={sending}
++                  className="flex items-center gap-1.5 border border-gray-300 text-gray-700 hover:border-[#5279B4] hover:text-[#003A91] text-xs font-bold px-3 py-2 rounded-xl disabled:opacity-50"
++                >
++                  <UploadCloud size={14} /> {t.uploadAudio}
++                </button>
++                <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={handlePickFile} />
++              </div>
++            )}
++          </div>
++        )}
++
+         <textarea
+-          rows={3}
++          rows={allowVoice && (voiceFile || recording) ? 2 : 3}
+           maxLength={MAX_LEN}
+           value={text}
+           onChange={(e) => setText(e.target.value)}
+-          placeholder={t.placeholder}
++          placeholder={allowVoice && voiceFile ? t.placeholderVoice : t.placeholder}
+           className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#5279B4] resize-y"
+         />
+         <div className="flex items-center justify-between">
+@@ -148,7 +307,7 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
+           </span>
+           <button
+             type="submit"
+-            disabled={sending || !text.trim()}
++            disabled={!canSend}
+             className="flex items-center gap-2 bg-[#003A91] text-white text-sm font-bold px-5 py-2 rounded-xl hover:opacity-90 disabled:opacity-50"
+           >
+             {sending ? <Loader size={14} className="animate-spin" /> : <Send size={14} />}
+diff --git a/app/lib/models/Assignment.js b/app/lib/models/Assignment.js
+index 4f54334..fd4ac41 100644
+--- a/app/lib/models/Assignment.js
++++ b/app/lib/models/Assignment.js
+@@ -120,7 +120,16 @@ const submissionSchema = new mongoose.Schema(
+       {
+         sender: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
+         senderRole: { type: String, enum: ["student", "teacher", "moderator", "admin"], required: true },
+-        text: { type: String, required: true, maxlength: 20000 },
++        // 🆕 الرسالة إما نص أو رد صوتي (audioUrl على Bunny Storage) أو الاتنين
++        text: {
++          type: String,
++          default: "",
++          maxlength: 20000,
++          required: function requiredWhenNoAudio() {
++            return !this.audioUrl;
++          },
++        },
++        audioUrl: { type: String, default: null, maxlength: 2000 },
+         createdAt: { type: Date, default: Date.now },
+       },
+     ],
+diff --git a/app/lib/threadMessages.js b/app/lib/threadMessages.js
+index 8844226..21e89ac 100644
+--- a/app/lib/threadMessages.js
++++ b/app/lib/threadMessages.js
+@@ -8,6 +8,7 @@
+ // 🔒 النص بيتقصّ على MAX_MESSAGE_LENGTH ومفيش HTML بيتنفّذ (React بيعمل escape).
+ 
+ import { canGradeCourse } from "@/app/lib/rbac";
++import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
+ 
+ export const MAX_MESSAGE_LENGTH = 20000; // نص كبير (إجابة مقالية / تعليق مطوّل)
+ export const MAX_MESSAGES_PER_THREAD = 500;
+@@ -31,13 +32,32 @@ export function threadAccess(session, courseTeacherId, studentId) {
+   return null;
+ }
+ 
++/**
++ * 🆕 رد صوتي: بنقبل بس رابط أوديو من Bunny Storage تحت فولدر المرسل نفسه
++ * (نفس مسار /api/upload/file: edumaster/students|teachers/<userId>/...)، فمفيش
++ * حد يقدر يربط ملف حد تاني برسالته. الرابط بيتخزّن من غير token.
++ * @returns {{ ok: true, audioUrl: string|null } | { ok: false, error: string }}
++ */
++export function sanitizeThreadAudio(rawUrl, { userId, role }) {
++  const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
++  if (!url) return { ok: true, audioUrl: null };
++  const roleFolder = role === "student" ? "students" : "teachers";
++  const media = sanitizeAssignmentMedia(url, "audio", {
++    audioFolderPrefix: `/edumaster/${roleFolder}/${userId}/`,
++  });
++  if (!media.ok) return { ok: false, error: "invalid_audio_url" };
++  return { ok: true, audioUrl: media.mediaUrl };
++}
++
+ export function serializeMessages(messages, nameById = {}) {
+   return (messages || []).map((m) => ({
+     id: m._id?.toString?.() ?? null,
+     senderId: m.sender?.toString?.() ?? String(m.sender),
+     senderName: nameById[String(m.sender)] || null,
+     senderRole: m.senderRole,
+-    text: m.text,
++    text: m.text || "",
++    // موقّع من جديد وقت الإرسال (لو Token Authentication مفعّل على Bunny)
++    audioUrl: m.audioUrl ? resolveAssignmentMedia(m.audioUrl, "audio") : null,
+     createdAt: m.createdAt,
+   }));
+ }
+diff --git a/app/lib/threadMessages.test.js b/app/lib/threadMessages.test.js
+new file mode 100644
+index 0000000..27cd0bf
+--- /dev/null
++++ b/app/lib/threadMessages.test.js
+@@ -0,0 +1,68 @@
++// app/lib/threadMessages.test.js
++//
++// 🆕 الرد الصوتي في محادثة الواجب: الرابط لازم يكون أوديو Bunny تحت فولدر
++// المرسل نفسه (طالب → students/<id>، مدرّس/موديريتر/أدمن → teachers/<id>).
++
++const HOST = "my-zone.b-cdn.net";
++
++beforeAll(() => {
++  process.env.BUNNY_STREAM_LIBRARY_ID = "12345";
++  process.env.BUNNY_STORAGE_PULL_ZONE_HOSTNAME = HOST;
++});
++
++jest.mock("@/app/lib/rbac", () => ({ canGradeCourse: jest.fn() }));
++
++const { sanitizeThreadAudio, serializeMessages } = require("./threadMessages");
++
++describe("sanitizeThreadAudio", () => {
++  it("مفيش رابط → بدون صوت", () => {
++    expect(sanitizeThreadAudio("", { userId: "s1", role: "student" })).toEqual({ ok: true, audioUrl: null });
++    expect(sanitizeThreadAudio(undefined, { userId: "s1", role: "student" })).toEqual({ ok: true, audioUrl: null });
++  });
++
++  it("الطالب يقبل ملفه هو بس (ويتشال الـ token)", () => {
++    const own = `https://${HOST}/edumaster/students/s1/audio/1-voice.webm`;
++    expect(sanitizeThreadAudio(`${own}?token=x&expires=1`, { userId: "s1", role: "student" })).toEqual({
++      ok: true,
++      audioUrl: own,
++    });
++    expect(
++      sanitizeThreadAudio(`https://${HOST}/edumaster/students/s2/audio/1-voice.webm`, { userId: "s1", role: "student" })
++    ).toEqual({ ok: false, error: "invalid_audio_url" });
++  });
++
++  it("الطالب مينفعش يربط ملف من فولدر المدرّسين", () => {
++    expect(
++      sanitizeThreadAudio(`https://${HOST}/edumaster/teachers/t1/audio/1-a.mp3`, { userId: "s1", role: "student" }).ok
++    ).toBe(false);
++  });
++
++  it("المدرّس/الموديريتر/الأدمن تحت teachers/<id>", () => {
++    const own = `https://${HOST}/edumaster/teachers/t1/audio/1-a.mp3`;
++    for (const role of ["teacher", "moderator", "admin"]) {
++      expect(sanitizeThreadAudio(own, { userId: "t1", role })).toEqual({ ok: true, audioUrl: own });
++    }
++    expect(
++      sanitizeThreadAudio(`https://${HOST}/edumaster/teachers/t2/audio/1-a.mp3`, { userId: "t1", role: "teacher" }).ok
++    ).toBe(false);
++  });
++
++  it("رابط خارج Bunny أو فيه .. مرفوض", () => {
++    expect(sanitizeThreadAudio("https://evil.com/a.mp3", { userId: "s1", role: "student" }).ok).toBe(false);
++    expect(
++      sanitizeThreadAudio(`https://${HOST}/edumaster/students/s1/../s2/audio/a.mp3`, { userId: "s1", role: "student" }).ok
++    ).toBe(false);
++  });
++});
++
++describe("serializeMessages", () => {
++  it("بيرجّع audioUrl للرسائل الصوتية و null للنصية، والنص فاضي مش undefined", () => {
++    const voice = `https://${HOST}/edumaster/students/s1/audio/1-voice.webm`;
++    const out = serializeMessages([
++      { _id: "m1", sender: "s1", senderRole: "student", text: "", audioUrl: voice, createdAt: new Date(0) },
++      { _id: "m2", sender: "t1", senderRole: "teacher", text: "تمام", createdAt: new Date(0) },
++    ]);
++    expect(out[0]).toMatchObject({ id: "m1", text: "", audioUrl: voice });
++    expect(out[1]).toMatchObject({ id: "m2", text: "تمام", audioUrl: null });
++  });
++});
+diff --git a/app/lib/useVoiceRecorder.js b/app/lib/useVoiceRecorder.js
+new file mode 100644
+index 0000000..6442223
+--- /dev/null
++++ b/app/lib/useVoiceRecorder.js
+@@ -0,0 +1,138 @@
++"use client";
++
++// app/lib/useVoiceRecorder.js
++//
++// 🎤 تسجيل صوت مباشر بالمايك (MediaRecorder) + رفعه، مشترك بين:
++//   - محادثة الواجب (app/components/ThreadChat.jsx)
++//   - نموذج تسليم الواجب عند الطالب (app/student/assignments/[assignmentId]/page.jsx)
++//
++// useVoiceRecorder({ onRecorded(file), onError("denied" | "unsupported"), maxSeconds })
++//   → { recording, seconds, start, stop }
++// الملف اللي بيرجع File بنوع أوديو أساسي (audio/webm | audio/mp4 | audio/ogg) عشان
++// يعدّي فحص الـ MIME في /api/upload/file.
++
++import { useCallback, useEffect, useRef, useState } from "react";
++
++export const MAX_AUDIO_BYTES = 50 * 1024 * 1024; // نفس حد السيرفر لـ submissionAudio
++
++const EXT_BY_MIME = {
++  "audio/webm": "webm",
++  "audio/mp4": "m4a",
++  "audio/ogg": "ogg",
++  "audio/mpeg": "mp3",
++  "audio/wav": "wav",
++};
++
++function pickRecorderMimeType() {
++  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
++  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
++  return candidates.find((c) => MediaRecorder.isTypeSupported(c)) || "";
++}
++
++export function formatClock(totalSeconds) {
++  const m = Math.floor(totalSeconds / 60);
++  const s = totalSeconds % 60;
++  return `${m}:${String(s).padStart(2, "0")}`;
++}
++
++/**
++ * بيرفع ملف أوديو لـ Bunny Storage تحت فولدر المستخدم (kind=submissionAudio).
++ * @returns {Promise<string>} رابط الملف. بيرمي Error بكود زي "file_too_large" / "upload_not_configured".
++ */
++export async function uploadVoiceFile(file) {
++  const formData = new FormData();
++  formData.append("file", file);
++  formData.append("kind", "submissionAudio");
++  const res = await fetch("/api/upload/file", { method: "POST", body: formData });
++  const data = await res.json().catch(() => ({}));
++  if (!res.ok) throw new Error(data?.error || "upload_failed");
++  return data.url;
++}
++
++export function useVoiceRecorder({ onRecorded, onError, maxSeconds = 5 * 60 } = {}) {
++  const [recording, setRecording] = useState(false);
++  const [seconds, setSeconds] = useState(0);
++  const recorderRef = useRef(null);
++  const streamRef = useRef(null);
++  const chunksRef = useRef([]);
++  const timerRef = useRef(null);
++  const onRecordedRef = useRef(onRecorded);
++  const onErrorRef = useRef(onError);
++
++  useEffect(() => {
++    onRecordedRef.current = onRecorded;
++    onErrorRef.current = onError;
++  });
++
++  const releaseMic = useCallback(() => {
++    if (timerRef.current) {
++      clearInterval(timerRef.current);
++      timerRef.current = null;
++    }
++    streamRef.current?.getTracks?.().forEach((tr) => tr.stop());
++    streamRef.current = null;
++  }, []);
++
++  const stop = useCallback(() => {
++    const rec = recorderRef.current;
++    if (rec && rec.state !== "inactive") rec.stop();
++  }, []);
++
++  const start = useCallback(async () => {
++    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
++      onErrorRef.current?.("unsupported");
++      return;
++    }
++    try {
++      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
++      streamRef.current = stream;
++      const mimeType = pickRecorderMimeType();
++      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
++      chunksRef.current = [];
++      rec.ondataavailable = (e) => {
++        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
++      };
++      rec.onstop = () => {
++        const type = (rec.mimeType || mimeType || "audio/webm").split(";")[0].trim().toLowerCase();
++        const blob = new Blob(chunksRef.current, { type });
++        releaseMic();
++        setRecording(false);
++        if (blob.size > 0) {
++          onRecordedRef.current?.(new File([blob], `voice-${Date.now()}.${EXT_BY_MIME[type] || "webm"}`, { type }));
++        }
++      };
++      recorderRef.current = rec;
++      rec.start();
++      setSeconds(0);
++      setRecording(true);
++      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
++    } catch (err) {
++      releaseMic();
++      onErrorRef.current?.(err?.name === "NotAllowedError" || err?.name === "SecurityError" ? "denied" : "unsupported");
++    }
++  }, [releaseMic]);
++
++  // أقصى مدة تسجيل → إيقاف تلقائي
++  useEffect(() => {
++    if (recording && seconds >= maxSeconds) stop();
++  }, [recording, seconds, maxSeconds, stop]);
++
++  // لو الكومبوننت اتشال وإحنا بنسجّل → نقفل المايك من غير ما نسلّم ملف
++  useEffect(
++    () => () => {
++      const rec = recorderRef.current;
++      if (rec && rec.state !== "inactive") {
++        rec.onstop = null;
++        try {
++          rec.stop();
++        } catch {
++          /* already stopped */
++        }
++      }
++      releaseMic();
++    },
++    [releaseMic]
++  );
++
++  return { recording, seconds, start, stop };
++}
+diff --git a/app/student/assignments/[assignmentId]/page.jsx b/app/student/assignments/[assignmentId]/page.jsx
+index 091b3cc..9053f3a 100644
+--- a/app/student/assignments/[assignmentId]/page.jsx
++++ b/app/student/assignments/[assignmentId]/page.jsx
+@@ -10,8 +10,9 @@
+ import { useEffect, useState, use as usePromise } from "react";
+ import Link from "next/link";
+ import {
+-  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock,
++  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Mic, Square,
+ } from "lucide-react";
++import { useVoiceRecorder, uploadVoiceFile, formatClock } from "@/app/lib/useVoiceRecorder";
+ import MediaUploader from "@/app/teacher/components/MediaUploader";
+ import AssignmentMedia from "@/app/components/AssignmentMedia";
+ import AssignmentQuiz from "@/app/components/AssignmentQuiz";
+@@ -49,6 +50,13 @@ const STRINGS = {
+     textPlaceholder: "اكتب إجابتك هنا إن لم يكن لديك ملف...",
+     updateSubmission: "تحديث التسليم",
+     noLateSubmission: "انتهى الموعد ولا يُسمح بالتسليم المتأخر لهذا الواجب",
++    recordVoice: "سجّل إجابتك بالميكروفون",
++    stopRecording: "إيقاف التسجيل",
++    recordingLabel: "جارٍ التسجيل...",
++    micDenied: "لم يتم السماح باستخدام الميكروفون. فعّل الصلاحية من إعدادات المتصفح أو ارفع ملفًا صوتيًا.",
++    micUnsupported: "متصفحك لا يدعم التسجيل المباشر. ارفع ملفًا صوتيًا بدلًا من ذلك.",
++    voiceUploadFailed: "تعذّر رفع التسجيل، حاول مرة أخرى",
++    voiceTooLarge: "حجم التسجيل كبير جدًا (الحد الأقصى 50 ميجا)",
+   },
+   en: {
+     noDueDate: "No due date",
+@@ -79,6 +87,13 @@ const STRINGS = {
+     textPlaceholder: "Write your answer here if you have no file...",
+     updateSubmission: "Update submission",
+     noLateSubmission: "The deadline has passed and late submission isn't allowed for this assignment",
++    recordVoice: "Record your answer with the microphone",
++    stopRecording: "Stop recording",
++    recordingLabel: "Recording...",
++    micDenied: "Microphone access was denied. Allow it in your browser settings or upload an audio file instead.",
++    micUnsupported: "Your browser doesn't support live recording. Upload an audio file instead.",
++    voiceUploadFailed: "Couldn't upload the recording, try again",
++    voiceTooLarge: "The recording is too large (50MB max)",
+   },
+ };
+ 
+@@ -105,6 +120,26 @@ export default function SubmitAssignmentPage({ params }) {
+   const [textAnswer, setTextAnswer] = useState("");
+   const [submitting, setSubmitting] = useState(false);
+   const [submitError, setSubmitError] = useState("");
++  const [micError, setMicError] = useState("");
++  const [micUploading, setMicUploading] = useState(false);
++
++  // 🎤 تسجيل الإجابة بالمايك → بيترفع Bunny Storage ويتحط كأوديو التسليم
++  async function handleRecordedVoice(file) {
++    setMicError("");
++    setMicUploading(true);
++    try {
++      const url = await uploadVoiceFile(file);
++      setMedia({ url, type: "audio" });
++    } catch (err) {
++      setMicError(err?.message === "file_too_large" ? t.voiceTooLarge : t.voiceUploadFailed);
++    } finally {
++      setMicUploading(false);
++    }
++  }
++  const mic = useVoiceRecorder({
++    onRecorded: handleRecordedVoice,
++    onError: (code) => setMicError(code === "denied" ? t.micDenied : t.micUnsupported),
++  });
+ 
+   async function load() {
+     try {
+@@ -267,7 +302,11 @@ export default function SubmitAssignmentPage({ params }) {
+       {/* 🆕 محادثة نصية مع المدرّس/الموديريتر على التسليم (بتظهر بعد أول تسليم) */}
+       {mySubmission?.id && (
+         <div className="mb-6">
+-          <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`} viewer="student" />
++          <ThreadChat
++            endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`}
++            viewer="student"
++            allowVoice
++          />
+         </div>
+       )}
+ 
+@@ -296,6 +335,39 @@ export default function SubmitAssignmentPage({ params }) {
+               onUploaded={(r) => setMedia({ url: r.url, type: "audio" })}
+             />
+           </div>
++          {/* 🎤 تسجيل مباشر بالمايك */}
++          <div>
++            {mic.recording ? (
++              <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
++                <span className="flex items-center gap-2 text-sm font-semibold text-red-600">
++                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
++                  {t.recordingLabel} {formatClock(mic.seconds)}
++                </span>
++                <button
++                  type="button"
++                  onClick={mic.stop}
++                  className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-bold px-3 py-2 rounded-lg hover:opacity-90"
++                >
++                  <Square size={12} /> {t.stopRecording}
++                </button>
++              </div>
++            ) : (
++              <button
++                type="button"
++                onClick={() => {
++                  setMicError("");
++                  mic.start();
++                }}
++                disabled={micUploading}
++                className="w-full flex items-center justify-center gap-2 border border-gray-300 hover:border-[#5279B4] rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 hover:text-[#003A91] transition-colors disabled:opacity-60"
++              >
++                {micUploading ? <Loader size={16} className="animate-spin text-[#2456A1]" /> : <Mic size={16} />}
++                {t.recordVoice}
++              </button>
++            )}
++            {micError && <p className="text-xs text-red-500 mt-1.5">{micError}</p>}
++          </div>
++
+           {media.url && (
+             <div className="space-y-2">
+               <AssignmentMedia url={media.url} type={media.type} />
+diff --git a/app/teacher/assignments/[assignmentId]/submissions/page.jsx b/app/teacher/assignments/[assignmentId]/submissions/page.jsx
+index 1da6fb0..4e44836 100644
+--- a/app/teacher/assignments/[assignmentId]/submissions/page.jsx
++++ b/app/teacher/assignments/[assignmentId]/submissions/page.jsx
+@@ -246,7 +246,7 @@ export default function AssignmentSubmissionsPage({ params }) {
+                 </button>
+                 {openThreadId === s.id && (
+                   <div className="mt-3">
+-                    <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${s.id}/messages`} viewer="staff" />
++                    <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${s.id}/messages`} viewer="staff" allowVoice />
+                   </div>
+                 )}
+               </div>
+diff --git a/middleware.js b/middleware.js
+index a3768ef..952aaca 100644
+--- a/middleware.js
++++ b/middleware.js
+@@ -202,7 +202,8 @@ export async function middleware(request) {
+     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+     "font-src 'self' https://fonts.gstatic.com data:",
+     "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://res.cloudinary.com https://raw.githubusercontent.com",
+-    "media-src 'self' https://*.b-cdn.net",
++    // 🆕 blob: لمعاينة تسجيل الرد الصوتي في المحادثة قبل الإرسال
++    "media-src 'self' blob: https://*.b-cdn.net",
+     // 🆕 *.b-cdn.net: عرض ملفات الواجب (PDF) جوه المنصة من غير تحميل (FileViewer).
+     // view.officeapps.live.com: عارض Word/PowerPoint/Excel المجاني من مايكروسوفت.
+     "frame-src 'self' https://iframe.mediadelivery.net https://pay.getpayin.com https://*.daily.co https://*.b-cdn.net https://view.officeapps.live.com",

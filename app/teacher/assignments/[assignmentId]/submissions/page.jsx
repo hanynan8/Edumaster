@@ -246,7 +246,7 @@ export default function AssignmentSubmissionsPage({ params }) {
                 </button>
                 {openThreadId === s.id && (
                   <div className="mt-3">
-                    <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${s.id}/messages`} viewer="staff" />
+                    <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${s.id}/messages`} viewer="staff" allowVoice />
                   </div>
                 )}
               </div>

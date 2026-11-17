@@ -5,7 +5,9 @@
 // GET  /api/assignments?course=<id> → قائمة واجبات كورس معيّن. صاحب
 //        الكورس/أدمن بيشوف الكل (منشور+مسودة)، غير كده منشور بس.
 // POST /api/assignments { course, title, description?, attachmentUrl?, mediaUrl?, mediaType? ("video"|"audio" — Bunny),
-//        section?, lesson?, dueDate?, maxScore?, allowLateSubmission? }
+//        section?, lesson?, dueDate?, maxScore?, allowLateSubmission?,
+//        questions? [{ type: "multiple_choice"|"true_false", text, options:[{text,isCorrect}], points? }],
+//        allowManualSubmission? (false = أسئلة بس بتصحيح تلقائي) }
 //        → صاحب الكورس أو أدمن بس.
 
 import mongoose from "mongoose";
@@ -13,6 +15,8 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel } from "@/app/lib/models";
 import { requireSession, canManageCourse, canGradeCourse } from "@/app/lib/rbac";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
+import { sanitizeAssignmentQuestions } from "@/app/lib/assignmentQuestions";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -29,10 +33,14 @@ function serializeAssignment(a) {
     lesson: a.lesson ? a.lesson.toString() : null,
     title: a.title,
     description: a.description,
-    attachmentUrl: a.attachmentUrl,
+    // 🆕 موقّع لو Token Auth مفعّل على Bunny — عشان العرض داخل المنصة (iframe) يشتغل
+    attachmentUrl: resolveSecureStoredUrl(a.attachmentUrl),
     // 🆕 فيديو/أوديو الواجب (رابط جاهز للعرض — موقّع لو Token Auth مفعّل)
     mediaUrl: resolveAssignmentMedia(a.mediaUrl, a.mediaType),
     mediaType: a.mediaUrl ? a.mediaType : null,
+    // 🆕 أسئلة تفاعلية (الأسئلة نفسها بتتبعت من GET /api/assignments/[id] بس)
+    questionsCount: (a.questions || []).length,
+    allowManualSubmission: a.allowManualSubmission !== false,
     dueDate: a.dueDate,
     maxScore: a.maxScore,
     allowLateSubmission: a.allowLateSubmission,
@@ -102,6 +110,12 @@ export async function POST(request) {
     const media = sanitizeAssignmentMedia(body?.mediaUrl, body?.mediaType, { audioFolderPrefix: "/edumaster/teachers/" });
     if (!media.ok) return jsonResponse({ error: media.error }, 400);
 
+    // 🆕 أسئلة تفاعلية اختيارية (اختيار من متعدد / صح وغلط) بتتصحح تلقائي
+    const questionsResult = sanitizeAssignmentQuestions(body?.questions);
+    if (!questionsResult.ok) {
+      return jsonResponse({ error: questionsResult.error, index: questionsResult.index ?? null }, 400);
+    }
+
     const Assignment = getAssignmentModel();
     const created = await Assignment.create({
       course: courseId,
@@ -112,6 +126,10 @@ export async function POST(request) {
       attachmentUrl: body?.attachmentUrl || null,
       mediaUrl: media.mediaUrl,
       mediaType: media.mediaType,
+      questions: questionsResult.questions,
+      // من غير أسئلة، التسليم اليدوي هو الوحيد المتاح، فالخيار ده لازم يفضل true
+      allowManualSubmission:
+        questionsResult.questions.length === 0 ? true : body?.allowManualSubmission !== false,
       dueDate: body?.dueDate ? new Date(body.dueDate) : null,
       maxScore: Number.isFinite(Number(body?.maxScore)) ? Math.max(1, Number(body.maxScore)) : 100,
       allowLateSubmission: body?.allowLateSubmission !== undefined ? Boolean(body.allowLateSubmission) : true,

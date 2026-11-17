@@ -5,10 +5,11 @@
 // Phase 4 — اليوم 37-38: إنشاء/تعديل واجب (وصف + مرفق اختياري + Deadline).
 // المرفق بيترفع بـ MediaUploader (kind="pdf") زي مرفقات الدروس بالظبط.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader } from "lucide-react";
 import MediaUploader from "./MediaUploader";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
+import AssignmentQuestionsEditor, { toEditorQuestions, toQuestionsPayload } from "./AssignmentQuestionsEditor";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STRINGS = {
@@ -28,6 +29,22 @@ const STRINGS = {
     dueDateLabel: "الموعد النهائي (اختياري)",
     maxScoreLabel: "الدرجة الكاملة",
     allowLate: "السماح بالتسليم المتأخر بعد الموعد النهائي",
+    allowManual: "السماح للطالب أيضًا بتسليم ملف/نص/فيديو/أوديو (إلغاؤه = أسئلة فقط، والدرجة تُحسب تلقائيًا وتظهر للطالب فورًا)",
+    loadingQuestions: "جارٍ تحميل أسئلة الواجب...",
+    questionsLoadError: "تعذّر تحميل أسئلة الواجب الحالية — أعد فتح النافذة قبل الحفظ حتى لا تضيع الأسئلة",
+    questionProblem: (n, reason) => `السؤال رقم ${n}: ${reason}`,
+    questionReasons: {
+      missing_text: "نص السؤال فارغ",
+      invalid_type: "نوع السؤال غير مدعوم",
+      options_required: "الخيارات ناقصة",
+      empty_option_text: "يوجد خيار بدون نص",
+      no_correct_option: "لم يتم تحديد إجابة صحيحة",
+      multiple_correct_answers: "الاختيار من متعدد يقبل إجابة صحيحة واحدة فقط",
+      true_false_needs_two_options: "صح/خطأ يجب أن يحتوي على خيارين",
+      true_false_needs_one_correct: "صح/خطأ يقبل إجابة صحيحة واحدة فقط",
+      too_many_options: "الحد الأقصى 6 خيارات",
+    },
+    tooManyQuestions: "تجاوزت الحد الأقصى لعدد الأسئلة",
     publish: "نشر الواجب (يظهر للطلاب فورًا)",
     save: "حفظ",
     cancel: "إلغاء",
@@ -48,6 +65,22 @@ const STRINGS = {
     dueDateLabel: "Due date (optional)",
     maxScoreLabel: "Full score",
     allowLate: "Allow late submission after the due date",
+    allowManual: "Also let students submit a file/text/video/audio (turn off = questions only; the grade is calculated automatically and shown to the student instantly)",
+    loadingQuestions: "Loading assignment questions...",
+    questionsLoadError: "Couldn't load the current questions — reopen this window before saving so they aren't lost",
+    questionProblem: (n, reason) => `Question ${n}: ${reason}`,
+    questionReasons: {
+      missing_text: "Question text is empty",
+      invalid_type: "Unsupported question type",
+      options_required: "Options are missing",
+      empty_option_text: "An option has no text",
+      no_correct_option: "No correct answer marked",
+      multiple_correct_answers: "Multiple choice accepts one correct answer only",
+      true_false_needs_two_options: "True/False needs exactly two options",
+      true_false_needs_one_correct: "True/False accepts one correct answer only",
+      too_many_options: "Maximum 6 options",
+    },
+    tooManyQuestions: "Maximum number of questions exceeded",
     publish: "Publish assignment (visible to students immediately)",
     save: "Save",
     cancel: "Cancel",
@@ -75,9 +108,37 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
     maxScore: assignment?.maxScore ?? 100,
     allowLateSubmission: assignment?.allowLateSubmission ?? true,
     isPublished: assignment?.isPublished || false,
+    allowManualSubmission: assignment?.allowManualSubmission ?? true,
   });
+  // 🆕 أسئلة تفاعلية (تصحيح تلقائي). قايمة الواجبات بتبعت العدد بس، فعند التعديل بنجيب الأسئلة كاملة.
+  const needsQuestionsFetch = isEdit && (assignment?.questionsCount || 0) > 0;
+  const [questions, setQuestions] = useState([]);
+  const [questionsReady, setQuestionsReady] = useState(!needsQuestionsFetch);
+  const [questionsLoadFailed, setQuestionsLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!needsQuestionsFetch) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/assignments/${assignment.id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error);
+        if (!cancelled) {
+          setQuestions(toEditorQuestions(data.questions));
+          setQuestionsReady(true);
+        }
+      } catch {
+        if (!cancelled) setQuestionsLoadFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -87,6 +148,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
     e.preventDefault();
     setError("");
     if (!form.title.trim()) return setError(t.titleRequired);
+    if (!questionsReady) return setError(questionsLoadFailed ? t.questionsLoadError : t.loadingQuestions);
 
     setSaving(true);
     try {
@@ -100,6 +162,8 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
         maxScore: Number(form.maxScore) || 100,
         allowLateSubmission: form.allowLateSubmission,
         isPublished: form.isPublished,
+        questions: toQuestionsPayload(questions),
+        allowManualSubmission: questions.length === 0 ? true : form.allowManualSubmission,
       };
       if (!isEdit) payload.course = courseId;
 
@@ -109,10 +173,19 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error);
+      if (!res.ok) {
+        const e = new Error(data?.error);
+        e.index = data?.index;
+        throw e;
+      }
       onSaved(data);
     } catch (err) {
-      setError(String(err?.message || "").startsWith("invalid_media") ? t.mediaError : t.genericError);
+      const code = String(err?.message || "");
+      if (code.startsWith("invalid_media")) setError(t.mediaError);
+      else if (code === "too_many_questions") setError(t.tooManyQuestions);
+      else if (Number.isInteger(err?.index) && t.questionReasons[code]) {
+        setError(t.questionProblem(err.index + 1, t.questionReasons[code]));
+      } else setError(t.genericError);
     } finally {
       setSaving(false);
     }
@@ -122,7 +195,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
         dir={isRTL ? "rtl" : "ltr"}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl">
@@ -195,6 +268,28 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
             )}
           </div>
 
+          {/* 🆕 أسئلة تفاعلية بتصحيح تلقائي — إضافية جنب باقي إعدادات الواجب */}
+          {!questionsReady && !questionsLoadFailed && (
+            <p className="flex items-center gap-2 text-xs text-gray-400">
+              <Loader size={14} className="animate-spin" /> {t.loadingQuestions}
+            </p>
+          )}
+          {questionsLoadFailed && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{t.questionsLoadError}</div>
+          )}
+          {questionsReady && <AssignmentQuestionsEditor questions={questions} onChange={setQuestions} />}
+          {questionsReady && questions.length > 0 && (
+            <label className="flex items-start gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.allowManualSubmission}
+                onChange={(e) => update("allowManualSubmission", e.target.checked)}
+              />
+              <span>{t.allowManual}</span>
+            </label>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t.dueDateLabel}</label>
@@ -234,7 +329,7 @@ export default function AssignmentFormModal({ courseId, assignment, onClose, onS
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !questionsReady}
               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
             >
               {saving && <Loader size={18} className="animate-spin" />}

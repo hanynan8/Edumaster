@@ -12,6 +12,12 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, canManageCourse } from "@/app/lib/rbac";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
+import {
+  sanitizeAssignmentQuestions,
+  serializeAssignmentQuestions,
+  serializeQuizResult,
+} from "@/app/lib/assignmentQuestions";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { getCourseAccessForUser } from "@/app/lib/access";
 
 function jsonResponse(data, status = 200) {
@@ -29,10 +35,14 @@ function serializeAssignment(a) {
     lesson: a.lesson ? a.lesson.toString() : null,
     title: a.title,
     description: a.description,
-    attachmentUrl: a.attachmentUrl,
+    // 🆕 موقّع لو Token Auth مفعّل على Bunny — عشان العرض داخل المنصة (iframe) يشتغل
+    attachmentUrl: resolveSecureStoredUrl(a.attachmentUrl),
     // 🆕 فيديو/أوديو الواجب (رابط جاهز للعرض — موقّع لو Token Auth مفعّل)
     mediaUrl: resolveAssignmentMedia(a.mediaUrl, a.mediaType),
     mediaType: a.mediaUrl ? a.mediaType : null,
+    // 🆕 أسئلة تفاعلية (الأسئلة نفسها بتتبعت من GET /api/assignments/[id] بس)
+    questionsCount: (a.questions || []).length,
+    allowManualSubmission: a.allowManualSubmission !== false,
     dueDate: a.dueDate,
     maxScore: a.maxScore,
     allowLateSubmission: a.allowLateSubmission,
@@ -72,6 +82,11 @@ export async function GET(request, { params }) {
 
     const result = serializeAssignment(assignment);
 
+    // 🆕 الأسئلة التفاعلية: المدرّس/الأدمن بيشوفوها كاملة (مع الإجابة الصح)
+    if (canManage) {
+      result.questions = serializeAssignmentQuestions(assignment.questions, { revealAnswers: true });
+    }
+
     // لو طالب، ضيف حالة تسليمه هو بس (لو موجود) عشان صفحة تسليم الواجب
     // تعرف تعرض "اتسلم بالفعل" ولا "لسه"
     if (!canManage) {
@@ -80,7 +95,7 @@ export async function GET(request, { params }) {
       result.mySubmission = mySubmission
         ? {
             id: mySubmission._id.toString(),
-            fileUrl: mySubmission.fileUrl,
+            fileUrl: resolveSecureStoredUrl(mySubmission.fileUrl),
             mediaUrl: resolveAssignmentMedia(mySubmission.mediaUrl, mySubmission.mediaType),
             mediaType: mySubmission.mediaUrl ? mySubmission.mediaType : null,
             textAnswer: mySubmission.textAnswer,
@@ -89,8 +104,15 @@ export async function GET(request, { params }) {
             feedback: mySubmission.feedback,
             submittedAt: mySubmission.submittedAt,
             gradedAt: mySubmission.gradedAt,
+            // 🆕 نتيجة الأسئلة التفاعلية (null = لسه ما حلّهاش)
+            quiz: serializeQuizResult(mySubmission.quiz),
           }
         : null;
+
+      // 🔒 الإجابة الصح ما بتتبعتش للطالب إلا بعد ما يحل الأسئلة (مراجعة إجاباته وقتها مش غش)
+      result.questions = serializeAssignmentQuestions(assignment.questions, {
+        revealAnswers: Boolean(mySubmission?.quiz),
+      });
     }
 
     return jsonResponse(result);
@@ -126,6 +148,17 @@ export async function PUT(request, { params }) {
       assignment.mediaUrl = media.mediaUrl;
       assignment.mediaType = media.mediaType;
     }
+    // 🆕 أسئلة تفاعلية (استبدال القايمة كلها؛ ids الأسئلة القديمة بتتحافظ عليها)
+    if (body?.questions !== undefined) {
+      const questionsResult = sanitizeAssignmentQuestions(body.questions);
+      if (!questionsResult.ok) {
+        return jsonResponse({ error: questionsResult.error, index: questionsResult.index ?? null }, 400);
+      }
+      assignment.questions = questionsResult.questions;
+    }
+    if (body?.allowManualSubmission !== undefined) assignment.allowManualSubmission = Boolean(body.allowManualSubmission);
+    // من غير أسئلة، التسليم اليدوي هو الوحيد المتاح
+    if ((assignment.questions || []).length === 0) assignment.allowManualSubmission = true;
     if (body?.dueDate !== undefined) assignment.dueDate = body.dueDate ? new Date(body.dueDate) : null;
     if (body?.maxScore !== undefined) assignment.maxScore = Math.max(1, Number(body.maxScore) || 1);
     if (body?.allowLateSubmission !== undefined) assignment.allowLateSubmission = Boolean(body.allowLateSubmission);

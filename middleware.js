@@ -203,7 +203,9 @@ export async function middleware(request) {
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https://*.b-cdn.net https://images.unsplash.com https://plus.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://res.cloudinary.com https://raw.githubusercontent.com",
     "media-src 'self' https://*.b-cdn.net",
-    "frame-src 'self' https://iframe.mediadelivery.net https://pay.getpayin.com https://*.daily.co",
+    // 🆕 *.b-cdn.net: عرض ملفات الواجب (PDF) جوه المنصة من غير تحميل (FileViewer).
+    // view.officeapps.live.com: عارض Word/PowerPoint/Excel المجاني من مايكروسوفت.
+    "frame-src 'self' https://iframe.mediadelivery.net https://pay.getpayin.com https://*.daily.co https://*.b-cdn.net https://view.officeapps.live.com",
     "connect-src 'self' https://*.b-cdn.net https://video.bunnycdn.com https://pay.getpayin.com https://*.daily.co wss://*.daily.co",
     "object-src 'none'",
     "base-uri 'self'",

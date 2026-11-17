@@ -7,9 +7,10 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowLeft, FileText, Loader, CheckCircle2, Clock, MessageSquare } from "lucide-react";
+import { ArrowRight, ArrowLeft, ListChecks, Loader, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
+import FileViewer from "@/app/components/FileViewer";
 import ThreadChat from "@/app/components/ThreadChat";
 
 const STRINGS = {
@@ -25,7 +26,8 @@ const STRINGS = {
     fullScore: "الدرجة الكاملة",
     noSubmissionsYet: "لم يسلّم أحد هذا الواجب بعد",
     submittedAt: "تم التسليم في",
-    viewSubmittedFile: "عرض الملف المُسلَّم",
+    viewSubmittedFile: "الملف المُسلَّم",
+    quizScore: "درجة الأسئلة (تصحيح تلقائي)",
     feedbackPlaceholder: "ملاحظات للطالب (اختياري)",
     update: "تحديث",
     grade: "تصحيح",
@@ -42,7 +44,8 @@ const STRINGS = {
     fullScore: "Full score",
     noSubmissionsYet: "No one has submitted this assignment yet",
     submittedAt: "Submitted on",
-    viewSubmittedFile: "View submitted file",
+    viewSubmittedFile: "Submitted file",
+    quizScore: "Questions score (auto-graded)",
     feedbackPlaceholder: "Feedback for the student (optional)",
     update: "Update",
     grade: "Grade",
@@ -186,15 +189,15 @@ export default function AssignmentSubmissionsPage({ params }) {
                   <Clock size={12} /> {t.submittedAt} {new Date(s.submittedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}
                 </div>
 
+                {/* 🆕 درجة الأسئلة التفاعلية (لو الواجب فيه أسئلة وحلّها الطالب) */}
+                {s.quiz && (
+                  <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#003A91] bg-[#EBEFF6] rounded-xl px-3 py-2 mb-3">
+                    <ListChecks size={15} /> {t.quizScore}: {s.quiz.earnedPoints} / {s.quiz.totalPoints} ({s.quiz.scorePercent}%)
+                  </div>
+                )}
+                {/* 🆕 عرض ملف التسليم داخل المنصة بدون تحميل */}
                 {s.fileUrl && (
-                  <a
-                    href={s.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-[#003A91] hover:underline mb-3"
-                  >
-                    <FileText size={15} /> {t.viewSubmittedFile}
-                  </a>
+                  <FileViewer className="mb-3" url={s.fileUrl} title={s.studentName} label={t.viewSubmittedFile} />
                 )}
                 {s.mediaUrl && (
                   <div className="mb-3">

@@ -16,6 +16,8 @@ import { connectToMongo } from "@/app/lib/mongodb";
 import { getCourseModel, getAssignmentModel, getSubmissionModel } from "@/app/lib/models";
 import { requireSession, canGradeCourse } from "@/app/lib/rbac";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
+import { serializeQuizResult } from "@/app/lib/assignmentQuestions";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 import { createNotification } from "@/app/lib/notificationHelpers";
 
 function jsonResponse(data, status = 200) {
@@ -58,7 +60,7 @@ export async function GET(request, { params }) {
 
     return jsonResponse({
       id: submission._id.toString(),
-      fileUrl: submission.fileUrl,
+      fileUrl: resolveSecureStoredUrl(submission.fileUrl),
       mediaUrl: resolveAssignmentMedia(submission.mediaUrl, submission.mediaType),
       mediaType: submission.mediaUrl ? submission.mediaType : null,
       textAnswer: submission.textAnswer,
@@ -67,6 +69,7 @@ export async function GET(request, { params }) {
       feedback: submission.feedback,
       submittedAt: submission.submittedAt,
       gradedAt: submission.gradedAt,
+      quiz: serializeQuizResult(submission.quiz),
     });
   } catch (err) {
     console.error("[/api/assignments/[id]/submissions/[submissionId]] GET error:", err);

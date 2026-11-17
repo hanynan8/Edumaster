@@ -22,6 +22,8 @@ import { requireSession, canGradeCourse } from "@/app/lib/rbac";
 import { getCourseAccessForUser } from "@/app/lib/access";
 import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { sanitizeAssignmentMedia, resolveAssignmentMedia } from "@/app/lib/assignmentMedia";
+import { summarizeQuizResult } from "@/app/lib/assignmentQuestions";
+import { resolveSecureStoredUrl } from "@/app/lib/bunny";
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,7 +39,7 @@ function serializeSubmissionForTeacher(s, studentById) {
     studentId: s.student.toString(),
     studentName: student?.name || "—",
     studentEmail: student?.email || "—",
-    fileUrl: s.fileUrl,
+    fileUrl: resolveSecureStoredUrl(s.fileUrl),
     mediaUrl: resolveAssignmentMedia(s.mediaUrl, s.mediaType),
     mediaType: s.mediaUrl ? s.mediaType : null,
     textAnswer: s.textAnswer,
@@ -46,6 +48,7 @@ function serializeSubmissionForTeacher(s, studentById) {
     feedback: s.feedback,
     submittedAt: s.submittedAt,
     gradedAt: s.gradedAt,
+    quiz: summarizeQuizResult(s.quiz), // 🆕 درجة الأسئلة التفاعلية (لو الواجب فيه أسئلة)
     messagesCount: (s.messages || []).length, // 🆕 عدد رسائل المحادثة
   };
 }
@@ -85,6 +88,7 @@ export async function GET(request, { params }) {
       assignmentTitle: assignment.title,
       courseTitle: course.title,
       maxScore: assignment.maxScore,
+      hasQuestions: (assignment.questions || []).length > 0,
       submissions: submissions.map((s) => serializeSubmissionForTeacher(s, studentById)),
     });
   } catch (err) {
@@ -117,6 +121,11 @@ export async function POST(request, { params }) {
       extraKey: `user:${session.user.id}`,
     });
     if (rl) return rl;
+
+    // 🆕 واجب "أسئلة بس" (التسليم اليدوي مقفول) — الإجابات بتتبعت لـ /answers
+    if ((assignment.questions || []).length > 0 && assignment.allowManualSubmission === false) {
+      return jsonResponse({ error: "manual_submission_disabled" }, 400);
+    }
 
     const body = await request.json().catch(() => null);
     const fileUrl = body?.fileUrl ? String(body.fileUrl) : null;

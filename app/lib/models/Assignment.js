@@ -6,6 +6,21 @@
 import mongoose from "mongoose";
 import { getOrCreateModel, USER_MODEL_NAME } from "./_helpers";
 
+// 🆕 أسئلة تفاعلية داخل الواجب (اختيار من متعدد / صح وغلط) — بتتصحح تلقائيًا فور
+// ما الطالب يبعت إجاباته (نفس منطق الكويزات). مُضمّنة (embedded) في الواجب لأن
+// عددها محدود ومرتبطة بالواجب بالكامل. 🔒 isCorrect ميتبعتش للطالب قبل التسليم.
+const assignmentQuestionSchema = new mongoose.Schema({
+  type: { type: String, enum: ["multiple_choice", "true_false"], required: true },
+  text: { type: String, required: true },
+  options: [
+    {
+      text: { type: String, required: true },
+      isCorrect: { type: Boolean, required: true, default: false },
+    },
+  ],
+  points: { type: Number, default: 1, min: 0 },
+});
+
 const assignmentSchema = new mongoose.Schema(
   {
     course: { type: mongoose.Schema.Types.ObjectId, ref: "Model_course", required: true },
@@ -18,6 +33,13 @@ const assignmentSchema = new mongoose.Schema(
     // 🆕 فيديو (Bunny Stream) أو أوديو (Bunny Storage) يرفقه المدرس مع الواجب
     mediaUrl: { type: String, default: null },
     mediaType: { type: String, enum: ["video", "audio", null], default: null },
+
+    // 🆕 أسئلة تفاعلية بتتصحح تلقائي (إضافية جنب منطق الواجب الحالي: وصف + ملف + تسليم)
+    questions: { type: [assignmentQuestionSchema], default: [] },
+    // 🆕 لو فيه أسئلة: هل لسه الطالب بيسلّم ملف/نص/فيديو/أوديو يدوي كمان؟
+    //   true  (الافتراضي) = المنطق القديم + الأسئلة، والدرجة النهائية بيحطها المدرّس
+    //   false = أسئلة بس، والدرجة بتتحسب تلقائي وتظهر للطالب فورًا
+    allowManualSubmission: { type: Boolean, default: true },
 
     dueDate: { type: Date, default: null }, // null = بدون ميعاد نهائي
     maxScore: { type: Number, default: 100, min: 1 },
@@ -53,6 +75,29 @@ const submissionSchema = new mongoose.Schema(
     mediaUrl: { type: String, default: null },
     mediaType: { type: String, enum: ["video", "audio", null], default: null },
     textAnswer: { type: String, default: null },
+
+    // 🆕 نتيجة الأسئلة التفاعلية (محسوبة سيرفر-سايد — الطالب يبعت اختياراته بس).
+    // null = لسه ما حلّش الأسئلة. محاولة واحدة لكل واجب.
+    quiz: {
+      type: new mongoose.Schema(
+        {
+          answers: [
+            {
+              question: { type: mongoose.Schema.Types.ObjectId, required: true },
+              selectedOptionIndex: { type: Number, default: null },
+              isCorrect: { type: Boolean, required: true },
+              pointsEarned: { type: Number, required: true, default: 0 },
+            },
+          ],
+          earnedPoints: { type: Number, required: true },
+          totalPoints: { type: Number, required: true },
+          scorePercent: { type: Number, required: true },
+          submittedAt: { type: Date, default: Date.now },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
 
     submittedAt: { type: Date, default: Date.now },
 

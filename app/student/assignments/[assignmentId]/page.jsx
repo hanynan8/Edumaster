@@ -10,10 +10,12 @@
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock, Paperclip,
+  ArrowRight, ArrowLeft, Loader, Calendar, FileText, AlertTriangle, CheckCircle2, Clock,
 } from "lucide-react";
 import MediaUploader from "@/app/teacher/components/MediaUploader";
 import AssignmentMedia from "@/app/components/AssignmentMedia";
+import AssignmentQuiz from "@/app/components/AssignmentQuiz";
+import FileViewer from "@/app/components/FileViewer";
 import ThreadChat from "@/app/components/ThreadChat";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -36,7 +38,8 @@ const STRINGS = {
     fullScore: "الدرجة الكاملة",
     lateStillAllowed: "انتهى الموعد — لا يزال بإمكانك التسليم متأخرًا",
     lateClosed: "انتهى الموعد — التسليم مغلق",
-    downloadAttachment: "تحميل مرفق الواجب",
+    attachmentLabel: "مرفق الواجب",
+    mySubmittedFile: "الملف الذي سلّمته",
     currentSubmission: "تسليمك الحالي",
     submittedAt: "تم التسليم في",
     resubmit: "إعادة التسليم",
@@ -65,7 +68,8 @@ const STRINGS = {
     fullScore: "Full score",
     lateStillAllowed: "Deadline passed — late submission still allowed",
     lateClosed: "Deadline passed — submissions closed",
-    downloadAttachment: "Download assignment attachment",
+    attachmentLabel: "Assignment attachment",
+    mySubmittedFile: "The file you submitted",
     currentSubmission: "Your current submission",
     submittedAt: "Submitted on",
     resubmit: "Resubmit",
@@ -175,6 +179,12 @@ export default function SubmitAssignmentPage({ params }) {
   }
 
   const mySubmission = assignment.mySubmission;
+  // 🆕 أسئلة تفاعلية + هل التسليم اليدوي (ملف/نص/فيديو/أوديو) لسه متاح؟
+  const questions = assignment.questions || [];
+  const hasQuestions = questions.length > 0;
+  const manualAllowed = !hasQuestions || assignment.allowManualSubmission !== false;
+  // تسليم يدوي فعلي (الـ submission ممكن يكون اتعمل بحل الأسئلة بس)
+  const hasManualContent = Boolean(mySubmission && (mySubmission.fileUrl || mySubmission.mediaUrl || mySubmission.textAnswer));
   const backHref = `/courses/${assignment.course}`;
 
   return (
@@ -204,19 +214,27 @@ export default function SubmitAssignmentPage({ params }) {
             <AssignmentMedia url={assignment.mediaUrl} type={assignment.mediaType} title={assignment.title} />
           </div>
         )}
+        {/* 🆕 المرفق: عرض داخل المنصة بدون تحميل (PDF/صور/Office) + تحميل كخيار */}
         {assignment.attachmentUrl && (
-          <a
-            href={assignment.attachmentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003A91] hover:underline mt-4"
-          >
-            <Paperclip size={15} /> {t.downloadAttachment}
-          </a>
+          <FileViewer className="mt-4" url={assignment.attachmentUrl} title={assignment.title} label={t.attachmentLabel} />
         )}
       </div>
 
-      {mySubmission && (
+      {/* 🆕 الأسئلة التفاعلية: تصحيح فوري وظهور الدرجة */}
+      {hasQuestions && (
+        <AssignmentQuiz
+          assignmentId={assignmentId}
+          questions={questions}
+          quizResult={mySubmission?.quiz || null}
+          maxScore={assignment.maxScore}
+          autoFinal={!manualAllowed}
+          finalScore={mySubmission?.status === "graded" ? mySubmission.score : null}
+          canAnswer={canSubmit}
+          onSubmitted={load}
+        />
+      )}
+
+      {mySubmission && (hasManualContent || (manualAllowed ? mySubmission.status === "graded" : false)) && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-700">{t.currentSubmission}</h2>
@@ -227,6 +245,9 @@ export default function SubmitAssignmentPage({ params }) {
           <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-3">
             <Clock size={12} /> {t.submittedAt} {formatDate(mySubmission.submittedAt)}
           </p>
+          {mySubmission.fileUrl && (
+            <FileViewer className="mb-3" url={mySubmission.fileUrl} title={t.mySubmittedFile} label={t.mySubmittedFile} />
+          )}
           {mySubmission.mediaUrl && (
             <div className="mb-3">
               <AssignmentMedia url={mySubmission.mediaUrl} type={mySubmission.mediaType} />
@@ -250,9 +271,9 @@ export default function SubmitAssignmentPage({ params }) {
         </div>
       )}
 
-      {canSubmit ? (
+      {!manualAllowed ? null : canSubmit ? (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-700">{mySubmission ? t.resubmit : t.submitAssignment}</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{hasManualContent ? t.resubmit : t.submitAssignment}</h2>
 
           {submitError && <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg">{submitError}</div>}
 
@@ -305,11 +326,11 @@ export default function SubmitAssignmentPage({ params }) {
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#003A91] to-[#003A91] text-white font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
           >
             {submitting ? <Loader size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            {mySubmission ? t.updateSubmission : t.submitAssignment}
+            {hasManualContent ? t.updateSubmission : t.submitAssignment}
           </button>
         </form>
       ) : (
-        !mySubmission && (
+        !hasManualContent && (!hasQuestions || Boolean(mySubmission?.quiz)) && (
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center text-red-600 text-sm font-semibold flex items-center justify-center gap-2">
             <FileText size={16} /> {t.noLateSubmission}
           </div>

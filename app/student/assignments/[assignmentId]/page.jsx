@@ -267,7 +267,11 @@ export default function SubmitAssignmentPage({ params }) {
       {/* 🆕 محادثة نصية مع المدرّس/الموديريتر على التسليم (بتظهر بعد أول تسليم) */}
       {mySubmission?.id && (
         <div className="mb-6">
-          <ThreadChat endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`} viewer="student" />
+          <ThreadChat
+            endpoint={`/api/assignments/${assignmentId}/submissions/${mySubmission.id}/messages`}
+            viewer="student"
+            allowVoice
+          />
         </div>
       )}
 

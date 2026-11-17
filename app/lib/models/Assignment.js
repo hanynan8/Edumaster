@@ -120,7 +120,16 @@ const submissionSchema = new mongoose.Schema(
       {
         sender: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
         senderRole: { type: String, enum: ["student", "teacher", "moderator", "admin"], required: true },
-        text: { type: String, required: true, maxlength: 20000 },
+        // 🆕 الرسالة إما نص أو رد صوتي (audioUrl على Bunny Storage) أو الاتنين
+        text: {
+          type: String,
+          default: "",
+          maxlength: 20000,
+          required: function requiredWhenNoAudio() {
+            return !this.audioUrl;
+          },
+        },
+        audioUrl: { type: String, default: null, maxlength: 2000 },
         createdAt: { type: Date, default: Date.now },
       },
     ],

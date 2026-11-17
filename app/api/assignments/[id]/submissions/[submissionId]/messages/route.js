@@ -13,6 +13,7 @@ import { enforceRateLimit } from "@/app/lib/rateLimit";
 import { createNotification } from "@/app/lib/notificationHelpers";
 import {
   sanitizeMessageText,
+  sanitizeThreadAudio,
   threadAccess,
   serializeMessages,
   MAX_MESSAGES_PER_THREAD,
@@ -80,13 +81,24 @@ export async function POST(request, { params }) {
     if (rl) return rl;
 
     const body = await request.json().catch(() => null);
-    const parsed = sanitizeMessageText(body?.text);
-    if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400);
+
+    // 🆕 الرسالة نص أو رد صوتي (audioUrl) أو الاتنين. الرابط لازم يكون ملف
+    // أوديو المرسل نفسه على Bunny Storage (شوف sanitizeThreadAudio).
+    const audio = sanitizeThreadAudio(body?.audioUrl, { userId: session.user.id, role: session.user.role });
+    if (!audio.ok) return jsonResponse({ error: audio.error }, 400);
+
+    let text = "";
+    const hasText = typeof body?.text === "string" && body.text.trim().length > 0;
+    if (hasText || !audio.audioUrl) {
+      const parsed = sanitizeMessageText(body?.text);
+      if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400);
+      text = parsed.text;
+    }
     if (submission.messages.length >= MAX_MESSAGES_PER_THREAD) return jsonResponse({ error: "thread_full" }, 400);
 
     const senderRole =
       access === "student" ? "student" : ["teacher", "moderator", "admin"].includes(session.user.role) ? session.user.role : "teacher";
-    submission.messages.push({ sender: session.user.id, senderRole, text: parsed.text });
+    submission.messages.push({ sender: session.user.id, senderRole, text, audioUrl: audio.audioUrl });
     await submission.save();
 
     const recipient = access === "student" ? course.teacher : submission.student;
@@ -95,7 +107,7 @@ export async function POST(request, { params }) {
         user: recipient,
         type: "message_new",
         key: "thread_message",
-        params: { senderName: session.user.name || null, itemTitle: assignment.title, body: parsed.text.slice(0, 200) },
+        params: { senderName: session.user.name || null, itemTitle: assignment.title, body: text ? text.slice(0, 200) : "🎤" },
         link:
           access === "student"
             ? `/teacher/assignments/${assignment._id}/submissions`

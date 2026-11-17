@@ -15,18 +15,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader, Send, MessageSquare, Mic, Square, Trash2, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useVoiceRecorder, uploadVoiceFile, formatClock, MAX_AUDIO_BYTES } from "@/app/lib/useVoiceRecorder";
 
 const MAX_LEN = 20000;
-const MAX_RECORD_SECONDS = 5 * 60; // أقصى مدة تسجيل مباشر
-const MAX_AUDIO_BYTES = 50 * 1024 * 1024; // نفس حد السيرفر لـ submissionAudio
-
-const EXT_BY_MIME = {
-  "audio/webm": "webm",
-  "audio/mp4": "m4a",
-  "audio/ogg": "ogg",
-  "audio/mpeg": "mp3",
-  "audio/wav": "wav",
-};
 
 const STRINGS = {
   ar: {
@@ -75,18 +66,6 @@ const STRINGS = {
   },
 };
 
-function pickRecorderMimeType() {
-  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
-  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
-  return candidates.find((c) => MediaRecorder.isTypeSupported(c)) || "";
-}
-
-function formatClock(totalSeconds) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 export default function ThreadChat({ endpoint, viewer = "student", initialMessages = null, allowVoice = false }) {
   const { language, isRTL } = useLanguage();
   const t = STRINGS[language] || STRINGS.en;
@@ -98,16 +77,10 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
   const endRef = useRef(null);
 
   // 🎤 الرد الصوتي
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
   const [voice, setVoiceState] = useState(null); // { file, url } — url = معاينة محلية قبل الإرسال
   const voiceRef = useRef(null);
   const voiceFile = voice?.file ?? null;
   const voicePreviewUrl = voice?.url ?? "";
-  const recorderRef = useRef(null);
-  const streamRef = useRef(null);
-  const chunksRef = useRef([]);
-  const timerRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -143,77 +116,29 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
     setVoiceState(next);
   }
 
-  function releaseMic() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    streamRef.current?.getTracks?.().forEach((tr) => tr.stop());
-    streamRef.current = null;
-  }
-
-  // لو الكومبوننت اتشال وإحنا بنسجّل → نقفل المايك
+  // لو الكومبوننت اتشال → نفرّج رابط المعاينة (المايك بيقفله الـ hook)
   useEffect(
     () => () => {
-      const rec = recorderRef.current;
-      if (rec && rec.state !== "inactive") {
-        rec.onstop = null;
-        try {
-          rec.stop();
-        } catch {
-          /* already stopped */
-        }
-      }
-      releaseMic();
       if (voiceRef.current) URL.revokeObjectURL(voiceRef.current.url);
     },
     []
   );
 
-  function stopRecording() {
-    const rec = recorderRef.current;
-    if (rec && rec.state !== "inactive") rec.stop();
-  }
+  // 🎤 التسجيل المباشر (منطقه في app/lib/useVoiceRecorder.js)
+  const {
+    recording,
+    seconds,
+    start: startMic,
+    stop: stopRecording,
+  } = useVoiceRecorder({
+    onRecorded: (file) => setVoiceFile(file),
+    onError: (code) => setError(code === "denied" ? t.micDenied : t.micUnsupported),
+  });
 
-  // أقصى مدة تسجيل → إيقاف تلقائي
-  useEffect(() => {
-    if (recording && seconds >= MAX_RECORD_SECONDS) stopRecording();
-  }, [recording, seconds]);
-
-  async function startRecording() {
+  function startRecording() {
     setError("");
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setError(t.micUnsupported);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mimeType = pickRecorderMimeType();
-      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      rec.onstop = () => {
-        const type = (rec.mimeType || mimeType || "audio/webm").split(";")[0].trim().toLowerCase();
-        const blob = new Blob(chunksRef.current, { type });
-        releaseMic();
-        setRecording(false);
-        if (blob.size > 0) {
-          setVoiceFile(new File([blob], `voice-${Date.now()}.${EXT_BY_MIME[type] || "webm"}`, { type }));
-        }
-      };
-      recorderRef.current = rec;
-      rec.start();
-      setVoiceFile(null);
-      setSeconds(0);
-      setRecording(true);
-      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    } catch (err) {
-      releaseMic();
-      setError(err?.name === "NotAllowedError" || err?.name === "SecurityError" ? t.micDenied : t.micUnsupported);
-    }
+    setVoiceFile(null);
+    startMic();
   }
 
   function handlePickFile(e) {
@@ -232,16 +157,6 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
     setVoiceFile(file);
   }
 
-  async function uploadVoice(file) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("kind", "submissionAudio");
-    const res = await fetch("/api/upload/file", { method: "POST", body: formData });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || "upload_failed");
-    return data.url;
-  }
-
   async function handleSend(e) {
     e.preventDefault();
     const body = text.trim();
@@ -251,7 +166,7 @@ export default function ThreadChat({ endpoint, viewer = "student", initialMessag
     try {
       const payload = {};
       if (body) payload.text = body;
-      if (voiceFile) payload.audioUrl = await uploadVoice(voiceFile);
+      if (voiceFile) payload.audioUrl = await uploadVoiceFile(voiceFile);
 
       const res = await fetch(endpoint, {
         method: "POST",
